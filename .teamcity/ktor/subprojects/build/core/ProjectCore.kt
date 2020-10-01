@@ -9,6 +9,7 @@ val operatingSystems = listOf("macOS", "Linux", "Windows")
 val jdkVersions = listOf("JDK_18", "JDK_11")
 
 object ProjectCore : Project({
+    id("KtorCore")
     name = "Core"
     description = "Ktor Core Framework"
     for (os in operatingSystems) {
