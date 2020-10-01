@@ -38,7 +38,7 @@ version = "2020.1"
 
 project {
     id("Ktor".toExtId())
-    name = "Ktor (New)"
+    name = "Ktor Build"
     description = "Ktor Framework"
 
     subProject(ProjectBuild)
