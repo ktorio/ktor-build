@@ -2,26 +2,40 @@ package ktor.subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import ktor.*
-import ktor.subprojects.build.docsamples.*
-import ktor.subprojects.build.generator.*
-import ktor.subprojects.build.plugin.*
 
+val operatingSystems = listOf("macOS", "Linux", "Windows")
+val jdkVersions = listOf("JDK_18", "JDK_11")
 
 object ProjectCore : Project({
     name = "Core"
     description = "Ktor Core Framework"
+    for (os in operatingSystems) {
+        for (jdk in jdkVersions) {
+            buildType(BuildTemplate(os, jdk))
+        }
+    }
 
-    buildType(Build_Core_Compile)
+//    buildType(Build_Core_Compile)
 })
 
-object Build_Core_Compile : BuildType({
-    name = "Compile"
+
+
+class BuildTemplate(val os: String, val jdk: String): BuildType({
+    id("Compile$os$jdk")
+    name = "Compile $os $jdk"
 
     vcs {
         root(VCSCore)
     }
 
+    triggers {
+        vcs {
+            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+            branchFilter = ""
+        }
+    }
     steps {
         gradle {
             tasks = "clean build"
@@ -35,3 +49,10 @@ object Build_Core_Compile : BuildType({
         contains("teamcity.agent.jvm.os.name", "Linux")
     }
 })
+
+/*
+
+object Build_Core_Compile : BuildType({
+
+})
+*/

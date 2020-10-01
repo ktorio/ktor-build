@@ -34,6 +34,7 @@ version = "2020.1"
 
 project {
     description = "Ktor Framework"
+
     subProject(ProjectBuild)
     subProject(ProjectRelease)
 }
