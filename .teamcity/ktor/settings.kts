@@ -1,6 +1,10 @@
 package ktor
 
+import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.project
+import jetbrains.buildServer.configs.kotlin.v2019_2.version
 import ktor.subprojects.build.core.*
 import ktor.subprojects.build.docsamples.*
 import ktor.subprojects.build.generator.*
@@ -33,6 +37,7 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2020.1"
 
 project {
+    id("Ktor".toExtId())
     description = "Ktor Framework"
 
     subProject(ProjectBuild)
@@ -42,7 +47,7 @@ project {
 
 
 object ProjectBuild : Project({
-    id("KtorBuild")
+    id("KtorBuild".toExtId())
     name = "Build"
     description = "Build configurations that build Ktor"
 

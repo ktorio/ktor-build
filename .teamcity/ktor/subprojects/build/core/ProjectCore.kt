@@ -1,6 +1,9 @@
 package ktor.subprojects.build.core
 
+import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
+import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import ktor.*
@@ -9,7 +12,7 @@ val operatingSystems = listOf("macOS", "Linux", "Windows")
 val jdkVersions = listOf("JDK_18", "JDK_11")
 
 object ProjectCore : Project({
-    id("KtorCore")
+    id("KtorCore".toExtId())
     name = "Core"
     description = "Ktor Core Framework"
     for (os in operatingSystems) {
@@ -24,7 +27,7 @@ object ProjectCore : Project({
 
 
 class BuildTemplate(val os: String, val jdk: String): BuildType({
-    id("Compile$os$jdk")
+    id("Compile$os$jdk".toExtId())
     name = "Compile $os $jdk"
 
     vcs {
