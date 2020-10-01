@@ -42,6 +42,7 @@ project {
 
 
 object ProjectBuild : Project({
+    id("KtorBuild")
     name = "Build"
     description = "Build configurations that build Ktor"
 
