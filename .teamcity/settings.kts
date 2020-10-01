@@ -39,7 +39,7 @@ object Build : Project({
     description = "Build configurations that build Ktor"
 
     vcsRoot(Build_Ktor)
-
+    vcsRoot(Samples_Ktor)
     subProject(Build_Generator)
     subProject(Build_Samples)
     subProject(Build_Core)
