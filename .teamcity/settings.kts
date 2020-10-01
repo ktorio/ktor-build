@@ -47,16 +47,6 @@ object Build : Project({
     subProject(Build_Plugin)
 })
 
-object Build_Ktor : GitVcsRoot({
-    name = "Ktor"
-    url = "https://github.com/ktorio/ktor.git"
-    authMethod = password {
-        userName = "hhariri"
-        password = "credentialsJSON:24709be2-2618-4ca3-b756-57ad6502cb82"
-    }
-})
-
-
 object Build_Core : Project({
     name = "Core"
     description = "Ktor Core Framework"
