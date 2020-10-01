@@ -1,6 +1,8 @@
+package ktor
+
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
-object Build_Ktor : GitVcsRoot({
+object VCSCore : GitVcsRoot({
   name = "Ktor"
   url = "https://github.com/ktorio/ktor.git"
   authMethod = password {
@@ -9,7 +11,7 @@ object Build_Ktor : GitVcsRoot({
   }
 })
 
-object Samples_Ktor: GitVcsRoot({
+object VCSSamples: GitVcsRoot({
   name = "Ktor Samples"
   url = "https://github.com/ktorio/ktor-samples.git"
 })
