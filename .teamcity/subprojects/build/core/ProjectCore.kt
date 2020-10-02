@@ -25,7 +25,7 @@ object ProjectCore : Project({
 
 class BuildTemplate(val os: String, val jdk: String): BuildType({
     id("KtorMatrix_$os$jdk".toExtId())
-    name = "Compile $os $jdk"
+    name = "Compile for $os $jdk"
 
     vcs {
         root(VCSCore)
