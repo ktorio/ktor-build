@@ -8,6 +8,7 @@ import subprojects.build.generator.*
 import subprojects.build.plugin.*
 import subprojects.build.samples.*
 import subprojects.release.*
+import subprojects.build.*
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -45,17 +46,4 @@ project {
 
 
 
-object ProjectBuild : Project({
-    name = "Build"
-    description = "Build configurations that build Ktor"
-
-    vcsRoot(VCSCore)
-    vcsRoot(VCSSamples)
-
-    subProject(ProjectGenerator)
-    subProject(ProjectSamples)
-    subProject(ProjectCore)
-    subProject(ProjectDocSamples)
-    subProject(ProjectPlugin)
-})
 

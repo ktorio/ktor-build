@@ -11,6 +11,7 @@ val operatingSystems = listOf("macOS", "Linux", "Windows")
 val jdkVersions = listOf("JDK_18", "JDK_11")
 
 object ProjectCore : Project({
+    id("ProjectKtorCore")
     name = "Core"
     description = "Ktor Core Framework"
     for (os in operatingSystems) {
@@ -18,8 +19,6 @@ object ProjectCore : Project({
             buildType(BuildTemplate(os, jdk))
         }
     }
-
-//    buildType(Build_Core_Compile)
 })
 
 
@@ -52,9 +51,3 @@ class BuildTemplate(val os: String, val jdk: String): BuildType({
     }
 })
 
-/*
-
-object Build_Core_Compile : BuildType({
-
-})
-*/
