@@ -37,6 +37,8 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2020.1"
 
 project {
+    id("KtorNEW".toExtId())
+    name = "Ktor (New)"
     description = "Ktor Framework"
 
     subProject(ProjectBuild)
@@ -46,7 +48,7 @@ project {
 
 
 object ProjectBuild : Project({
-
+    name = "Build"
     description = "Build configurations that build Ktor"
 
     vcsRoot(VCSCore)

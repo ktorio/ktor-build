@@ -12,7 +12,6 @@ val operatingSystems = listOf("macOS", "Linux", "Windows")
 val jdkVersions = listOf("JDK_18", "JDK_11")
 
 object ProjectCore : Project({
-    id("KtorCore".toExtId())
     name = "Core"
     description = "Ktor Core Framework"
     for (os in operatingSystems) {
@@ -27,7 +26,7 @@ object ProjectCore : Project({
 
 
 class BuildTemplate(val os: String, val jdk: String): BuildType({
-    id("Compile$os$jdk".toExtId())
+    id("KtorMatrix_$os$jdk".toExtId())
     name = "Compile $os $jdk"
 
     vcs {
