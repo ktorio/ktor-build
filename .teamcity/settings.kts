@@ -36,6 +36,9 @@ version = "2020.1"
 project {
     description = "Ktor Framework"
 
+    params {
+        param("teamcity.ui.settings.readOnly", "true")
+    }
     subProject(ProjectBuild)
     subProject(ProjectRelease)
 }
