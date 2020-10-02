@@ -1,7 +1,5 @@
-package ktor.subprojects.release
+package subprojects.release
 
-import jetbrains.buildServer.configs.kotlin.v10.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 
 object ProjectRelease : Project({

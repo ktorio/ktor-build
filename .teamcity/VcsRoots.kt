@@ -1,5 +1,3 @@
-package ktor
-
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
 object VCSCore : GitVcsRoot({

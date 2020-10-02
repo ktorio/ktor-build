@@ -1,16 +1,13 @@
-package ktor
-
 import jetbrains.buildServer.configs.kotlin.v10.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.project
 import jetbrains.buildServer.configs.kotlin.v2019_2.version
-import ktor.subprojects.build.core.*
-import ktor.subprojects.build.docsamples.*
-import ktor.subprojects.build.generator.*
-import ktor.subprojects.build.plugin.*
-import ktor.subprojects.build.samples.*
-import ktor.subprojects.release.*
+import subprojects.build.core.*
+import subprojects.build.docsamples.*
+import subprojects.build.generator.*
+import subprojects.build.plugin.*
+import subprojects.build.samples.*
+import subprojects.release.*
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -18,7 +15,7 @@ project hierarchy. The script should contain a single call to the
 project() function with a Project instance or an init function as
 an argument.
 
-VcsRoots, BuildTypes, Templates, and ktor.subprojects can be
+VcsRoots, BuildTypes, Templates, and subprojects can be
 registered inside the project using the vcsRoot(), buildType(),
 template(), and subProject() methods respectively.
 
@@ -37,8 +34,6 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 version = "2020.1"
 
 project {
-    id("KtorNEW".toExtId())
-    name = "Ktor (New)"
     description = "Ktor Framework"
 
     subProject(ProjectBuild)
