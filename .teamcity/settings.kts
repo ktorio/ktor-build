@@ -40,6 +40,7 @@ project {
     params {
         param("teamcity.ui.settings.readOnly", "true")
     }
+
     subProject(ProjectBuild)
     subProject(ProjectRelease)
 }
