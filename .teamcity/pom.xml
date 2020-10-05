@@ -37,7 +37,7 @@
   </pluginRepositories>
 
   <build>
-    <sourceDirectory>${basedir}</sourceDirectory>
+<!--    <sourceDirectory>${basedir}</sourceDirectory>-->
     <plugins>
       <plugin>
         <artifactId>kotlin-maven-plugin</artifactId>
@@ -99,6 +99,12 @@
       <artifactId>kotlin-script-runtime</artifactId>
       <version>${kotlin.version}</version>
       <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-test-junit</artifactId>
+      <version>${kotlin.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 </project>
