@@ -11,7 +11,7 @@ data class JDKEntry(val name: String, val env: String)
 data class OSEntry(val name: String, val agentString: String)
 
 val operatingSystems = listOf(OSEntry("macOS", "Mac OS X"), OSEntry("Linux", "Linux"), OSEntry("Windows", "Windows"))
-val jdkVersions = listOf(JDKEntry("Java 9","JDK_19"), JDKEntry("Java 11", "JDK_11"))
+val jdkVersions = listOf(JDKEntry("Java 8","JDK_18"), JDKEntry("Java 11", "JDK_11"))
 
 object ProjectCore : Project({
     id("ProjectKtorCore")
@@ -22,6 +22,7 @@ object ProjectCore : Project({
             buildType(BuildTemplate(os, jdk))
         }
     }
+
 })
 
 
