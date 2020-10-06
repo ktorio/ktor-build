@@ -9,8 +9,5 @@
         <module name="OpenSourceProjects_Ktor_dsl" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
-      <module name="OpenSourceProjects_Ktor_dsl" target="1.5" />
-    </bytecodeTargetLevel>
   </component>
 </project>

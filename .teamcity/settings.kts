@@ -29,6 +29,7 @@ version = "2020.1"
 project {
     description = "Ktor Framework"
 
+    // DO NOT REMOVE
     params {
         param("teamcity.ui.settings.readOnly", "true")
     }
