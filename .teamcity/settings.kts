@@ -1,14 +1,6 @@
-import jetbrains.buildServer.configs.kotlin.v10.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.project
-import jetbrains.buildServer.configs.kotlin.v2019_2.version
-import subprojects.build.core.*
-import subprojects.build.docsamples.*
-import subprojects.build.generator.*
-import subprojects.build.plugin.*
-import subprojects.build.samples.*
-import subprojects.release.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.build.*
+import subprojects.release.*
 
 /*
 The settings script is an entry point for defining a TeamCity
