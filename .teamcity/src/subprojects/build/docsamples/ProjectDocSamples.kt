@@ -12,7 +12,7 @@ object ProjectDocSamples : Project({
   description = "Code samples included in Docs and API Docs"
 
   buildType {
-    id("KtorDocs_BuildTest")
+    id("KtorDocs_ValidateSamples")
     name = "Build and test code samples"
 
     vcs {
