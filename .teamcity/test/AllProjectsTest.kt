@@ -47,7 +47,12 @@ class AllProjectsTest {
                         "KtorMatrixLinuxJava8",
                         "KtorMatrixLinuxJava11",
                         "KtorMatrixWindowsJava8",
-                        "KtorMatrixWindowsJava11"
+                        "KtorMatrixWindowsJava11",
+                        "KtorMatrixNativeMacOS",
+                        "KtorMatrixNativeLinux",
+                        "KtorMatrixNativeWindows",
+                        "KtorMatrixJavaScriptChrome"
+
                 ),
                 ProjectDocSamples to setOf("KtorDocs_ValidateSamples")
         )
@@ -61,15 +66,18 @@ class AllProjectsTest {
         }
     }
 
+    @Test
+    fun hasAtLeastOneProject() {
+        assertTrue(allProjects().isNotEmpty(), "No projects found")
+    }
+
     private fun assertHasUniqueID(project: Project) {
         val className = project.javaClass.name.split('.').last()
         assertNotEquals(className, project.id.toString(), "Project ID '${project.id.toString()}' should differ from its class name")
     }
 
     private fun allProjects(): List<Project> {
-        val projects = projectsFromPackage("subprojects")
-        assertTrue(projects.isNotEmpty(), "No projects found")
-        return projects
+        return projectsFromPackage("subprojects")
     }
 
     private fun projectsFromPackage(pkg: String): List<Project> {
