@@ -11,6 +11,8 @@ object ProjectDocSamples : Project({
   name = "Docs"
   description = "Code samples included in Docs and API Docs"
 
+  vcsRoot(VCSDocs)
+
   buildType {
     id("KtorDocs_ValidateSamples")
     name = "Build and test code samples"
@@ -21,10 +23,12 @@ object ProjectDocSamples : Project({
 
     steps {
       gradle {
+        name = "Build"
         tasks = "clean build"
         workingDir = relativeDir
       }
       gradle {
+        name = "Test"
         tasks = "test"
         workingDir = relativeDir
       }
