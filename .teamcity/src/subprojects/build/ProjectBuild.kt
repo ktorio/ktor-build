@@ -1,9 +1,8 @@
 package subprojects.build
 
-import VCSCore
-import VCSDocs
-import VCSSamples
+
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import subprojects.*
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
 import subprojects.build.generator.*

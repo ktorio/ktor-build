@@ -1,5 +1,6 @@
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.GitVcsRoot
 import org.junit.Test
+import subprojects.*
 import kotlin.test.assertTrue
 
 class VCSTest {
