@@ -4,3 +4,4 @@
 /.idea
 /.teamcity/target
 /.teamcity/*.iml
+/.teamcity/.idea
