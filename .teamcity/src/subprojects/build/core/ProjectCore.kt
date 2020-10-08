@@ -12,7 +12,7 @@ data class OSEntry(val name: String, val agentString: String)
 data class BrowserEntry(val name: String, val dockerContainer: String)
 
 val operatingSystems = listOf(OSEntry("macOS", "Mac OS X"), OSEntry("Linux", "Linux"), OSEntry("Windows", "Windows"))
-val jdkVersions = listOf(JDKEntry("Java 8","JDK_18"), JDKEntry("Java 11", "JDK_11"))
+val jdkVersions = listOf(JDKEntry("Java 8", "JDK_18"), JDKEntry("Java 11", "JDK_11"))
 val browsers = listOf(BrowserEntry("Chrome", "stl5/ktor-test-image:latest"))
 
 object ProjectCore : Project({
@@ -32,7 +32,7 @@ object ProjectCore : Project({
     }
 })
 
-class JavaScriptBuild(val browserEntry: BrowserEntry): BuildType({
+class JavaScriptBuild(val browserEntry: BrowserEntry) : BuildType({
     id("KtorMatrixJavaScript_${browserEntry.name}".toExtId())
     name = "JavaScript on ${browserEntry.name}"
 
@@ -42,8 +42,11 @@ class JavaScriptBuild(val browserEntry: BrowserEntry): BuildType({
     triggers {
         vcs {
             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-            branchFilter = ""
         }
+    }
+    params {
+        param("gradleBuildTasks", "clean build")
+        param("gradleParameters", "--info -Penable-js-tests")
     }
     steps {
         gradle {
@@ -69,7 +72,7 @@ class JavaScriptBuild(val browserEntry: BrowserEntry): BuildType({
     }
 })
 
-class NativeBuild(val osEntry: OSEntry): BuildType({
+class NativeBuild(val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
 
@@ -79,14 +82,11 @@ class NativeBuild(val osEntry: OSEntry): BuildType({
     triggers {
         vcs {
             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-            branchFilter = ""
         }
     }
     steps {
         gradle {
-            tasks = ""
-            buildFile = ""
-            gradleWrapperPath = ""
+            tasks = "build"
             jdkHome = "%env.JDK_11"
         }
     }
@@ -97,7 +97,7 @@ class NativeBuild(val osEntry: OSEntry): BuildType({
 })
 
 
-class CoreBuild(val osEntry: OSEntry, val jdkEntry: JDKEntry): BuildType({
+class CoreBuild(val osEntry: OSEntry, val jdkEntry: JDKEntry) : BuildType({
     id("KtorMatrix_${osEntry.name}${jdkEntry.name}".toExtId())
     name = "${jdkEntry.name} on ${osEntry.name}"
 
@@ -107,14 +107,11 @@ class CoreBuild(val osEntry: OSEntry, val jdkEntry: JDKEntry): BuildType({
     triggers {
         vcs {
             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-            branchFilter = ""
         }
     }
     steps {
         gradle {
             tasks = "clean jvmTestClasses"
-            buildFile = ""
-            gradleWrapperPath = ""
             jdkHome = "%env.${jdkEntry.env}%"
         }
     }
