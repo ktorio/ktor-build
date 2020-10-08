@@ -39,11 +39,7 @@ class JavaScriptBuild(val browserEntry: BrowserEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
-    triggers {
-        vcs {
-            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-        }
-    }
+    defaultVCSTriggers()
     params {
         param("gradleBuildTasks", "clean build")
         param("gradleParameters", "--info -Penable-js-tests")
@@ -79,11 +75,7 @@ class NativeBuild(val osEntry: OSEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
-    triggers {
-        vcs {
-            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-        }
-    }
+    defaultVCSTriggers()
     steps {
         gradle {
             tasks = "build"
@@ -104,11 +96,7 @@ class CoreBuild(val osEntry: OSEntry, val jdkEntry: JDKEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
-    triggers {
-        vcs {
-            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
-        }
-    }
+    defaultVCSTriggers()
     steps {
         gradle {
             tasks = "clean jvmTestClasses"
@@ -120,4 +108,12 @@ class CoreBuild(val osEntry: OSEntry, val jdkEntry: JDKEntry) : BuildType({
         contains("teamcity.agent.jvm.os.name", osEntry.agentString)
     }
 })
+
+private fun BuildType.defaultVCSTriggers() {
+    triggers {
+        vcs {
+            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+        }
+    }
+}
 
