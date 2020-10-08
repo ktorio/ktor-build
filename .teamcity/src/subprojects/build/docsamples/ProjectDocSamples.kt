@@ -11,6 +11,8 @@ object ProjectDocSamples : Project({
   name = "Docs"
   description = "Code samples included in Docs and API Docs"
 
+  vcsRoot(VCSDocs)
+
   buildType {
     id("KtorDocs_ValidateSamples")
     name = "Build and test code samples"

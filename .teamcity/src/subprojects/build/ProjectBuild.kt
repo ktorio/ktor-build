@@ -17,7 +17,6 @@ object ProjectBuild : Project({
 
   vcsRoot(VCSCore)
   vcsRoot(VCSSamples)
-  vcsRoot(VCSDocs)
 
   subProject(ProjectGenerator)
   subProject(ProjectSamples)
