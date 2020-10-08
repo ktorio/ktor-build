@@ -1,6 +1,5 @@
 /out
 /build
 /target
-/.idea
 /.teamcity/target
 /.teamcity/*.iml
