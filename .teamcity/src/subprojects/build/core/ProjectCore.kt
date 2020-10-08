@@ -36,27 +36,22 @@ class JavaScriptBuild(val browserEntry: BrowserEntry) : BuildType({
     id("KtorMatrixJavaScript_${browserEntry.name}".toExtId())
     name = "JavaScript on ${browserEntry.name}"
 
-    vcs {
-        root(VCSCore)
-    }
-    defaultVCSTriggers()
-    params {
-        param("gradleBuildTasks", "clean build")
-        param("gradleParameters", "--info -Penable-js-tests")
-    }
+    setupDefaultVCSRootAndTriggers()
+
     steps {
+        val gradleParameters = "--info -Penable-js-tests"
         gradle {
             name = "Parallel assemble"
             tasks = "assemble"
-            gradleParams = "%gradleParameters%"
+            gradleParams = gradleParameters
             dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
             dockerPull = true
             dockerImage = browserEntry.dockerContainer
         }
         gradle {
             name = "Build"
-            tasks = "%gradleBuildTasks% --no-parallel --continue"
-            gradleParams = "%gradleParameters%"
+            tasks = "clean build --no-parallel --continue"
+            gradleParams = gradleParameters
             dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
             dockerPull = true
             dockerImage = browserEntry.dockerContainer
@@ -72,10 +67,8 @@ class NativeBuild(val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
 
-    vcs {
-        root(VCSCore)
-    }
-    defaultVCSTriggers()
+    setupDefaultVCSRootAndTriggers()
+
     steps {
         gradle {
             tasks = "build"
@@ -93,10 +86,8 @@ class CoreBuild(val osEntry: OSEntry, val jdkEntry: JDKEntry) : BuildType({
     id("KtorMatrix_${osEntry.name}${jdkEntry.name}".toExtId())
     name = "${jdkEntry.name} on ${osEntry.name}"
 
-    vcs {
-        root(VCSCore)
-    }
-    defaultVCSTriggers()
+    setupDefaultVCSRootAndTriggers()
+
     steps {
         gradle {
             tasks = "clean jvmTestClasses"
@@ -109,7 +100,10 @@ class CoreBuild(val osEntry: OSEntry, val jdkEntry: JDKEntry) : BuildType({
     }
 })
 
-private fun BuildType.defaultVCSTriggers() {
+private fun BuildType.setupDefaultVCSRootAndTriggers() {
+    vcs {
+        root(VCSCore)
+    }
     triggers {
         vcs {
             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
