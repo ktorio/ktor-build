@@ -4,7 +4,7 @@ import kotlin.test.assertTrue
 
 class VCSTest {
     @Test
-    fun testSomeRootsHasAuthMethodWithPassword() {
+    fun vcsRootsHasAuthMethodWithPassword() {
         assertAuthWithPassword(VCSCore)
         assertAuthWithPassword(VCSDocs)
     }
