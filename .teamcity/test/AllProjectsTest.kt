@@ -1,6 +1,4 @@
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import org.junit.BeforeClass
 import org.junit.Test
 import org.reflections.Reflections
 import org.reflections.scanners.ResourcesScanner
