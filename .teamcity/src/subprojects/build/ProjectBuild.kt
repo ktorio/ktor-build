@@ -1,6 +1,7 @@
 package subprojects.build
 
 import VCSCore
+import VCSDocs
 import VCSSamples
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.build.core.*
@@ -16,6 +17,7 @@ object ProjectBuild : Project({
 
   vcsRoot(VCSCore)
   vcsRoot(VCSSamples)
+  vcsRoot(VCSDocs)
 
   subProject(ProjectGenerator)
   subProject(ProjectSamples)
