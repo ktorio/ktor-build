@@ -18,7 +18,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
-class AllProjects {
+class AllProjectsTest {
     @Test
     fun projectsHasDefinedIDs() {
         val projectsIDs = mapOf(
