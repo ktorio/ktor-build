@@ -6,13 +6,36 @@ import org.reflections.scanners.SubTypesScanner
 import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
 import org.reflections.util.FilterBuilder
+import subprojects.build.ProjectBuild
+import subprojects.build.core.ProjectCore
+import subprojects.build.docsamples.ProjectDocSamples
+import subprojects.build.generator.ProjectGenerator
+import subprojects.build.plugin.ProjectPlugin
+import subprojects.build.samples.ProjectSamples
+import subprojects.release.ProjectRelease
 import java.lang.IllegalStateException
+import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class AllProjects {
     @Test
-    fun testProjectsHasDefinedID() {
-        projectsFromPackage("subprojects").forEach(::assertHasUniqueID)
+    fun projectsHasDefinedIDs() {
+        val projectsIDs = mapOf(
+                ProjectCore to "ProjectKtorCore",
+                ProjectDocSamples to "ProjectKtorDocs",
+                ProjectGenerator to "ProjectKtorGenerator",
+                ProjectPlugin to "ProjectKtorPlugin",
+                ProjectSamples to "ProjectKtorSamples",
+                ProjectBuild to "ProjectKtorBuild",
+                ProjectRelease to "ProjectKtorRelease"
+        )
+
+        projectsFromPackage("subprojects").forEach { project ->
+            assertTrue(projectsIDs.containsKey(project), "Cannot find expected ID for project ${project.name}")
+            assertEquals(projectsIDs[project], project.id.toString(), "ID for Project ${project.name} doesn't match")
+            assertHasUniqueID(project)
+        }
     }
 
     private fun assertHasUniqueID(project: Project) {
