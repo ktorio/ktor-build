@@ -44,17 +44,13 @@ class JavaScriptBuild(val browserEntry: BrowserEntry) : BuildType({
             name = "Parallel assemble"
             tasks = "assemble"
             gradleParams = gradleParameters
-            dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
-            dockerPull = true
-            dockerImage = browserEntry.dockerContainer
+            setupDockerForJavaScriptTests(browserEntry)
         }
         gradle {
             name = "Build"
             tasks = "clean build --no-parallel --continue"
             gradleParams = gradleParameters
-            dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
-            dockerPull = true
-            dockerImage = browserEntry.dockerContainer
+            setupDockerForJavaScriptTests(browserEntry)
         }
     }
     requirements {
@@ -62,6 +58,12 @@ class JavaScriptBuild(val browserEntry: BrowserEntry) : BuildType({
         noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")
     }
 })
+
+private fun GradleBuildStep.setupDockerForJavaScriptTests(browserEntry: BrowserEntry) {
+    dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
+    dockerPull = true
+    dockerImage = browserEntry.dockerContainer
+}
 
 class NativeBuild(val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
