@@ -7,7 +7,7 @@ object VCSCore : PasswordVcsRoot({
 
 object VCSDocs : PasswordVcsRoot({
   name = "Ktor documentation"
-  url = "git@github.com:ktorio/ktor-documentation.git"
+  url = "https://github.com/ktorio/ktor-documentation.git"
 })
 
 object VCSSamples: GitVcsRoot({
