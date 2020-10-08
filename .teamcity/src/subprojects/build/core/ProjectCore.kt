@@ -29,7 +29,7 @@ object ProjectCore : Project({
 
 class BuildTemplate(val osEntry: OSEntry, val jdkEntry: JDKEntry): BuildType({
     id("KtorMatrix_${osEntry.name}${jdkEntry.name}".toExtId())
-    name = "Build with ${jdkEntry.name} on ${osEntry.name}"
+    name = "${jdkEntry.name} on ${osEntry.name}"
 
     vcs {
         root(VCSCore)
