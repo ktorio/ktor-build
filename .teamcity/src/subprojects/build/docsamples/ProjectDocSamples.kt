@@ -21,10 +21,12 @@ object ProjectDocSamples : Project({
 
     steps {
       gradle {
+        name = "Build"
         tasks = "clean build"
         workingDir = relativeDir
       }
       gradle {
+        name = "Test"
         tasks = "test"
         workingDir = relativeDir
       }
