@@ -1,8 +1,8 @@
 package subprojects.build.docsamples
 
-import VCSDocs
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import subprojects.*
 
 const val relativeDir = "codeSnippets"
 
