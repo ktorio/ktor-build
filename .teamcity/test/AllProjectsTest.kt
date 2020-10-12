@@ -51,8 +51,7 @@ class AllProjectsTest {
                         "KtorMatrixNativeMacOS",
                         "KtorMatrixNativeLinux",
                         "KtorMatrixNativeWindows",
-                        "KtorMatrixJavaScriptChrome"
-
+                        "KtorMatrixJavaScriptChromeNodeJs"
                 ),
                 ProjectDocSamples to setOf("KtorDocs_ValidateSamples")
         )
