@@ -39,7 +39,7 @@ class AllProjectsTest {
     }
 
     @Test
-    fun projectsBuildTypesHadDefinedIDs() {
+    fun projectsBuildTypesHasDefinedIDs() {
         val buildTypesIDs = mapOf(
                 ProjectCore to setOf(
                         "KtorMatrixMacOSJava8",
