@@ -60,7 +60,8 @@ class AllProjectsTest {
             if (project.buildTypes.size > 0) {
                 assertTrue(buildTypesIDs.containsKey(project), "Cannot find build types IDs for project ${project.name}")
                 val ids = project.buildTypes.map { it.id.toString() }.toSet()
-                assertEquals(buildTypesIDs[project], ids, "Build types IDs for project ${project.name} doesn't match")
+                val mismatchIDs = buildTypesIDs[project]!!.subtract(ids)
+                assertEquals(buildTypesIDs[project], ids, "Build types IDs $mismatchIDs for project ${project.name} doesn't match")
             }
         }
     }
