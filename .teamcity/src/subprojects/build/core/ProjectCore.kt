@@ -20,6 +20,10 @@ object ProjectCore : Project({
             buildType(CoreBuild(os, jdk))
         }
     }
+    params {
+        param("system.org.gradle.internal.http.connectionTimeout", "120000")
+        param("system.org.gradle.internal.http.socketTimeout", "120000")
+    }
     for (os in operatingSystems) {
         buildType(NativeBuild(os))
     }
