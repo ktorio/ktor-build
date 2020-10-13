@@ -2,6 +2,7 @@ package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 
@@ -16,6 +17,10 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
             name = "Build and Run Tests"
             tasks = "ktor-client:ktor-client-curl:${osEntry.taskName} --info"
             jdkHome = "%env.JDK_11%"
+        }
+    }
+    features {
+        perfmon {
         }
     }
     requirements {
