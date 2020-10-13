@@ -50,5 +50,5 @@ fun BuildSteps.validateSample(relativeDir: String) {
 
 fun BuildSteps.acceptAndroidSDKLicense() = script {
     name = "Accept Android SDK license"
-    scriptContent = "JAVA_HOME=%env.JDK_18% yes | %env.ANDROID_SDK_HOME%/tools/bin/sdkmanager --licenses"
+    scriptContent = "yes | JAVA_HOME=%env.JDK_18% %env.ANDROID_SDK_HOME%/tools/bin/sdkmanager --licenses"
 }
