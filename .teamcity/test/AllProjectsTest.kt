@@ -57,7 +57,8 @@ class AllProjectsTest {
                 ProjectSamples to setOf(
                         "KtorSamplesValidate_client_mpp",
                         "KtorSamplesValidate_fullstack_mpp",
-                        "KtorSamplesValidate_generic"
+                        "KtorSamplesValidate_generic",
+                        "KtorSamplesValidate_All"
                 )
         )
 

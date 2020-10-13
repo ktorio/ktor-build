@@ -1,8 +1,6 @@
 package subprojects.build.samples
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import subprojects.VCSSamples
@@ -16,14 +14,26 @@ object ProjectSamples : Project({
 
     vcsRoot(VCSSamples)
 
-    for (name in gradleProjects) {
-        buildType(SampleProject(name))
+    val projects = gradleProjects.map(::SampleProject)
+    projects.forEach(::buildType)
+
+    buildType {
+        id("KtorSamplesValidate_All")
+        name = "Validate all samples"
+
+        dependencies {
+            projects.mapNotNull { it.id }.forEach { id ->
+                snapshot(id) {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
+        }
     }
 })
 
 class SampleProject(projectName: String): BuildType({
     id("KtorSamplesValidate_${projectName.replace('-', '_')}")
-    name = "Build and test $projectName sample"
+    name = "Validate $projectName sample"
 
     vcs {
         root(VCSSamples)
