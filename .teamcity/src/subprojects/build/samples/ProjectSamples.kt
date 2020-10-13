@@ -53,7 +53,7 @@ fun BuildSteps.validateSamples(relativeDir: String) {
     }
     gradle {
         name = "Test"
-        tasks = "test"
+        tasks = "allTests"
         workingDir = relativeDir
     }
 }

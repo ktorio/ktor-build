@@ -1,8 +1,8 @@
 package subprojects.build.docsamples
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
-import subprojects.build.samples.validateSamples
 
 const val relativeDir = "codeSnippets"
 
@@ -22,7 +22,16 @@ object ProjectDocSamples : Project({
     }
 
     steps {
-      validateSamples(relativeDir)
+      gradle {
+        name = "Build"
+        tasks = "clean build"
+        workingDir = relativeDir
+      }
+      gradle {
+        name = "Test"
+        tasks = "test"
+        workingDir = relativeDir
+      }
     }
   }
 })
