@@ -53,7 +53,13 @@ class AllProjectsTest {
                         "KtorMatrixNativeWindows",
                         "KtorMatrixJavaScriptChromeNodeJs"
                 ),
-                ProjectDocSamples to setOf("KtorDocs_ValidateSamples")
+                ProjectDocSamples to setOf("KtorDocs_ValidateSamples"),
+                ProjectSamples to setOf(
+                        "KtorSamplesValidate_client_mpp",
+                        "KtorSamplesValidate_fullstack_mpp",
+                        "KtorSamplesValidate_generic",
+                        "KtorSamplesValidate_All"
+                )
         )
 
         allProjects().forEach { project ->
