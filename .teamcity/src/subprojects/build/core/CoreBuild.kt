@@ -2,7 +2,6 @@ package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 
@@ -25,8 +24,7 @@ class CoreBuild(private val osEntry: OSEntry, private val jdkEntry: JDKEntry) : 
         }
     }
     features {
-        perfmon {
-        }
+        setupPerformanceMonitoring()
     }
     requirements {
         noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")

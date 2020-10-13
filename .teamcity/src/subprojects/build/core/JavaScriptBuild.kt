@@ -2,7 +2,6 @@ package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 
@@ -25,8 +24,7 @@ class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildTyp
         }
     }
     features {
-        perfmon {
-        }
+        setupPerformanceMonitoring()
     }
     requirements {
         contains("teamcity.agent.jvm.os.name", "Linux")
