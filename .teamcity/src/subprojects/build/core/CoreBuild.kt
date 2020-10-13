@@ -8,9 +8,12 @@ import subprojects.*
 class CoreBuild(private val osEntry: OSEntry, private val jdkEntry: JDKEntry) : BuildType({
     id("KtorMatrix_${osEntry.name}${jdkEntry.name}".toExtId())
     name = "${jdkEntry.name} on ${osEntry.name}"
-
-    setupDefaultVCSRootAndTriggers()
-
+    vcs {
+        root(VCSCore)
+    }
+    triggers {
+        setupDefaultVcsTrigger()
+    }
     steps {
         gradle {
             name = "Assemble"

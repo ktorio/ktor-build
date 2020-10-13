@@ -8,9 +8,12 @@ import subprojects.*
 class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildType({
     id("KtorMatrixJavaScript_${javaScriptEngine.name}".toExtId())
     name = "JavaScript on ${javaScriptEngine.name}"
-
-    setupDefaultVCSRootAndTriggers()
-
+    vcs {
+        root(VCSCore)
+    }
+    triggers {
+        setupDefaultVcsTrigger()
+    }
     steps {
         gradle {
             name = "Parallel assemble"

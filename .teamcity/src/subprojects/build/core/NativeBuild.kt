@@ -8,9 +8,12 @@ import subprojects.*
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
-
-    setupDefaultVCSRootAndTriggers()
-
+    vcs {
+        root(VCSCore)
+    }
+    triggers {
+        setupDefaultVcsTrigger()
+    }
     steps {
         gradle {
             name = "Build and Run Tests"
