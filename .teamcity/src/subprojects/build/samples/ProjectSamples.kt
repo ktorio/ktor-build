@@ -22,7 +22,7 @@ object ProjectSamples : Project({
 })
 
 class SampleProject(projectName: String): BuildType({
-    id("KtorSamplesValidate_${projectName}")
+    id("KtorSamplesValidate_${projectName.replace('-', '_')}")
     name = "Build and test $projectName sample"
 
     vcs {
