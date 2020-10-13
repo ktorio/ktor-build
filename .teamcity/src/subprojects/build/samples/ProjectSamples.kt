@@ -21,6 +21,10 @@ object ProjectSamples : Project({
         id("KtorSamplesValidate_All")
         name = "Validate all samples"
 
+        vcs {
+            root(VCSSamples)
+        }
+
         dependencies {
             projects.mapNotNull { it.id }.forEach { id ->
                 snapshot(id) {
