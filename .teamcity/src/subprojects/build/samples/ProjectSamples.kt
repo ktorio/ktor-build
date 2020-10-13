@@ -41,11 +41,11 @@ class SampleProject(projectName: String): BuildType({
 
     steps {
         acceptAndroidSDKLicense()
-        validateSample(projectName)
+        validateSamples(projectName)
     }
 })
 
-fun BuildSteps.validateSample(relativeDir: String) {
+fun BuildSteps.validateSamples(relativeDir: String) {
     gradle {
         name = "Build"
         tasks = "clean build"
