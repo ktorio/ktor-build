@@ -23,16 +23,17 @@ object ProjectCore : Project({
         param("system.org.gradle.internal.http.socketTimeout", "120000")
     }
 
-    val osXjvm = operatingSystems.flatMap { os ->
+    val osJVMCombos = operatingSystems.flatMap { os ->
         jdkVersions.map { jdk -> CoreEntry(os, jdk) }
     }
 
-    val jvm = osXjvm.map(::CoreBuild)
-    jvm.forEach(::buildType)
-    val os = operatingSystems.map(::NativeBuild)
-    os.forEach(::buildType)
-    val js = javaScriptEngines.map(::JavaScriptBuild)
-    js.forEach(::buildType)
+    val osJVMBuilds = osJVMCombos.map(::CoreBuild)
+    val nativeBuilds = operatingSystems.map(::NativeBuild)
+    val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
+
+    val allBuilds = osJVMBuilds.plus(nativeBuilds).plus(javaScriptBuilds)
+
+    allBuilds.forEach(::buildType)
 
     buildType {
         id("KtorCore_All")
@@ -44,17 +45,11 @@ object ProjectCore : Project({
         }
 
         dependencies {
-            setupDependencies(os)
-            setupDependencies(js)
-            setupDependencies(jvm)
+            allBuilds.mapNotNull { it.id }.forEach { id ->
+                snapshot(id) {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
         }
     }
 })
-
-private fun Dependencies.setupDependencies(entries: List<BuildType>) {
-    entries.mapNotNull { it.id }.forEach { id ->
-        snapshot(id) {
-            onDependencyFailure = FailureAction.FAIL_TO_START
-        }
-    }
-}
