@@ -14,8 +14,6 @@ object ProjectBuild : Project({
   name = "Build"
   description = "Build configurations that build Ktor"
 
-  vcsRoot(VCSCore)
-
   subProject(ProjectGenerator)
   subProject(ProjectSamples)
   subProject(ProjectCore)
