@@ -43,21 +43,17 @@ object ProjectCore : Project({
         }
 
         dependencies {
-            os.mapNotNull { it.id }.forEach { id ->
-                snapshot(id) {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                }
-            }
-            js.mapNotNull { it.id }.forEach { id ->
-                snapshot(id) {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                }
-            }
-            jvm.mapNotNull { it.id }.forEach { id ->
-                snapshot(id) {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                }
-            }
+            setupDependencies(os)
+            setupDependencies(js)
+            setupDependencies(jvm)
         }
     }
 })
+
+private fun Dependencies.setupDependencies(entries: List<BuildType>) {
+    entries.mapNotNull { it.id }.forEach { id ->
+        snapshot(id) {
+            onDependencyFailure = FailureAction.FAIL_TO_START
+        }
+    }
+}
