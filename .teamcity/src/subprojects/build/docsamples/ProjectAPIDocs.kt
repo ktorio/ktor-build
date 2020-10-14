@@ -11,7 +11,6 @@ object ProjectAPIDocs : Project({
     id("ProjectKtorAPIDocs")
     name = "API Docs"
 
-    vcsRoot(VCSCore)
     vcsRoot(VCSAPIDocs)
 
     buildType {
