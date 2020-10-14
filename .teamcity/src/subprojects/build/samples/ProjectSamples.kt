@@ -20,6 +20,7 @@ object ProjectSamples : Project({
     buildType {
         id("KtorSamplesValidate_All")
         name = "Validate all samples"
+        type = BuildTypeSettings.Type.COMPOSITE
 
         vcs {
             root(VCSSamples)
