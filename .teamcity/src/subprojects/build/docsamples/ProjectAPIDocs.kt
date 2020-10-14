@@ -13,7 +13,7 @@ object ProjectAPIDocs : Project({
 
     vcsRoot(VCSAPIDocs)
 
-    buildType {
+    val dokka = buildType {
         id("KtorAPIDocs_Dokka")
         name = "Build Dokka artifacts"
 
@@ -41,7 +41,7 @@ object ProjectAPIDocs : Project({
         }
 
         dependencies {
-            dependency(AbsoluteId("KtorAPIDocs_Dokka")) {
+            dependency(dokka) {
                 snapshot {
                 }
 
