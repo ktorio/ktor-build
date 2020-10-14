@@ -37,6 +37,7 @@ object ProjectCore : Project({
     buildType {
         id("KtorCore_All")
         name = "Build All Core"
+        type = BuildTypeSettings.Type.COMPOSITE
 
         vcs {
             root(VCSCore)
