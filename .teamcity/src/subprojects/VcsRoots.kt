@@ -17,6 +17,11 @@ object VCSSamples: GitVcsRoot({
     url = "https://github.com/ktorio/ktor-samples.git"
 })
 
+object VCSAPIDocs : PasswordVcsRoot({
+    name = "API Docs"
+    url = "https://github.com/ktorio/api.ktor.io.git"
+})
+
 open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): GitVcsRoot({
     init()
     authMethod = password {
