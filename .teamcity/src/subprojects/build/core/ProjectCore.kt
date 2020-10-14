@@ -8,7 +8,7 @@ data class JavaScriptEngine(val name: String, val dockerContainer: String)
 
 val operatingSystems = listOf(OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64"), OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), OSEntry("Windows", "Windows", "linkDebugTestMingwX64"))
 val jdkVersions = listOf(JDKEntry("Java 8", "JDK_18"), JDKEntry("Java 11", "JDK_11"))
-val browsers = listOf(JavaScriptEngine("Chrome/Node.js", "stl5/ktor-test-image:latest"))
+val javaScriptEngines = listOf(JavaScriptEngine("Chrome/Node.js", "stl5/ktor-test-image:latest"))
 
 
 object ProjectCore : Project({
@@ -27,7 +27,7 @@ object ProjectCore : Project({
     for (os in operatingSystems) {
         buildType(NativeBuild(os))
     }
-    for (browser in browsers) {
-        buildType(JavaScriptBuild(browser))
+    for (javaScriptEngine in javaScriptEngines) {
+        buildType(JavaScriptBuild(javaScriptEngine))
     }
 })
