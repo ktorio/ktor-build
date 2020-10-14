@@ -1,10 +1,12 @@
 package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import subprojects.*
 
 data class JDKEntry(val name: String, val env: String)
 data class OSEntry(val name: String, val agentString: String, val taskName: String)
 data class JavaScriptEngine(val name: String, val dockerContainer: String)
+data class CoreEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
 val operatingSystems = listOf(OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64"), OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), OSEntry("Windows", "Windows", "linkDebugTestMingwX64"))
 val jdkVersions = listOf(JDKEntry("Java 8", "JDK_18"), JDKEntry("Java 11", "JDK_11"))
@@ -15,19 +17,47 @@ object ProjectCore : Project({
     id("ProjectKtorCore")
     name = "Core"
     description = "Ktor Core Framework"
-    for (os in operatingSystems) {
-        for (jdk in jdkVersions) {
-            buildType(CoreBuild(os, jdk))
-        }
-    }
+
     params {
         param("system.org.gradle.internal.http.connectionTimeout", "120000")
         param("system.org.gradle.internal.http.socketTimeout", "120000")
     }
-    for (os in operatingSystems) {
-        buildType(NativeBuild(os))
+
+    val matrix = operatingSystems.flatMap { os ->
+        jdkVersions.map { jdk -> CoreEntry(os, jdk) }
     }
-    for (javaScriptEngine in javaScriptEngines) {
-        buildType(JavaScriptBuild(javaScriptEngine))
+
+    val jvm = matrix.map(::CoreBuild)
+    jvm.forEach(::buildType)
+    val os = operatingSystems.map(::NativeBuild)
+    os.forEach(::buildType)
+    val js = javaScriptEngines.map(::JavaScriptBuild)
+    js.forEach(::buildType)
+
+    buildType {
+        id("KtorCore_All")
+        name = "Build All Core"
+
+        vcs {
+            root(VCSCore)
+        }
+
+        dependencies {
+            os.mapNotNull { it.id }.forEach { id ->
+                snapshot(id) {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
+            js.mapNotNull { it.id }.forEach { id ->
+                snapshot(id) {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
+            jvm.mapNotNull { it.id }.forEach { id ->
+                snapshot(id) {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
+        }
     }
 })
