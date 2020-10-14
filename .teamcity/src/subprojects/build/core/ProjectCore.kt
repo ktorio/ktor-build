@@ -23,11 +23,11 @@ object ProjectCore : Project({
         param("system.org.gradle.internal.http.socketTimeout", "120000")
     }
 
-    val matrix = operatingSystems.flatMap { os ->
+    val osXjvm = operatingSystems.flatMap { os ->
         jdkVersions.map { jdk -> CoreEntry(os, jdk) }
     }
 
-    val jvm = matrix.map(::CoreBuild)
+    val jvm = osXjvm.map(::CoreBuild)
     jvm.forEach(::buildType)
     val os = operatingSystems.map(::NativeBuild)
     os.forEach(::buildType)
