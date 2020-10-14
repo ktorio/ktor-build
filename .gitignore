@@ -5,3 +5,4 @@
 /.teamcity/target
 /.teamcity/*.iml
 /.teamcity/.idea
+.env
