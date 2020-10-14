@@ -11,9 +11,13 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
+
+
     triggers {
         setupDefaultVcsTrigger()
     }
+
+
     steps {
         gradle {
             name = "Build and Run Tests"
