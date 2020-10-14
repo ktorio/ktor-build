@@ -20,5 +20,6 @@ object ProjectBuild : Project({
   subProject(ProjectSamples)
   subProject(ProjectCore)
   subProject(ProjectDocSamples)
+  subProject(ProjectAPIDocs)
   subProject(ProjectPlugin)
 })
