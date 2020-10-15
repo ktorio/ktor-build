@@ -31,7 +31,7 @@ object ProjectAPIDocs : Project({
         }
 
         artifactRules = """
-            +:apiDoc => dokka_build
+            +:apidoc => dokka_build
             +:ktor_version.txt => dokka_build
         """.trimIndent()
 
@@ -62,8 +62,8 @@ object ProjectAPIDocs : Project({
 
                 artifacts {
                     artifactRules = """
-                        apiDoc/**=>apiDoc
-                        ktor_version.txt=>ktor_version.txt
+                        apidoc
+                        ktor_version.txt
                     """.trimIndent()
                 }
             }
@@ -74,7 +74,7 @@ object ProjectAPIDocs : Project({
                 name = "Create pull request on Github"
                 scriptContent = """
                     ls -la
-                    ls -la apiDoc
+                    ls -la apidoc
                     cat ktor_version.txt
                 """.trimIndent()
             }
