@@ -26,7 +26,6 @@ object ProjectAPIDocs : Project({
         }
 
         requirements {
-            noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")
             contains("teamcity.agent.jvm.os.name", "Linux")
         }
 
