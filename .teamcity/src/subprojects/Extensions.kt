@@ -11,6 +11,7 @@ fun BuildFeatures.setupPerformanceMonitoring() {
 
 fun Triggers.setupDefaultVcsTrigger() {
     vcs {
+        branchFilter = "+:*"
         quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
     }
 }
