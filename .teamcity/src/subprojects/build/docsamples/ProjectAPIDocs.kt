@@ -30,6 +30,11 @@ object ProjectAPIDocs : Project({
             contains("teamcity.agent.jvm.os.name", "Linux")
         }
 
+        artifactRules = """
+            +:apiDoc => dokka_build
+            +:ktor_version.txt => dokka_build
+        """.trimIndent()
+
         steps {
             gradle {
                 name = "Run Dokka"
