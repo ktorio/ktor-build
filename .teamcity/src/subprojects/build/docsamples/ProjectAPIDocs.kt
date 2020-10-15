@@ -31,8 +31,8 @@ object ProjectAPIDocs : Project({
         }
 
         artifactRules = """
-            +:apidoc => dokka_build
-            +:ktor_version.txt => dokka_build
+            +:apidoc => apidoc.tgz
+            +:ktor_version.txt => ktor_version.txt
         """.trimIndent()
 
         steps {
@@ -62,8 +62,8 @@ object ProjectAPIDocs : Project({
 
                 artifacts {
                     artifactRules = """
-                        apidoc
-                        ktor_version.txt
+                        apidoc.tgz=>apidoc
+                        ktor_version.txt=>ktor_version.txt
                     """.trimIndent()
                 }
             }
