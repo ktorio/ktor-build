@@ -29,7 +29,7 @@ class StressTestBuild(private val osJVMComboEntry: OSJVMComboEntry) : BuildType(
         gradle {
             name = "Run stress tests"
             tasks = "stressTest --info"
-            jdkHome = "%${osJVMComboEntry.jdkEntry.env}%"
+            jdkHome = "%env.${osJVMComboEntry.jdkEntry.env}%"
         }
     }
     features {
