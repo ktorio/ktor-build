@@ -8,10 +8,17 @@ data class OSEntry(val name: String, val agentString: String, val taskName: Stri
 data class JavaScriptEngine(val name: String, val dockerContainer: String)
 data class OSJVMComboEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
-val operatingSystems = listOf(OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64"), OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), OSEntry("Windows", "Windows", "linkDebugTestMingwX64"))
-val jdkVersions = listOf(JDKEntry("Java 8", "JDK_18"), JDKEntry("Java 11", "JDK_11"))
-val javaScriptEngines = listOf(JavaScriptEngine("Chrome/Node.js", "stl5/ktor-test-image:latest"))
-val stressTests = listOf(OSJVMComboEntry(OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), JDKEntry("Java 8", "JDK_18")),
+val operatingSystems = listOf(
+    OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64"),
+    OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"),
+    OSEntry("Windows", "Windows", "linkDebugTestMingwX64"))
+val jdkVersions = listOf(
+    JDKEntry("Java 8", "JDK_18"),
+    JDKEntry("Java 11", "JDK_11"))
+val javaScriptEngines = listOf(
+    JavaScriptEngine("Chrome/Node.js", "stl5/ktor-test-image:latest"))
+val stressTests = listOf(
+    OSJVMComboEntry(OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), JDKEntry("Java 8", "JDK_18")),
     OSJVMComboEntry(OSEntry("Windows", "Windows", "linkDebugTestMingwX64"), JDKEntry("Java 8", "JDK_18")))
 
 
