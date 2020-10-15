@@ -5,6 +5,10 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 object VCSCore : PasswordVcsRoot({
     name = "Ktor"
     url = "https://github.com/ktorio/ktor.git"
+    branchSpec = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 object VCSDocs : PasswordVcsRoot({
@@ -17,7 +21,12 @@ object VCSSamples: GitVcsRoot({
     url = "https://github.com/ktorio/ktor-samples.git"
 })
 
-open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): GitVcsRoot({
+open class KtorVcsRoot(init: GitVcsRoot.() -> Unit): GitVcsRoot({
+    init()
+    userNameStyle = UserNameStyle.NAME
+})
+
+open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): KtorVcsRoot( {
     init()
     authMethod = password {
         userName = "hhariri"
