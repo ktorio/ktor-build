@@ -36,7 +36,6 @@ class StressTestBuild(private val osJVMComboEntry: OSJVMComboEntry) : BuildType(
         setupPerformanceMonitoring()
     }
     requirements {
-        noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")
-        contains("teamcity.agent.jvm.os.name", osJVMComboEntry.osEntry.agentString)
+        osAndMemoryAgentRequirements(osJVMComboEntry.osEntry.agentString, 7000)
     }
 })

@@ -62,3 +62,8 @@ object ProjectCore : Project({
         }
     }
 })
+
+fun Requirements.osAndMemoryAgentRequirements(os: String, memoryMb: Int) {
+    contains("teamcity.agent.jvm.os.name", os)
+    noLessThan("teamcity.agent.hardware.memorySizeMb", memoryMb.toString())
+}
