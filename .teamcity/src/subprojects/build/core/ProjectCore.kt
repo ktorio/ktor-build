@@ -21,7 +21,6 @@ val stressTests = listOf(
     OSJVMComboEntry(OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), JDKEntry("Java 8", "JDK_18")),
     OSJVMComboEntry(OSEntry("Windows", "Windows", "linkDebugTestMingwX64"), JDKEntry("Java 8", "JDK_18")))
 
-
 object ProjectCore : Project({
     id("ProjectKtorCore")
     name = "Core"
