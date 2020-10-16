@@ -30,6 +30,6 @@ class CoreBuild(private val osJVMComboEntry: OSJVMComboEntry) : BuildType({
         monitorPerformance()
     }
     requirements {
-        defineOSAndMemoryAgentRequirements(osJVMComboEntry.osEntry.agentString, 7000)
+        require(os = osJVMComboEntry.osEntry.agentString, minimumMemoryMB = 7000)
     }
 })
