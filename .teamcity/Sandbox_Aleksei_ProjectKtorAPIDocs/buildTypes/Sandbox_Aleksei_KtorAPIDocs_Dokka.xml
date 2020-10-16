@@ -4,7 +4,7 @@
   <description />
   <settings>
     <options>
-      <option name="artifactRules" value="+:apidoc =&gt; apidoc.tgz&#xA;ktor_version.txt" />
+      <option name="artifactRules" value="+:apidoc =&gt; apidoc.zip&#xA;ktor_version.txt" />
     </options>
     <parameters />
     <build-runners>
