@@ -27,7 +27,7 @@ class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildTyp
         }
     }
     features {
-        setupPerformanceMonitoring()
+        monitorPerformance()
     }
     requirements {
         defineOSAndMemoryAgentRequirements("Linux", 7000)
