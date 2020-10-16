@@ -31,7 +31,7 @@ project {
 
     // DO NOT REMOVE
     params {
-        param("teamcity.ui.settings.readOnly", "true")
+        param("teamcity.ui.settings.readOnly", "false")
     }
 
     subProject(ProjectBuild)
