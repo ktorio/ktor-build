@@ -26,15 +26,6 @@ cat ktor_version.txt]]></param>
         <artifact sourcePath="apidoc.tgz=&gt;apidoc&#xD;&#xA;ktor_version.txt=&gt;ktor_version.txt" />
       </dependency>
     </artifact-dependencies>
-    <dependencies>
-      <depend-on sourceBuildTypeId="Sandbox_Aleksei_KtorAPIDocs_Dokka">
-        <options>
-          <option name="run-build-if-dependency-failed" value="RUN_ADD_PROBLEM" />
-          <option name="take-started-build-with-same-revisions" value="true" />
-          <option name="take-successful-builds-only" value="true" />
-        </options>
-      </depend-on>
-    </dependencies>
     <cleanup />
   </settings>
 </build-type>
