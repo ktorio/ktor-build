@@ -6,7 +6,7 @@ import subprojects.*
 data class JDKEntry(val name: String, val env: String)
 data class OSEntry(val name: String, val agentString: String, val taskName: String)
 data class JavaScriptEngine(val name: String, val dockerContainer: String)
-data class OSJVMComboEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
+data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
 val operatingSystems = listOf(
     OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64"),
@@ -18,8 +18,8 @@ val jdkVersions = listOf(
 val javaScriptEngines = listOf(
     JavaScriptEngine("Chrome/Node.js", "stl5/ktor-test-image:latest"))
 val stressTests = listOf(
-    OSJVMComboEntry(OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), JDKEntry("Java 8", "JDK_18")),
-    OSJVMComboEntry(OSEntry("Windows", "Windows", "linkDebugTestMingwX64"), JDKEntry("Java 8", "JDK_18")))
+    OSJDKEntry(OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), JDKEntry("Java 8", "JDK_18")),
+    OSJDKEntry(OSEntry("Windows", "Windows", "linkDebugTestMingwX64"), JDKEntry("Java 8", "JDK_18")))
 
 object ProjectCore : Project({
     id("ProjectKtorCore")
@@ -32,7 +32,7 @@ object ProjectCore : Project({
     }
 
     val osJVMCombos = operatingSystems.flatMap { os ->
-        jdkVersions.map { jdk -> OSJVMComboEntry(os, jdk) }
+        jdkVersions.map { jdk -> OSJDKEntry(os, jdk) }
     }
 
     val osJVMBuilds = osJVMCombos.map(::CoreBuild)
@@ -63,7 +63,7 @@ object ProjectCore : Project({
     }
 })
 
-fun Requirements.require(os: String, minimumMemoryMB: Int) {
+fun Requirements.require(os: String, minMemoryDB: Int) {
     contains("teamcity.agent.jvm.os.name", os)
-    noLessThan("teamcity.agent.hardware.memorySizeMb", minimumMemoryMB.toString())
+    noLessThan("teamcity.agent.hardware.memorySizeMb", minMemoryDB.toString())
 }

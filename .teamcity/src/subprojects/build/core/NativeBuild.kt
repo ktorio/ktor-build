@@ -25,6 +25,6 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         monitorPerformance()
     }
     requirements {
-        require(os = osEntry.agentString, minimumMemoryMB =  7000)
+        require(os = osEntry.agentString, minMemoryDB =  7000)
     }
 })

@@ -30,7 +30,7 @@ class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildTyp
         monitorPerformance()
     }
     requirements {
-        require(os = "Linux", minimumMemoryMB = 7000)
+        require(os = "Linux", minMemoryDB = 7000)
     }
 })
 

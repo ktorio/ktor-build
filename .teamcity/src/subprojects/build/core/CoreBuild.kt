@@ -5,7 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 
-class CoreBuild(private val osJVMComboEntry: OSJVMComboEntry) : BuildType({
+class CoreBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     id("KtorMatrix_${osJVMComboEntry.osEntry.name}${osJVMComboEntry.jdkEntry.name}".toExtId())
     name = "${osJVMComboEntry.jdkEntry.name} on ${osJVMComboEntry.osEntry.name}"
     vcs {
@@ -30,6 +30,6 @@ class CoreBuild(private val osJVMComboEntry: OSJVMComboEntry) : BuildType({
         monitorPerformance()
     }
     requirements {
-        require(os = osJVMComboEntry.osEntry.agentString, minimumMemoryMB = 7000)
+        require(os = osJVMComboEntry.osEntry.agentString, minMemoryDB = 7000)
     }
 })
