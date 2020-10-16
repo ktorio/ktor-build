@@ -20,12 +20,6 @@ cat ktor_version.txt]]></param>
     </vcs-settings>
     <requirements />
     <build-triggers />
-    <artifact-dependencies>
-      <dependency id="ARTIFACT_DEPENDENCY_1" sourceBuildTypeId="Sandbox_Aleksei_KtorAPIDocs_Dokka" cleanDestination="false">
-        <revisionRule name="sameChainOrLastFinished" revision="latest.sameChainOrLastFinished" />
-        <artifact sourcePath="apidoc.tgz=&gt;apidoc&#xD;&#xA;ktor_version.txt=&gt;ktor_version.txt" />
-      </dependency>
-    </artifact-dependencies>
     <cleanup />
   </settings>
 </build-type>
