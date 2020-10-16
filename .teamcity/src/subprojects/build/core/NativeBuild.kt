@@ -25,6 +25,6 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         setupPerformanceMonitoring()
     }
     requirements {
-        osAndMemoryAgentRequirements(osEntry.agentString, 7000)
+        defineOSAndMemoryAgentRequirements(osEntry.agentString, 7000)
     }
 })

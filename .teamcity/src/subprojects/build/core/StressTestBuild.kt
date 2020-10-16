@@ -36,6 +36,6 @@ class StressTestBuild(private val osJVMComboEntry: OSJVMComboEntry) : BuildType(
         setupPerformanceMonitoring()
     }
     requirements {
-        osAndMemoryAgentRequirements(osJVMComboEntry.osEntry.agentString, 7000)
+        defineOSAndMemoryAgentRequirements(osJVMComboEntry.osEntry.agentString, 7000)
     }
 })

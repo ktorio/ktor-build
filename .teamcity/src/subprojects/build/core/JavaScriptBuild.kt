@@ -30,7 +30,7 @@ class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildTyp
         setupPerformanceMonitoring()
     }
     requirements {
-        osAndMemoryAgentRequirements("Linux", 7000)
+        defineOSAndMemoryAgentRequirements("Linux", 7000)
     }
 })
 
