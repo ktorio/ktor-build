@@ -27,11 +27,10 @@ class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildTyp
         }
     }
     features {
-        setupPerformanceMonitoring()
+        monitorPerformance()
     }
     requirements {
-        contains("teamcity.agent.jvm.os.name", "Linux")
-        noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")
+        require(os = "Linux", minMemoryDB = 7000)
     }
 })
 

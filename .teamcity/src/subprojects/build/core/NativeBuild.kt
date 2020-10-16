@@ -22,10 +22,9 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         }
     }
     features {
-        setupPerformanceMonitoring()
+        monitorPerformance()
     }
     requirements {
-        noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")
-        contains("teamcity.agent.jvm.os.name", osEntry.agentString)
+        require(os = osEntry.agentString, minMemoryDB =  7000)
     }
 })

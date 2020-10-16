@@ -5,9 +5,9 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 
-class CoreBuild(private val coreEntry: CoreEntry) : BuildType({
-    id("KtorMatrix_${coreEntry.osEntry.name}${coreEntry.jdkEntry.name}".toExtId())
-    name = "${coreEntry.jdkEntry.name} on ${coreEntry.osEntry.name}"
+class CoreBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
+    id("KtorMatrix_${osJVMComboEntry.osEntry.name}${osJVMComboEntry.jdkEntry.name}".toExtId())
+    name = "${osJVMComboEntry.jdkEntry.name} on ${osJVMComboEntry.osEntry.name}"
     vcs {
         root(VCSCore)
     }
@@ -18,19 +18,18 @@ class CoreBuild(private val coreEntry: CoreEntry) : BuildType({
         gradle {
             name = "Assemble"
             tasks = "assemble --info"
-            jdkHome = "%env.${coreEntry.jdkEntry.env}%"
+            jdkHome = "%env.${osJVMComboEntry.jdkEntry.env}%"
         }
         gradle {
             name = "Build and Run Tests"
             tasks = "clean jvmTest --no-parallel --continue --info"
-            jdkHome = "%env.${coreEntry.jdkEntry.env}%"
+            jdkHome = "%env.${osJVMComboEntry.jdkEntry.env}%"
         }
     }
     features {
-        setupPerformanceMonitoring()
+        monitorPerformance()
     }
     requirements {
-        noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")
-        contains("teamcity.agent.jvm.os.name", coreEntry.osEntry.agentString)
+        require(os = osJVMComboEntry.osEntry.agentString, minMemoryDB = 7000)
     }
 })
