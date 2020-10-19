@@ -37,7 +37,7 @@ EOF
 cp -rf apidoc/* "${WORK_DIR}"
 
 # Prepare result directory
-mkdir "${KTOR_VERSION}"
+mkdir -p "${KTOR_VERSION}"
 
 # Generate files via Jekyll
 #docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/doc-output" -it jekyll/jekyll jekyll b $* 
