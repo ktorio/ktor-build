@@ -51,7 +51,7 @@ GROUP=$2
 chown -R jekyll:jekyll "../${KTOR_VERSION}"
 chown -R jekyll:jekyll .
 jekyll b
-chown -R "${USER}:${GROUP}" "$KTOR_VERSION"
+chown -R "${USER}:${GROUP}" "../${KTOR_VERSION}"
 chown -R "${USER}:${GROUP}" .
 EOF
 
