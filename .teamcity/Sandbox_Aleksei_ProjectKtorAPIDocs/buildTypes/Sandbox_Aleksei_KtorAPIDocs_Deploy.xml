@@ -5,7 +5,7 @@
   <settings>
     <parameters />
     <build-runners>
-      <runner id="RUNNER_1" name="Create pull request on Github" type="simpleRunner">
+      <runner id="RUNNER_1" name="Generate static files for version" type="simpleRunner">
         <parameters>
           <param name="script.content" value="ls -la apidoc" />
           <param name="teamcity.step.mode" value="default" />
