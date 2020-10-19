@@ -68,9 +68,7 @@ docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -
 
 rm -f "${KTOR_VERSION}/index.yml"
 
-java -jar tools/apidoc-indexer.jar "${KTOR_VERSION}"
-
-ls -la "${KTOR_VERSION}"]]></param>
+java -jar tools/apidoc-indexer.jar "${KTOR_VERSION}"]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
