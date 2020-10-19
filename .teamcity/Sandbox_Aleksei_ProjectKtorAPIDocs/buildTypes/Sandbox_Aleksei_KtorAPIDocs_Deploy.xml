@@ -8,7 +8,34 @@
       <runner id="RUNNER_1" name="Generate static files for version" type="simpleRunner">
         <parameters>
           <param name="script.content"><![CDATA[KTOR_VERSION="$(cat ktor_version.txt)"
-DOMAIN="$(cat CNAME)"]]></param>
+DOMAIN="$(cat CNAME)"
+WORK_DIR="output"
+
+cp -rf template "${WORK_DIR}"
+
+cat > "${WORK_DIR}/_config.yml" <<- EOF
+
+title: "Ktor $KTOR_VERSION"
+description: Asynchronous framework for web applications
+url: "https://$DOMAIN"
+baseurl: /$KTOR_VERSION/
+
+source: .
+destination: ../$KTOR_VERSION
+
+ktor_version: $KTOR_VERSION
+
+markdown: kramdown
+exclude:
+  - Gemfile
+  - Gemfile.lock
+plugins:
+  - jekyll-sitemap
+
+EOF
+
+ls -la "${WORK_DIR}"
+cat "${WORK_DIR}/_config.yml"]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
