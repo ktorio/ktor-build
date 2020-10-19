@@ -21,7 +21,7 @@
     <artifact-dependencies>
       <dependency id="ARTIFACT_DEPENDENCY_8" sourceBuildTypeId="Sandbox_Aleksei_KtorAPIDocs_Dokka" cleanDestination="false">
         <revisionRule name="lastSuccessful" revision="latest.lastSuccessful" />
-        <artifact sourcePath="apidoc.zip=&gt;apidoc&#xD;&#xA;ktor_version.txt" />
+        <artifact sourcePath="apidoc.zip!**=&gt;apidoc&#xD;&#xA;ktor_version.txt" />
       </dependency>
     </artifact-dependencies>
     <dependencies>
