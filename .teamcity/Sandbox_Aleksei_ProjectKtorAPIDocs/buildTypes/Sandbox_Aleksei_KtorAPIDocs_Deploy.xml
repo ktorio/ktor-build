@@ -41,7 +41,7 @@ mkdir -p "${KTOR_VERSION}"
 
 # Generate files via Jekyll
 # docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/doc-output" jekyll/jekyll whoami
-docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" chown -R jekyll:jekyll "../${KTOR_VERSION}"
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R jekyll:jekyll "../${KTOR_VERSION}"
 docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R jekyll:jekyll .
 docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll jekyll b $* 
 
