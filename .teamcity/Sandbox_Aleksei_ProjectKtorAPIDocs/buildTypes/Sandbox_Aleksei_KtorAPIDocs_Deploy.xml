@@ -40,6 +40,8 @@ cp -rf apidoc/* "${WORK_DIR}"
 mkdir -p "${KTOR_VERSION}"
 
 # Generate files via Jekyll
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/doc-output" jekyll/jekyll whoami
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/doc-output" jekyll/jekyll stat .
 docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/doc-output" jekyll/jekyll jekyll b $* 
 
 
