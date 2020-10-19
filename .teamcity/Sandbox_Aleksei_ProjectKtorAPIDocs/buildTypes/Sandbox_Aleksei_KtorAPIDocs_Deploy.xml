@@ -7,7 +7,9 @@
     <build-runners>
       <runner id="RUNNER_1" name="Generate static files for version" type="simpleRunner">
         <parameters>
-          <param name="script.content"><![CDATA[KTOR_VERSION="$(cat ktor_version.txt)"
+          <param name="script.content"><![CDATA[set -e
+
+KTOR_VERSION="$(cat ktor_version.txt)"
 DOMAIN="$(cat CNAME)"
 WORK_DIR="output"
 
