@@ -13,7 +13,6 @@ WORK_DIR="output"
 
 
 cp -rf template "${WORK_DIR}"
-
 cat > "${WORK_DIR}/_config.yml" <<- EOF
 
 title: "Ktor $KTOR_VERSION"
