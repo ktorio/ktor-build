@@ -40,6 +40,23 @@ cp -rf apidoc/* "${WORK_DIR}"
 # Prepare result directory
 mkdir -p "${KTOR_VERSION}"
 
+JEKYLL_SCRIPT="${WORK_DIR}/jekyll.sh"
+cat > "${JEKYLL_SCRIPT}" <<- EOF
+#!/bin/bash
+USER=$1
+GROUP=$2
+
+chown -R jekyll:jekyll "../${KTOR_VERSION}"
+chown -R jekyll:jekyll .
+jekyll b
+chown -R "${USER}:${GROUP}" "$KTOR_VERSION"
+chown -R "${USER}:${GROUP}" .
+EOF
+
+chmod +x "${JEKYLL_SCRIPT}"
+
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll ./jekyll.sh
+
 # Generate files via Jekyll
 docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll" jekyll/jekyll chown -R jekyll:jekyll "${KTOR_VERSION}"
 docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R jekyll:jekyll .
