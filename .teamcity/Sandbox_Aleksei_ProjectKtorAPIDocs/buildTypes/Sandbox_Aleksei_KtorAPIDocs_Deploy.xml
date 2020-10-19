@@ -11,7 +11,7 @@
 DOMAIN="$(cat CNAME)"
 WORK_DIR="output"
 
-
+# Prepare working directory
 cp -rf template "${WORK_DIR}"
 cat > "${WORK_DIR}/_config.yml" <<- EOF
 
@@ -36,8 +36,14 @@ EOF
 
 cp -rf apidoc/* "${WORK_DIR}"
 
+# Prepare result directory
+mkdir "${KTOR_VERSION}"
 
-ls -la "${WORK_DIR}"]]></param>
+# Generate files via Jekyll
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/doc-output" -it jekyll/jekyll jekyll b $* 
+
+
+ls -la "${KTOR_VERSION}"]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
