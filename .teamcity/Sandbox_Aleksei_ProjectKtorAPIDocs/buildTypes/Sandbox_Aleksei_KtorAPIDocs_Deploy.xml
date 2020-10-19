@@ -57,13 +57,14 @@ EOF
 
 chmod +x "${JEKYLL_SCRIPT}"
 
-docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll ./jekyll.sh "$(id -u)" "$(id -g)"
+# docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll ./jekyll.sh "$(id -u)" "$(id -g)"
 
 # Generate files via Jekyll
-# docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll" jekyll/jekyll chown -R jekyll:jekyll "${KTOR_VERSION}"
-# docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R jekyll:jekyll .
-# docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll jekyll b $*
-# docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll" jekyll/jekyll chown -R "$(id -u):$(id -g)" "$KTOR_VERSION"
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll" jekyll/jekyll chown -R jekyll:jekyll "${KTOR_VERSION}"
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R jekyll:jekyll .
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll jekyll b $*
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll" jekyll/jekyll chown -R "$(id -u):$(id -g)" "$KTOR_VERSION"
+docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R "$(id -u):$(id -g)" .
 
 rm -f "${KTOR_VERSION}/index.yml"
 
