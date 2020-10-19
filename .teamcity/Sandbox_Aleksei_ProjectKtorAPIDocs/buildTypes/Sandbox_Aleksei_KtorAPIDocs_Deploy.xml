@@ -12,6 +12,7 @@ DOMAIN="$(cat CNAME)"
 WORK_DIR="output"
 
 # Prepare working directory
+[ ! -e "${WORK_DIR}" ] || rm -rf "${WORK_DIR}"
 cp -rf template "${WORK_DIR}"
 cat > "${WORK_DIR}/_config.yml" <<- EOF
 
