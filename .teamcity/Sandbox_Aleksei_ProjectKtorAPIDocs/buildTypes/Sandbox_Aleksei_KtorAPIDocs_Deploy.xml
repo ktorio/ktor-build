@@ -11,8 +11,10 @@
 DOMAIN="$(cat CNAME)"
 WORK_DIR="output"
 
-generate_jekyll_config() {
-	cat > "${WORK_DIR}/_config.yml" <<- EOF
+
+cp -rf template "${WORK_DIR}"
+
+cat > "${WORK_DIR}/_config.yml" <<- EOF
 
 title: "Ktor $KTOR_VERSION"
 description: Asynchronous framework for web applications
@@ -32,18 +34,11 @@ plugins:
   - jekyll-sitemap
 
 EOF
-}
 
-prepare_work_dir() {
-	cp -rf template "${WORK_DIR}"
-    generate_jekyll_config
-}
-
-prepare_work_dir
+cp -rf apidoc/* "${WORK_DIR}"
 
 
-ls -la "${WORK_DIR}"
-cat "${WORK_DIR}/_config.yml"]]></param>
+ls -la "${WORK_DIR}"]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
