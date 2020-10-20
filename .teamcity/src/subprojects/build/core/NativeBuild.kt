@@ -9,6 +9,10 @@ import subprojects.build.*
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
+    artifactRules = """
+                        +:**/build/**/*.klib
+                        $reportArtifacts
+                    """.trimIndent()
     vcs {
         root(VCSCore)
     }
