@@ -4,6 +4,8 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
+const val defaultBranch = "master"
+
 object VCSCore : PasswordVcsRoot({
     name = "Ktor"
     url = "https://github.com/ktorio/ktor.git"
