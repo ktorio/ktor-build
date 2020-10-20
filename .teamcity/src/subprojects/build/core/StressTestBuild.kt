@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import subprojects.*
+import subprojects.build.*
 
 class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     id("KtorMatrixStressTest_${osJVMComboEntry.osEntry.name}${osJVMComboEntry.jdkEntry.name}".toExtId())

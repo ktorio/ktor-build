@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
+import subprojects.build.*
 
 class CoreBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     id("KtorMatrix_${osJVMComboEntry.osEntry.name}${osJVMComboEntry.jdkEntry.name}".toExtId())

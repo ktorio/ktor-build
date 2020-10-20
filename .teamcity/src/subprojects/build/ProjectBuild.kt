@@ -2,6 +2,7 @@ package subprojects.build
 
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import subprojects.*
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
@@ -22,3 +23,8 @@ object ProjectBuild : Project({
   subProject(ProjectDocSamples)
   subProject(ProjectPlugin)
 })
+
+fun BuildFeatures.monitorPerformance() {
+    perfmon {
+    }
+}
