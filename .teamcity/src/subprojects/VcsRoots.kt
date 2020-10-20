@@ -38,6 +38,10 @@ open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): KtorVcsRoot( {
 
 fun Triggers.setupDefaultVcsTrigger() {
     vcs {
+        triggerRules =  """
+                            -:*.md
+                            -:.gitignore
+                        """.trimIndent()
         branchFilter =  """
                             +:*
                             -:pull/*
