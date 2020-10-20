@@ -1,6 +1,7 @@
 package subprojects
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
 object VCSCore : PasswordVcsRoot({
@@ -36,5 +37,11 @@ open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): KtorVcsRoot( {
 })
 
 fun Triggers.setupDefaultVcsTrigger() {
-
+    vcs {
+        branchFilter =  """
+                            +:*
+                            -:pull/*
+                        """.trimIndent()
+        quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+    }
 }
