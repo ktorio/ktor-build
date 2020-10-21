@@ -24,10 +24,10 @@ object ProjectBuild : Project({
     subProject(ProjectPlugin)
 
     cleanup {
-        all(days = 1)
         keepRule {
             id = "KtorKeepRule_DefaultBranchArtifacts"
             dataToKeep = allArtifacts()
+            days(2)
             applyToBuilds {
                 successful()
                 inBranches {
