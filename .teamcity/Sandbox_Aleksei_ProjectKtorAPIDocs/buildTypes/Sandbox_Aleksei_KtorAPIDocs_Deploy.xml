@@ -7,12 +7,8 @@
     <build-runners>
       <runner id="RUNNER_1" name="Generate static files for version and push changes to git" type="simpleRunner">
         <parameters>
-          <param name="script.content"><![CDATA[set -e
-
-KTOR_VERSION="$(cat ktor_version.txt)"
-
-echo "${KTOR_VERSION}"
-ls -la apidoc]]></param>
+          <param name="script.content"><![CDATA[KTOR_VERSION="$(cat ktor_version.txt)"
+./build_doc "${KTOR_VERSION}" apidoc]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
