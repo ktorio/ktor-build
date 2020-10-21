@@ -3,6 +3,9 @@
   <name>Deploy website</name>
   <description />
   <settings>
+    <options>
+      <option name="checkoutMode" value="ON_AGENT" />
+    </options>
     <parameters />
     <build-runners>
       <runner id="RUNNER_1" name="Generate static files for version and push changes to git" type="simpleRunner">
