@@ -5,70 +5,14 @@
   <settings>
     <parameters />
     <build-runners>
-      <runner id="RUNNER_1" name="Generate static files for version" type="simpleRunner">
+      <runner id="RUNNER_1" name="Generate static files for version and push changes to git" type="simpleRunner">
         <parameters>
           <param name="script.content"><![CDATA[set -e
 
 KTOR_VERSION="$(cat ktor_version.txt)"
-DOMAIN="$(cat CNAME)"
-WORK_DIR="output"
 
-# Prepare working directory
-[ ! -e "${WORK_DIR}" ] || rm -rf "${WORK_DIR}"
-cp -rf template "${WORK_DIR}"
-cat > "${WORK_DIR}/_config.yml" <<- EOF
-
-title: "Ktor $KTOR_VERSION"
-description: Asynchronous framework for web applications
-url: "https://$DOMAIN"
-baseurl: /$KTOR_VERSION/
-
-source: .
-destination: ../$KTOR_VERSION
-
-ktor_version: $KTOR_VERSION
-
-markdown: kramdown
-exclude:
-  - Gemfile
-  - Gemfile.lock
-plugins:
-  - jekyll-sitemap
-
-EOF
-
-cp -rf apidoc/* "${WORK_DIR}"
-
-# Prepare result directory
-mkdir -p "${KTOR_VERSION}"
-
-JEKYLL_SCRIPT="${WORK_DIR}/jekyll.sh"
-cat > "${JEKYLL_SCRIPT}" <<- EOF
-#!/bin/bash
-USER=$1
-GROUP=$2
-
-chown -R jekyll:jekyll "../${KTOR_VERSION}"
-chown -R jekyll:jekyll .
-jekyll b
-chown -R "${USER}:${GROUP}" "../${KTOR_VERSION}"
-chown -R "${USER}:${GROUP}" .
-EOF
-
-chmod +x "${JEKYLL_SCRIPT}"
-
-# docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll ./jekyll.sh "$(id -u)" "$(id -g)"
-
-# Generate files via Jekyll
-docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll" jekyll/jekyll chown -R jekyll:jekyll "${KTOR_VERSION}"
-docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R jekyll:jekyll .
-docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll jekyll b $*
-docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll" jekyll/jekyll chown -R "$(id -u):$(id -g)" "$KTOR_VERSION"
-docker run -v "${PWD}:/srv/jekyll" -v "${PWD}/vendor/bundle:/usr/local/bundle" -w "/srv/jekyll/${WORK_DIR}" jekyll/jekyll chown -R "$(id -u):$(id -g)" .
-
-rm -f "${KTOR_VERSION}/index.yml"
-
-java -jar tools/apidoc-indexer.jar "${KTOR_VERSION}"]]></param>
+echo "${KTOR_VERSION}"
+ls -la apidoc]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
