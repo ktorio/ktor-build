@@ -19,7 +19,7 @@ git config user.name "Auto deploy"
 
 git add "${KTOR_VERSION}" /assets/versions.js sitemap.xml latest
 git commit -m "Update for ${KTOR_VERSION}"	
-git push]]></param>
+git push origin master]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
