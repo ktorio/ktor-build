@@ -12,11 +12,10 @@
         <parameters>
           <param name="script.content"><![CDATA[KTOR_VERSION="$(cat ktor_version.txt)"
 
-git config user.email "aleksei.tirman@jetbrains.com"
-git config user.name "Auto deploy"
-
 ./build_doc.sh "${KTOR_VERSION}" apidoc
 
+git config user.email "aleksei.tirman@jetbrains.com"
+git config user.name "Auto deploy"
 git add "${KTOR_VERSION}" /assets/versions.js sitemap.xml latest
 git commit -m "Update for ${KTOR_VERSION}"	
 git push origin master]]></param>
