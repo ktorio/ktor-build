@@ -9,10 +9,7 @@ import subprojects.build.*
 class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildType({
     id("KtorMatrixJavaScript_${javaScriptEngine.name}".toExtId())
     name = "JavaScript on ${javaScriptEngine.name}"
-    artifactRules = """
-                        +:**/build/**/*.jar
-                        $reportArtifacts
-                    """.trimIndent()
+    artifactRules = "+:**/build/**/*.jar\n$reportArtifacts"
     vcs {
         root(VCSCore)
     }
