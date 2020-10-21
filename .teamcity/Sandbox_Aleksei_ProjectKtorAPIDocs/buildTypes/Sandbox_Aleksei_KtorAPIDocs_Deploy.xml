@@ -15,7 +15,11 @@
 git config user.email "aleksei.tirman@jetbrains.com"
 git config user.name "Auto deploy"
 
-./build_doc.sh "${KTOR_VERSION}" apidoc]]></param>
+./build_doc.sh "${KTOR_VERSION}" apidoc
+
+git add "${KTOR_VERSION}" /assets/versions.js sitemap.xml latest
+git commit -m "Update for ${KTOR_VERSION}"	
+git push]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
         </parameters>
