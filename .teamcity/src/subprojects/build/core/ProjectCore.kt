@@ -8,7 +8,7 @@ data class OSEntry(val name: String, val agentString: String, val taskName: Stri
 data class JavaScriptEngine(val name: String, val dockerContainer: String)
 data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
-const val junitReportArtifact =  "+:**/build/reports => junitReports.tgz"
+const val junitReportArtifact =  "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
 
 val operatingSystems = listOf(
