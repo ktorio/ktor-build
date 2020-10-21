@@ -9,6 +9,7 @@
         <parameters>
           <param name="script.content"><![CDATA[KTOR_VERSION="$(cat ktor_version.txt)"
 pwd
+ls -la
 #./build_doc "${KTOR_VERSION}" apidoc]]></param>
           <param name="teamcity.step.mode" value="default" />
           <param name="use.custom.script" value="true" />
