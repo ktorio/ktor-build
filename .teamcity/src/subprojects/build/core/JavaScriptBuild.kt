@@ -4,10 +4,15 @@ import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
+import subprojects.build.*
 
 class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildType({
     id("KtorMatrixJavaScript_${javaScriptEngine.name}".toExtId())
     name = "JavaScript on ${javaScriptEngine.name}"
+    artifactRules = """
+                        +:**/build/**/*.jar
+                        $reportArtifacts
+                    """.trimIndent()
     vcs {
         root(VCSCore)
     }

@@ -1,6 +1,10 @@
 package subprojects
 
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
+
+const val defaultBranch = "master"
 
 object VCSCore : PasswordVcsRoot({
     name = "Ktor"
@@ -33,3 +37,17 @@ open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): KtorVcsRoot( {
         password = "credentialsJSON:a48648d8-f9b1-4720-bef0-85445fe9171f"
     }
 })
+
+fun Triggers.setupDefaultVcsTrigger() {
+    vcs {
+        triggerRules =  """
+                            -:*.md
+                            -:.gitignore
+                        """.trimIndent()
+        branchFilter =  """
+                            +:*
+                            -:pull/*
+                        """.trimIndent()
+        quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+    }
+}
