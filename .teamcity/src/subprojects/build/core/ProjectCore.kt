@@ -8,12 +8,13 @@ data class OSEntry(val name: String, val agentString: String, val taskName: Stri
 data class JavaScriptEngine(val name: String, val dockerContainer: String)
 data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
-val reportArtifacts =   "+:**/build/reports => junitReports.tgz\n"+
-                        "+:**/hs_err* => outOfMemoryDumps.tgz"
+const val junitReportArtifact =  "+:**/build/reports => junitReports.tgz"
+const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
 
 val operatingSystems = listOf(
     OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64"),
-    OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"),
+    OSEntry("Li" +
+        "nux", "Linux", "linkDebugTestLinuxX64"),
     OSEntry("Windows", "Windows", "linkDebugTestMingwX64"))
 val jdkVersions = listOf(
     JDKEntry("Java 8", "JDK_18"),

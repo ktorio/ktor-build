@@ -9,7 +9,7 @@ import subprojects.build.*
 class CoreBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     id("KtorMatrix_${osJVMComboEntry.osEntry.name}${osJVMComboEntry.jdkEntry.name}".toExtId())
     name = "${osJVMComboEntry.jdkEntry.name} on ${osJVMComboEntry.osEntry.name}"
-    artifactRules = "+:**/build/**/*.jar\n$reportArtifacts"
+    artifactRules = addArtifacts("+:**/build/**/*.jar", junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
     }
@@ -35,3 +35,9 @@ class CoreBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
         require(os = osJVMComboEntry.osEntry.agentString, minMemoryDB = 7000)
     }
 })
+
+fun addArtifacts(vararg artifacts: String): String {
+    return artifacts.joinToString("\n") {
+        it
+    }
+}
