@@ -42,7 +42,7 @@ git push origin master]]></param>
       </dependency>
     </artifact-dependencies>
     <dependencies>
-      <depend-on sourceBuildTypeId="Sandbox_Aleksei_ProjectKtorReleaseAPIDocs_BuildDokkaArtifacts">
+      <depend-on sourceBuildTypeId="Sandbox_Aleksei_KtorAPIDocs_Dokka">
         <options>
           <option name="run-build-if-dependency-failed" value="RUN_ADD_PROBLEM" />
           <option name="take-started-build-with-same-revisions" value="true" />
