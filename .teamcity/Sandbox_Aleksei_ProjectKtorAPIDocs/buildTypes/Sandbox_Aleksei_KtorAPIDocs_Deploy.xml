@@ -28,7 +28,9 @@ git push origin master]]></param>
     <vcs-settings>
       <vcs-entry-ref root-id="Sandbox_Aleksei_VCSAPIDocs" />
     </vcs-settings>
-    <requirements />
+    <requirements>
+      <contains id="RQ_3" name="teamcity.agent.jvm.os.name" value="Linux" />
+    </requirements>
     <build-triggers />
     <artifact-dependencies>
       <dependency id="ARTIFACT_DEPENDENCY_8" sourceBuildTypeId="Sandbox_Aleksei_KtorAPIDocs_Dokka" cleanDestination="false">
