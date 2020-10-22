@@ -14,14 +14,14 @@
         <parameters>
           <param name="script.content"><![CDATA[KTOR_VERSION="$(cat ktor_version.txt)"
 
-echo $GITHUB_TOKEN
+echo 
 exit
 
 ./build_doc.sh "${KTOR_VERSION}" apidoc
 
 git config user.email "aleksei.tirman@jetbrains.com"
 git config user.name "Auto deploy"
-git remote set-url origin https://stexxe:b851a7f73b34927ae29a98098080c75bebf0a335@github.com/ktorio/api.ktor.io.git
+git remote set-url origin "https://${GITHUB_USER}:${GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
 git add "${KTOR_VERSION}" assets/versions.js sitemap.xml latest
 git commit -m "Update for ${KTOR_VERSION}"	
 git push origin master]]></param>
