@@ -16,7 +16,7 @@
 
 git config user.email "aleksei.tirman@jetbrains.com"
 git config user.name "Auto deploy"
-git remote set-url origin https://stexxe:06ff6eb2c7ba42243f6d0569d108f52866db758c@github.com/ktorio/api.ktor.io.git
+git remote set-url origin https://stexxe:47ba45b20d4545d9c7769c7137035d7ce61900d5@github.com/ktorio/api.ktor.io.git
 git add "${KTOR_VERSION}" assets/versions.js sitemap.xml latest
 git commit -m "Update for ${KTOR_VERSION}"	
 git push origin master]]></param>
