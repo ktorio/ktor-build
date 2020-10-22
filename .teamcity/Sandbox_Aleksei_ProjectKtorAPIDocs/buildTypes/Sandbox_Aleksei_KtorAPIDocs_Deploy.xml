@@ -8,6 +8,7 @@
     </options>
     <parameters>
       <param name="env.GITHUB_PASSWORD" value="credentialsJSON:8dd83de8-7176-4315-823f-eacc388e4a2a" spec="password display='normal'" />
+      <param name="env.GITHUB_USER" value="stexxe" />
     </parameters>
     <build-runners>
       <runner id="RUNNER_1" name="Generate static files for version and push changes to git" type="simpleRunner">
