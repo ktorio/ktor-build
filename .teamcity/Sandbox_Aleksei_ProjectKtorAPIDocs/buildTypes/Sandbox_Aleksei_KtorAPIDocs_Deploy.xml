@@ -15,9 +15,6 @@
         <parameters>
           <param name="script.content"><![CDATA[KTOR_VERSION="$(cat ktor_version.txt)"
 
-echo 
-exit
-
 ./build_doc.sh "${KTOR_VERSION}" apidoc
 
 git config user.email "aleksei.tirman@jetbrains.com"
