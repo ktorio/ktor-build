@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" parent-id="Sandbox_Aleksei_ProjectKtorRelease" uuid="82534d22-77be-41f1-97e6-07bd4c8ac025" xsi:noNamespaceSchemaLocation="https://www.jetbrains.com/teamcity/schemas/2020.1/project-config.xsd">
-  <name>API Docs</name>
-  <parameters />
-  <cleanup />
-</project>
-
