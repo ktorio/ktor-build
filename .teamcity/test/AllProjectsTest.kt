@@ -8,6 +8,7 @@ import org.reflections.util.ConfigurationBuilder
 import org.reflections.util.FilterBuilder
 import subprojects.build.ProjectBuild
 import subprojects.build.core.ProjectCore
+import subprojects.build.docsamples.ProjectBuildAPIDocs
 import subprojects.build.docsamples.ProjectDocSamples
 import subprojects.build.generator.ProjectGenerator
 import subprojects.build.plugin.ProjectPlugin
@@ -28,7 +29,8 @@ class AllProjectsTest {
                 ProjectPlugin to "ProjectKtorPlugin",
                 ProjectSamples to "ProjectKtorSamples",
                 ProjectBuild to "ProjectKtorBuild",
-                ProjectRelease to "ProjectKtorRelease"
+                ProjectRelease to "ProjectKtorRelease",
+                ProjectBuildAPIDocs to "ProjectKtorBuildAPIDocs"
         )
 
         allProjects().forEach { project ->
@@ -51,7 +53,10 @@ class AllProjectsTest {
                         "KtorMatrixNativeMacOS",
                         "KtorMatrixNativeLinux",
                         "KtorMatrixNativeWindows",
-                        "KtorMatrixJavaScriptChromeNodeJs"
+                        "KtorMatrixJavaScriptChromeNodeJs",
+                        "KtorMatrixStressTestLinuxJava8",
+                        "KtorMatrixStressTestWindowsJava8",
+                        "KtorCore_All"
                 ),
                 ProjectDocSamples to setOf("KtorDocs_ValidateSamples"),
                 ProjectSamples to setOf(
@@ -59,7 +64,8 @@ class AllProjectsTest {
                         "KtorSamplesValidate_fullstack_mpp",
                         "KtorSamplesValidate_generic",
                         "KtorSamplesValidate_All"
-                )
+                ),
+                ProjectBuildAPIDocs to setOf("KtorAPIDocs_Dokka")
         )
 
         allProjects().forEach { project ->

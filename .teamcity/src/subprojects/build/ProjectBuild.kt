@@ -21,6 +21,7 @@ object ProjectBuild : Project({
     subProject(ProjectSamples)
     subProject(ProjectCore)
     subProject(ProjectDocSamples)
+    subProject(ProjectBuildAPIDocs)
     subProject(ProjectPlugin)
 
     cleanup {
