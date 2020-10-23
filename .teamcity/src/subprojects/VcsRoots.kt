@@ -5,6 +5,8 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
 const val defaultBranch = "master"
+const val VCSUsername = "hhariri"
+const val VCSToken = "credentialsJSON:a48648d8-f9b1-4720-bef0-85445fe9171f"
 
 object VCSCore : PasswordVcsRoot({
     name = "Ktor"
@@ -25,6 +27,11 @@ object VCSSamples: GitVcsRoot({
     url = "https://github.com/ktorio/ktor-samples.git"
 })
 
+object VCSAPIDocs : PasswordVcsRoot({
+    name = "API Docs"
+    url = "https://github.com/ktorio/api.ktor.io.git"
+})
+
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit): GitVcsRoot({
     init()
     userNameStyle = UserNameStyle.NAME
@@ -33,8 +40,8 @@ open class KtorVcsRoot(init: GitVcsRoot.() -> Unit): GitVcsRoot({
 open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): KtorVcsRoot( {
     init()
     authMethod = password {
-        userName = "hhariri"
-        password = "credentialsJSON:a48648d8-f9b1-4720-bef0-85445fe9171f"
+        userName = VCSUsername
+        password = VCSToken
     }
 })
 

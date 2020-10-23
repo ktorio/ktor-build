@@ -8,12 +8,13 @@ import org.reflections.util.ConfigurationBuilder
 import org.reflections.util.FilterBuilder
 import subprojects.build.ProjectBuild
 import subprojects.build.core.ProjectCore
-import subprojects.build.docsamples.ProjectBuildAPIDocs
+import subprojects.build.apidocs.ProjectBuildAPIDocs
 import subprojects.build.docsamples.ProjectDocSamples
 import subprojects.build.generator.ProjectGenerator
 import subprojects.build.plugin.ProjectPlugin
 import subprojects.build.samples.ProjectSamples
 import subprojects.release.ProjectRelease
+import subprojects.release.apidocs.ProjectReleaseAPIDocs
 import java.lang.IllegalStateException
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -30,7 +31,8 @@ class AllProjectsTest {
                 ProjectSamples to "ProjectKtorSamples",
                 ProjectBuild to "ProjectKtorBuild",
                 ProjectRelease to "ProjectKtorRelease",
-                ProjectBuildAPIDocs to "ProjectKtorBuildAPIDocs"
+                ProjectBuildAPIDocs to "ProjectKtorBuildAPIDocs",
+                ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs"
         )
 
         allProjects().forEach { project ->
@@ -65,7 +67,8 @@ class AllProjectsTest {
                         "KtorSamplesValidate_generic",
                         "KtorSamplesValidate_All"
                 ),
-                ProjectBuildAPIDocs to setOf("KtorAPIDocs_Dokka")
+                ProjectBuildAPIDocs to setOf("KtorAPIDocs_Dokka"),
+                ProjectReleaseAPIDocs to setOf("KtorAPIDocs_Deploy")
         )
 
         allProjects().forEach { project ->
