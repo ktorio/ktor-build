@@ -37,7 +37,5 @@ class CoreBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
 })
 
 fun addArtifacts(vararg artifacts: String): String {
-    return artifacts.joinToString("\n") {
-        it
-    }
+    return artifacts.joinToString("\n")
 }

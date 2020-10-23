@@ -2,6 +2,7 @@ package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.*
+import subprojects.build.defaultTimeouts
 
 data class JDKEntry(val name: String, val env: String)
 data class OSEntry(val name: String, val agentString: String, val taskName: String)
@@ -31,8 +32,7 @@ object ProjectCore : Project({
     description = "Ktor Core Framework"
 
     params {
-        param("system.org.gradle.internal.http.connectionTimeout", "120000")
-        param("system.org.gradle.internal.http.socketTimeout", "120000")
+        defaultTimeouts()
     }
 
     val osJVMCombos = operatingSystems.flatMap { os ->
@@ -67,7 +67,10 @@ object ProjectCore : Project({
     }
 })
 
-fun Requirements.require(os: String, minMemoryDB: Int) {
+fun Requirements.require(os: String, minMemoryDB: Int = -1) {
     contains("teamcity.agent.jvm.os.name", os)
-    noLessThan("teamcity.agent.hardware.memorySizeMb", minMemoryDB.toString())
+
+    if (minMemoryDB != -1) {
+        noLessThan("teamcity.agent.hardware.memorySizeMb", minMemoryDB.toString())
+    }
 }

@@ -4,6 +4,7 @@ package subprojects.build
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import subprojects.*
+import subprojects.build.apidocs.ProjectBuildAPIDocs
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
 import subprojects.build.generator.*
@@ -21,6 +22,7 @@ object ProjectBuild : Project({
     subProject(ProjectSamples)
     subProject(ProjectCore)
     subProject(ProjectDocSamples)
+    subProject(ProjectBuildAPIDocs)
     subProject(ProjectPlugin)
 
     cleanup {
@@ -41,4 +43,9 @@ object ProjectBuild : Project({
 fun BuildFeatures.monitorPerformance() {
     perfmon {
     }
+}
+
+fun ParametrizedWithType.defaultTimeouts() {
+    param("system.org.gradle.internal.http.connectionTimeout", "120000")
+    param("system.org.gradle.internal.http.socketTimeout", "120000")
 }
