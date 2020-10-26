@@ -29,9 +29,8 @@ object ProjectBuild : Project({
         keepRule {
             id = "KtorKeepRule_DefaultBranchArtifacts"
             dataToKeep = allArtifacts()
-            days(2)
+            days(5)
             applyToBuilds {
-                successful()
                 inBranches {
                     branchFilter = patterns(defaultBranch)
                 }
