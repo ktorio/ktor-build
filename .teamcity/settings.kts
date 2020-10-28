@@ -1,6 +1,7 @@
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.build.*
 import subprojects.release.*
+import subprojects.*
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -28,6 +29,8 @@ version = "2020.1"
 
 project {
     description = "Ktor Framework"
+
+    vcsRoot(VCSCore)
 
     // DO NOT REMOVE
     params {

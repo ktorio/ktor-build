@@ -8,7 +8,7 @@ import subprojects.VCSToken
 import subprojects.VCSUsername
 import subprojects.build.apidocs.BuildDokka
 import subprojects.build.apidocs.VersionFilename
-import subprojects.build.core.addArtifacts
+import subprojects.build.core.formatArtifactsString
 import subprojects.build.core.require
 
 object ProjectReleaseAPIDocs : Project({
@@ -55,7 +55,7 @@ object ProjectReleaseAPIDocs : Project({
                 }
 
                 artifacts {
-                    artifactRules = addArtifacts("apidoc.zip!**=>apidoc", VersionFilename)
+                    artifactRules = formatArtifactsString("apidoc.zip!**=>apidoc", VersionFilename)
                 }
             }
         }

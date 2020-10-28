@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import subprojects.VCSSamples
+import subprojects.build.core.*
 
 val gradleProjects = listOf("client-mpp", "fullstack-mpp", "generic")
 
@@ -18,21 +19,7 @@ object ProjectSamples : Project({
     projects.forEach(::buildType)
 
     buildType {
-        id("KtorSamplesValidate_All")
-        name = "Validate all samples"
-        type = BuildTypeSettings.Type.COMPOSITE
-
-        vcs {
-            root(VCSSamples)
-        }
-
-        dependencies {
-            projects.mapNotNull { it.id }.forEach { id ->
-                snapshot(id) {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                }
-            }
-        }
+        createCompositeBuild("KtorSamplesValidate_All", "Validate all samples", VCSSamples, projects)
     }
 })
 

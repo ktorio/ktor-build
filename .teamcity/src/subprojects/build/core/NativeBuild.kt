@@ -9,7 +9,7 @@ import subprojects.build.*
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
-    artifactRules = addArtifacts("+:**/build/**/*.klib", junitReportArtifact, memoryReportArtifact)
+    artifactRules = formatArtifactsString("+:**/build/**/*.klib", junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
     }
@@ -29,4 +29,5 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     requirements {
         require(os = osEntry.agentString, minMemoryDB =  7000)
     }
+    generatedBuilds[osEntry.name] = this
 })

@@ -6,25 +6,32 @@ import subprojects.build.defaultTimeouts
 
 data class JDKEntry(val name: String, val env: String)
 data class OSEntry(val name: String, val agentString: String, val taskName: String)
-data class JavaScriptEngine(val name: String, val dockerContainer: String)
+data class JSEntry(val name: String, val dockerContainer: String)
 data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
 const val junitReportArtifact =  "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
 
-val operatingSystems = listOf(
-    OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64"),
-    OSEntry("Li" +
-        "nux", "Linux", "linkDebugTestLinuxX64"),
-    OSEntry("Windows", "Windows", "linkDebugTestMingwX64"))
-val jdkVersions = listOf(
-    JDKEntry("Java 8", "JDK_18"),
-    JDKEntry("Java 11", "JDK_11"))
-val javaScriptEngines = listOf(
-    JavaScriptEngine("Chrome/Node.js", "stl5/ktor-test-image:latest"))
+val macOS = OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64")
+val linux = OSEntry("Linux", "Linux", "linkDebugTestLinuxX64")
+val windows = OSEntry("Windows", "Windows", "linkDebugTestMingwX64")
+
+val operatingSystems = listOf(macOS, linux, windows)
+
+val java8 = JDKEntry("Java 8", "JDK_18")
+val java11 = JDKEntry("Java 11", "JDK_11")
+
+val jdkVersions = listOf(java8, java11)
+
+val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
+
+val javaScriptEngines = listOf(js)
+
 val stressTests = listOf(
-    OSJDKEntry(OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), JDKEntry("Java 8", "JDK_18")),
-    OSJDKEntry(OSEntry("Windows", "Windows", "linkDebugTestMingwX64"), JDKEntry("Java 8", "JDK_18")))
+    OSJDKEntry(linux, java8),
+    OSJDKEntry(windows, java8))
+
+val generatedBuilds = hashMapOf<String, BuildType>()
 
 object ProjectCore : Project({
     id("ProjectKtorCore")
@@ -35,37 +42,41 @@ object ProjectCore : Project({
         defaultTimeouts()
     }
 
-    val osJVMCombos = operatingSystems.flatMap { os ->
+    val OsJdk = operatingSystems.flatMap { os ->
         jdkVersions.map { jdk -> OSJDKEntry(os, jdk) }
     }
 
-    val osJVMBuilds = osJVMCombos.map(::CoreBuild)
+    val osJdkBuilds = OsJdk.map(::CoreBuild)
     val nativeBuilds = operatingSystems.map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
 
-    val allBuilds = osJVMBuilds.plus(nativeBuilds).plus(javaScriptBuilds).plus(stressTestBuilds)
+    val allBuilds = osJdkBuilds.plus(nativeBuilds).plus(javaScriptBuilds).plus(stressTestBuilds)
 
     allBuilds.forEach(::buildType)
 
     buildType {
-        id("KtorCore_All")
-        name = "Build All Core"
-        type = BuildTypeSettings.Type.COMPOSITE
+        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds)
+    }
+})
 
-        vcs {
-            root(VCSCore)
-        }
+fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>) {
+    id(buildId)
+    name = buildName
+    type = BuildTypeSettings.Type.COMPOSITE
 
-        dependencies {
-            allBuilds.mapNotNull { it.id }.forEach { id ->
-                snapshot(id) {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                }
+    vcs {
+        root(vcsRoot)
+    }
+
+    dependencies {
+        builds.mapNotNull { it.id }.forEach { id ->
+            snapshot(id) {
+                onDependencyFailure = FailureAction.FAIL_TO_START
             }
         }
     }
-})
+}
 
 fun Requirements.require(os: String, minMemoryDB: Int = -1) {
     contains("teamcity.agent.jvm.os.name", os)
