@@ -8,7 +8,7 @@
   <param name="ignoreKnownHosts" value="true" />
   <param name="secure:password" value="credentialsJSON:8d94d67f-dbc2-4349-80d0-edfab8a652c3" />
   <param name="submoduleCheckout" value="CHECKOUT" />
-  <param name="url" value="https://github.com/ktorio/ktor-build" />
+  <param name="url" value="https://github.com/ktorio/ktor-build.git" />
   <param name="useAlternates" value="true" />
   <param name="username" value="hhariri" />
   <param name="usernameStyle" value="USERID" />
