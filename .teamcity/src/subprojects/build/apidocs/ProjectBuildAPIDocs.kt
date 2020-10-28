@@ -1,12 +1,10 @@
 package subprojects.build.apidocs
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import subprojects.VCSCore
-import subprojects.build.core.addArtifacts
-import subprojects.build.defaultTimeouts
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import subprojects.*
+import subprojects.build.*
+import subprojects.build.core.*
 
 const val VersionFilename = "ktor_version.txt"
 
@@ -34,7 +32,7 @@ object BuildDokka: BuildType({
         contains("teamcity.agent.jvm.os.name", "Linux")
     }
 
-    artifactRules = addArtifacts("+:apidoc => apidoc.zip", VersionFilename)
+    artifactRules = formatArtifacts("+:apidoc => apidoc.zip", VersionFilename)
 
     steps {
         gradle {

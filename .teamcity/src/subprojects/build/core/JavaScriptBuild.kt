@@ -6,10 +6,11 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
-class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildType({
-    id("KtorMatrixJavaScript_${javaScriptEngine.name}".toExtId())
-    name = "JavaScript on ${javaScriptEngine.name}"
-    artifactRules = addArtifacts("+:**/build/**/*.jar", junitReportArtifact, memoryReportArtifact)
+class JavaScriptBuild(private val JSEntry: JSEntry) : BuildType({
+    id("KtorMatrixJavaScript_${JSEntry.name}".toExtId())
+    name = "JavaScript on ${JSEntry.name}"
+    val artifactsToPublish = "+:**/build/**/*.jar"
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
     }
@@ -20,12 +21,12 @@ class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildTyp
         gradle {
             name = "Parallel assemble"
             tasks = "assemble --info -Penable-js-tests"
-            setupDockerForJavaScriptTests(javaScriptEngine)
+            setupDockerForJavaScriptTests(JSEntry)
         }
         gradle {
             name = "Build"
             tasks = "clean build --no-parallel --continue --info -Penable-js-tests"
-            setupDockerForJavaScriptTests(javaScriptEngine)
+            setupDockerForJavaScriptTests(JSEntry)
         }
     }
     features {
@@ -36,8 +37,8 @@ class JavaScriptBuild(private val javaScriptEngine: JavaScriptEngine) : BuildTyp
     }
 })
 
-private fun GradleBuildStep.setupDockerForJavaScriptTests(javaScriptEngine: JavaScriptEngine) {
+private fun GradleBuildStep.setupDockerForJavaScriptTests(JSEntry: JSEntry) {
     dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
     dockerPull = true
-    dockerImage = javaScriptEngine.dockerContainer
+    dockerImage = JSEntry.dockerContainer
 }
