@@ -11,13 +11,6 @@ object ProjectPublishing : Project({
     name = "Publishing"
     description = "Publish artifacts to repositories"
 
-    val publishingTargets = listOf(
-        Build("JVM", generatedBuilds["${linux.name}${java11.name}"]),
-        Build("JavaScript", generatedBuilds[js.name]),
-        Build("Windows", generatedBuilds[windows.name]),
-        Build("Linux", generatedBuilds[linux.name]),
-        Build("macOS", generatedBuilds[macOS.name]))
-
     val allBuilds = publishingTargets.map(::PublishMavenBuild)
 
     allBuilds.forEach(::buildType)

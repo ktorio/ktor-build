@@ -9,7 +9,7 @@ import subprojects.build.*
 class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toExtId())
     name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.name}"
-    artifactRules = formatArtifactsString("+:**/build/**/*.jar", junitReportArtifact, memoryReportArtifact)
+    artifactRules = formatArtifacts("+:**/build/**/*.jar", junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
     }
@@ -37,7 +37,7 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     generatedBuilds["${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}"] = this
 })
 
-fun formatArtifactsString(vararg artifacts: String): String {
+fun formatArtifacts(vararg artifacts: String): String {
     return artifacts.joinToString("\n")
 }
 

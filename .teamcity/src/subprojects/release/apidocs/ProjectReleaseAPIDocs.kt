@@ -8,8 +8,7 @@ import subprojects.VCSToken
 import subprojects.VCSUsername
 import subprojects.build.apidocs.BuildDokka
 import subprojects.build.apidocs.VersionFilename
-import subprojects.build.core.formatArtifactsString
-import subprojects.build.core.require
+import subprojects.build.core.*
 
 object ProjectReleaseAPIDocs : Project({
     id("ProjectKtorReleaseAPIDocs")
@@ -55,7 +54,7 @@ object ProjectReleaseAPIDocs : Project({
                 }
 
                 artifacts {
-                    artifactRules = formatArtifactsString("apidoc.zip!**=>apidoc", VersionFilename)
+                    artifactRules = formatArtifacts("apidoc.zip!**=>apidoc", VersionFilename)
                 }
             }
         }

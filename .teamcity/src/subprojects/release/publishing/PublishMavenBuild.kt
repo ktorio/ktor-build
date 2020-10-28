@@ -10,20 +10,15 @@ class PublishMavenBuild(private val build: Build) : BuildType({
     name = "Publish ${build.name} to Maven"
 
     dependencies {
-        val buildId = build.build?.id
-        if (buildId != null) {
-            artifacts(buildId) {
-                buildRule = lastSuccessful()
-                artifactRules = stripReportArtifacts(artifactRules)
-            }
-        } else {
-            throw RuntimeException("Build ID not found for entry ${build.name}")
+        val buildId = build.build?.id ?: throw RuntimeException("Build ID not found for entry ${build.name}")
+        artifacts(buildId) {
+            buildRule = lastSuccessful()
+            artifactRules = stripReportArtifacts(artifactRules)
         }
-
     }
 })
 
 fun stripReportArtifacts(artifacts: String): String {
     return artifacts.replace("$junitReportArtifact\n", "")
-        .replace("$memoryReportArtifact\n","")
+        .replace("$memoryReportArtifact\n", "")
 }
