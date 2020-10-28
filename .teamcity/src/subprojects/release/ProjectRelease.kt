@@ -2,6 +2,7 @@ package subprojects.release
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
+import subprojects.release.publishing.*
 
 object ProjectRelease : Project({
     id("ProjectKtorRelease")
@@ -17,4 +18,5 @@ object ProjectRelease : Project({
     }
 
     subProject(ProjectReleaseAPIDocs)
+    subProject(ProjectPublishing)
 })

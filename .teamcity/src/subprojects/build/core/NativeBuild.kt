@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.release.publishing.*
 
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
@@ -30,4 +31,5 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     requirements {
         require(os = osEntry.agentString, minMemoryDB =  7000)
     }
+    generatedBuilds[osEntry.name] = BuildData(this.id!!, artifactsToPublish)
 })

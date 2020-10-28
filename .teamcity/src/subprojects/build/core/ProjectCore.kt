@@ -3,6 +3,7 @@ package subprojects.build.core
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.*
 import subprojects.build.defaultTimeouts
+import subprojects.release.publishing.*
 
 data class JDKEntry(val name: String, val env: String)
 data class OSEntry(val name: String, val agentString: String, val taskName: String)
@@ -28,8 +29,10 @@ val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
 val javaScriptEngines = listOf(js)
 
 val stressTests = listOf(
-    OSJDKEntry(OSEntry("Linux", "Linux", "linkDebugTestLinuxX64"), JDKEntry("Java 8", "JDK_18")),
-    OSJDKEntry(OSEntry("Windows", "Windows", "linkDebugTestMingwX64"), JDKEntry("Java 8", "JDK_18")))
+    OSJDKEntry(linux, java8),
+    OSJDKEntry(windows, java8))
+
+val generatedBuilds = hashMapOf<String, BuildData>()
 
 object ProjectCore : Project({
     id("ProjectKtorCore")
