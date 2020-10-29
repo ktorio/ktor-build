@@ -1,6 +1,8 @@
 package subprojects.release.publishing
 
 import jetbrains.buildServer.configs.kotlin.v10.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
+import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
@@ -14,10 +16,15 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
         root(VCSCore)
     }
     steps {
+        val gpgDir = "."
+        val workdir = VCSCore.agentGitPath.toString()
+        prepareKeyFile(gpgDir, workdir)
+
         gradle {
             name = "Parallel assemble"
             tasks = publishingData.gradleTasks.joinToString(" ")
         }
+        cleanupKeyFile(gpgDir, workdir)
     }
     dependencies {
         val buildId = publishingData.buildData.id
@@ -30,4 +37,42 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
         require(publishingData.operatingSystem)
     }
 })
+
+fun BuildSteps.prepareKeyFile(dir: String, scriptWorkDir: String) {
+    script {
+        name = "Prepare gnupg"
+        scriptContent = """
+                            cd $dir
+                            export HOME=${'$'}(pwd)
+                            export GPG_TTY=${'$'}(tty)
+                            
+                            rm -rf .gnupg
+                            
+                            cat >keyfile <<EOT
+                            %sign.key.private.new%
+                            EOT
+                            gpg --allow-secret-key-import --batch --import keyfile
+                            rm -v keyfile
+                            
+                            cat >keyfile <<EOT
+                            %sign.key.main.public%
+                            EOT
+                            gpg --batch --import keyfile
+                            rm -v keyfile
+                        """
+        workingDir = scriptWorkDir
+    }
+}
+
+fun BuildSteps.cleanupKeyFile(dir: String = ".", scriptWorkDir: String) {
+    script {
+        name = "Cleanup"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+                            cd $dir
+                            rm -rf .gnupg
+                        """
+        workingDir = scriptWorkDir
+    }
+}
 
