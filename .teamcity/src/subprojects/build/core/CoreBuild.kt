@@ -10,7 +10,7 @@ import subprojects.release.publishing.*
 class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toExtId())
     name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.name}"
-    val artifactsToPublish = "+:**/build/**/*.jar"
+    val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar", "+:**/.gradle/**", "+:**/build/**")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)

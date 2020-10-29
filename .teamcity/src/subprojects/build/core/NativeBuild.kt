@@ -10,7 +10,7 @@ import subprojects.release.publishing.*
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
-    val artifactsToPublish = "+:**/build/**/*.klib"
+    val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/.gradle/**", "+:**/build/**")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
