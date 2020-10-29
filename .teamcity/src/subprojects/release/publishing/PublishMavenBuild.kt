@@ -49,13 +49,13 @@ fun BuildSteps.prepareKeyFile(dir: String, scriptWorkDir: String) {
                             rm -rf .gnupg
                             
                             cat >keyfile <<EOT
-                            %sign.key.private.new%
+                            %env.SIGN_KEY_PRIVATE%
                             EOT
                             gpg --allow-secret-key-import --batch --import keyfile
                             rm -v keyfile
                             
                             cat >keyfile <<EOT
-                            %sign.key.main.public%
+                            %env.SIGN_KEY_PUBLIC%
                             EOT
                             gpg --batch --import keyfile
                             rm -v keyfile
