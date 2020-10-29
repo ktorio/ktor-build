@@ -10,8 +10,8 @@ import subprojects.release.publishing.*
 class JavaScriptBuild(private val JSEntry: JSEntry) : BuildType({
     id("KtorMatrixJavaScript_${JSEntry.name}".toExtId())
     name = "JavaScript on ${JSEntry.name}"
-    val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar", "+:**/.gradle/**", "+:**/build/**")
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+    val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, producedGradleCacheArtifact, producedBuildArtifact)
     vcs {
         root(VCSCore)
     }

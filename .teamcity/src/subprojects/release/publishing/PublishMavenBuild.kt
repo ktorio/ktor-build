@@ -29,7 +29,7 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
         val buildId = publishingData.buildData.id
         artifacts(buildId) {
             buildRule = lastSuccessful()
-            artifactRules = publishingData.buildData.artifacts
+            artifactRules = formatArtifacts(publishingData.buildData.artifacts, consumedGradleCacheArtifact, consumedBuildArtifact)
         }
     }
     requirements {

@@ -12,6 +12,10 @@ data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
 const val junitReportArtifact =  "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
+const val producedGradleCacheArtifact =  "+:**/.gradle/** => gradle.zip"
+const val producedBuildArtifact = "+:**/build/** => build.zip"
+const val consumedGradleCacheArtifact =  "gradle.zip!**  /  *"
+const val consumedBuildArtifact =  "build.zip!**  /  *"
 
 val macOS = OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64")
 val linux = OSEntry("Linux", "Linux", "linkDebugTestLinuxX64")
