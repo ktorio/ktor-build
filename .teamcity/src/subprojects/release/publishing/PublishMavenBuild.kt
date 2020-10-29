@@ -7,7 +7,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.core.*
-import kotlin.require
+import java.io.*
 
 class PublishMavenBuild(private val publishingData: PublishingData) : BuildType({
     id("KtorPublishMavenBuild_${publishingData.buildName}".toExtId())
@@ -16,15 +16,14 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
         root(VCSCore)
     }
     steps {
-        val gpgDir = "."
-        val workdir = VCSCore.agentGitPath.toString()
-        prepareKeyFile(gpgDir, workdir)
+        val gpgDir = "%env.SIGN_KEY_LOCATION%"
+        prepareKeyFile(gpgDir)
 
         gradle {
             name = "Parallel assemble"
             tasks = publishingData.gradleTasks.joinToString(" ")
         }
-        cleanupKeyFile(gpgDir, workdir)
+        cleanupKeyFile(gpgDir)
     }
     dependencies {
         val buildId = publishingData.buildData.id
@@ -38,11 +37,11 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
     }
 })
 
-fun BuildSteps.prepareKeyFile(dir: String, scriptWorkDir: String) {
+fun BuildSteps.prepareKeyFile(workingDirectory: String) {
     script {
         name = "Prepare gnupg"
         scriptContent = """
-                            cd $dir
+                            cd $workingDirectory
                             export HOME=${'$'}(pwd)
                             export GPG_TTY=${'$'}(tty)
                             
@@ -60,19 +59,19 @@ fun BuildSteps.prepareKeyFile(dir: String, scriptWorkDir: String) {
                             gpg --batch --import keyfile
                             rm -v keyfile
                         """
-        workingDir = scriptWorkDir
+        workingDir = "."
     }
 }
 
-fun BuildSteps.cleanupKeyFile(dir: String = ".", scriptWorkDir: String) {
+fun BuildSteps.cleanupKeyFile(workingDirectory: String = ".") {
     script {
         name = "Cleanup"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-                            cd $dir
+                            cd $workingDirectory
                             rm -rf .gnupg
                         """
-        workingDir = scriptWorkDir
+        workingDir = "."
     }
 }
 

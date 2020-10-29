@@ -1,8 +1,10 @@
 package subprojects.release
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import subprojects.*
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
 import subprojects.release.publishing.*
+import java.io.*
 
 object ProjectRelease : Project({
     id("ProjectKtorRelease")
@@ -102,6 +104,7 @@ PcffD1y2+mYNaueVZTxDSWx6XUptDcZefzgumGAvevPI/llpXwCWdYzvSwRp
         password("env.SIGN_KEY_PRIVATE", value = "credentialsJSON:1196162d-f166-4302-b179-6e463bc5c327")
         password("env.SONATYPE_USER", value = "credentialsJSON:1809dc95-c346-410a-931b-3e1c6cea58cc")
         password("env.SONATYPE_PASSWORD", value = "credentialsJSON:c8be43cb-031a-4679-858e-305e47b3368a")
+        param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%/tmp").invariantSeparatorsPath)
     }
 
     subProject(ProjectReleaseAPIDocs)
