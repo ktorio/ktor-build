@@ -162,11 +162,11 @@ key=${'$'}(cat ./keyvar | grep -o -P '(?<=-----BEGIN PGP PRIVATE KEY BLOCK-----)
 echo "${'$'}line1" > ./keyfile
 echo "${'$'}key\n" >> ./keyfile
 echo "${'$'}line_last" >> ./keyfile
-rm -rf .gnupg
+
 gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
-ls -l ./.gnupg
-ls -l ./tmp"""
+gpg --export-secret-keys --armor --output ./keyfile --passphrase %env.SIGN_KEY_PASSPHRASE%
+"""
             .trimIndent()
         workingDir = "."
     }
