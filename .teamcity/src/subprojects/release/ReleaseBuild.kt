@@ -17,6 +17,9 @@ object ReleaseBuild : BuildType({
     id("KtorReleaseAllBuild")
     name = "Release All"
     description = "Publish all artifacts and release documentation"
+    type = BuildTypeSettings.Type.DEPLOYMENT
+    buildNumberPattern = "%release.version%"
+    maxRunningBuilds = 1
 
     vcs {
         root(VCSSamples)
