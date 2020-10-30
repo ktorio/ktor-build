@@ -148,19 +148,18 @@ mkdir -p %env.SIGN_KEY_LOCATION%
 cd "%env.SIGN_KEY_LOCATION%"
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
-export signing.gnupg.passphrase=%env.SIGN_KEY_PASSPHRASE%
 line1='-----BEGIN PGP PRIVATE KEY BLOCK-----'
 line_last='-----END PGP PRIVATE KEY BLOCK-----'
-cat >keyfile <<EOT
+cat >keyvar <<EOT
 %env.SIGN_KEY_PRIVATE%
 EOT
-key=${'$'}(cat ./keyfile | grep -o -P '(?<=-----BEGIN PGP PRIVATE KEY BLOCK-----).*(?=-----END PGP PRIVATE KEY BLOCK-----)' | tr ' ' '\n')
-echo "${'$'}line1" > ./keyfinal
-echo "${'$'}key\n" >> ./keyfinal
-echo "${'$'}line_last" >> ./keyfinal
+key=${'$'}(cat ./keyvar | grep -o -P '(?<=-----BEGIN PGP PRIVATE KEY BLOCK-----).*(?=-----END PGP PRIVATE KEY BLOCK-----)' | tr ' ' '\n')
+echo "${'$'}line1" > ./keyfile
+echo "${'$'}key\n" >> ./keyfile
+echo "${'$'}line_last" >> ./keyfile
 rm -rf .gnupg
-gpg --allow-secret-key-import --batch --import keyfinal
-rm -v keyfinal
+gpg --allow-secret-key-import --batch --import keyfile
+rm -v keyfile
 cat >keyfile <<EOT
 %env.SIGN_KEY_PUBLIC%
 EOT
