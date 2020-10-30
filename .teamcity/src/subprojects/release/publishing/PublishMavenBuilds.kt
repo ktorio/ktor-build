@@ -142,6 +142,8 @@ fun BuildSteps.prepareKeyFile() {
     script {
         name = "Prepare gnupg"
         scriptContent = """
+                            #!/bin/bash
+                            set -eux
                             mkdir -p %env.SIGN_KEY_LOCATION%
                             cd "%env.SIGN_KEY_LOCATION%"
                             export HOME=${'$'}(pwd)
