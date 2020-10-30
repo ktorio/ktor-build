@@ -19,7 +19,7 @@ object ProjectRelease : Project({
 
     params {
         defaultTimeouts()
-        param("release.version", "UNDEFINED")
+        text("release.version", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
         param("env.SIGN_KEY_ID", value = "7C30F7B1329DBA87")
         password("env.SIGN_KEY_PASSPHRASE", value = "credentialsJSON:59f4247e-21d9-4354-a0f0-3051fd16ef5d")
         password("env.SIGN_KEY_PRIVATE", value = "credentialsJSON:1196162d-f166-4302-b179-6e463bc5c327")
