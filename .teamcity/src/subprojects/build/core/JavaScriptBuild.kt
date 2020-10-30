@@ -11,7 +11,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     id("KtorMatrixJavaScript_${jsEntry.name}".toExtId())
     name = "JavaScript on ${jsEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, producedGradleCacheArtifact, producedBuildArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
     }

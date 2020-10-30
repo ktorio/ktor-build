@@ -12,7 +12,7 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toExtId())
     name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, producedGradleCacheArtifact, producedBuildArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
     }
