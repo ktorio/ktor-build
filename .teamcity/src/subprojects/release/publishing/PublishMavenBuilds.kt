@@ -148,6 +148,7 @@ mkdir -p %env.SIGN_KEY_LOCATION%
 cd "%env.SIGN_KEY_LOCATION%"
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
+export signing.gnupg.passphrase=%env.SIGN_KEY_PASSPHRASE%
 line1='-----BEGIN PGP PRIVATE KEY BLOCK-----'
 line_last='-----END PGP PRIVATE KEY BLOCK-----'
 cat >keyfile <<EOT
