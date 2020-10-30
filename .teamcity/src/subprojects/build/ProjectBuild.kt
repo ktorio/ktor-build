@@ -14,7 +14,7 @@ import subprojects.build.samples.*
 object ProjectBuild : Project({
     id("ProjectKtorBuild")
     name = "Build"
-    description = "Build configurations that build Ktor"
+    description = "Build configurations for Ktor"
 
     subProject(ProjectGenerator)
     subProject(ProjectSamples)
