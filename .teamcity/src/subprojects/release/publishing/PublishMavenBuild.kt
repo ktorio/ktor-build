@@ -21,7 +21,7 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
 
         gradle {
             name = "Parallel assemble"
-            tasks = publishingData.gradleTasks.joinToString(" ")
+            tasks = publishingData.gradleTasks.joinToString(" ") + " --i"
         }
         cleanupKeyFile(gpgDir)
     }
@@ -29,7 +29,7 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
         val buildId = publishingData.buildData.id
         artifacts(buildId) {
             buildRule = lastSuccessful()
-            artifactRules = formatArtifacts(publishingData.buildData.artifacts, consumedGradleCacheArtifact, consumedBuildArtifact)
+            artifactRules = formatArtifacts(publishingData.buildData.artifacts)
         }
     }
     requirements {
