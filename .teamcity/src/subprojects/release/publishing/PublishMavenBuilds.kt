@@ -150,14 +150,14 @@ export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
 line1='-----BEGIN PGP PRIVATE KEY BLOCK-----'
 line_last='-----END PGP PRIVATE KEY BLOCK-----'
+cat >keyfile <<EOT
+%env.SIGN_KEY_PRIVATE%
+EOT
 key=${'$'}(cat ./keyfile | grep -o -P '(?<=-----BEGIN PGP PRIVATE KEY BLOCK-----).*(?=-----END PGP PRIVATE KEY BLOCK-----)' | tr ' ' '\n')
 echo "${'$'}line1" > ./keyfinal
 echo "${'$'}key\n" >> ./keyfinal
 echo "${'$'}line_last" >> ./keyfinal
 rm -rf .gnupg
-cat >keyfinal <<EOT
-%env.SIGN_KEY_PRIVATE%
-EOT
 gpg --allow-secret-key-import --batch --import keyfinal
 rm -v keyfinal
 cat >keyfile <<EOT
