@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
+import subprojects.release.*
 
 const val VersionFilename = "ktor_version.txt"
 
@@ -15,8 +16,8 @@ object ProjectBuildAPIDocs : Project({
     params {
         defaultTimeouts()
     }
-
-    buildType(BuildDokka)
+    apiBuild = BuildDokka
+    buildType(apiBuild ?: throw RuntimeException("ProjectBuildApiDocs is null"))
 })
 
 object BuildDokka: BuildType({

@@ -7,11 +7,10 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.core.*
-import java.io.*
 
 class PublishMavenBuild(private val publishingData: PublishingData) : BuildType({
-    id("KtorPublishMavenBuild_${publishingData.buildName}".toExtId())
-    name = "Publish ${publishingData.buildName} to Maven"
+    id("KtorPublishMavenBuild_${publishingData.targetPlatform}".toExtId())
+    name = "Publish ${publishingData.targetPlatform} to Maven"
     vcs {
         root(VCSCore)
     }
@@ -26,10 +25,11 @@ class PublishMavenBuild(private val publishingData: PublishingData) : BuildType(
         cleanupKeyFile(gpgDir)
     }
     dependencies {
-        val buildId = publishingData.buildData.id
-        artifacts(buildId) {
-            buildRule = lastSuccessful()
-            artifactRules = formatArtifacts(publishingData.buildData.artifacts, consumedGradleCacheArtifact, consumedBuildArtifact)
+        val build = publishingData.build
+        if (build == null) {
+            throw RuntimeException("Cannot find build for ${publishingData.targetPlatform}")
+        }
+        snapshot(build.id!!) {
         }
     }
     requirements {

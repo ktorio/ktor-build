@@ -110,4 +110,5 @@ PcffD1y2+mYNaueVZTxDSWx6XUptDcZefzgumGAvevPI/llpXwCWdYzvSwRp
 
     subProject(ProjectReleaseAPIDocs)
     subProject(ProjectPublishing)
+    subProject(ProjectReleaseAll)
 })

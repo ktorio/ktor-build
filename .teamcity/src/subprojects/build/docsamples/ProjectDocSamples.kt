@@ -3,6 +3,7 @@ package subprojects.build.docsamples
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
+import subprojects.release.*
 
 const val relativeDir = "codeSnippets"
 
@@ -13,7 +14,7 @@ object ProjectDocSamples : Project({
 
   vcsRoot(VCSDocs)
 
-  buildType {
+  samplesBuild = buildType {
     id("KtorDocs_ValidateSamples")
     name = "Build and test code samples"
 
