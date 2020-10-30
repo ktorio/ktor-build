@@ -6,7 +6,7 @@ import subprojects.build.core.*
 import subprojects.release.*
 
 object ProjectPublishing : Project({
-    id("ProjectPublishing")
+    id("ProjectKtorPublishing")
     name = "Publishing"
     description = "Publish artifacts to repositories"
 
