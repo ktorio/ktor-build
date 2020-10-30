@@ -15,9 +15,9 @@ var nativeMacOSBuild: BuildType? = null
 
 
 object ProjectReleaseAll : Project({
-    id("ProjectReleaseAll")
-    name = "Core"
-    description = "Ktor Core Framework"
+    id("ProjectReleaseKtor")
+    name = "Release All"
+    description = " The Full Monty! - Release Ktor framework, update docs, site, etc."
 
     params {
         defaultTimeouts()
