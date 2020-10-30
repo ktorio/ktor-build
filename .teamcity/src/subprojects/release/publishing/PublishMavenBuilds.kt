@@ -139,11 +139,11 @@ object PublishMacOSNativeToMaven : BuildType({
 })
 
 fun BuildSteps.prepareKeyFile() {
-    val gpgDir = "%env.SIGN_KEY_LOCATION%"
     script {
         name = "Prepare gnupg"
         scriptContent = """
-                            cd $gpgDir
+                            mkdir -p %env.SIGN_KEY_LOCATION%
+                            cd "%env.SIGN_KEY_LOCATION%"
                             export HOME=${'$'}(pwd)
                             export GPG_TTY=${'$'}(tty)
                             
