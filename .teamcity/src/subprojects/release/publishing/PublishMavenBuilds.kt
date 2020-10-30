@@ -148,6 +148,11 @@ mkdir -p %env.SIGN_KEY_LOCATION%
 cd "%env.SIGN_KEY_LOCATION%"
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
+cat >keyfile <<EOT
+%env.SIGN_KEY_PUBLIC%
+EOT
+gpg --batch --import keyfile
+rm -v keyfile
 line1='-----BEGIN PGP PRIVATE KEY BLOCK-----'
 line_last='-----END PGP PRIVATE KEY BLOCK-----'
 cat >keyvar <<EOT
@@ -159,12 +164,7 @@ echo "${'$'}key\n" >> ./keyfile
 echo "${'$'}line_last" >> ./keyfile
 rm -rf .gnupg
 gpg --allow-secret-key-import --batch --import keyfile
-rm -v keyfile
-cat >keyfile <<EOT
-%env.SIGN_KEY_PUBLIC%
-EOT
-gpg --batch --import keyfile
-rm -v keyfile"""
+#rm -v keyfile"""
             .trimIndent()
         workingDir = "."
     }
