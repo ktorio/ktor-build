@@ -165,7 +165,7 @@ echo "${'$'}line_last" >> ./keyfile
 
 gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
-gpg --export-secret-keys --armor --output ./keyfile --passphrase %env.SIGN_KEY_PASSPHRASE%
+echo %env.SIGN_KEY_PASSPHRASE% | gpg --export-secret-keys --armor --output ~/keyfile --passphrase-fd 
 """
             .trimIndent()
         workingDir = "."
