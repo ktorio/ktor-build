@@ -6,42 +6,144 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
+import subprojects.build.*
 import subprojects.build.core.*
+import subprojects.release.*
 
-class PublishMavenBuild(private val publishingData: PublishingData) : BuildType({
-    id("KtorPublishMavenBuild_${publishingData.targetPlatform}".toExtId())
-    name = "Publish ${publishingData.targetPlatform} to Maven"
+object PublishJvmToMaven : BuildType({
+    id("KtorPublishJvmToMavenBuild")
+    name = "Publish JVM to Maven"
     vcs {
         root(VCSCore)
     }
     steps {
-        val gpgDir = "%env.SIGN_KEY_LOCATION%"
-        prepareKeyFile(gpgDir)
-
-        gradle {
-            name = "Parallel assemble"
-            tasks = publishingData.gradleTasks.joinToString(" ")
-        }
-        cleanupKeyFile(gpgDir)
+        publishToMaven(
+            listOf(
+                "publishJvmPublicationToMavenRepository",
+                "publishKotlinMultiplatformPublicationToMavenRepository",
+                "publishMetadataPublicationToMavenRepository"
+            )
+        )
     }
     dependencies {
-        val build = publishingData.build
-        if (build == null) {
-            throw RuntimeException("Cannot find build for ${publishingData.targetPlatform}")
-        }
-        snapshot(build.id!!) {
+        snapshot(jvmBuild!!) {
         }
     }
     requirements {
-        require(publishingData.operatingSystem)
+        require(linux.agentString)
     }
 })
 
-fun BuildSteps.prepareKeyFile(workingDirectory: String) {
+object PublishJSToMaven : BuildType({
+    id("KtorPublishJSToMavenBuild")
+    name = "Publish JS to Maven"
+    vcs {
+        root(VCSCore)
+    }
+    steps {
+        publishToMaven(
+            listOf(
+                "publishJsPublicationToMavenRepository",
+                "publishMetadataPublicationToMavenRepository"
+            )
+        )
+    }
+    dependencies {
+        snapshot(jsBuild!!) {
+        }
+    }
+    requirements {
+        require(linux.agentString)
+    }
+})
+
+object PublishWindowsNativeToMaven : BuildType({
+    id("KtorPublishWindowsNativeToMavenBuild")
+    name = "Publish Windows Native to Maven"
+    vcs {
+        root(VCSCore)
+    }
+    steps {
+        publishToMaven(
+            listOf(
+                "publishMingwX64PublicationToMavenRepository",
+                "publishMetadataPublicationToMavenRepository"
+            )
+        )
+    }
+    dependencies {
+        snapshot(nativeWindowsBuild!!) {
+        }
+    }
+    requirements {
+        require(windows.agentString)
+    }
+})
+
+object PublishLinuxNativeToMaven : BuildType({
+    id("KtorPublishLinuxNativeToMavenBuild")
+    name = "Publish Linux Native to Maven"
+    vcs {
+        root(VCSCore)
+    }
+    steps {
+        publishToMaven(
+            listOf(
+                "publishLinuxX64PublicationToMavenRepository",
+                "publishMetadataPublicationToMavenRepository"
+            )
+        )
+    }
+    dependencies {
+        snapshot(nativeLinuxBuild!!) {
+        }
+        snapshot(PublishWindowsNativeToMaven) {
+        }
+    }
+    requirements {
+        require(linux.agentString)
+    }
+})
+
+object PublishMacOSNativeToMaven : BuildType({
+    id("KtorPublishMacOSNativeToMavenBuild")
+    name = "Publish Mac Native to Maven"
+    vcs {
+        root(VCSCore)
+    }
+    steps {
+        publishToMaven(
+            listOf(
+                "publishIosArm32PublicationToMavenRepository",
+                "publishIosArm64PublicationToMavenRepository",
+                "publishIosX64PublicationToMavenRepository",
+                "publishMacosX64PublicationToMavenRepository",
+                "publishTvosArm64PublicationToMavenRepository",
+                "publishTvosX64PublicationToMavenRepository",
+                "publishWatchosArm32PublicationToMavenRepository",
+                "publishWatchosArm64PublicationToMavenRepository",
+                "publishWatchosX86PublicationToMavenRepository",
+                "publishMetadataPublicationToMavenRepository"
+            )
+        )
+    }
+    dependencies {
+        snapshot(nativeMacOSBuild!!) {
+        }
+        snapshot(PublishWindowsNativeToMaven) {
+        }
+    }
+    requirements {
+        require(macOS.agentString)
+    }
+})
+
+fun BuildSteps.prepareKeyFile() {
+    val gpgDir = "%env.SIGN_KEY_LOCATION%"
     script {
         name = "Prepare gnupg"
         scriptContent = """
-                            cd $workingDirectory
+                            cd $gpgDir
                             export HOME=${'$'}(pwd)
                             export GPG_TTY=${'$'}(tty)
                             
@@ -63,15 +165,25 @@ fun BuildSteps.prepareKeyFile(workingDirectory: String) {
     }
 }
 
-fun BuildSteps.cleanupKeyFile(workingDirectory: String = ".") {
+fun BuildSteps.cleanupKeyFile() {
     script {
         name = "Cleanup"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-                            cd $workingDirectory
+                            cd .
                             rm -rf .gnupg
                         """
         workingDir = "."
     }
 }
+
+private fun BuildSteps.publishToMaven(gradleTasks: List<String>) {
+    prepareKeyFile()
+    gradle {
+        name = "Parallel assemble"
+        tasks = gradleTasks.joinToString(" ")
+    }
+    cleanupKeyFile()
+}
+
 
