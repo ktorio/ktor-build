@@ -23,7 +23,7 @@ object VCSDocs : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor-documentation.git"
 })
 
-object VCSSamples: GitVcsRoot({
+object VCSSamples : GitVcsRoot({
     name = "Ktor Samples"
     url = "https://github.com/ktorio/ktor-samples.git"
 })
@@ -33,12 +33,12 @@ object VCSAPIDocs : PasswordVcsRoot({
     url = "https://github.com/ktorio/api.ktor.io.git"
 })
 
-open class KtorVcsRoot(init: GitVcsRoot.() -> Unit): GitVcsRoot({
+open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     init()
     userNameStyle = UserNameStyle.NAME
 })
 
-open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): KtorVcsRoot( {
+open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit) : KtorVcsRoot({
     init()
     authMethod = password {
         userName = VCSUsername
@@ -48,11 +48,11 @@ open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit): KtorVcsRoot( {
 
 fun Triggers.setupDefaultVcsTrigger() {
     vcs {
-        triggerRules =  """
+        triggerRules = """
                             -:*.md
                             -:.gitignore
                         """.trimIndent()
-        branchFilter =  """
+        branchFilter = """
                             +:*
                             -:pull/*
                         """.trimIndent()

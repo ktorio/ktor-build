@@ -14,8 +14,6 @@ object ProjectReleaseAPIDocs : Project({
     id("ProjectKtorReleaseAPIDocs")
     name = "API Docs"
 
-    vcsRoot(VCSAPIDocs)
-
     params {
         param("env.GITHUB_USER", VCSUsername)
         password("env.GITHUB_PASSWORD", VCSToken)

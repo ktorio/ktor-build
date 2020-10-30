@@ -14,8 +14,6 @@ object ProjectSamples : Project({
     name = "Samples"
     description = "Code samples"
 
-    vcsRoot(VCSSamples)
-
     val projects = gradleProjects.map(::SampleProject)
     projects.forEach(::buildType)
 

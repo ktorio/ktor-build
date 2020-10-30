@@ -30,6 +30,9 @@ project {
     description = "Ktor Framework"
 
     vcsRoot(VCSCore)
+    vcsRoot(VCSDocs)
+    vcsRoot(VCSSamples)
+    vcsRoot(VCSAPIDocs)
 
     // DO NOT REMOVE
     params {
