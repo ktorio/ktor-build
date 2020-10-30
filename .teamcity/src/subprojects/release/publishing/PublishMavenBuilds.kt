@@ -164,7 +164,9 @@ echo "${'$'}key\n" >> ./keyfile
 echo "${'$'}line_last" >> ./keyfile
 rm -rf .gnupg
 gpg --allow-secret-key-import --batch --import keyfile
-#rm -v keyfile"""
+rm -v keyfile
+ls -l ./.gnupg
+ls -l ./tmp"""
             .trimIndent()
         workingDir = "."
     }
