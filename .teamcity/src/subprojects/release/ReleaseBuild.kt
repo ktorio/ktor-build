@@ -17,7 +17,7 @@ object ReleaseBuild : BuildType({
     id("KtorReleaseAllBuild")
     name = "Release All"
     description = "Publish all artifacts and release documentation"
-    type = BuildTypeSettings.Type.DEPLOYMENT
+    type = Type.DEPLOYMENT
     buildNumberPattern = "%release.version%"
     maxRunningBuilds = 1
 
@@ -41,7 +41,6 @@ object ReleaseBuild : BuildType({
     dependencies {
         releaseBuilds.forEach {
             if (it != null) {
-                println("Adding ${it.id}")
                 snapshot(it) {
                 }
             }
