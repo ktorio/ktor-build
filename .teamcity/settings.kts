@@ -24,13 +24,15 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 (Plugins -> teamcity-configs -> teamcity-configs:generate), the
 'Debug' option is available in the context menu for the task.
 */
-
 version = "2020.1"
 
 project {
     description = "Ktor Framework"
 
     vcsRoot(VCSCore)
+    vcsRoot(VCSDocs)
+    vcsRoot(VCSSamples)
+    vcsRoot(VCSAPIDocs)
 
     // DO NOT REMOVE
     params {

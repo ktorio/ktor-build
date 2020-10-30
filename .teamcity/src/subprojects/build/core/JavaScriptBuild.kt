@@ -5,11 +5,11 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.release.publishing.*
+import subprojects.release.*
 
-class JavaScriptBuild(private val JSEntry: JSEntry) : BuildType({
-    id("KtorMatrixJavaScript_${JSEntry.name}".toExtId())
-    name = "JavaScript on ${JSEntry.name}"
+class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
+    id("KtorMatrixJavaScript_${jsEntry.name}".toExtId())
+    name = "JavaScript on ${jsEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, producedGradleCacheArtifact, producedBuildArtifact)
     vcs {
@@ -22,12 +22,12 @@ class JavaScriptBuild(private val JSEntry: JSEntry) : BuildType({
         gradle {
             name = "Parallel assemble"
             tasks = "assemble --info -Penable-js-tests"
-            setupDockerForJavaScriptTests(JSEntry)
+            setupDockerForJavaScriptTests(jsEntry)
         }
         gradle {
             name = "Build"
             tasks = "clean build --no-parallel --continue --info -Penable-js-tests"
-            setupDockerForJavaScriptTests(JSEntry)
+            setupDockerForJavaScriptTests(jsEntry)
         }
     }
     features {
@@ -36,7 +36,9 @@ class JavaScriptBuild(private val JSEntry: JSEntry) : BuildType({
     requirements {
         require(os = "Linux", minMemoryDB = 7000)
     }
-    generatedBuilds[JSEntry.name] = BuildData(this.id!!, artifactsToPublish)
+    if (jsEntry == js) {
+        jsBuild = this
+    }
 })
 
 private fun GradleBuildStep.setupDockerForJavaScriptTests(JSEntry: JSEntry) {

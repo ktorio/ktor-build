@@ -3,40 +3,7 @@ package subprojects.build.core
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.*
 import subprojects.build.defaultTimeouts
-import subprojects.release.publishing.*
-
-data class JDKEntry(val name: String, val env: String)
-data class OSEntry(val name: String, val agentString: String, val taskName: String)
-data class JSEntry(val name: String, val dockerContainer: String)
-data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
-
-const val junitReportArtifact =  "+:**/build/reports/** => junitReports.tgz"
-const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
-const val producedGradleCacheArtifact =  "+:**/.gradle/** => gradle.zip"
-const val producedBuildArtifact = "+:**/build/** => build.zip"
-const val consumedGradleCacheArtifact =  "gradle.zip!** => *"
-const val consumedBuildArtifact =  "build.zip!** => *"
-
-val macOS = OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64")
-val linux = OSEntry("Linux", "Linux", "linkDebugTestLinuxX64")
-val windows = OSEntry("Windows", "Windows", "linkDebugTestMingwX64")
-
-val operatingSystems = listOf(macOS, linux, windows)
-
-val java8 = JDKEntry("Java 8", "JDK_18")
-val java11 = JDKEntry("Java 11", "JDK_11")
-
-val jdkVersions = listOf(java8, java11)
-
-val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
-
-val javaScriptEngines = listOf(js)
-
-val stressTests = listOf(
-    OSJDKEntry(linux, java8),
-    OSJDKEntry(windows, java8))
-
-val generatedBuilds = hashMapOf<String, BuildData>()
+import subprojects.build.*
 
 object ProjectCore : Project({
     id("ProjectKtorCore")

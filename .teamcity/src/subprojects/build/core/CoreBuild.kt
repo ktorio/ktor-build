@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.release.*
 import subprojects.release.publishing.*
 
 class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
@@ -36,7 +37,9 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     requirements {
         require(os = osJdkEntry.osEntry.agentString, minMemoryDB = 7000)
     }
-    generatedBuilds["${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}"] = BuildData(this.id!!, artifactsToPublish)
+    if (osJdkEntry.osEntry == linux && osJdkEntry.jdkEntry == java11) {
+        jvmBuild = this
+    }
 })
 
 fun formatArtifacts(vararg artifacts: String): String {
