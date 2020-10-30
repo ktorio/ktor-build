@@ -13,19 +13,6 @@ var nativeWindowsBuild: BuildType? = null
 var nativeLinuxBuild: BuildType? = null
 var nativeMacOSBuild: BuildType? = null
 
-
-object ProjectReleaseAll : Project({
-    id("ProjectReleaseKtor")
-    name = "Release All"
-    description = " The Full Monty! - Release Ktor framework, update docs, site, etc."
-
-    params {
-        defaultTimeouts()
-    }
-
-    buildType(ReleaseBuild)
-})
-
 object ReleaseBuild : BuildType({
     id("KtorReleaseAllBuild")
     name = "Release All"

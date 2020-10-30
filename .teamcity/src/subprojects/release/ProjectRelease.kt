@@ -9,8 +9,9 @@ import java.io.*
 
 object ProjectRelease : Project({
     id("ProjectKtorRelease")
-    name = "Release"
-    description = "Build configuration that release Ktor"
+    name = "Release Ktor"
+    description = " The Full Monty! - Release Ktor framework, update docs, site, etc."
+
     params {
         defaultTimeouts()
         param("env.SIGN_KEY_ID", value = "7C30F7B1329DBA87")
@@ -110,5 +111,6 @@ PcffD1y2+mYNaueVZTxDSWx6XUptDcZefzgumGAvevPI/llpXwCWdYzvSwRp
 
     subProject(ProjectReleaseAPIDocs)
     subProject(ProjectPublishing)
-    subProject(ProjectReleaseAll)
+
+    buildType(ReleaseBuild)
 })
