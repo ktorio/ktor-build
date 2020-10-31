@@ -141,35 +141,21 @@ object PublishMacOSNativeToMaven : BuildType({
 fun BuildSteps.prepareKeyFile() {
     script {
         name = "Prepare gnupg"
-        scriptContent =
-            """#!/bin/bash
-set -eux pipefail
-mkdir -p %env.SIGN_KEY_LOCATION%
-cd "%env.SIGN_KEY_LOCATION%"
+        scriptContent = """cd "%env.SIGN_KEY_LOCATION%"
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
+rm -rf .gnupg
 cat >keyfile <<EOT
-%env.SIGN_KEY_PUBLIC%
+%SIGN_KEY_PRIVATE%
+EOT
+gpg --allow-secret-key-import --batch --import keyfile
+rm -v keyfile
+cat >keyfile <<EOT
+%SIGN_KEY_PUBLIC%
 EOT
 gpg --batch --import keyfile
 rm -v keyfile
-line1='-----BEGIN PGP PRIVATE KEY BLOCK-----'
-line_last='-----END PGP PRIVATE KEY BLOCK-----'
-cat >keyvar <<EOT
-%env.SIGN_KEY_PRIVATE%
-EOT
-key=${'$'}(cat ./keyvar | grep -o -P '(?<=-----BEGIN PGP PRIVATE KEY BLOCK-----).*(?=-----END PGP PRIVATE KEY BLOCK-----)' | tr ' ' '\n')
-echo "${'$'}line1" > ./keyfile
-echo "${'$'}key\n" >> ./keyfile
-echo "${'$'}line_last" >> ./keyfile
-
-gpg --allow-secret-key-import --batch --import keyfile
-rm -v keyfile
-
-gpg --list-secret-keys
-
-"""
-            .trimIndent()
+"""            .trimIndent()
         workingDir = "."
     }
 }
