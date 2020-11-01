@@ -159,7 +159,7 @@ echo "Exporting private key"
 cat >keyfile <<EOT
 %env.SIGN_KEY_PRIVATE%
 EOT
-gpg --allow-secret-key-import --batch --import keyfinal
+gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
 """            .trimIndent()
         workingDir = "."
