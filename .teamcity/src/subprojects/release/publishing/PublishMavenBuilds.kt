@@ -139,19 +139,22 @@ object PublishMacOSNativeToMaven : BuildType({
 })
 
 fun BuildSteps.prepareKeyFile() {
+    val privateKey = "%env.SIGN_KEY_PRIVATE%".replace(" ", "\n")
+    val publicKey = "%env.SIGN_KEY_PUBLIC".replace(" ", "\n")
     script {
         name = "Prepare gnupg"
         scriptContent = """cd "%env.SIGN_KEY_LOCATION%"
+mkdir -p %env.SIGN_KEY_LOCATION%
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
 rm -rf .gnupg
 cat >keyfile <<EOT
-%env.SIGN_KEY_PRIVATE%
+$privateKey
 EOT
 gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
 cat >keyfile <<EOT
-%env.SIGN_KEY_PUBLIC%
+$publicKey
 EOT
 gpg --batch --import keyfile
 rm -v keyfile
