@@ -143,8 +143,9 @@ fun BuildSteps.prepareKeyFile() {
     val publicKey = "%env.SIGN_KEY_PUBLIC".replace(" ", "\n")
     script {
         name = "Prepare gnupg"
-        scriptContent = """cd "%env.SIGN_KEY_LOCATION%"
+        scriptContent = """
 mkdir -p %env.SIGN_KEY_LOCATION%
+cd "%env.SIGN_KEY_LOCATION%"
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
 rm -rf .gnupg
