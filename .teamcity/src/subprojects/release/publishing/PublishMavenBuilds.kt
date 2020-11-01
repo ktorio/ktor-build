@@ -146,12 +146,12 @@ export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
 rm -rf .gnupg
 cat >keyfile <<EOT
-%SIGN_KEY_PRIVATE%
+%env.SIGN_KEY_PRIVATE%
 EOT
 gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
 cat >keyfile <<EOT
-%SIGN_KEY_PUBLIC%
+%env.SIGN_KEY_PUBLIC%
 EOT
 gpg --batch --import keyfile
 rm -v keyfile
