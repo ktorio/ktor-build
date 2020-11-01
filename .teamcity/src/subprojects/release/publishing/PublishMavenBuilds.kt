@@ -150,7 +150,7 @@ cd "%env.SIGN_KEY_LOCATION%"
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
 rm -rf .gnupg
-echo Exporting public key"
+echo "Exporting public key"
 cat >keyfile <<EOT
 %env.SIGN_KEY_PUBLIC%
 EOT
