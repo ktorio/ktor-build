@@ -154,12 +154,15 @@ cat >keyfile <<EOT
 $privateKey
 EOT
 gpg --allow-secret-key-import --batch --import keyfile
+echo "output private key"
 cat keyfile
 rm -v keyfile
 cat >keyfile <<EOT
 %env.SIGN_KEY_PUBLIC%
 EOT
 gpg --batch --import keyfile
+echo "output public key"
+cat keyfile
 rm -v keyfile
 """            .trimIndent()
         workingDir = "."
