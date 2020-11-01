@@ -150,17 +150,17 @@ cd "%env.SIGN_KEY_LOCATION%"
 export HOME=${'$'}(pwd)
 export GPG_TTY=${'$'}(tty)
 rm -rf .gnupg
-echo "Exporting private key"
-cat >keyfile <<EOT
-$privateKey
-EOT
-gpg --allow-secret-key-import --batch --import keyfile
-rm -v keyfile
 echo Exporting public key"
 cat >keyfile <<EOT
 %env.SIGN_KEY_PUBLIC%
 EOT
 gpg --batch --import keyfile
+rm -v keyfile
+echo "Exporting private key"
+cat >keyfile <<EOT
+$privateKey
+EOT
+gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
 """            .trimIndent()
         workingDir = "."
