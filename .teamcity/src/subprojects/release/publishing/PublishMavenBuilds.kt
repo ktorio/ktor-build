@@ -169,7 +169,6 @@ echo "${'$'}line_last" >> ./keyfinal
 
 gpg --allow-secret-key-import --batch --import keyfinal
 rm -v keyfinal
-rm -v keyfinal
 """            .trimIndent()
         workingDir = "."
     }
