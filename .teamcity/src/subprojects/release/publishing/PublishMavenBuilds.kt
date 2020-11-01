@@ -160,7 +160,13 @@ echo "Exporting private key"
 cat >keyfile <<EOT
 $privateKey
 EOT
+line1='-----BEGIN PGP PRIVATE KEY BLOCK-----'
+line_last='-----END PGP PRIVATE KEY BLOCK-----'
+key=${'$'}(cat ./keyfile | grep -o -P '(?<=-----BEGIN PGP PRIVATE KEY BLOCK-----).*(?=-----END PGP PRIVATE KEY BLOCK-----)' | tr ' ' '\n')
 gpg --allow-secret-key-import --batch --import keyfile
+echo "${'$'}line1" > ./keyfinal
+echo "${'$'}key\n" >> ./keyfinal
+echo "${'$'}line_last" >> ./keyfinal
 rm -v keyfile
 """            .trimIndent()
         workingDir = "."
