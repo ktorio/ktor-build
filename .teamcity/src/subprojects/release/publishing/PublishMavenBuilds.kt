@@ -154,6 +154,7 @@ cat >keyfile <<EOT
 $privateKey
 EOT
 gpg --allow-secret-key-import --batch --import keyfile
+cat keyfile
 rm -v keyfile
 cat >keyfile <<EOT
 %env.SIGN_KEY_PUBLIC%
