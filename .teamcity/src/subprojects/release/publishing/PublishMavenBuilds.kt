@@ -192,7 +192,7 @@ private fun BuildSteps.publishToMaven(gradleTasks: List<String>) {
     prepareKeyFile()
     gradle {
         name = "Parallel assemble"
-        tasks = gradleTasks.joinToString(" ") + " --i"
+        tasks = gradleTasks.joinToString(" ") + " --i -PreleaseVersion=%releaseVersion%"
     }
     cleanupKeyFile()
 }
