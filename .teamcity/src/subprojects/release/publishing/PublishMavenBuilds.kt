@@ -14,7 +14,7 @@ object PublishJvmToMaven : BuildType({
     id("KtorPublishJvmToMavenBuild")
     name = "Publish JVM to Maven"
     type = Type.DEPLOYMENT
-    buildNumberPattern = "%release.version%"
+    buildNumberPattern = "%releaseVersion%"
     vcs {
         root(VCSCore)
     }
@@ -40,7 +40,7 @@ object PublishJSToMaven : BuildType({
     id("KtorPublishJSToMavenBuild")
     name = "Publish JS to Maven"
     type = Type.DEPLOYMENT
-    buildNumberPattern = "%release.version%"
+    buildNumberPattern = "%releaseVersion%"
     vcs {
         root(VCSCore)
     }
@@ -65,7 +65,7 @@ object PublishWindowsNativeToMaven : BuildType({
     id("KtorPublishWindowsNativeToMavenBuild")
     name = "Publish Windows Native to Maven"
     type = Type.DEPLOYMENT
-    buildNumberPattern = "%release.version%"
+    buildNumberPattern = "%releaseVersion%"
     vcs {
         root(VCSCore)
     }
@@ -90,7 +90,7 @@ object PublishLinuxNativeToMaven : BuildType({
     id("KtorPublishLinuxNativeToMavenBuild")
     name = "Publish Linux Native to Maven"
     type = Type.DEPLOYMENT
-    buildNumberPattern = "%release.version%"
+    buildNumberPattern = "%releaseVersion%"
     vcs {
         root(VCSCore)
     }
@@ -117,7 +117,7 @@ object PublishMacOSNativeToMaven : BuildType({
     id("KtorPublishMacOSNativeToMavenBuild")
     name = "Publish Mac Native to Maven"
     type = Type.DEPLOYMENT
-    buildNumberPattern = "%release.version%"
+    buildNumberPattern = "%releaseVersion%"
     vcs {
         root(VCSCore)
     }

@@ -19,7 +19,7 @@ object ProjectRelease : Project({
 
     params {
         defaultTimeouts()
-        text("release.version", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+        text("releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
         param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
 
         // Inherited from parent project. The reason for this is that security tokens seem to mess up with multiline values

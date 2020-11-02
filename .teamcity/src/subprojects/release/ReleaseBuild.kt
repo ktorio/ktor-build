@@ -18,7 +18,7 @@ object ReleaseBuild : BuildType({
     name = "Release All"
     description = "Publish all artifacts and release documentation"
     type = Type.DEPLOYMENT
-    buildNumberPattern = "%release.version%"
+    buildNumberPattern = "%releaseVersion%"
     maxRunningBuilds = 1
 
     vcs {
