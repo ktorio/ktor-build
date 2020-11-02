@@ -26,10 +26,8 @@ object ProjectRelease : Project({
         // So we set this in the parent project and read from there. That way, we don't need to make our project editable.
         password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
         password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
-
-
-        password("env.SONATYPE_USER", value = "credentialsJSON:1809dc95-c346-410a-931b-3e1c6cea58cc")
-        password("env.SONATYPE_PASSWORD", value = "credentialsJSON:c8be43cb-031a-4679-858e-305e47b3368a")
+        password("env.SONATYPE_USER", value = "%sonatype.username%")
+        password("env.SONATYPE_PASSWORD", value = "%sonatype.password")
         param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
         param("env.SIGN_KEY_PUBLIC", value = """-----BEGIN PGP PUBLIC KEY BLOCK-----
 
