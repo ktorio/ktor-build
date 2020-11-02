@@ -21,8 +21,13 @@ object ProjectRelease : Project({
         defaultTimeouts()
         text("release.version", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
         param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
+
+        // Inherited from parent project. The reason for this is that security tokens seem to mess up with multiline values
+        // So we set this in the parent project and read from there. That way, we don't need to make our project editable.
         password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
         password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
+
+
         password("env.SONATYPE_USER", value = "credentialsJSON:1809dc95-c346-410a-931b-3e1c6cea58cc")
         password("env.SONATYPE_PASSWORD", value = "credentialsJSON:c8be43cb-031a-4679-858e-305e47b3368a")
         param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)

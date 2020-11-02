@@ -13,6 +13,8 @@ import subprojects.release.*
 object PublishJvmToMaven : BuildType({
     id("KtorPublishJvmToMavenBuild")
     name = "Publish JVM to Maven"
+    type = Type.DEPLOYMENT
+    buildNumberPattern = "%release.version%"
     vcs {
         root(VCSCore)
     }
@@ -37,6 +39,8 @@ object PublishJvmToMaven : BuildType({
 object PublishJSToMaven : BuildType({
     id("KtorPublishJSToMavenBuild")
     name = "Publish JS to Maven"
+    type = Type.DEPLOYMENT
+    buildNumberPattern = "%release.version%"
     vcs {
         root(VCSCore)
     }
@@ -60,6 +64,8 @@ object PublishJSToMaven : BuildType({
 object PublishWindowsNativeToMaven : BuildType({
     id("KtorPublishWindowsNativeToMavenBuild")
     name = "Publish Windows Native to Maven"
+    type = Type.DEPLOYMENT
+    buildNumberPattern = "%release.version%"
     vcs {
         root(VCSCore)
     }
@@ -83,6 +89,8 @@ object PublishWindowsNativeToMaven : BuildType({
 object PublishLinuxNativeToMaven : BuildType({
     id("KtorPublishLinuxNativeToMavenBuild")
     name = "Publish Linux Native to Maven"
+    type = Type.DEPLOYMENT
+    buildNumberPattern = "%release.version%"
     vcs {
         root(VCSCore)
     }
@@ -108,6 +116,8 @@ object PublishLinuxNativeToMaven : BuildType({
 object PublishMacOSNativeToMaven : BuildType({
     id("KtorPublishMacOSNativeToMavenBuild")
     name = "Publish Mac Native to Maven"
+    type = Type.DEPLOYMENT
+    buildNumberPattern = "%release.version%"
     vcs {
         root(VCSCore)
     }
