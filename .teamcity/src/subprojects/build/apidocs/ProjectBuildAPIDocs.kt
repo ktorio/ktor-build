@@ -7,6 +7,8 @@ import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
+const val VersionFilename = "ktor_version.txt"
+
 object ProjectBuildAPIDocs : Project({
     id("ProjectKtorBuildAPIDocs")
     name = "API Docs"
@@ -30,12 +32,16 @@ object BuildDokka: BuildType({
         require(os = "Linux", minMemoryMB = 7000)
     }
 
-    artifactRules = formatArtifacts("+:apidoc => apidoc.zip")
+    artifactRules = formatArtifacts("+:apidoc => apidoc.zip", VersionFilename)
 
     steps {
         gradle {
             name = "Run Dokka"
             tasks = "dokkaWebsite"
+        }
+        script {
+            name = "Get version number"
+            scriptContent = "./gradlew properties --no-daemon --console=plain -q | sed -n 's/^version: //p' > $VersionFilename"
         }
     }
 })
