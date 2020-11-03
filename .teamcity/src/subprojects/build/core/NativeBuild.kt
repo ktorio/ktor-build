@@ -29,7 +29,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         monitorPerformance()
     }
     requirements {
-        require(os = osEntry.agentString, minMemoryDB =  7000)
+        require(os = osEntry.agentString, minMemoryMB =  7000)
     }
     when (osEntry) {
         macOS -> nativeMacOSBuild = this

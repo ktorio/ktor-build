@@ -37,6 +37,6 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
         monitorPerformance()
     }
     requirements {
-        require(os = osJVMComboEntry.osEntry.agentString, minMemoryDB = 7000)
+        require(os = osJVMComboEntry.osEntry.agentString, minMemoryMB = 7000)
     }
 })

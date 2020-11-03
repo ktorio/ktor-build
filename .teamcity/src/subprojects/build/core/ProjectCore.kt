@@ -50,10 +50,10 @@ fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: 
     }
 }
 
-fun Requirements.require(os: String, minMemoryDB: Int = -1) {
+fun Requirements.require(os: String, minMemoryMB: Int = -1) {
     contains("teamcity.agent.jvm.os.name", os)
 
-    if (minMemoryDB != -1) {
-        noLessThan("teamcity.agent.hardware.memorySizeMb", minMemoryDB.toString())
+    if (minMemoryMB != -1) {
+        noLessThan("teamcity.agent.hardware.memorySizeMb", minMemoryMB.toString())
     }
 }

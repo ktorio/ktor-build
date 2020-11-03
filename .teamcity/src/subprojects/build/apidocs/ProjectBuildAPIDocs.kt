@@ -29,8 +29,7 @@ object BuildDokka: BuildType({
     }
 
     requirements {
-        noLessThan("teamcity.agent.hardware.memorySizeMb", "7000")
-        contains("teamcity.agent.jvm.os.name", "Linux")
+        require(os = "Linux", minMemoryMB = 7000)
     }
 
     artifactRules = formatArtifacts("+:apidoc => apidoc.zip", VersionFilename)

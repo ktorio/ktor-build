@@ -34,7 +34,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         monitorPerformance()
     }
     requirements {
-        require(os = "Linux", minMemoryDB = 7000)
+        require(os = "Linux", minMemoryMB = 7000)
     }
     if (jsEntry == js) {
         jsBuild = this
