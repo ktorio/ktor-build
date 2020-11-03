@@ -19,8 +19,7 @@ object PublishJvmToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishJvmPublicationToMavenRepository",
-                "publishKotlinMultiplatformPublicationToMavenRepository",
-                "publishMetadataPublicationToMavenRepository"
+                "publishKotlinMultiplatformPublicationToMavenRepository"
             )
         )
     }
@@ -41,8 +40,7 @@ object PublishJSToMaven : BuildType({
     steps {
         publishToMaven(
             listOf(
-                "publishJsPublicationToMavenRepository",
-                "publishMetadataPublicationToMavenRepository"
+                "publishJsPublicationToMavenRepository"
             )
         )
     }
@@ -63,8 +61,7 @@ object PublishWindowsNativeToMaven : BuildType({
     steps {
         publishToMaven(
             listOf(
-                "publishMingwX64PublicationToMavenRepository",
-                "publishMetadataPublicationToMavenRepository"
+                "publishMingwX64PublicationToMavenRepository"
             )
         )
     }
@@ -85,8 +82,7 @@ object PublishLinuxNativeToMaven : BuildType({
     steps {
         publishToMaven(
             listOf(
-                "publishLinuxX64PublicationToMavenRepository",
-                "publishMetadataPublicationToMavenRepository"
+                "publishLinuxX64PublicationToMavenRepository"
             )
         )
     }
