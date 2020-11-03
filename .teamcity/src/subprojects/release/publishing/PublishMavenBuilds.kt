@@ -1,6 +1,5 @@
 package subprojects.release.publishing
 
-import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
@@ -9,6 +8,7 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
+import java.io.*
 
 object PublishJvmToMaven : BuildType({
     createDeploymentBuild("KtorPublishJvmToMavenBuild", "Publish JVM to Maven")
@@ -33,7 +33,7 @@ object PublishJvmToMaven : BuildType({
 })
 
 object PublishJSToMaven : BuildType({
-    createDeploymentBuild("KtorPublishJSToMavenBuild","Publish JS to Maven")
+    createDeploymentBuild("KtorPublishJSToMavenBuild", "Publish JS to Maven")
     vcs {
         root(VCSCore)
     }
@@ -68,7 +68,7 @@ object PublishWindowsNativeToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            )
+            ), executionMode = ExecutionMode.FILE
         )
     }
     dependencies {
@@ -135,11 +135,13 @@ object PublishMacOSNativeToMaven : BuildType({
     }
 })
 
-fun BuildSteps.prepareKeyFile() {
-    script {
-        name = "Prepare gnupg"
-        scriptContent = """
-#!/bin/sh
+enum class ExecutionMode {
+    DIRECT,
+    FILE
+}
+
+fun BuildSteps.prepareKeyFile(executionMode: ExecutionMode = ExecutionMode.DIRECT) {
+    val script = """#!/bin/sh
 set -eux pipefail
 mkdir -p %env.SIGN_KEY_LOCATION%
 cd "%env.SIGN_KEY_LOCATION%"
@@ -158,8 +160,27 @@ cat >keyfile <<EOT
 EOT
 gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
-"""            .trimIndent()
-        workingDir = "."
+""".trimIndent()
+    when (executionMode) {
+        ExecutionMode.DIRECT -> {
+            script {
+                name = "Prepare gnupg"
+                scriptContent = script
+                workingDir = "."
+            }
+        }
+        ExecutionMode.FILE -> {
+            val filename = "%env.SIGN_KEY_LOCATION%/prepkey.sh"
+            val file = File(filename)
+            file.writeText(script)
+            script {
+                name = "Prepare gnupg"
+                scriptContent = """
+                    C:\Tools\Cygwin\bin\bash ${file.absoluteFile}
+                """.trimIndent()
+                workingDir = "%env.SIGN_KEY_LOCATION%"
+            }
+        }
     }
 }
 
@@ -175,8 +196,8 @@ rm -rf .gnupg
     }
 }
 
-private fun BuildSteps.publishToMaven(gradleTasks: List<String>) {
-    prepareKeyFile()
+private fun BuildSteps.publishToMaven(gradleTasks: List<String>, executionMode: ExecutionMode = ExecutionMode.DIRECT) {
+    prepareKeyFile(executionMode)
     gradle {
         name = "Parallel assemble"
         tasks = gradleTasks.joinToString(" ") + " --i -PreleaseVersion=%releaseVersion%"
