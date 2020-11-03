@@ -64,6 +64,7 @@ object PublishWindowsNativeToMaven : BuildType({
             scriptContent = """    
 choco uninstall -y gpg4win
 choco install -y gnupg
+GNUPGHOME=C:\Users\builduser\AppData\Roaming\gnupg
             """.trimIndent()
         }
         publishToMaven(
