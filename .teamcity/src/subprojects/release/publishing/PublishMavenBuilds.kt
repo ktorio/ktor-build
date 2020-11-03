@@ -59,6 +59,12 @@ object PublishWindowsNativeToMaven : BuildType({
         root(VCSCore)
     }
     steps {
+        script {
+            name = "Install Cgywin"
+            scriptContent = """
+                choco install cygwin
+            """.trimIndent()
+        }
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
