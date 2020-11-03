@@ -70,7 +70,7 @@ GNUPGHOME=C:\Users\builduser\AppData\Roaming\gnupg
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.executable='C:\\Program Files (x86)\\GnuPG\\bin\\gpg.exe' -Psigning.gnupg.homeDir='C:\\Users\\builduser\\AppData\\Roaming\\gnupg'", os = "Windows"
+            ), gradleParams = "-Psigning.gnupg.executable='C:\\Program Files (x86)\\GnuPG\\bin\\gpg.exe' -Dsigning.gnupg.homeDir='C:\\Users\\builduser\\AppData\\Roaming\\gnupg'", os = "Windows"
         )
     }
     dependencies {
