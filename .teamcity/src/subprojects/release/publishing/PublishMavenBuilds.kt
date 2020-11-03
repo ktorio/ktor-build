@@ -62,14 +62,14 @@ object PublishWindowsNativeToMaven : BuildType({
         script {
             name = "Install GPG"
             scriptContent = """    
-choco uninstall -y gpg4win
+SET GNUPGHOME=C:\Users\builduser\AppData\Roaming\gnupg
 choco install -y gnupg
             """.trimIndent()
         }
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.executable='C:\\Program Files (x86)\\GnuPG\\bin\\gpg.exe' -Dsigning.gnupg.homeDir='C:\\Users\\builduser\\AppData\\Roaming\\gnupg'", os = "Windows"
+            ), gradleParams = "-Psigning.gnupg.executable='C:\\Program Files (x86)\\GnuPG\\bin\\gpg.exe'", os = "Windows"
         )
     }
     dependencies {
