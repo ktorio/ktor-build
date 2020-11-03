@@ -62,7 +62,7 @@ object PublishWindowsNativeToMaven : BuildType({
         script {
             name = "Install Cgywin"
             scriptContent = """
-                choco install cygwin
+                choco install cygwin -y
             """.trimIndent()
         }
         publishToMaven(
