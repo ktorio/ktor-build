@@ -66,7 +66,7 @@ object PublishWindowsNativeToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            ), "Windows"
+            ), gradleParams = "-Psigning.gnupg.executable=\"C:\\Program Files (x86)\\Gpg4win\\..\\GnuPG\\bin\\gpg.exe\"", os = "Windows"
         )
     }
     dependencies {
@@ -197,11 +197,11 @@ rm -rf .gnupg
     }
 }
 
-private fun BuildSteps.publishToMaven(gradleTasks: List<String>, os: String = "") {
+private fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: String = "", os: String = "") {
     prepareKeyFile(os)
     gradle {
         name = "Parallel assemble"
-        tasks = gradleTasks.joinToString(" ") + " --i -PreleaseVersion=%releaseVersion% --debug"
+        tasks = "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams"
     }
     cleanupKeyFile()
 }
