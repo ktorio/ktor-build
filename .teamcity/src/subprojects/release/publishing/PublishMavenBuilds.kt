@@ -66,7 +66,7 @@ object PublishWindowsNativeToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.executable='C:\\Program Files (x86)\\Gpg4win\\..\\GnuPG\\bin\\gpg.exe'", os = "Windows"
+            ), gradleParams = "-Psigning.gnupg.executable='gpg'", os = "Windows"
         )
     }
     dependencies {
