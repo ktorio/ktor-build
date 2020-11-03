@@ -65,7 +65,6 @@ object PublishWindowsNativeToMaven : BuildType({
 choco install -y gnupg
 SET GNUPGHOME="%env.SIGN_KEY_LOCATION%\.gnupg"
 DIR "C:\Program Files (x86)\GnuPG\"
-DIR "%env.SIGN_KEY_LOCATION%\.gnupg\"
             """.trimIndent()
         }
         publishToMaven(
