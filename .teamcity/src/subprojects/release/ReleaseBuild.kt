@@ -1,6 +1,7 @@
 package subprojects.release
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import subprojects.*
 
 var samplesBuild: BuildType? = null
@@ -33,6 +34,15 @@ object ReleaseBuild : BuildType({
         docSamplesBuild,
         publishAllBuild
     )
+
+    features {
+        vcsLabeling {
+            vcsRootId = "${VCSCore.id}"
+            labelingPattern = "%releaseVersion%"
+            successfulOnly = true
+            branchFilter = "+:$defaultBranch"
+        }
+    }
 
     dependencies {
         releaseBuilds.forEach {
