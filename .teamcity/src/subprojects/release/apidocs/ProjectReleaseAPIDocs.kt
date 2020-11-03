@@ -7,7 +7,6 @@ import subprojects.VCSAPIDocs
 import subprojects.VCSToken
 import subprojects.VCSUsername
 import subprojects.build.apidocs.BuildDokka
-import subprojects.build.apidocs.VersionFilename
 import subprojects.build.core.*
 
 object ProjectReleaseAPIDocs : Project({
@@ -32,15 +31,13 @@ object ProjectReleaseAPIDocs : Project({
             script {
                 name = "Generate static files for version and push changes to git"
                 scriptContent = """
-                    KTOR_VERSION="$(cat $VersionFilename)"
-    
-                    ./build_doc.sh "${'$'}{KTOR_VERSION}" apidoc
+                    ./build_doc.sh "%releaseVersion%" apidoc
     
                     git config user.email "deploy@jetbrains.com"
                     git config user.name "Auto deploy"
                     git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
-                    git add "${'$'}{KTOR_VERSION}" assets/versions.js sitemap.xml latest
-                    git commit -m "Update for ${'$'}{KTOR_VERSION}"
+                    git add "%releaseVersion%" assets/versions.js sitemap.xml latest
+                    git commit -m "Update for %releaseVersion%"
                     git push origin master
                 """.trimIndent()
             }
@@ -52,7 +49,7 @@ object ProjectReleaseAPIDocs : Project({
                 }
 
                 artifacts {
-                    artifactRules = formatArtifacts("apidoc.zip!**=>apidoc", VersionFilename)
+                    artifactRules = formatArtifacts("apidoc.zip!**=>apidoc")
                 }
             }
         }
