@@ -62,8 +62,10 @@ object PublishWindowsNativeToMaven : BuildType({
         script {
             name = "Install GPG"
             scriptContent = """    
-SET GNUPGHOME="%env.SIGN_KEY_LOCATION%\.gnupg"
 choco install -y gnupg
+SET GNUPGHOME="%env.SIGN_KEY_LOCATION%\.gnupg"
+DIR 'C:\\Program Files (x86)\\GnuPG'
+DIR "%env.SIGN_KEY_LOCATION%\.gnupg"
             """.trimIndent()
         }
         publishToMaven(
