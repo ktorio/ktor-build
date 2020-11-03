@@ -33,7 +33,7 @@ object PublishJvmToMaven : BuildType({
 })
 
 object PublishJSToMaven : BuildType({
-    createDeploymentBuild("KtorPublishJSToMavenBuild","Publish JS to Maven")
+    createDeploymentBuild("KtorPublishJSToMavenBuild", "Publish JS to Maven")
     vcs {
         root(VCSCore)
     }
@@ -59,10 +59,14 @@ object PublishWindowsNativeToMaven : BuildType({
         root(VCSCore)
     }
     steps {
+        script {
+            name = "Install GPG"
+            scriptContent = "choco install -y gpg4win"
+        }
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            )
+            ), "Windows"
         )
     }
     dependencies {
@@ -129,10 +133,20 @@ object PublishMacOSNativeToMaven : BuildType({
     }
 })
 
-fun BuildSteps.prepareKeyFile() {
-    script {
-        name = "Prepare gnupg"
-        scriptContent = """
+fun BuildSteps.prepareKeyFile(os: String = "") {
+    when (os) {
+        "Windows" -> {
+            powerShell {
+                name = "Prepare Keys"
+                scriptMode = file {
+                    path = "buildScripts/prepareKeysWindows.ps1"
+                }
+            }
+        }
+        else -> {
+            script {
+                name = "Prepare Keys"
+                scriptContent = """
 #!/bin/sh
 set -eux pipefail
 mkdir -p %env.SIGN_KEY_LOCATION%
@@ -152,25 +166,39 @@ cat >keyfile <<EOT
 EOT
 gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
-"""            .trimIndent()
-        workingDir = "."
+""".trimIndent()
+                workingDir = "."
+            }
+        }
     }
 }
 
-fun BuildSteps.cleanupKeyFile() {
-    script {
-        name = "Cleanup"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
+fun BuildSteps.cleanupKeyFile(os: String = "") {
+    when (os) {
+        "Windows" -> {
+            powerShell {
+                name = "Prepare Keys"
+                scriptMode = file {
+                    path = "buildScripts/prepareKeysWindows.ps1"
+                }
+            }
+        }
+        else -> {
+            script {
+                name = "Cleanup Keys"
+                executionMode = BuildStep.ExecutionMode.ALWAYS
+                scriptContent = """
 cd .
 rm -rf .gnupg
                         """.trimIndent()
-        workingDir = "."
+                workingDir = "."
+            }
+        }
     }
 }
 
-private fun BuildSteps.publishToMaven(gradleTasks: List<String>) {
-    prepareKeyFile()
+private fun BuildSteps.publishToMaven(gradleTasks: List<String>, os: String = "") {
+    prepareKeyFile(os)
     gradle {
         name = "Parallel assemble"
         tasks = gradleTasks.joinToString(" ") + " --i -PreleaseVersion=%releaseVersion%"
