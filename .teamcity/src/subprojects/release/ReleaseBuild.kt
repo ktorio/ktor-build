@@ -14,13 +14,18 @@ var nativeLinuxBuild: BuildType? = null
 var nativeMacOSBuild: BuildType? = null
 var publishAllBuild: BuildType? = null
 
-object ReleaseBuild : BuildType({
-    id("KtorReleaseAllBuild")
-    name = "Release All"
-    description = "Publish all artifacts and release documentation"
-    type = Type.DEPLOYMENT
+fun BuildType.createDeploymentBuild(id: String, name: String, description: String = "") {
+    id(id)
+    this.name = name
+    this.description = description
+    type = BuildTypeSettings.Type.DEPLOYMENT
     buildNumberPattern = "%releaseVersion%"
     maxRunningBuilds = 1
+
+}
+
+object ReleaseBuild : BuildType({
+    createDeploymentBuild("KtorReleaseAllBuild", "Release All", "Publish all artifacts and release documentation")
 
     vcs {
         root(VCSSamples)
