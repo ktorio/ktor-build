@@ -7,7 +7,6 @@ import subprojects.VCSAPIDocs
 import subprojects.VCSToken
 import subprojects.VCSUsername
 import subprojects.build.apidocs.BuildDokka
-import subprojects.build.apidocs.VersionFilename
 import subprojects.build.core.*
 
 object ProjectReleaseAPIDocs : Project({
@@ -32,7 +31,7 @@ object ProjectReleaseAPIDocs : Project({
             script {
                 name = "Generate static files for version and push changes to git"
                 scriptContent = """
-                    KTOR_VERSION="$(cat $VersionFilename)"
+                    KTOR_VERSION="%releaseVersion%"
     
                     ./build_doc.sh "${'$'}{KTOR_VERSION}" apidoc
     
@@ -52,7 +51,7 @@ object ProjectReleaseAPIDocs : Project({
                 }
 
                 artifacts {
-                    artifactRules = formatArtifacts("apidoc.zip!**=>apidoc", VersionFilename)
+                    artifactRules = formatArtifacts("apidoc.zip!**=>apidoc")
                 }
             }
         }
