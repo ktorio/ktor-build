@@ -59,11 +59,6 @@ object PublishWindowsNativeToMaven : BuildType({
         root(VCSCore)
     }
     steps {
-        script {
-            name = "Cleanup"
-            executionMode = BuildStep.ExecutionMode.ALWAYS
-            scriptContent = "choco install runinbash"
-        }
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
