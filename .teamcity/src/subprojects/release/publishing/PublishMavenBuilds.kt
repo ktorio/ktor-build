@@ -61,7 +61,10 @@ object PublishWindowsNativeToMaven : BuildType({
     steps {
         script {
             name = "Install GPG"
-            scriptContent = "choco install -y gpg4win"
+            scriptContent = """    
+choco uninstall -y gpg4win
+choco install -y gnupg
+            """.trimIndent()
         }
         publishToMaven(
             listOf(
