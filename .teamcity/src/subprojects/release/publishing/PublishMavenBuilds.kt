@@ -63,6 +63,7 @@ object PublishWindowsNativeToMaven : BuildType({
             name = "Install GPG"
             scriptContent = """
                 choco install -y gnupg
+                choco install curl
                 echo ##teamcity[setParameter name='env.PATH' value='env.PATH;C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\"]
             """.trimIndent()
         }
@@ -203,10 +204,10 @@ fun BuildSteps.cleanupKeyFile(os: String = "") {
     when (os) {
         "Windows" -> {
             powerShell {
-                name = "Prepare Keys"
+                name = "Cleanup Keys"
                 scriptMode = script {
                     content = """
-rm -r -fo "C:\Users\builduser\AppData\Roaming\gnupg\"
+rm -r -fo C:\Users\builduser\AppData\Roaming\gnupg\
             """.trimIndent()
                 }
             }
