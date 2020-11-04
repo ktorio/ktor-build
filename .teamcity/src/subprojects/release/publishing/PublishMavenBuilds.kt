@@ -61,13 +61,16 @@ object PublishWindowsNativeToMaven : BuildType({
     steps {
         script {
             name = "Install GPG"
-            scriptContent = "choco install -y gnupg"
+            scriptContent = """
+                choco install -y gnupg
+                ##teamcity[setParameter name='env.PATH' value='env.PATH;C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\"]
+            """.trimIndent()
         }
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
             ),
-            gradleParams = "-P\"signing.gnupg.executable=C:\\Program Files (x86)\\Gpg4win\\..\\GnuPG\\bin\\gpg.exe\" -P\"signing.gnupg.homeDir=C:\\Users\\buildUser\\AppData\\Roaming\\gnupg\"",
+            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\" -P\"signing.gnupg.homeDir=C:\\Users\\buildUser\\AppData\\Roaming\\gnupg\"",
             os = "Windows"
         )
     }
