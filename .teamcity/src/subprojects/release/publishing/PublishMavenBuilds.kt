@@ -20,7 +20,7 @@ object PublishJvmToMaven : BuildType({
             listOf(
                 "publishJvmPublicationToMavenRepository",
                 "publishKotlinMultiplatformPublicationToMavenRepository"
-            )
+            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -41,7 +41,7 @@ object PublishJSToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishJsPublicationToMavenRepository"
-            )
+            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -87,7 +87,7 @@ object PublishLinuxNativeToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishLinuxX64PublicationToMavenRepository"
-            )
+            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -119,7 +119,7 @@ object PublishMacOSNativeToMaven : BuildType({
                 "publishWatchosArm64PublicationToMavenRepository",
                 "publishWatchosX86PublicationToMavenRepository",
                 "publishMetadataPublicationToMavenRepository"
-            )
+            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
