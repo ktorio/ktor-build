@@ -64,7 +64,7 @@ object PublishWindowsNativeToMaven : BuildType({
             scriptContent = """
                 choco install -y gnupg
                 choco install -y curl
-                echo ##teamcity[setParameter name='env.PATH' value='env.PATH;"C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\"]
+                echo ##teamcity[setParameter name='env.PATH' value='env.PATH;"C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\"']
             """.trimIndent()
         }
         publishToMaven(
