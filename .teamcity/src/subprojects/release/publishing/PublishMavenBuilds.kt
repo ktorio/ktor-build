@@ -66,7 +66,9 @@ object PublishWindowsNativeToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            ), gradleParams = "-P\"signing.gnupg.executable=gpg\" -P\"signing.gnupg.homeDir=C:\\Users\\builduser\\AppData\\Roaming\\gnupg\"", os = "Windows"
+            ),
+            gradleParams = "-P\"signing.gnupg.executable=gpg\" -P\"signing.gnupg.homeDir=C:\\Users\\builduser\\AppData\\Roaming\\gnupg\"",
+            os = "Windows"
         )
     }
     dependencies {
@@ -138,8 +140,29 @@ fun BuildSteps.prepareKeyFile(os: String = "") {
         "Windows" -> {
             powerShell {
                 name = "Prepare Keys"
-                scriptMode = file {
-                    path = "buildScripts/prepareKeysWindows.ps1"
+                scriptMode = script {
+                    content = """
+md ${'$'}Env:SIGN_KEY_LOCATION -force
+cd ${'$'}Env:SIGN_KEY_LOCATION
+
+
+# Hard-coding path for GPG since this fails on TeamCity
+# ${'$'}gpg=(get-command gpg.exe).Path
+${'$'}gpg="C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\gpg.exe"
+Set-Alias -Name gpg2.exe -Value ${'$'}gpg
+
+echo "Exporting public key"
+[System.IO.File]::WriteAllText("${'$'}pwd\keyfile", ${'$'}Env:SIGN_KEY_PUBLIC)
+& ${'$'}gpg --batch --import keyfile
+rm keyfile
+
+
+echo "Exporting private key"
+
+[System.IO.File]::WriteAllText("${'$'}pwd\keyfile", ${'$'}Env:SIGN_KEY_PRIVATE)
+& ${'$'}gpg --allow-secret-key-import --batch --import keyfile
+rm keyfile
+            """.trimIndent()
                 }
             }
         }
@@ -178,8 +201,10 @@ fun BuildSteps.cleanupKeyFile(os: String = "") {
         "Windows" -> {
             powerShell {
                 name = "Prepare Keys"
-                scriptMode = file {
-                    path = "buildScripts/prepareKeysWindows.ps1"
+                scriptMode = script {
+                    content = """
+rm -r -fo "C:\Users\builduser\AppData\Roaming\gnupg\"
+            """.trimIndent()
                 }
             }
         }
