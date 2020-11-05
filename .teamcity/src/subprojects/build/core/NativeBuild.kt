@@ -8,7 +8,7 @@ import subprojects.build.*
 import subprojects.release.*
 
 val libcurlSoftware = """
-                del /F /Q C:\Tools\msys64\var\lib\pacman\db.lck 
+                rm -fo C:\Tools\msys64\var\lib\pacman\db.lck 
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
 """.trimIndent()
