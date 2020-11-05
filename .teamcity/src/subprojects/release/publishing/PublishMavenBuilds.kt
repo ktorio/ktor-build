@@ -168,7 +168,7 @@ echo "Exporting private key"
 & ${'$'}gpg --allow-secret-key-import --batch --import keyfile
 rm keyfile
 & ${'$'}gpg --list-keys
-& "gpg-agent" --daemon
+& "gpg-agent" --homedir="C:\Users\builduser\.gnupg" --daemon
 
             """.trimIndent()
                 }
