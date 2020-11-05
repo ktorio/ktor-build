@@ -147,8 +147,8 @@ fun BuildSteps.prepareKeyFile(os: String = "") {
                     content = """
 md ${'$'}Env:SIGN_KEY_LOCATION -force
 cd ${'$'}Env:SIGN_KEY_LOCATION
-#echo "Stopping gpg-agent and removing GNUPG folder"
-#Stop-Process -Name "gpg-agent" -ErrorAction SilentlyContinue
+echo "Stopping gpg-agent and removing GNUPG folder"
+Stop-Process -Name "gpg-agent" -ErrorAction SilentlyContinue
 rm -r -fo C:\Users\builduser\.gnupg
 
 # Hard-coding path for GPG since this fails on TeamCity
