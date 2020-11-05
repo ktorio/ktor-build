@@ -232,7 +232,7 @@ private fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: S
     prepareKeyFile(os)
     gradle {
         name = "Assemble"
-        tasks = "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel"
+        tasks = "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
     }
     cleanupKeyFile(os)
