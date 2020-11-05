@@ -24,7 +24,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
                 name = "Get dependencies and environment ready"
                 scriptContent = """
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
-                C:\Tools\msys64\usr\bin\pacman -S mingw-w64-x86_64-ca-certificates
+                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
             """.trimIndent()
             }
         }
