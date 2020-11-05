@@ -62,6 +62,7 @@ object PublishWindowsNativeToMaven : BuildType({
             name = "Get dependencies and environment ready"
             scriptMode = script {
                 content = """
+                setx GNUPGHOME "c:\Users\builduser\.gnupg"
                 $libcurlSoftware
             """.trimIndent()
             }
@@ -70,7 +71,7 @@ object PublishWindowsNativeToMaven : BuildType({
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
             ),
-            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\" -P\"signing.gnupg.homeDir=C:/Users/builduser/.gnupg/",
+            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\",
             os = "Windows"
         )
     }
