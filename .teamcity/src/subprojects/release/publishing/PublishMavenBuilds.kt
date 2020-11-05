@@ -63,7 +63,7 @@ object PublishWindowsNativeToMaven : BuildType({
             name = "Get dependencies and environment ready"
             scriptContent = """
                 choco install -y gnupg
-                C:Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
+                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
                 echo ##teamcity[setParameter name='env.PATH' value='%env.PATH%;C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\']
             """.trimIndent()
         }
