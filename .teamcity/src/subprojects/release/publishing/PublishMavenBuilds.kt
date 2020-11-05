@@ -70,7 +70,7 @@ object PublishWindowsNativeToMaven : BuildType({
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
             ),
-            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\",
+            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\"",
             os = "Windows"
         )
     }
