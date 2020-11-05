@@ -62,7 +62,6 @@ object PublishWindowsNativeToMaven : BuildType({
             name = "Get dependencies and environment ready"
             scriptMode = script {
                 content = """
-                setx GNUPGHOME "c:\Users\builduser\.gnupg"
                 $libcurlSoftware
             """.trimIndent()
             }
