@@ -19,6 +19,14 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         setupDefaultVcsTrigger()
     }
     steps {
+        if (osEntry == windows) {
+            script {
+                name = "Get dependencies and environment ready"
+                scriptContent = """
+                C:Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
+            """.trimIndent()
+            }
+        }
         gradle {
             name = "Build and Run Tests"
             tasks = "${osEntry.taskName} --info"
