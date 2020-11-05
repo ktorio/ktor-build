@@ -206,6 +206,7 @@ fun BuildSteps.cleanupKeyFile(os: String = "") {
         "Windows" -> {
             powerShell {
                 name = "Cleanup Keys"
+                executionMode = BuildStep.ExecutionMode.ALWAYS
                 scriptMode = script {
                     content = """
 rm -r -fo C:\Users\builduser\AppData\Roaming\gnupg\
