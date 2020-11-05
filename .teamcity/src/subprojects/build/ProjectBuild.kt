@@ -19,9 +19,16 @@ data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 const val junitReportArtifact =  "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
 
-val macOS = OSEntry("macOS", "Mac OS X", "linkDebugTestMacosX64")
-val linux = OSEntry("Linux", "Linux", "linkDebugTestLinuxX64")
-val windows = OSEntry("Windows", "Windows", "linkDebugTestMingwX64")
+
+
+
+
+
+
+
+val macOS = OSEntry("macOS", "Mac OS X", "macosX64Test")
+val linux = OSEntry("Linux", "Linux", "linuxX64Test")
+val windows = OSEntry("Windows", "Windows", "mingwX64Test")
 
 val operatingSystems = listOf(macOS, linux, windows)
 

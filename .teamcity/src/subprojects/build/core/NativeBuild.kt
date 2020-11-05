@@ -21,7 +21,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     steps {
         gradle {
             name = "Build and Run Tests"
-            tasks = "ktor-client:ktor-client-curl:${osEntry.taskName} --info"
+            tasks = "${osEntry.taskName} --info"
             jdkHome = "%env.JDK_11%"
         }
     }
