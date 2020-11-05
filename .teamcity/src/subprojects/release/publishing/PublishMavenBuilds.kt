@@ -1,6 +1,5 @@
 package subprojects.release.publishing
 
-import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
@@ -63,8 +62,7 @@ object PublishWindowsNativeToMaven : BuildType({
             name = "Get dependencies and environment ready"
             scriptContent = """
                 choco install -y gnupg
-                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
-                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
+                $libcurlSoftware                
                 echo ##teamcity[setParameter name='env.PATH' value='%env.PATH%;C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\']
             """.trimIndent()
         }

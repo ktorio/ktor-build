@@ -7,6 +7,12 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
 
+val libcurlSoftware = """
+                del /F /Q C:\Tools\msys64\var\lib\pacman\db.lck 
+                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
+                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
+""".trimIndent()
+
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
@@ -23,8 +29,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
             script {
                 name = "Get dependencies and environment ready"
                 scriptContent = """
-                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
-                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
+                $libcurlSoftware
             """.trimIndent()
             }
         }
