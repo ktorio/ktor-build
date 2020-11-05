@@ -168,7 +168,7 @@ echo "Exporting private key"
 & ${'$'}gpg --allow-secret-key-import --batch --import keyfile
 rm keyfile
 & ${'$'}gpg --list-keys
-& ${'$'}gpg-connect-agent /bye
+& "gpg-connect-agent" /bye
 
             """.trimIndent()
                 }
