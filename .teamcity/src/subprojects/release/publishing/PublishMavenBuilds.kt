@@ -59,14 +59,12 @@ object PublishWindowsNativeToMaven : BuildType({
         root(VCSCore)
     }
     steps {
-        val path = "%env.PATH%"
-        println("Path is: $path")
         script {
             name = "Get dependencies and environment ready"
             scriptContent = """
                 choco install -y gnupg
                 choco install -y curl
-                echo ##teamcity[setParameter name='env.PATH' value='$path;"C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\"']
+                echo ##teamcity[setParameter name='env.PATH' value='%env.PATH%;"C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\"']
             """.trimIndent()
         }
         publishToMaven(
