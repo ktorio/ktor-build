@@ -3,6 +3,7 @@ package subprojects.release
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import subprojects.*
+import subprojects.build.*
 
 var samplesBuild: BuildType? = null
 var apiBuild: BuildType? = null
@@ -21,7 +22,9 @@ fun BuildType.createDeploymentBuild(id: String, name: String, description: Strin
     type = BuildTypeSettings.Type.DEPLOYMENT
     buildNumberPattern = "%releaseVersion%"
     maxRunningBuilds = 1
-
+    features {
+        monitorPerformance()
+    }
 }
 
 object ReleaseBuild : BuildType({
