@@ -72,6 +72,6 @@ fun BuildFeatures.monitorPerformance() {
 }
 
 fun ParametrizedWithType.defaultTimeouts() {
-    param("system.org.gradle.internal.http.connectionTimeout", "120000")
+    param("system.org.gradle.internal.http.connectionTimeout", "240000")
     param("system.org.gradle.internal.http.socketTimeout", "120000")
 }
