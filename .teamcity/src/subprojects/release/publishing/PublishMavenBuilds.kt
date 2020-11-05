@@ -58,13 +58,16 @@ object PublishWindowsNativeToMaven : BuildType({
         root(VCSCore)
     }
     steps {
-        script {
+        powerShell {
             name = "Get dependencies and environment ready"
-            scriptContent = """
+            scriptMode = script {
+                content = """
                 choco install -y gnupg
-                $libcurlSoftware                
+                $libcurlSoftware
+                Stop-Process -Name "gpg-agent" -ErrorAction SilentlyContinue
                 echo ##teamcity[setParameter name='env.PATH' value='%env.PATH%;C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\']
             """.trimIndent()
+            }
         }
         publishToMaven(
             listOf(
@@ -231,7 +234,8 @@ private fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: S
     prepareKeyFile(os)
     gradle {
         name = "Assemble"
-        tasks = "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+        tasks =
+            "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
     }
     cleanupKeyFile(os)
