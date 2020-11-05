@@ -64,7 +64,6 @@ object PublishWindowsNativeToMaven : BuildType({
                 content = """
                 choco install -y gnupg
                 $libcurlSoftware
-                Stop-Process -Name "gpg-agent" -ErrorAction SilentlyContinue
                 echo "##teamcity[setParameter name='env.PATH' value='%env.PATH%;C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\']"
             """.trimIndent()
             }
