@@ -148,6 +148,7 @@ fun BuildSteps.prepareKeyFile(os: String = "") {
                     content = """
 md ${'$'}Env:SIGN_KEY_LOCATION -force
 cd ${'$'}Env:SIGN_KEY_LOCATION
+echo "Removing GNUPG folder"
 rm -r -fo C:\Users\builduser\AppData\Roaming\gnupg\
 
 # Hard-coding path for GPG since this fails on TeamCity
