@@ -149,11 +149,11 @@ md ${'$'}Env:SIGN_KEY_LOCATION -force
 cd ${'$'}Env:SIGN_KEY_LOCATION
 echo "Stopping gpg-agent and removing GNUPG folder"
 Stop-Process -Name "gpg-agent" -ErrorAction SilentlyContinue
-rm -r -fo C:\Users\builduser\AppData\Roaming\gnupg\
+rm -r -fo C:\Users\builduser\.gnupg
 
 # Hard-coding path for GPG since this fails on TeamCity
 # ${'$'}gpg=(get-command gpg.exe).Path
-${'$'}gpg="C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\gpg.exe"
+${'$'}gpg="C:\Program Files\Git\usr\bin\gpg.exe"
 Set-Alias -Name gpg2.exe -Value ${'$'}gpg
 
 echo "Exporting public key"
@@ -209,7 +209,7 @@ fun BuildSteps.cleanupKeyFile(os: String = "") {
                 executionMode = BuildStep.ExecutionMode.ALWAYS
                 scriptMode = script {
                     content = """
-rm -r -fo C:\Users\builduser\AppData\Roaming\gnupg\
+rm -r -fo C:\Users\builduser\.gnupg
             """.trimIndent()
                 }
             }
