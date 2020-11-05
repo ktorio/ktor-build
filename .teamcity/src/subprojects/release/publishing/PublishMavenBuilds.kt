@@ -62,9 +62,7 @@ object PublishWindowsNativeToMaven : BuildType({
             name = "Get dependencies and environment ready"
             scriptMode = script {
                 content = """
-                choco install -y gnupg
                 $libcurlSoftware
-                echo "##teamcity[setParameter name='env.PATH' value='%env.PATH%;C:\Program Files (x86)\Gpg4win\..\GnuPG\bin\']"
             """.trimIndent()
             }
         }
@@ -72,7 +70,7 @@ object PublishWindowsNativeToMaven : BuildType({
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
             ),
-            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\" -P\"signing.gnupg.homeDir=C:/Users/buildUser/AppData/Roaming/gnupg/",
+            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\" -P\"signing.gnupg.homeDir=C:/Users/buildUser/.gnupg/",
             os = "Windows"
         )
     }
