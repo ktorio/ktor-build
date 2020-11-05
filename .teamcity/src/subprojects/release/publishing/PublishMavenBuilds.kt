@@ -169,7 +169,7 @@ echo "Exporting private key"
 rm keyfile
 & ${'$'}gpg --list-keys
 & "gpgconf" --kill gpg-agent
-& "gpg-agent" --homedir="/c/Users/builduser/.gnupg" --daemon -v
+& "gpgconf" --homedir "/c/Users/builduser/.gnupg" --launch gpg-agent
 
             """.trimIndent()
                 }
