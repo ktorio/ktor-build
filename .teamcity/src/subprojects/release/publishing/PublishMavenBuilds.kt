@@ -124,7 +124,7 @@ object PublishMacOSNativeToMaven : BuildType({
                 "publishWatchosArm64PublicationToMavenRepository",
                 "publishWatchosX86PublicationToMavenRepository",
                 "publishMetadataPublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+            ), gradleParams = "-P\"signing.gnupg.executable=gpg\" -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
