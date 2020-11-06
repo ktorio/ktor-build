@@ -20,11 +20,6 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     }
     steps {
         gradle {
-            name = "Assemble"
-            tasks = "assemble --info"
-            jdkHome = "%env.${osJdkEntry.jdkEntry.env}%"
-        }
-        gradle {
             name = "Build and Run Tests"
             tasks = "jvmTest --no-parallel --continue --info"
             jdkHome = "%env.${osJdkEntry.jdkEntry.env}%"

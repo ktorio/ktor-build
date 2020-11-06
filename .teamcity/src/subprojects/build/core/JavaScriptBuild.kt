@@ -20,11 +20,6 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     }
     steps {
         gradle {
-            name = "Parallel assemble"
-            tasks = "assemble --info -Penable-js-tests"
-            setupDockerForJavaScriptTests(jsEntry)
-        }
-        gradle {
             name = "Build"
             tasks = "jsIrTest jsLegacyTest --no-parallel --continue --info -Penable-js-tests"
             setupDockerForJavaScriptTests(jsEntry)
