@@ -42,6 +42,9 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     features {
         monitorPerformance()
     }
+    failureConditions {
+        failureOnDecreaseTestCount()
+    }
     requirements {
         require(os = osEntry.agentString, minMemoryMB = 7000)
     }
