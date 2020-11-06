@@ -32,6 +32,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
                     content = libcurlSoftware.trimIndent()
                 }
             }
+            defineTCPPortRange()
         }
         gradle {
             name = "Build and Run Tests"
