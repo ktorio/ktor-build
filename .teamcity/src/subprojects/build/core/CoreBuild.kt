@@ -26,7 +26,7 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
         }
         gradle {
             name = "Build and Run Tests"
-            tasks = "clean jvmTest --no-parallel --continue --info"
+            tasks = "jvmTest --no-parallel --continue --info"
             jdkHome = "%env.${osJdkEntry.jdkEntry.env}%"
         }
     }
