@@ -36,6 +36,7 @@ fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: 
     id(buildId)
     name = buildName
     type = BuildTypeSettings.Type.COMPOSITE
+    buildNumberPattern = "%releaseVersion%"
 
     vcs {
         root(vcsRoot)
