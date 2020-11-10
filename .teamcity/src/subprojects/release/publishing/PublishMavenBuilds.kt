@@ -18,7 +18,8 @@ object PublishJvmToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishJvmPublicationToMavenRepository",
-                "publishKotlinMultiplatformPublicationToMavenRepository"
+                "publishKotlinMultiplatformPublicationToMavenRepository",
+                "publishMavenPublicationToMavenRepository"
             ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
