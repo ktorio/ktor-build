@@ -48,7 +48,7 @@ object PublishJSToMaven : BuildType({
         }
     }
     requirements {
-        require(linux.agentString)
+        require(os = linux.agentString, minMemoryMB = 7000)
     }
 })
 
@@ -79,7 +79,7 @@ object PublishWindowsNativeToMaven : BuildType({
         }
     }
     requirements {
-        require(windows.agentString)
+        require(windows.agentString, minMemoryMB = 7000)
     }
 })
 
