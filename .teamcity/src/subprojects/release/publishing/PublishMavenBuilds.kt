@@ -47,6 +47,8 @@ object PublishJSToMaven : BuildType({
     dependencies {
         snapshot(jsBuild!!) {
         }
+        snapshot(PublishJvmToMaven) {
+        }
     }
     requirements {
         require(os = linux.agentString, minMemoryMB = 7000)
@@ -77,6 +79,8 @@ object PublishWindowsNativeToMaven : BuildType({
     }
     dependencies {
         snapshot(nativeWindowsBuild!!) {
+        }
+        snapshot(PublishJSToMaven) {
         }
     }
     requirements {
@@ -131,7 +135,7 @@ object PublishMacOSNativeToMaven : BuildType({
     dependencies {
         snapshot(nativeMacOSBuild!!) {
         }
-        snapshot(PublishWindowsNativeToMaven) {
+        snapshot(PublishLinuxNativeToMaven) {
         }
     }
     requirements {
