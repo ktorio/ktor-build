@@ -28,6 +28,7 @@ object ProjectCore : Project({
     allBuilds.forEach(::buildType)
 
     buildType {
+        allowExternalStatus = true
         createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds)
     }
 })
