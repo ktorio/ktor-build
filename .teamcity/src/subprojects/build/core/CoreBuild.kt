@@ -47,6 +47,15 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
                 filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
             }
         }
+        commitStatusPublisher {
+            vcsRootExtId = VCSCore.id.toString()
+
+            publisher = github {
+                authType = personalToken {
+                    token = VCSToken
+                }
+            }
+        }
     }
     failureConditions {
         failureOnDecreaseTestCount()
