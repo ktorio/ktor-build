@@ -51,6 +51,7 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
             vcsRootExtId = VCSCore.id.toString()
 
             publisher = github {
+                githubUrl = "https://api.github.com"
                 authType = personalToken {
                     token = VCSToken
                 }
