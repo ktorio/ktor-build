@@ -7,14 +7,15 @@ import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
 import org.reflections.util.FilterBuilder
 import subprojects.build.ProjectBuild
-import subprojects.build.core.ProjectCore
 import subprojects.build.apidocs.ProjectBuildAPIDocs
+import subprojects.build.core.*
 import subprojects.build.docsamples.ProjectDocSamples
 import subprojects.build.generator.ProjectGenerator
 import subprojects.build.plugin.ProjectPlugin
 import subprojects.build.samples.ProjectSamples
 import subprojects.release.ProjectRelease
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
+import subprojects.release.publishing.*
 import java.lang.IllegalStateException
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -32,7 +33,9 @@ class AllProjectsTest {
                 ProjectBuild to "ProjectKtorBuild",
                 ProjectRelease to "ProjectKtorRelease",
                 ProjectBuildAPIDocs to "ProjectKtorBuildAPIDocs",
-                ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs"
+                ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs",
+                ProjectPublishing to "ProjectKtorPublishing",
+                CodeStyleVerify to "KtorCodeStyleVerifyKtLint"
         )
 
         allProjects().forEach { project ->
@@ -58,7 +61,8 @@ class AllProjectsTest {
                         "KtorMatrixJavaScriptChromeNodeJs",
                         "KtorMatrixStressTestLinuxJava8",
                         "KtorMatrixStressTestWindowsJava8",
-                        "KtorCore_All"
+                        "KtorCore_All",
+                        "KtorCodeStyleVerifyKtLint"
                 ),
                 ProjectDocSamples to setOf("KtorDocs_ValidateSamples"),
                 ProjectSamples to setOf(
