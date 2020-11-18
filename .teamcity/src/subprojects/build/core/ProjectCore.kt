@@ -31,6 +31,8 @@ object ProjectCore : Project({
         allowExternalStatus = true
         createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds)
     }
+
+    buildType(CodeStyleVerify)
 })
 
 fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>) {
