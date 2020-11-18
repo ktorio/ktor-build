@@ -4,7 +4,6 @@ import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.FailureConditions
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.*
 import subprojects.*
@@ -32,32 +31,9 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
             jdkHome = "%env.${osJdkEntry.jdkEntry.env}%"
         }
     }
-    features {
-        monitorPerformance()
-        pullRequests {
-            vcsRootExtId = VCSCore.id.toString()
-            provider = github {
-                authType = token {
-                    token = VCSToken
-                }
-                filterTargetBranch = """
-            +:*
-            -:pull/*
-        """.trimIndent()
-                filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
-            }
-        }
-        commitStatusPublisher {
-            vcsRootExtId = VCSCore.id.toString()
 
-            publisher = github {
-                githubUrl = "https://api.github.com"
-                authType = personalToken {
-                    token = VCSToken
-                }
-            }
-        }
-    }
+    setupBuildFeatures()
+
     failureConditions {
         failureOnDecreaseTestCount()
     }

@@ -40,9 +40,9 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
             jdkHome = "%env.JDK_11%"
         }
     }
-    features {
-        monitorPerformance()
-    }
+
+    setupBuildFeatures()
+
     failureConditions {
         failureOnDecreaseTestCount()
     }

@@ -25,9 +25,9 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
             setupDockerForJavaScriptTests(jsEntry)
         }
     }
-    features {
-        monitorPerformance()
-    }
+
+    setupBuildFeatures()
+
     failureConditions {
         failureOnDecreaseTestCount()
     }
