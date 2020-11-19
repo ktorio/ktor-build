@@ -57,7 +57,7 @@ object ProjectBuild : Project({
             days(5)
             applyToBuilds {
                 inBranches {
-                    branchFilter = patterns(defaultBranch)
+                    branchFilter = patterns("+:*")
                 }
             }
         }
