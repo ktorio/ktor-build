@@ -52,14 +52,9 @@ object ProjectBuild : Project({
 
     cleanup {
         keepRule {
-            id = "KtorKeepRule_DefaultBranchArtifacts"
+            id = "KtorKeepRule_AllBranchesArtifacts"
             dataToKeep = allArtifacts()
-            days(5)
-            applyToBuilds {
-                inBranches {
-                    branchFilter = patterns("+:*")
-                }
-            }
+            keepAtLeast = days(25)
         }
     }
 })
