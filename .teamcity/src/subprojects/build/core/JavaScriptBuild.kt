@@ -28,9 +28,6 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
 
     setupBuildFeatures()
 
-    failureConditions {
-        failureOnDecreaseTestCount()
-    }
     requirements {
         require(os = "Linux", minMemoryMB = 7000)
     }

@@ -34,9 +34,6 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
 
     setupBuildFeatures()
 
-    failureConditions {
-        failureOnDecreaseTestCount()
-    }
     requirements {
         require(os = osJdkEntry.osEntry.agentString, minMemoryMB = 7000)
     }
@@ -48,19 +45,6 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
 fun BuildSteps.defineTCPPortRange() {
     script {
         scriptContent = "netsh int ipv4 set dynamicport tcp start=1024 num=64510"
-    }
-}
-
-fun FailureConditions.failureOnDecreaseTestCount() {
-    failOnMetricChange {
-        id = "BuildFailureCondition_TestCount".toExtId()
-        metric = BuildFailureOnMetric.MetricType.TEST_COUNT
-        threshold = 10
-        units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
-        comparison = BuildFailureOnMetric.MetricComparison.LESS
-        compareTo = build {
-            buildRule = lastSuccessful()
-        }
     }
 }
 
