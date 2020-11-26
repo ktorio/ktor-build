@@ -52,8 +52,8 @@ object ProjectBuild : Project({
 
     cleanup {
         keepRule {
-            id = "KtorKeepRule_AllBranchesArtifacts"
-            dataToKeep = allArtifacts()
+            id = "KtorKeepRule_AllBranchesEverything"
+            dataToKeep = everything()
             keepAtLeast = days(25)
         }
     }
