@@ -39,7 +39,7 @@ class SampleProject(projectName: String): BuildType({
 fun BuildSteps.validateSamples(relativeDir: String) {
     gradle {
         name = "Build"
-        tasks = "clean build --no-build-cache"
+        tasks = "clean build --refresh-dependencies"
         workingDir = relativeDir
     }
     gradle {
