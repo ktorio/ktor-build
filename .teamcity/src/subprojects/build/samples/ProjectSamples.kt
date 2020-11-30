@@ -22,7 +22,7 @@ object ProjectSamples : Project({
     }
 })
 
-class SampleProject(projectName: String): BuildType({
+class SampleProject(projectName: String) : BuildType({
     id("KtorSamplesValidate_${projectName.replace('-', '_')}")
     name = "Validate $projectName sample"
 
@@ -37,6 +37,10 @@ class SampleProject(projectName: String): BuildType({
 })
 
 fun BuildSteps.validateSamples(relativeDir: String) {
+    script {
+        name = "Clean caches"
+        scriptContent = "rm -rf $HOME/.gradle/caches $HOME/.m2 $HOME/.konan"
+    }
     gradle {
         name = "Build"
         tasks = "clean build --refresh-dependencies"
