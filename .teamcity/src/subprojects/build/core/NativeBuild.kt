@@ -41,7 +41,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         }
     }
 
-    setupBuildFeatures()
+    defaultBuildFeatures()
 
     requirements {
         require(os = osEntry.agentString, minMemoryMB = 7000)

@@ -26,7 +26,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         }
     }
 
-    setupBuildFeatures()
+    defaultBuildFeatures()
 
     requirements {
         require(os = "Linux", minMemoryMB = 7000)

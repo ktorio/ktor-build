@@ -5,7 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import subprojects.*
 import subprojects.build.*
 
-internal fun BuildType.setupBuildFeatures() {
+internal fun BuildType.defaultBuildFeatures() {
     features {
         monitorPerformance()
 

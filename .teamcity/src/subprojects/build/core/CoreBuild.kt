@@ -3,9 +3,7 @@ package subprojects.build.core
 import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.FailureConditions
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
@@ -32,7 +30,7 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
         }
     }
 
-    setupBuildFeatures()
+    defaultBuildFeatures()
 
     requirements {
         require(os = osJdkEntry.osEntry.agentString, minMemoryMB = 7000)
