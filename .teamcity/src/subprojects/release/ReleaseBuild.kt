@@ -23,7 +23,7 @@ fun BuildType.createDeploymentBuild(id: String, name: String, description: Strin
     buildNumberPattern = "%releaseVersion%"
     maxRunningBuilds = 1
     features {
-        monitorPerformance()
+        perfmon {  }
     }
 }
 

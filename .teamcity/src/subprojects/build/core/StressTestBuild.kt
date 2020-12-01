@@ -2,6 +2,7 @@ package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import subprojects.*
@@ -34,7 +35,7 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
         }
     }
     features {
-        monitorPerformance()
+        perfmon {  }
     }
     requirements {
         require(os = osJVMComboEntry.osEntry.agentString, minMemoryMB = 7000)
