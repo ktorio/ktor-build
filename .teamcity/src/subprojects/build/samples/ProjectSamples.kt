@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import subprojects.VCSSamples
+import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
@@ -29,6 +30,8 @@ class SampleProject(projectName: String): BuildType({
     vcs {
         root(VCSSamples)
     }
+
+    defaultBuildFeatures()
 
     steps {
         acceptAndroidSDKLicense()

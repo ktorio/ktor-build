@@ -59,12 +59,39 @@ object ProjectBuild : Project({
     }
 })
 
-fun BuildFeatures.monitorPerformance() {
-    perfmon {
-    }
-}
-
 fun ParametrizedWithType.defaultTimeouts() {
     param("system.org.gradle.internal.http.connectionTimeout", "240000")
     param("system.org.gradle.internal.http.socketTimeout", "120000")
+}
+
+fun BuildType.defaultBuildFeatures() {
+    features {
+        perfmon {
+        }
+
+        pullRequests {
+            vcsRootExtId = VCSCore.id.toString()
+            provider = github {
+                authType = token {
+                    token = VCSToken
+                }
+                filterTargetBranch = """
+            +:*
+            -:pull/*
+        """.trimIndent()
+                filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
+            }
+        }
+
+        commitStatusPublisher {
+            vcsRootExtId = VCSCore.id.toString()
+
+            publisher = github {
+                githubUrl = "https://api.github.com"
+                authType = personalToken {
+                    token = VCSToken
+                }
+            }
+        }
+    }
 }
