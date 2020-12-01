@@ -64,13 +64,13 @@ fun ParametrizedWithType.defaultTimeouts() {
     param("system.org.gradle.internal.http.socketTimeout", "120000")
 }
 
-fun BuildType.defaultBuildFeatures() {
+fun BuildType.defaultBuildFeatures(rootId: String) {
     features {
         perfmon {
         }
 
         pullRequests {
-            vcsRootExtId = VCSCore.id.toString()
+            vcsRootExtId = rootId
             provider = github {
                 authType = token {
                     token = VCSToken

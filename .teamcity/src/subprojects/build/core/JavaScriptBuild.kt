@@ -26,7 +26,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         }
     }
 
-    defaultBuildFeatures()
+    defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
         require(os = "Linux", minMemoryMB = 7000)

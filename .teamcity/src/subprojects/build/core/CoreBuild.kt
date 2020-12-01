@@ -30,7 +30,7 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
         }
     }
 
-    defaultBuildFeatures()
+    defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
         require(os = osJdkEntry.osEntry.agentString, minMemoryMB = 7000)

@@ -41,7 +41,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         }
     }
 
-    defaultBuildFeatures()
+    defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
         require(os = osEntry.agentString, minMemoryMB = 7000)
