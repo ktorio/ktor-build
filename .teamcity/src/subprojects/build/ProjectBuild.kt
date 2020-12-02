@@ -3,6 +3,8 @@ package subprojects.build
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
 import subprojects.*
 import subprojects.build.apidocs.ProjectBuildAPIDocs
 import subprojects.build.core.*
@@ -92,6 +94,17 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
                     token = VCSToken
                 }
             }
+        }
+    }
+
+    failureConditions {
+        failOnMetricChange {
+            id = "KtorFailureConditionLogSize"
+            metric = BuildFailureOnMetric.MetricType.BUILD_LOG_SIZE
+            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
+            comparison = BuildFailureOnMetric.MetricComparison.MORE
+            compareTo = value()
+            param("metricThreshold", "15MB")
         }
     }
 }
