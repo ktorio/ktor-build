@@ -4,6 +4,8 @@ import jetbrains.buildServer.configs.kotlin.v10.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
 import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
@@ -27,6 +29,17 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
             name = "Build and Run Tests"
             tasks = "cleanJvmTest jvmTest --no-parallel --continue --info"
             jdkHome = "%env.${osJdkEntry.jdkEntry.env}%"
+        }
+    }
+
+    failureConditions {
+        failOnMetricChange {
+            id = "KtorFailureConditionLogSize"
+            metric = BuildFailureOnMetric.MetricType.BUILD_LOG_SIZE
+            units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
+            comparison = BuildFailureOnMetric.MetricComparison.MORE
+            compareTo = value()
+            param("metricThreshold", "15MB")
         }
     }
 
