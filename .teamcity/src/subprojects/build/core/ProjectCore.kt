@@ -18,12 +18,13 @@ object ProjectCore : Project({
         jdkVersions.map { jdk -> OSJDKEntry(os, jdk) }
     }
 
+    val apiCheck = APICheckBuild
     val osJdkBuilds = OsJdk.map(::CoreBuild)
     val nativeBuilds = operatingSystems.map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
 
-    val allBuilds = osJdkBuilds.plus(nativeBuilds).plus(javaScriptBuilds).plus(stressTestBuilds)
+    val allBuilds = osJdkBuilds.plus(nativeBuilds).plus(javaScriptBuilds).plus(stressTestBuilds).plus(apiCheck)
 
     allBuilds.forEach(::buildType)
 
