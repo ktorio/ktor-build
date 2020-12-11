@@ -9,7 +9,7 @@ import subprojects.build.*
 
 object APICheckBuild: BuildType({
     id("KtorMatrixCore_APICheck".toExtId())
-    name = "API Check"
+    name = "Check API"
     artifactRules = formatArtifacts(memoryReportArtifact)
     vcs {
         root(VCSCore)
