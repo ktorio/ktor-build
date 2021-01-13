@@ -46,11 +46,14 @@ object CodeStyleVerify : BuildType({
             metric = BuildFailureOnMetric.MetricType.INSPECTION_ERROR_COUNT
             units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
             comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = value()
+            compareTo = build {
+                buildRule = lastSuccessful()
+            }
         }
     }
 
     features {
+        githubCommitStatusPublisher()
         feature {
             type = "xml-report-plugin"
             param("xmlReportParsing.reportType", "checkstyle")

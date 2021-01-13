@@ -71,30 +71,8 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
         perfmon {
         }
 
-        pullRequests {
-            vcsRootExtId = rootId
-            provider = github {
-                authType = token {
-                    token = VCSToken
-                }
-                filterTargetBranch = """
-            +:*
-            -:pull/*
-        """.trimIndent()
-                filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
-            }
-        }
-
-        commitStatusPublisher {
-            vcsRootExtId = VCSCore.id.toString()
-
-            publisher = github {
-                githubUrl = "https://api.github.com"
-                authType = personalToken {
-                    token = VCSToken
-                }
-            }
-        }
+        githubPullRequestsLoader(rootId)
+        githubCommitStatusPublisher()
     }
 
     failureConditions {
@@ -107,5 +85,34 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
             param("metricThreshold", "15MB")
         }
         executionTimeoutMin = 50
+    }
+}
+
+fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
+    pullRequests {
+        vcsRootExtId = rootId
+        provider = github {
+            authType = token {
+                token = VCSToken
+            }
+            filterTargetBranch = """
+            +:*
+            -:pull/*
+        """.trimIndent()
+            filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
+        }
+    }
+}
+
+fun BuildFeatures.githubCommitStatusPublisher() {
+    commitStatusPublisher {
+        vcsRootExtId = VCSCore.id.toString()
+
+        publisher = github {
+            githubUrl = "https://api.github.com"
+            authType = personalToken {
+                token = VCSToken
+            }
+        }
     }
 }
