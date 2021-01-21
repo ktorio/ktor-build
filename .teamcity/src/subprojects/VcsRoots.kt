@@ -18,6 +18,14 @@ object VCSCore : PasswordVcsRoot({
     """.trimIndent()
 })
 
+object VCSCoreEAP : PasswordVcsRoot({
+    name = "Ktor EAP Branches"
+    url = "https://github.com/ktorio/ktor.git"
+    branchSpec = """
+        +:*-eap
+    """.trimIndent()
+})
+
 object VCSDocs : PasswordVcsRoot({
     name = "Ktor documentation"
     url = "https://github.com/ktorio/ktor-documentation.git"

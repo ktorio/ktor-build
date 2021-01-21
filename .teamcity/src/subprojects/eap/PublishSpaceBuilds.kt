@@ -12,7 +12,7 @@ import subprojects.release.*
 object PublishJvmToSpace : BuildType({
     createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space")
     vcs {
-        root(VCSCore)
+        root(VCSCoreEAP)
     }
     steps {
         publishToSpace(
@@ -35,7 +35,7 @@ object PublishJvmToSpace : BuildType({
 object PublishJSToSpace : BuildType({
     createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space")
     vcs {
-        root(VCSCore)
+        root(VCSCoreEAP)
     }
     steps {
         publishToSpace(
@@ -58,7 +58,7 @@ object PublishJSToSpace : BuildType({
 object PublishWindowsNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space")
     vcs {
-        root(VCSCore)
+        root(VCSCoreEAP)
     }
     steps {
         publishToSpace(
@@ -81,7 +81,7 @@ object PublishWindowsNativeToSpace : BuildType({
 object PublishLinuxNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space")
     vcs {
-        root(VCSCore)
+        root(VCSCoreEAP)
     }
     steps {
         publishToSpace(
@@ -104,7 +104,7 @@ object PublishLinuxNativeToSpace : BuildType({
 object PublishMacOSNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space")
     vcs {
-        root(VCSCore)
+        root(VCSCoreEAP)
     }
     steps {
         publishToSpace(
