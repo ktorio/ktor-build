@@ -22,7 +22,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         root(VCSCore)
     }
     triggers {
-        setupDefaultVcsTrigger()
+        onChangeAllBranchesTrigger()
     }
     steps {
         if (osEntry == windows) {

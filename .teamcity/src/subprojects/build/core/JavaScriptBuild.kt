@@ -16,7 +16,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         root(VCSCore)
     }
     triggers {
-        setupDefaultVcsTrigger()
+        onChangeAllBranchesTrigger()
     }
     steps {
         gradle {
