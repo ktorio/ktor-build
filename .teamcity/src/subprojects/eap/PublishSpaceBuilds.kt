@@ -1,6 +1,5 @@
 package subprojects.eap
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
@@ -9,8 +8,10 @@ import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
+const val eapVersion = "%vcsroot.branch%-%build.counter%"
+
 object PublishJvmToSpace : BuildType({
-    createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space")
+    createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
     }
@@ -33,7 +34,7 @@ object PublishJvmToSpace : BuildType({
 })
 
 object PublishJSToSpace : BuildType({
-    createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space")
+    createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
     }
@@ -56,7 +57,7 @@ object PublishJSToSpace : BuildType({
 })
 
 object PublishWindowsNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space")
+    createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
     }
@@ -79,7 +80,7 @@ object PublishWindowsNativeToSpace : BuildType({
 })
 
 object PublishLinuxNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space")
+    createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
     }
@@ -102,7 +103,7 @@ object PublishLinuxNativeToSpace : BuildType({
 })
 
 object PublishMacOSNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space")
+    createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
     }
