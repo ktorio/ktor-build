@@ -14,6 +14,7 @@ var nativeWindowsBuild: BuildType? = null
 var nativeLinuxBuild: BuildType? = null
 var nativeMacOSBuild: BuildType? = null
 var publishAllBuild: BuildType? = null
+var publishAllEAPBuild: BuildType? = null
 
 fun BuildType.createDeploymentBuild(id: String, name: String, description: String = "") {
     id(id)

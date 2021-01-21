@@ -30,5 +30,4 @@ object ProjectPublishing : Project({
             )
         )
     }
-
 })
