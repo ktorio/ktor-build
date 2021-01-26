@@ -17,7 +17,7 @@ object ProjectPublishEAPToSpace : Project( {
         param("env.SIGN_KEY_ID", value = "")
         password("env.PUBLISHING_USER", value = "%space.packages.user%")
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.secret%")
-
+        param("env.PUBLISHING_URL", value = "%space.packages.url%")
     }
 
     buildType(PublishJvmToSpace)
