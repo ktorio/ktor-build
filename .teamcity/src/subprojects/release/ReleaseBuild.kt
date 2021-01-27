@@ -43,6 +43,10 @@ object ReleaseBuild : BuildType({
         publishAllBuild
     )
 
+    params {
+        text("reverse.dep.*.releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+    }
+
     features {
         vcsLabeling {
             vcsRootId = "${VCSCore.id}"
