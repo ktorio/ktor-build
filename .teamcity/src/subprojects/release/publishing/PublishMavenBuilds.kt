@@ -16,6 +16,9 @@ object PublishJvmToMaven : BuildType({
     vcs {
         root(VCSCore)
     }
+    params {
+        configureReleaseVersion()
+    }
     steps {
         publishToMaven(
             listOf(
@@ -39,6 +42,9 @@ object PublishJSToMaven : BuildType({
     vcs {
         root(VCSCore)
     }
+    params {
+        configureReleaseVersion()
+    }
     steps {
         publishToMaven(
             listOf(
@@ -61,6 +67,9 @@ object PublishWindowsNativeToMaven : BuildType({
     createDeploymentBuild("KtorPublishWindowsNativeToMavenBuild", "Publish Windows Native to Maven", "", releaseVersion)
     vcs {
         root(VCSCore)
+    }
+    params {
+        configureReleaseVersion()
     }
     steps {
         powerShell {
@@ -95,6 +104,9 @@ object PublishLinuxNativeToMaven : BuildType({
     vcs {
         root(VCSCore)
     }
+    params {
+        configureReleaseVersion()
+    }
     steps {
         publishToMaven(
             listOf(
@@ -117,6 +129,9 @@ object PublishMacOSNativeToMaven : BuildType({
     createDeploymentBuild("KtorPublishMacOSNativeToMavenBuild", "Publish Mac Native to Maven", "", releaseVersion)
     vcs {
         root(VCSCore)
+    }
+    params {
+        configureReleaseVersion()
     }
     steps {
         publishToMaven(
