@@ -8,6 +8,7 @@ import subprojects.VCSToken
 import subprojects.VCSUsername
 import subprojects.build.apidocs.BuildDokka
 import subprojects.build.core.*
+import subprojects.release.configureReleaseVersion
 
 object ProjectReleaseAPIDocs : Project({
     id("ProjectKtorReleaseAPIDocs")
@@ -16,6 +17,8 @@ object ProjectReleaseAPIDocs : Project({
     params {
         param("env.GITHUB_USER", VCSUsername)
         password("env.GITHUB_PASSWORD", VCSToken)
+
+        configureReleaseVersion()
     }
 
     buildType {
