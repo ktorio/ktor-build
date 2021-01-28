@@ -34,6 +34,7 @@ project {
     vcsRoot(VCSDocs)
     vcsRoot(VCSSamples)
     vcsRoot(VCSAPIDocs)
+    vcsRoot(VCSCoreEAP)
 
     // DO NOT REMOVE
     params {

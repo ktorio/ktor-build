@@ -12,6 +12,7 @@ object ProjectPublishEAPToSpace : Project( {
     name = "Release Ktor EAP"
     description = "Publish on a nightly basis EAP branches to Space"
 
+
     params {
         defaultTimeouts()
         param("env.SIGN_KEY_ID", value = "")
@@ -30,7 +31,7 @@ object ProjectPublishEAPToSpace : Project( {
         createCompositeBuild(
             "KtorPublish_AllEAP",
             "Publish All EAPs",
-            VCSCore,
+            VCSCoreEAP,
             listOf(
                 PublishJvmToSpace,
                 PublishJSToSpace,
