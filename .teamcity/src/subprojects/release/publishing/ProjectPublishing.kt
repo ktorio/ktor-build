@@ -16,6 +16,10 @@ object ProjectPublishing : Project({
     buildType(PublishLinuxNativeToMaven)
     buildType(PublishMacOSNativeToMaven)
 
+    params {
+        configureReleaseVersion()
+    }
+
     publishAllBuild = buildType {
         createCompositeBuild(
             "KtorPublish_All",
