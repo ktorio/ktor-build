@@ -18,6 +18,14 @@ object VCSCore : PasswordVcsRoot({
     """.trimIndent()
 })
 
+object VCSCoreEAP : PasswordVcsRoot({
+    name = "Ktor EAP Branches"
+    url = "https://github.com/ktorio/ktor.git"
+    branchSpec = """
+        +:*-eap
+    """.trimIndent()
+})
+
 object VCSDocs : PasswordVcsRoot({
     name = "Ktor documentation"
     url = "https://github.com/ktorio/ktor-documentation.git"
@@ -46,7 +54,7 @@ open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit) : KtorVcsRoot({
     }
 })
 
-fun Triggers.setupDefaultVcsTrigger() {
+fun Triggers.onChangeAllBranchesTrigger() {
     vcs {
         triggerRules = """
                             -:*.md
@@ -57,5 +65,19 @@ fun Triggers.setupDefaultVcsTrigger() {
                             -:pull/*
                         """.trimIndent()
         quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
+    }
+}
+
+fun Triggers.nightlyEAPBranchesTrigger() {
+    schedule {
+        schedulingPolicy = daily {
+            hour = 20
+        }
+        triggerRules = """
+                            -:*.md
+                            -:.gitignore
+                        """.trimIndent()
+        branchFilter = "+:*-eap"
+        triggerBuild = always()
     }
 }

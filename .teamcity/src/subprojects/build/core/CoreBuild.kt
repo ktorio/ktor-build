@@ -17,7 +17,7 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
         root(VCSCore)
     }
     triggers {
-        setupDefaultVcsTrigger()
+        onChangeAllBranchesTrigger()
     }
     steps {
         if (osJdkEntry.osEntry == windows) {

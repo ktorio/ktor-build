@@ -15,7 +15,7 @@ object APICheckBuild: BuildType({
         root(VCSCore)
     }
     triggers {
-        setupDefaultVcsTrigger()
+        onChangeAllBranchesTrigger()
     }
     steps {
         gradle {

@@ -14,13 +14,14 @@ var nativeWindowsBuild: BuildType? = null
 var nativeLinuxBuild: BuildType? = null
 var nativeMacOSBuild: BuildType? = null
 var publishAllBuild: BuildType? = null
+var publishAllEAPBuild: BuildType? = null
 
-fun BuildType.createDeploymentBuild(id: String, name: String, description: String = "") {
+fun BuildType.createDeploymentBuild(id: String, name: String, description: String, versionPattern: String) {
     id(id)
     this.name = name
     this.description = description
     type = BuildTypeSettings.Type.DEPLOYMENT
-    buildNumberPattern = "%releaseVersion%"
+    buildNumberPattern = versionPattern
     maxRunningBuilds = 1
     features {
         perfmon {  }
@@ -28,7 +29,7 @@ fun BuildType.createDeploymentBuild(id: String, name: String, description: Strin
 }
 
 object ReleaseBuild : BuildType({
-    createDeploymentBuild("KtorReleaseAllBuild", "Release All", "Publish all artifacts and release documentation")
+    createDeploymentBuild("KtorReleaseAllBuild", "Release All", "Publish all artifacts and release documentation", "")
 
     vcs {
         root(VCSSamples)

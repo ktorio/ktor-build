@@ -9,8 +9,10 @@ import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
+const val releaseVersion = "%releaseVersion%"
+
 object PublishJvmToMaven : BuildType({
-    createDeploymentBuild("KtorPublishJvmToMavenBuild", "Publish JVM to Maven")
+    createDeploymentBuild("KtorPublishJvmToMavenBuild", "Publish JVM to Maven", "", releaseVersion)
     vcs {
         root(VCSCore)
     }
@@ -36,7 +38,7 @@ object PublishJvmToMaven : BuildType({
 })
 
 object PublishJSToMaven : BuildType({
-    createDeploymentBuild("KtorPublishJSToMavenBuild", "Publish JS to Maven")
+    createDeploymentBuild("KtorPublishJSToMavenBuild", "Publish JS to Maven", "", releaseVersion)
     vcs {
         root(VCSCore)
     }
@@ -62,7 +64,7 @@ object PublishJSToMaven : BuildType({
 })
 
 object PublishWindowsNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishWindowsNativeToMavenBuild", "Publish Windows Native to Maven")
+    createDeploymentBuild("KtorPublishWindowsNativeToMavenBuild", "Publish Windows Native to Maven", "", releaseVersion)
     vcs {
         root(VCSCore)
     }
@@ -98,7 +100,7 @@ object PublishWindowsNativeToMaven : BuildType({
 })
 
 object PublishLinuxNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishLinuxNativeToMavenBuild", "Publish Linux Native to Maven")
+    createDeploymentBuild("KtorPublishLinuxNativeToMavenBuild", "Publish Linux Native to Maven",  "", releaseVersion)
     vcs {
         root(VCSCore)
     }
@@ -124,7 +126,7 @@ object PublishLinuxNativeToMaven : BuildType({
 })
 
 object PublishMacOSNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishMacOSNativeToMavenBuild", "Publish Mac Native to Maven")
+    createDeploymentBuild("KtorPublishMacOSNativeToMavenBuild", "Publish Mac Native to Maven", "", releaseVersion)
     vcs {
         root(VCSCore)
     }
@@ -265,7 +267,7 @@ private fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: S
     gradle {
         name = "Assemble"
         tasks =
-            "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
     }
     cleanupKeyFile(os)
