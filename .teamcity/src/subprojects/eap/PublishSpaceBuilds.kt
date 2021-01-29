@@ -19,7 +19,7 @@ object PublishJvmToSpace : BuildType({
         nightlyEAPBranchesTrigger()
     }
     params {
-        configureReleaseVersion()
+        param("releaseVersion", eapVersion)
     }
     steps {
         publishToSpace(
@@ -45,7 +45,7 @@ object PublishJSToSpace : BuildType({
         root(VCSCoreEAP)
     }
     params {
-        configureReleaseVersion()
+        param("releaseVersion", eapVersion)
     }
     triggers {
         nightlyEAPBranchesTrigger()
@@ -77,7 +77,7 @@ object PublishWindowsNativeToSpace : BuildType({
         nightlyEAPBranchesTrigger()
     }
     params {
-        configureReleaseVersion()
+        param("releaseVersion", eapVersion)
     }
     steps {
         publishToSpace(
@@ -106,7 +106,7 @@ object PublishLinuxNativeToSpace : BuildType({
         nightlyEAPBranchesTrigger()
     }
     params {
-        configureReleaseVersion()
+        param("releaseVersion", eapVersion)
     }
     steps {
         publishToSpace(
@@ -135,7 +135,7 @@ object PublishMacOSNativeToSpace : BuildType({
         nightlyEAPBranchesTrigger()
     }
     params {
-        configureReleaseVersion()
+        param("releaseVersion", eapVersion)
     }
     steps {
         publishToSpace(
