@@ -7,6 +7,7 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
+import subprojects.release.publishing.*
 
 val gradleProjects = listOf("client-mpp", "fullstack-mpp", "generic")
 
@@ -19,7 +20,7 @@ object ProjectSamples : Project({
     projects.forEach(::buildType)
 
     samplesBuild = buildType {
-        createCompositeBuild("KtorSamplesValidate_All", "Validate all samples", VCSSamples, projects)
+        createCompositeBuild("KtorSamplesValidate_All", "Validate all samples", VCSSamples, projects, releaseVersion)
     }
 })
 

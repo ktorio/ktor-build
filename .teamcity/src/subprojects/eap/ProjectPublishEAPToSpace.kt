@@ -38,7 +38,8 @@ object ProjectPublishEAPToSpace : Project( {
                 PublishWindowsNativeToSpace,
                 PublishLinuxNativeToSpace,
                 PublishMacOSNativeToSpace
-            )
+            ),
+            eapVersion
         )
     }
 })

@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.*
 import subprojects.build.defaultTimeouts
 import subprojects.build.*
+import subprojects.release.publishing.*
 
 object ProjectCore : Project({
     id("ProjectKtorCore")
@@ -30,17 +31,17 @@ object ProjectCore : Project({
 
     buildType {
         allowExternalStatus = true
-        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds)
+        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, releaseVersion)
     }
 
     buildType(CodeStyleVerify)
 })
 
-fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>) {
+fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>, buildPattern: String) {
     id(buildId)
     name = buildName
     type = BuildTypeSettings.Type.COMPOSITE
-    buildNumberPattern = "%releaseVersion%"
+    buildNumberPattern = buildPattern
 
     vcs {
         root(vcsRoot)

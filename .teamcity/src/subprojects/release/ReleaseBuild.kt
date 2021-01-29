@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.release.publishing.*
 
 var samplesBuild: BuildType? = null
 var apiBuild: BuildType? = null
@@ -51,7 +52,7 @@ object ReleaseBuild : BuildType({
     features {
         vcsLabeling {
             vcsRootId = "${VCSCore.id}"
-            labelingPattern = "%releaseVersion%"
+            labelingPattern = releaseVersion
             successfulOnly = true
             branchFilter = "+:$defaultBranch"
         }
