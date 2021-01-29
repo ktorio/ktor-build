@@ -8,7 +8,7 @@ import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
-const val eapVersion = "%vcsroot.branch%-%build.counter%"
+const val eapVersion = "%teamcity.build.branch%-%build.counter%"
 
 object PublishJvmToSpace : BuildType({
     createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", eapVersion)
