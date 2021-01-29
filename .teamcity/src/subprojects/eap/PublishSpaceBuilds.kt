@@ -15,9 +15,6 @@ object PublishJvmToSpace : BuildType({
     vcs {
         root(VCSCoreEAP)
     }
-    triggers {
-        nightlyEAPBranchesTrigger()
-    }
     params {
         param("releaseVersion", eapVersion)
     }
@@ -47,9 +44,6 @@ object PublishJSToSpace : BuildType({
     params {
         param("releaseVersion", eapVersion)
     }
-    triggers {
-        nightlyEAPBranchesTrigger()
-    }
     steps {
         publishToSpace(
             listOf(
@@ -72,9 +66,6 @@ object PublishWindowsNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
-    }
-    triggers {
-        nightlyEAPBranchesTrigger()
     }
     params {
         param("releaseVersion", eapVersion)
@@ -102,9 +93,6 @@ object PublishLinuxNativeToSpace : BuildType({
     vcs {
         root(VCSCoreEAP)
     }
-    triggers {
-        nightlyEAPBranchesTrigger()
-    }
     params {
         param("releaseVersion", eapVersion)
     }
@@ -130,9 +118,6 @@ object PublishMacOSNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
-    }
-    triggers {
-        nightlyEAPBranchesTrigger()
     }
     params {
         param("releaseVersion", eapVersion)

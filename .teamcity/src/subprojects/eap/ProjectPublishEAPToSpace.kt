@@ -7,7 +7,7 @@ import subprojects.build.core.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 
-object ProjectPublishEAPToSpace : Project( {
+object ProjectPublishEAPToSpace : Project({
     id("ProjectKtorPublishEAPToSpace")
     name = "Release Ktor EAP"
     description = "Publish on a nightly basis EAP branches to Space"
@@ -28,18 +28,31 @@ object ProjectPublishEAPToSpace : Project( {
     buildType(PublishMacOSNativeToSpace)
 
     publishAllEAPBuild = buildType {
-        createCompositeBuild(
-            "KtorPublish_AllEAP",
-            "Publish All EAPs",
-            VCSCoreEAP,
-            listOf(
+        id("KtorPublish_AllEAP")
+        name = "Publish All EAPs"
+        type = BuildTypeSettings.Type.COMPOSITE
+        buildNumberPattern = eapVersion
+        vcs {
+            root(VCSCoreEAP)
+        }
+        triggers {
+            nightlyEAPBranchesTrigger()
+        }
+        dependencies {
+            val builds = listOf(
                 PublishJvmToSpace,
                 PublishJSToSpace,
                 PublishWindowsNativeToSpace,
                 PublishLinuxNativeToSpace,
                 PublishMacOSNativeToSpace
-            ),
-            eapVersion
-        )
+            )
+            builds.mapNotNull { it.id }.forEach { id ->
+                snapshot(id) {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
+        }
     }
 })
+
+

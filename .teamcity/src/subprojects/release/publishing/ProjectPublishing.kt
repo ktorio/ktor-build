@@ -32,7 +32,6 @@ object ProjectPublishing : Project({
                 PublishLinuxNativeToMaven,
                 PublishMacOSNativeToMaven
             ),
-            releaseVersion
         )
     }
 })

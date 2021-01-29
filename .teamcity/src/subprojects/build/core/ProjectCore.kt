@@ -31,22 +31,21 @@ object ProjectCore : Project({
 
     buildType {
         allowExternalStatus = true
-        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, releaseVersion)
+        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds)
     }
 
     buildType(CodeStyleVerify)
 })
 
-fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>, buildPattern: String) {
+fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>) {
     id(buildId)
     name = buildName
     type = BuildTypeSettings.Type.COMPOSITE
-    buildNumberPattern = buildPattern
+    buildNumberPattern = releaseVersion
 
     vcs {
         root(vcsRoot)
     }
-
     dependencies {
         builds.mapNotNull { it.id }.forEach { id ->
             snapshot(id) {
