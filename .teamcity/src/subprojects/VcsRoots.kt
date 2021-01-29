@@ -23,6 +23,8 @@ object VCSCoreEAP : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor.git"
     branchSpec = """
         +:*-eap
+        +:$defaultBranch
+        -:refs/(pull/*)/head
     """.trimIndent()
 })
 
