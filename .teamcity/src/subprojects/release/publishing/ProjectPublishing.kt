@@ -31,7 +31,7 @@ object ProjectPublishing : Project({
                 PublishWindowsNativeToMaven,
                 PublishLinuxNativeToMaven,
                 PublishMacOSNativeToMaven
-            ),
+            )
         )
     }
 })
