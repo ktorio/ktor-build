@@ -18,6 +18,9 @@ object PublishJvmToSpace : BuildType({
     triggers {
         nightlyEAPBranchesTrigger()
     }
+    params {
+        configureReleaseVersion()
+    }
     steps {
         publishToSpace(
             listOf(
@@ -40,6 +43,9 @@ object PublishJSToSpace : BuildType({
     createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space", "", eapVersion)
     vcs {
         root(VCSCoreEAP)
+    }
+    params {
+        configureReleaseVersion()
     }
     triggers {
         nightlyEAPBranchesTrigger()
@@ -70,6 +76,9 @@ object PublishWindowsNativeToSpace : BuildType({
     triggers {
         nightlyEAPBranchesTrigger()
     }
+    params {
+        configureReleaseVersion()
+    }
     steps {
         publishToSpace(
             listOf(
@@ -96,6 +105,9 @@ object PublishLinuxNativeToSpace : BuildType({
     triggers {
         nightlyEAPBranchesTrigger()
     }
+    params {
+        configureReleaseVersion()
+    }
     steps {
         publishToSpace(
             listOf(
@@ -121,6 +133,9 @@ object PublishMacOSNativeToSpace : BuildType({
     }
     triggers {
         nightlyEAPBranchesTrigger()
+    }
+    params {
+        configureReleaseVersion()
     }
     steps {
         publishToSpace(
