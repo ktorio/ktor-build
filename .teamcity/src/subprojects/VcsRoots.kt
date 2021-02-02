@@ -79,7 +79,9 @@ fun Triggers.nightlyEAPBranchesTrigger() {
                             -:*.md
                             -:.gitignore
                         """.trimIndent()
-        branchFilter = "+:*-eap"
+        branchFilter = """
+                            -:pull/*
+                        """.trimIndent()
         triggerBuild = always()
     }
 }
