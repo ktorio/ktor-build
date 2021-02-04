@@ -9,14 +9,14 @@ import subprojects.build.core.*
 import subprojects.release.*
 
 const val eapVersion = "%teamcity.build.branch%-%build.counter%"
-
+const val dependentEapVersion = "%dep.KtorPublish_AllEAP.system.build.number%"
 object PublishJvmToSpace : BuildType({
-    createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", eapVersion)
+    createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", dependentEapVersion)
     vcs {
         root(VCSCoreEAP)
     }
     params {
-        param("releaseVersion", eapVersion)
+        param("releaseVersion", dependentEapVersion)
     }
     steps {
         publishToSpace(
@@ -37,12 +37,12 @@ object PublishJvmToSpace : BuildType({
 })
 
 object PublishJSToSpace : BuildType({
-    createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space", "", eapVersion)
+    createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space", "", dependentEapVersion)
     vcs {
         root(VCSCoreEAP)
     }
     params {
-        param("releaseVersion", eapVersion)
+        param("releaseVersion", dependentEapVersion)
     }
     steps {
         publishToSpace(
@@ -63,12 +63,12 @@ object PublishJSToSpace : BuildType({
 })
 
 object PublishWindowsNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space", "", eapVersion)
+    createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space", "", dependentEapVersion)
     vcs {
         root(VCSCoreEAP)
     }
     params {
-        param("releaseVersion", eapVersion)
+        param("releaseVersion", dependentEapVersion)
     }
     steps {
         publishToSpace(
@@ -89,12 +89,12 @@ object PublishWindowsNativeToSpace : BuildType({
 })
 
 object PublishLinuxNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space", "", eapVersion)
+    createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space", "", dependentEapVersion)
     vcs {
         root(VCSCoreEAP)
     }
     params {
-        param("releaseVersion", eapVersion)
+        param("releaseVersion", dependentEapVersion)
     }
     steps {
         publishToSpace(
@@ -115,12 +115,12 @@ object PublishLinuxNativeToSpace : BuildType({
 })
 
 object PublishMacOSNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space", "", eapVersion)
+    createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space", "", dependentEapVersion)
     vcs {
         root(VCSCoreEAP)
     }
     params {
-        param("releaseVersion", eapVersion)
+        param("releaseVersion", dependentEapVersion)
     }
     steps {
         publishToSpace(
