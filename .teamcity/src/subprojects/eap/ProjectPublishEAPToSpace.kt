@@ -48,6 +48,7 @@ object ProjectPublishEAPToSpace : Project({
             )
             builds.mapNotNull { it.id }.forEach { id ->
                 snapshot(id) {
+                    reuseBuilds = ReuseBuilds.NO
                     onDependencyFailure = FailureAction.FAIL_TO_START
                 }
             }
