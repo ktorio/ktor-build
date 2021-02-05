@@ -22,6 +22,10 @@ object PublishJvmToSpace : BuildType({
             )
         )
     }
+    params {
+        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+    }
+
     dependencies {
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
@@ -45,6 +49,9 @@ object PublishJSToSpace : BuildType({
                 "publishJsPublicationToMavenRepository"
             )
         )
+    }
+    params {
+        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
     dependencies {
         snapshot(SetBuildNumber) {
@@ -72,6 +79,9 @@ object PublishWindowsNativeToSpace : BuildType({
             )
         )
     }
+    params {
+        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+    }
     dependencies {
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
@@ -97,6 +107,9 @@ object PublishLinuxNativeToSpace : BuildType({
                 "publishLinuxX64PublicationToMavenRepository"
             )
         )
+    }
+    params {
+        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
     dependencies {
         snapshot(SetBuildNumber) {
@@ -131,6 +144,9 @@ object PublishMacOSNativeToSpace : BuildType({
                 "publishWatchosX86PublicationToMavenRepository"
             )
         )
+    }
+    params {
+        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
     dependencies {
         snapshot(SetBuildNumber) {
