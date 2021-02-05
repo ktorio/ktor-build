@@ -1,7 +1,6 @@
 package subprojects.eap
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
@@ -9,9 +8,8 @@ import subprojects.build.core.*
 import subprojects.release.*
 
 const val eapVersion = "%teamcity.build.branch%-%build.counter%"
-const val dependentEapVersion = "%reverse.dep.Ktor_KtorPublish_AllEAP.system.build.number%"
 object PublishJvmToSpace : BuildType({
-    createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", dependentEapVersion)
+    createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
         root(VCSCoreEAP)
     }
@@ -25,6 +23,9 @@ object PublishJvmToSpace : BuildType({
         )
     }
     dependencies {
+        snapshot(SetBuildNumber) {
+            reuseBuilds = ReuseBuilds.NO
+        }
         snapshot(jvmBuild!!) {
         }
     }
@@ -34,7 +35,7 @@ object PublishJvmToSpace : BuildType({
 })
 
 object PublishJSToSpace : BuildType({
-    createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space", "", dependentEapVersion)
+    createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
         root(VCSCoreEAP)
     }
@@ -46,6 +47,9 @@ object PublishJSToSpace : BuildType({
         )
     }
     dependencies {
+        snapshot(SetBuildNumber) {
+            reuseBuilds = ReuseBuilds.NO
+        }
         snapshot(jsBuild!!) {
         }
         snapshot(PublishJvmToSpace) {
@@ -57,7 +61,7 @@ object PublishJSToSpace : BuildType({
 })
 
 object PublishWindowsNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space", "", dependentEapVersion)
+    createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
         root(VCSCoreEAP)
     }
@@ -69,6 +73,9 @@ object PublishWindowsNativeToSpace : BuildType({
         )
     }
     dependencies {
+        snapshot(SetBuildNumber) {
+            reuseBuilds = ReuseBuilds.NO
+        }
         snapshot(nativeWindowsBuild!!) {
         }
         snapshot(PublishJSToSpace) {
@@ -80,7 +87,7 @@ object PublishWindowsNativeToSpace : BuildType({
 })
 
 object PublishLinuxNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space", "", dependentEapVersion)
+    createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
         root(VCSCoreEAP)
     }
@@ -92,6 +99,9 @@ object PublishLinuxNativeToSpace : BuildType({
         )
     }
     dependencies {
+        snapshot(SetBuildNumber) {
+            reuseBuilds = ReuseBuilds.NO
+        }
         snapshot(nativeLinuxBuild!!) {
         }
         snapshot(PublishWindowsNativeToSpace) {
@@ -103,7 +113,7 @@ object PublishLinuxNativeToSpace : BuildType({
 })
 
 object PublishMacOSNativeToSpace : BuildType({
-    createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space", "", dependentEapVersion)
+    createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
         root(VCSCoreEAP)
     }
@@ -123,6 +133,9 @@ object PublishMacOSNativeToSpace : BuildType({
         )
     }
     dependencies {
+        snapshot(SetBuildNumber) {
+            reuseBuilds = ReuseBuilds.NO
+        }
         snapshot(nativeMacOSBuild!!) {
         }
         snapshot(PublishLinuxNativeToSpace) {

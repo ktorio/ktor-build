@@ -21,6 +21,7 @@ object ProjectPublishEAPToSpace : Project({
         param("env.PUBLISHING_URL", value = "%space.packages.url%")
     }
 
+    buildType(SetBuildNumber)
     buildType(PublishJvmToSpace)
     buildType(PublishJSToSpace)
     buildType(PublishWindowsNativeToSpace)
@@ -31,7 +32,7 @@ object ProjectPublishEAPToSpace : Project({
         id("KtorPublish_AllEAP")
         name = "Publish All EAPs"
         type = BuildTypeSettings.Type.COMPOSITE
-        buildNumberPattern = eapVersion
+        buildNumberPattern = SetBuildNumber.depParamRefs.buildNumber.ref
         vcs {
             root(VCSCoreEAP)
         }
