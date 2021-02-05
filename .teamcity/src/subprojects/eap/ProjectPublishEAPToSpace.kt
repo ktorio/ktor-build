@@ -36,9 +36,6 @@ object ProjectPublishEAPToSpace : Project({
         vcs {
             root(VCSCoreEAP)
         }
-        triggers {
-            nightlyEAPBranchesTrigger()
-        }
         dependencies {
             val builds = listOf(
                 PublishJvmToSpace,
