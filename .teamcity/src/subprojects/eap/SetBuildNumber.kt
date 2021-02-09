@@ -16,7 +16,4 @@ object SetBuildNumber: BuildType( {
     vcs {
         root(VCSCoreEAP)
     }
-    triggers {
-        nightlyEAPBranchesTrigger()
-    }
 })
