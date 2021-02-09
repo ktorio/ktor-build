@@ -80,8 +80,8 @@ fun Triggers.nightlyEAPBranchesTrigger() {
                             -:.gitignore
                         """.trimIndent()
         branchFilter = """
-        +:refs/heads/(*-eap)
-        +:refs/heads/($defaultBranch)
+        +:*-eap
+        +:$defaultBranch
         -:refs/(pull/*)/head
     """.trimIndent()
         triggerBuild = always()
