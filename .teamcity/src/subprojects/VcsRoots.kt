@@ -81,7 +81,7 @@ fun Triggers.nightlyEAPBranchesTrigger() {
                         """.trimIndent()
         branchFilter = """
         +:*-eap
-        +:$defaultBranch
+        +:<default>
         -:refs/(pull/*)/head
     """.trimIndent()
         triggerBuild = always()
