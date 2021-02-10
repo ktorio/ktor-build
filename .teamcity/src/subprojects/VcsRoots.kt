@@ -73,7 +73,7 @@ fun Triggers.onChangeAllBranchesTrigger() {
 fun Triggers.nightlyEAPBranchesTrigger() {
     schedule {
         schedulingPolicy = daily {
-            hour = 20
+            hour = 13
         }
         triggerRules = """
                             -:*.md
