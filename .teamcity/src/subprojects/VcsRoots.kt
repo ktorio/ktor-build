@@ -73,17 +73,8 @@ fun Triggers.onChangeAllBranchesTrigger() {
 fun Triggers.nightlyEAPBranchesTrigger() {
     schedule {
         schedulingPolicy = daily {
-            hour = 13
+            hour = 20
         }
-        triggerRules = """
-                            -:*.md
-                            -:.gitignore
-                        """.trimIndent()
-        branchFilter = """
-        +:*-eap
-        +:<default>
-        -:refs/(pull/*)/head
-    """.trimIndent()
         triggerBuild = always()
     }
 }
