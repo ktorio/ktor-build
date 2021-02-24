@@ -33,6 +33,11 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
                 }
             }
             defineTCPPortRange()
+        } else if (osEntry == linux) {
+            script {
+                name = "Obtain Library Dependencies"
+                scriptContent = "sudo apt-get install libncurses5 libncursesw5 libtinfo5"
+            }
         }
         gradle {
             name = "Build and Run Tests"
