@@ -13,6 +13,12 @@ val libcurlSoftware = """
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
 """.trimIndent()
 
+val libSoftware = """
+        sudo apt-get update
+        sudo apt-get install libncurses5 libncursesw5 libtinfo5
+        sudo apt-get install libcurl4-openssl-dev
+    """.trimIndent()
+
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
     name = "Native on ${osEntry.name}"
@@ -36,12 +42,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         } else if (osEntry == linux) {
             script {
                 name = "Obtain Library Dependencies"
-                scriptContent = """
-        sudo apt-get update
-        sudo apt-get install libncurses5 libncursesw5 libtinfo5
-        sudo apt-get install libcurl4-openssl-dev
-        sudo apt-get install -y libtinfo-dev
-    """.trimIndent()
+                scriptContent = libSoftware
             }
         }
         gradle {

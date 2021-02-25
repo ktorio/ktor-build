@@ -22,6 +22,11 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     steps {
         if (osJdkEntry.osEntry == windows) {
             defineTCPPortRange()
+        } else if (osJdkEntry.osEntry == linux) {
+            script {
+                name = "Obtain Library Dependencies"
+                scriptContent = libSoftware
+            }
         }
         gradle {
             name = "Build and Run Tests"
