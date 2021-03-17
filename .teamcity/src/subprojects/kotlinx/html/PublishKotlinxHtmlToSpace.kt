@@ -1,12 +1,22 @@
 package subprojects.kotlinx.html
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.vcsLabeling
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
+import subprojects.VCSCore
 import subprojects.VCSCoreEAP
+import subprojects.VCSKotlinxHtml
+import subprojects.build.core.require
 import subprojects.build.defaultTimeouts
 import subprojects.build.java11
+import subprojects.build.linux
+import subprojects.defaultBranch
 import subprojects.eap.SetBuildNumber
+import subprojects.release.configureReleaseVersion
 import subprojects.release.createDeploymentBuild
+import subprojects.release.publishing.cleanupKeyFile
+import subprojects.release.publishing.prepareKeyFile
+import subprojects.release.publishing.releaseVersion
 
 object PublishKotlinxHtmlToSpace : Project({
     id("ProjectKotlinxHtmlToSpace")
@@ -20,11 +30,11 @@ object PublishKotlinxHtmlToSpace : Project({
         param("env.PUBLISHING_URL", value = "%space.packages.kotlinx.html.url%")
     }
 
-
     buildType {
         params {
-            param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+            configureReleaseVersion()
         }
+
 
         createDeploymentBuild(
             "KotlinxHtmlPublishToSpaceBuild",
@@ -33,16 +43,35 @@ object PublishKotlinxHtmlToSpace : Project({
             SetBuildNumber.depParamRefs.buildNumber.ref
         )
 
-        vcs {
-            root(VCSCoreEAP)
+        features {
+            vcsLabeling {
+                vcsRootId = "${VCSCore.id}"
+                labelingPattern = releaseVersion
+                successfulOnly = true
+                branchFilter = "+:$defaultBranch"
+            }
         }
+
+        vcs {
+            root(VCSKotlinxHtml)
+        }
+
         steps {
+            prepareKeyFile("Linux")
             gradle {
                 name = "Publish"
                 tasks =
-                    "publish --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+                    "publish --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel " +
+                            "-Porg.gradle.internal.network.retry.max.attempts=100000 " +
+                            "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
                 jdkHome = "%env.${java11.env}%"
             }
+
+            cleanupKeyFile("Linux")
+        }
+
+        requirements {
+            require(linux.agentString)
         }
     }
 })
