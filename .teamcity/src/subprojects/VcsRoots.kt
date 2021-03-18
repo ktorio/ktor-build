@@ -43,6 +43,11 @@ object VCSAPIDocs : PasswordVcsRoot({
     url = "https://github.com/ktorio/api.ktor.io.git"
 })
 
+object VCSKotlinxHtml : PasswordVcsRoot({
+    name = "Kotlinx.html Library"
+    url = "https://github.com/Kotlin/kotlinx.html.git"
+})
+
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     init()
     userNameStyle = UserNameStyle.NAME
