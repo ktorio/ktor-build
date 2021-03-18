@@ -45,10 +45,6 @@ object PublishKotlinxHtmlToSpace : Project({
             perfmon { }
         }
 
-        params {
-            configureReleaseVersion()
-        }
-
         features {
             vcsLabeling {
                 vcsRootId = "${VCSCore.id}"
@@ -68,7 +64,7 @@ object PublishKotlinxHtmlToSpace : Project({
             gradle {
                 name = "Publish"
                 tasks =
-                    "publish --i -PreleaseVersion=%releaseVersion% --stacktrace --no-parallel " +
+                    "publish --i -Prelease --stacktrace --no-parallel " +
                             "-Porg.gradle.internal.network.retry.max.attempts=100000 " +
                             "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
                 jdkHome = "%env.${java11.env}%"
