@@ -3,6 +3,7 @@ import subprojects.build.*
 import subprojects.release.*
 import subprojects.eap.*
 import subprojects.*
+import subprojects.kotlinx.html.*
 
 /*
 The settings script is an entry point for defining a TeamCity
