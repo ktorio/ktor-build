@@ -31,10 +31,12 @@ object PublishKotlinxHtmlToSpace : Project({
     }
 
     buildType {
+        id("KotlinxHtmlReleaseSpace")
+        name = "Deploy Kotlinx.html to Space"
+
         params {
             configureReleaseVersion()
         }
-
 
         createDeploymentBuild(
             "KotlinxHtmlPublishToSpaceBuild",
@@ -57,7 +59,7 @@ object PublishKotlinxHtmlToSpace : Project({
         }
 
         steps {
-            prepareKeyFile("Linux")
+            prepareKeyFile(linux.agentString)
             gradle {
                 name = "Publish"
                 tasks =
@@ -67,7 +69,7 @@ object PublishKotlinxHtmlToSpace : Project({
                 jdkHome = "%env.${java11.env}%"
             }
 
-            cleanupKeyFile("Linux")
+            cleanupKeyFile(linux.agentString)
         }
 
         requirements {
