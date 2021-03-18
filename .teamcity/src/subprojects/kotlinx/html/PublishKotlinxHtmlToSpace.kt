@@ -45,6 +45,10 @@ object PublishKotlinxHtmlToSpace : Project({
             perfmon { }
         }
 
+        params {
+            configureReleaseVersion()
+        }
+
         features {
             vcsLabeling {
                 vcsRootId = "${VCSCore.id}"
