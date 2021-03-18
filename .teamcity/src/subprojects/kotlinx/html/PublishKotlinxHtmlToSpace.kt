@@ -26,7 +26,7 @@ object PublishKotlinxHtmlToSpace : Project({
     params {
         defaultTimeouts()
         param("env.SIGN_KEY_ID", value = "")
-        password("env.PUBLISHING_USER", value = "%space.packages.kotlinx.html.user%")
+        param("env.PUBLISHING_USER", value = "%space.packages.kotlinx.html.user%")
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.kotlinx.html.secret%")
         param("env.PUBLISHING_URL", value = "%space.packages.kotlinx.html.url%")
 
