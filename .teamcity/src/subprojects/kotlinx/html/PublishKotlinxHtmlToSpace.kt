@@ -1,6 +1,7 @@
 package subprojects.kotlinx.html
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildTypeSettings
+import jetbrains.buildServer.configs.kotlin.v2019_2.CheckoutMode
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.perfmon
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.vcsLabeling
@@ -59,6 +60,7 @@ object PublishKotlinxHtmlToSpace : Project({
 
         vcs {
             root(VCSKotlinxHtml)
+            checkoutMode = CheckoutMode.ON_AGENT
         }
 
         steps {
@@ -70,6 +72,7 @@ object PublishKotlinxHtmlToSpace : Project({
                             "-Porg.gradle.internal.network.retry.max.attempts=100000 " +
                             "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
                 jdkHome = "%env.${java11.env}%"
+                buildFile = "build.gradle.kts"
             }
 
             cleanupKeyFile(linux.agentString)
