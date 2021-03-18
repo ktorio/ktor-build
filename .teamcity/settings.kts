@@ -35,6 +35,7 @@ project {
     vcsRoot(VCSSamples)
     vcsRoot(VCSAPIDocs)
     vcsRoot(VCSCoreEAP)
+    vcsRoot(VCSKotlinxHtml)
 
     // DO NOT REMOVE
     params {
@@ -44,6 +45,7 @@ project {
     subProject(ProjectBuild)
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
+    subProject(PublishKotlinxHtmlToSpace)
 }
 
 
