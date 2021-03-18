@@ -1,6 +1,8 @@
 package subprojects.kotlinx.html
 
+import jetbrains.buildServer.configs.kotlin.v2019_2.BuildTypeSettings
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.perfmon
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.vcsLabeling
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import subprojects.*
@@ -34,19 +36,17 @@ object PublishKotlinxHtmlToSpace : Project({
     }
 
     buildType {
-        id("KotlinxHtmlReleaseSpace")
-        name = "Deploy Kotlinx.html to Space"
+        id("KotlinxHtmlPublishToSpaceBuild")
+        name = "Publish kotlinx.html to Space"
+        type = BuildTypeSettings.Type.DEPLOYMENT
+        maxRunningBuilds = 1
+        features {
+            perfmon { }
+        }
 
         params {
             configureReleaseVersion()
         }
-
-        createDeploymentBuild(
-            "KotlinxHtmlPublishToSpaceBuild",
-            "Publish kotlinx.html to Space",
-            "",
-            SetBuildNumber.depParamRefs.buildNumber.ref
-        )
 
         features {
             vcsLabeling {
