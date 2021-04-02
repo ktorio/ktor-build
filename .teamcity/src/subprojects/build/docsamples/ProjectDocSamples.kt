@@ -25,11 +25,13 @@ object ProjectDocSamples : Project({
         name = "Build"
         tasks = "clean build"
         workingDir = relativeDir
+        buildFile = "build.gradle"
       }
       gradle {
         name = "Test"
         tasks = "test"
         workingDir = relativeDir
+        buildFile = "build.gradle"
       }
     }
   }

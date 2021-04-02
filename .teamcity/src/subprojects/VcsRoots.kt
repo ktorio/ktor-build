@@ -3,7 +3,6 @@ package subprojects
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
-import java.io.*
 
 const val defaultBranch = "master"
 const val VCSUsername = "hhariri"

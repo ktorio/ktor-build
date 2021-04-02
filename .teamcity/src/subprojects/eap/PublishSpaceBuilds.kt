@@ -169,6 +169,7 @@ private fun BuildSteps.publishToSpace(gradleTasks: List<String>, gradleParams: S
         tasks =
             "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
+        buildFile = "build.gradle"
     }
 }
 

@@ -7,7 +7,6 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
-import subprojects.release.publishing.*
 
 val gradleProjects = listOf("client-mpp", "fullstack-mpp", "generic")
 
@@ -45,11 +44,13 @@ fun BuildSteps.validateSamples(relativeDir: String) {
         name = "Build"
         tasks = "clean build"
         workingDir = relativeDir
+        buildFile = "build.gradle"
     }
     gradle {
         name = "Test"
         tasks = "allTests"
         workingDir = relativeDir
+        buildFile = "build.gradle"
     }
 }
 

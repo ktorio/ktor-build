@@ -36,6 +36,7 @@ object BuildDokka: BuildType({
         gradle {
             name = "Run Dokka"
             tasks = "dokkaWebsite"
+            buildFile = "build.gradle"
         }
     }
 })

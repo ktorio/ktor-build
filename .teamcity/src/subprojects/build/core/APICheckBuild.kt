@@ -22,6 +22,7 @@ object APICheckBuild: BuildType({
             name = "API Check"
             tasks = "apiCheck"
             jdkHome = "%env.${java8.env}%"
+            buildFile = "build.gradle"
         }
     }
     defaultBuildFeatures(VCSCore.id.toString())
