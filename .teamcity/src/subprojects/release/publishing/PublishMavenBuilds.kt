@@ -191,7 +191,7 @@ rm keyfile
 & ${'$'}gpg --list-keys
 
 echo "Sending keys"
-& ${'$'}gpg --keyserver hkp://pool.sks-keyservers.net --send-keys %env.SIGN_KEY_ID%
+& ${'$'}gpg --keyserver hkp://ha.pool.sks-keyservers.net --send-keys %env.SIGN_KEY_ID%
 & ${'$'}gpg --keyserver hkp://keyserver.ubuntu.com --send-keys %env.SIGN_KEY_ID%
 
 & "gpgconf" --kill gpg-agent
@@ -226,7 +226,7 @@ EOT
 gpg --allow-secret-key-import --batch --import keyfile
 rm -v keyfile
 echo "Sending keys"
-gpg --keyserver hkp://pool.sks-keyservers.net --send-keys %env.SIGN_KEY_ID%
+gpg --keyserver hkp://ha.pool.sks-keyservers.net --send-keys %env.SIGN_KEY_ID%
 gpg --keyserver hkp://keyserver.ubuntu.com --send-keys %env.SIGN_KEY_ID%
 """.trimIndent()
                 workingDir = "."
