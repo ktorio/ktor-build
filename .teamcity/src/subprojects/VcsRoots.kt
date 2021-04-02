@@ -48,6 +48,11 @@ object VCSKotlinxHtml : PasswordVcsRoot({
     url = "https://github.com/Kotlin/kotlinx.html.git"
 })
 
+object VCSKtorBenchmarks : GitVcsRoot({
+    name = "Ktor Benchmarks"
+    url = "https://github.com/ktorio/ktor-benchmarks.git"
+})
+
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     init()
     userNameStyle = UserNameStyle.NAME
