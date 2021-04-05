@@ -3,7 +3,6 @@ package subprojects
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
-import java.io.*
 
 const val defaultBranch = "master"
 const val VCSUsername = "hhariri"
@@ -46,6 +45,12 @@ object VCSAPIDocs : PasswordVcsRoot({
 object VCSKotlinxHtml : PasswordVcsRoot({
     name = "Kotlinx.html Library"
     url = "https://github.com/Kotlin/kotlinx.html.git"
+})
+
+object VCSKtorBenchmarks : PasswordVcsRoot({
+    name = "Ktor Benchmarks"
+    url = "https://github.com/ktorio/ktor-benchmarks.git"
+    branch="main"
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({

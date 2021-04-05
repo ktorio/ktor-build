@@ -1,5 +1,6 @@
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.build.*
+import subprojects.benchmarks.*
 import subprojects.release.*
 import subprojects.eap.*
 import subprojects.*
@@ -37,6 +38,7 @@ project {
     vcsRoot(VCSAPIDocs)
     vcsRoot(VCSCoreEAP)
     vcsRoot(VCSKotlinxHtml)
+    vcsRoot(VCSKtorBenchmarks)
 
     // DO NOT REMOVE
     params {
@@ -44,6 +46,7 @@ project {
     }
 
     subProject(ProjectBuild)
+    subProject(ProjectBenchmarks)
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
     subProject(PublishKotlinxHtmlToSpace)
