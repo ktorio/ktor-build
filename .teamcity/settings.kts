@@ -50,6 +50,7 @@ project {
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
     subProject(PublishKotlinxHtmlToSpace)
+    subProject(PublishKotlinxHtmlToCentral)
 }
 
 

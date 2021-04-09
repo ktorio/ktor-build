@@ -10,16 +10,17 @@ import subprojects.release.*
 import subprojects.release.publishing.*
 import java.io.*
 
-object PublishKotlinxHtmlToSpace : Project({
-    id("ProjectKotlinxHtmlToSpace")
-    name = "Release kotlinx.html"
+object PublishKotlinxHtmlToCentral : Project({
+    id("ProjectKotlinxHtmlToCentral")
+    name = "Release kotlinx.html to Maven Central"
 
     params {
         defaultTimeouts()
-        param("env.SIGN_KEY_ID", value = "")
-        param("env.PUBLISHING_USER", value = "%space.packages.kotlinx.html.user%")
-        password("env.PUBLISHING_PASSWORD", value = "%space.packages.kotlinx.html.secret%")
-        param("env.PUBLISHING_URL", value = "%space.packages.kotlinx.html.url%")
+        password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
+        password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
+        password("env.PUBLISHING_USER", value = "%sonatype.username%")
+        password("env.PUBLISHING_PASSWORD", value = "%sonatype.password%")
+        param("env.PUBLISHING_URL", value = "%sonatype.url%")
 
         password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
         password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
@@ -28,8 +29,8 @@ object PublishKotlinxHtmlToSpace : Project({
     }
 
     buildType {
-        id("KotlinxHtmlPublishToSpaceBuild")
-        name = "Publish kotlinx.html to Space"
+        id("KotlinxHtmlPublishToMavenCentral")
+        name = "Publish kotlinx.html to Maven Central"
         type = BuildTypeSettings.Type.DEPLOYMENT
         maxRunningBuilds = 1
 
