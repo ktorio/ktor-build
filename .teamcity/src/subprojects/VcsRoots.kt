@@ -45,12 +45,16 @@ object VCSAPIDocs : PasswordVcsRoot({
 object VCSKotlinxHtml : PasswordVcsRoot({
     name = "Kotlinx.html Library"
     url = "https://github.com/Kotlin/kotlinx.html.git"
+    branchSpec = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 object VCSKtorBenchmarks : PasswordVcsRoot({
     name = "Ktor Benchmarks"
     url = "https://github.com/ktorio/ktor-benchmarks.git"
-    branch="main"
+    branch = "main"
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({

@@ -10,23 +10,7 @@ import subprojects.release.*
 import subprojects.release.publishing.*
 import java.io.*
 
-object PublishKotlinxHtmlToCentral : Project({
-    id("ProjectKotlinxHtmlToCentral")
-    name = "Release kotlinx.html to Maven Central"
-
-    params {
-        defaultTimeouts()
-        password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
-        password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
-        password("env.PUBLISHING_USER", value = "%sonatype.username%")
-        password("env.PUBLISHING_PASSWORD", value = "%sonatype.password%")
-        param("env.PUBLISHING_URL", value = "%sonatype.url%")
-
-        password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
-        password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
-        param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
-        param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
-    }
+fun Project.publishToCentral() {
 
     buildType {
         id("KotlinxHtmlPublishToMavenCentral")
@@ -34,12 +18,19 @@ object PublishKotlinxHtmlToCentral : Project({
         type = BuildTypeSettings.Type.DEPLOYMENT
         maxRunningBuilds = 1
 
-        features {
-            perfmon { }
-        }
-
         params {
             configureReleaseVersion()
+            defaultTimeouts()
+            password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
+            password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
+            password("env.PUBLISHING_USER", value = "%sonatype.username%")
+            password("env.PUBLISHING_PASSWORD", value = "%sonatype.password%")
+            param("env.PUBLISHING_URL", value = "%sonatype.url%")
+
+            password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
+            password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
+            param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
+            param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
         }
 
         features {
@@ -48,6 +39,8 @@ object PublishKotlinxHtmlToCentral : Project({
                 labelingPattern = releaseVersion
                 successfulOnly = true
             }
+
+            perfmon { }
         }
 
         vcs {
@@ -74,4 +67,4 @@ object PublishKotlinxHtmlToCentral : Project({
             require(linux.agentString)
         }
     }
-})
+}

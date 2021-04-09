@@ -49,8 +49,7 @@ project {
     subProject(ProjectBenchmarks)
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
-    subProject(PublishKotlinxHtmlToSpace)
-    subProject(PublishKotlinxHtmlToCentral)
+    subProject(PublishKotlinxHtml)
 }
 
 

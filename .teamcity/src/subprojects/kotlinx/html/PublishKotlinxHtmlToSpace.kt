@@ -10,38 +10,29 @@ import subprojects.release.*
 import subprojects.release.publishing.*
 import java.io.*
 
-object PublishKotlinxHtmlToSpace : Project({
-    id("ProjectKotlinxHtmlToSpace")
-    name = "Release kotlinx.html"
-
-    params {
-        defaultTimeouts()
-        param("env.SIGN_KEY_ID", value = "")
-        param("env.PUBLISHING_USER", value = "%space.packages.kotlinx.html.user%")
-        password("env.PUBLISHING_PASSWORD", value = "%space.packages.kotlinx.html.secret%")
-        param("env.PUBLISHING_URL", value = "%space.packages.kotlinx.html.url%")
-
-        password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
-        password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
-        param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
-        param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
-    }
-
+fun Project.publishToSpace() {
     buildType {
         id("KotlinxHtmlPublishToSpaceBuild")
         name = "Publish kotlinx.html to Space"
         type = BuildTypeSettings.Type.DEPLOYMENT
         maxRunningBuilds = 1
 
-        features {
-            perfmon { }
-        }
-
         params {
             configureReleaseVersion()
+            defaultTimeouts()
+            param("env.SIGN_KEY_ID", value = "")
+            param("env.PUBLISHING_USER", value = "%space.packages.kotlinx.html.user%")
+            password("env.PUBLISHING_PASSWORD", value = "%space.packages.kotlinx.html.secret%")
+            param("env.PUBLISHING_URL", value = "%space.packages.kotlinx.html.url%")
+
+            password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
+            password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
+            param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
+            param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
         }
 
         features {
+            perfmon { }
             vcsLabeling {
                 vcsRootId = "${VCSCore.id}"
                 labelingPattern = releaseVersion
@@ -73,4 +64,4 @@ object PublishKotlinxHtmlToSpace : Project({
             require(linux.agentString)
         }
     }
-})
+}
