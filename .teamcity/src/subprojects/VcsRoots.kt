@@ -4,7 +4,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
-const val defaultBranch = "master"
+const val defaultBranch = "main"
 const val VCSUsername = "hhariri"
 const val VCSToken = "credentialsJSON:a48648d8-f9b1-4720-bef0-85445fe9171f"
 
@@ -32,7 +32,7 @@ object VCSDocs : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor-documentation.git"
 })
 
-object VCSSamples : GitVcsRoot({
+object VCSSamples : PasswordVcsRoot({
     name = "Ktor Samples"
     url = "https://github.com/ktorio/ktor-samples.git"
 })
@@ -54,12 +54,12 @@ object VCSKotlinxHtml : PasswordVcsRoot({
 object VCSKtorBenchmarks : PasswordVcsRoot({
     name = "Ktor Benchmarks"
     url = "https://github.com/ktorio/ktor-benchmarks.git"
-    branch = "main"
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     init()
     userNameStyle = UserNameStyle.NAME
+    branch = defaultBranch
 })
 
 open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit) : KtorVcsRoot({
