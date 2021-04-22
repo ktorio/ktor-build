@@ -15,12 +15,12 @@ val gradleProjects = listOf(
     SampleProjectSettings("client-mpp", VCSSamples),
     SampleProjectSettings("fullstack-mpp", VCSSamples),
     SampleProjectSettings("generic", VCSSamples),
-    SampleProjectSettings("ktor-get-started", VCSGetStartedSample),
-    SampleProjectSettings("ktor-gradle-sample", VCSGradleSample),
-    SampleProjectSettings("ktor-maven-sample", VCSMavenSample),
-    SampleProjectSettings("ktor-http-api-sample", VCSHttpApiSample),
-    SampleProjectSettings("ktor-websockets-chat-sample", VCSWebSocketsChatSample),
-    SampleProjectSettings("ktor-website-sample", VCSWebsiteSample)
+    SampleProjectSettings("get-started", VCSGetStartedSample),
+    SampleProjectSettings("gradle-sample", VCSGradleSample),
+    SampleProjectSettings("maven-sample", VCSMavenSample),
+    SampleProjectSettings("http-api-sample", VCSHttpApiSample),
+    SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample),
+    SampleProjectSettings("website-sample", VCSWebsiteSample)
 )
 
 object ProjectSamples : Project({
