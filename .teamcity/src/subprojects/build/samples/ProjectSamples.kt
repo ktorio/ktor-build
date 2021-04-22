@@ -9,7 +9,19 @@ import subprojects.build.core.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 
-val gradleProjects = listOf("client-mpp", "fullstack-mpp", "generic")
+data class SampleProjectSettings(val projectName: String, val vcsRoot: VcsRoot)
+
+val gradleProjects = listOf(
+    SampleProjectSettings("client-mpp", VCSSamples),
+    SampleProjectSettings("fullstack-mpp", VCSSamples),
+    SampleProjectSettings("generic", VCSSamples),
+    SampleProjectSettings("get-started", VCSGetStartedSample),
+    SampleProjectSettings("gradle-sample", VCSGradleSample),
+    SampleProjectSettings("maven-sample", VCSMavenSample),
+    SampleProjectSettings("http-api-sample", VCSHttpApiSample),
+    SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample),
+    SampleProjectSettings("website-sample", VCSWebsiteSample)
+)
 
 object ProjectSamples : Project({
     id("ProjectKtorSamples")
@@ -24,19 +36,19 @@ object ProjectSamples : Project({
     }
 })
 
-class SampleProject(projectName: String): BuildType({
-    id("KtorSamplesValidate_${projectName.replace('-', '_')}")
-    name = "Validate $projectName sample"
+class SampleProject(sample: SampleProjectSettings): BuildType({
+    id("KtorSamplesValidate_${sample.projectName.replace('-', '_')}")
+    name = "Validate ${sample.projectName} sample"
 
     vcs {
-        root(VCSSamples)
+        root(sample.vcsRoot)
     }
 
-    defaultBuildFeatures(VCSSamples.id.toString())
+    defaultBuildFeatures(sample.vcsRoot.id.toString())
 
     steps {
         acceptAndroidSDKLicense()
-        validateSamples(projectName)
+        validateSamples(sample.projectName)
     }
 })
 
