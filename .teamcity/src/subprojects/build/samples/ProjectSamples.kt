@@ -1,5 +1,6 @@
 package subprojects.build.samples
 
+import com.sun.org.apache.xpath.internal.operations.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
@@ -7,7 +8,7 @@ import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
-data class SampleProjectSettings(val projectName: String, val vcsRoot: VcsRoot, val gradleFile: String = "build.gradle")
+data class SampleProjectSettings(val projectName: String, val vcsRoot: VcsRoot, val gradleFile: String = "build.gradle", val runTests: Boolean = true)
 
 val gradleProjects = listOf(
     SampleProjectSettings("client-mpp", VCSSamples),
@@ -19,7 +20,7 @@ val gradleProjects = listOf(
     SampleProjectSettings("http-api-sample", VCSHttpApiSample),
     SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample),
     SampleProjectSettings("website-sample", VCSWebsiteSample),
-    SampleProjectSettings("graalvm", VCSSamples, "build.gradle.kts")
+    SampleProjectSettings("graalvm", VCSSamples, "build.gradle.kts", false)
 )
 
 object ProjectSamples : Project({
@@ -35,7 +36,7 @@ object ProjectSamples : Project({
     }
 })
 
-class SampleProject(sample: SampleProjectSettings): BuildType({
+class SampleProject(sample: SampleProjectSettings) : BuildType({
     id("KtorSamplesValidate_${sample.projectName.replace('-', '_')}")
     name = "Validate ${sample.projectName} sample"
 
@@ -47,22 +48,24 @@ class SampleProject(sample: SampleProjectSettings): BuildType({
 
     steps {
         acceptAndroidSDKLicense()
-        validateSamples(sample.projectName, sample.gradleFile)
+        validateSamples(sample.projectName, sample.gradleFile, sample.runTests)
     }
 })
 
-fun BuildSteps.validateSamples(relativeDir: String, gradleFile: String) {
+fun BuildSteps.validateSamples(relativeDir: String, gradleFile: String, runTests: Boolean) {
     gradle {
         buildFile = gradleFile
         name = "Build"
         tasks = "clean build"
         workingDir = relativeDir
     }
-    gradle {
-        buildFile = gradleFile
-        name = "Test"
-        tasks = "allTests"
-        workingDir = relativeDir
+    if (runTests) {
+        gradle {
+            buildFile = gradleFile
+            name = "Test"
+            tasks = "allTests"
+            workingDir = relativeDir
+        }
     }
 }
 
