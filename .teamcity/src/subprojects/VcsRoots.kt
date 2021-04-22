@@ -75,6 +75,7 @@ object VCSAPIDocs : PasswordVcsRoot({
 object VCSKotlinxHtml : PasswordVcsRoot({
     name = "Kotlinx.html Library"
     url = "https://github.com/Kotlin/kotlinx.html.git"
+    branch = "master"
     branchSpec = """
         +:refs/heads/*
         +:refs/(pull/*)/head
@@ -87,17 +88,19 @@ object VCSKtorBenchmarks : PasswordVcsRoot({
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
-    init()
     userNameStyle = UserNameStyle.NAME
     branch = defaultBranch
+
+    init()
 })
 
 open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit) : KtorVcsRoot({
-    init()
     authMethod = password {
         userName = VCSUsername
         password = VCSToken
     }
+
+    init()
 })
 
 fun Triggers.onChangeAllBranchesTrigger() {
