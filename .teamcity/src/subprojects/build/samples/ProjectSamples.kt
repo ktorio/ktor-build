@@ -7,7 +7,7 @@ import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
-data class SampleProjectSettings(val projectName: String, val vcsRoot: VcsRoot)
+data class SampleProjectSettings(val projectName: String, val vcsRoot: VcsRoot, val gradleFile: String = "build.gradle")
 
 val gradleProjects = listOf(
     SampleProjectSettings("client-mpp", VCSSamples),
@@ -19,7 +19,7 @@ val gradleProjects = listOf(
     SampleProjectSettings("http-api-sample", VCSHttpApiSample),
     SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample),
     SampleProjectSettings("website-sample", VCSWebsiteSample),
-    SampleProjectSettings("graalvm", VCSSamples)
+    SampleProjectSettings("graalvm", VCSSamples, "build.gradle.kts")
 )
 
 object ProjectSamples : Project({
@@ -47,17 +47,19 @@ class SampleProject(sample: SampleProjectSettings): BuildType({
 
     steps {
         acceptAndroidSDKLicense()
-        validateSamples(sample.projectName)
+        validateSamples(sample.projectName, sample.gradleFile)
     }
 })
 
-fun BuildSteps.validateSamples(relativeDir: String) {
+fun BuildSteps.validateSamples(relativeDir: String, gradleFile: String) {
     gradle {
+        buildFile = gradleFile
         name = "Build"
         tasks = "clean build"
         workingDir = relativeDir
     }
     gradle {
+        buildFile = gradleFile
         name = "Test"
         tasks = "allTests"
         workingDir = relativeDir
