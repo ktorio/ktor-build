@@ -1,13 +1,11 @@
 package subprojects.build.samples
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
-import subprojects.release.publishing.*
 
 data class SampleProjectSettings(val projectName: String, val vcsRoot: VcsRoot)
 
@@ -20,7 +18,8 @@ val gradleProjects = listOf(
     SampleProjectSettings("maven-sample", VCSMavenSample),
     SampleProjectSettings("http-api-sample", VCSHttpApiSample),
     SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample),
-    SampleProjectSettings("website-sample", VCSWebsiteSample)
+    SampleProjectSettings("website-sample", VCSWebsiteSample),
+    SampleProjectSettings("graalvm", VCSSamples)
 )
 
 object ProjectSamples : Project({
