@@ -40,6 +40,13 @@ project {
     vcsRoot(VCSKotlinxHtml)
     vcsRoot(VCSKtorBenchmarks)
 
+    vcsRoot(VCSGetStartedSample)
+    vcsRoot(VCSGradleSample)
+    vcsRoot(VCSMavenSample)
+    vcsRoot(VCSHttpApiSample)
+    vcsRoot(VCSWebSocketsChatSample)
+    vcsRoot(VCSWebsiteSample)
+
     // DO NOT REMOVE
     params {
         param("teamcity.ui.settings.readOnly", "true")
