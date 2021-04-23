@@ -21,7 +21,7 @@ fun Project.publishToCentral() {
         params {
             configureReleaseVersion()
             defaultTimeouts()
-            param("env.SIGN_KEY_ID", value = "")
+            param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
             password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
             password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
             password("env.PUBLISHING_USER", value = "%sonatype.username%")
