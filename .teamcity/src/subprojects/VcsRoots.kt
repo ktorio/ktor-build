@@ -6,7 +6,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
 const val defaultBranch = "main"
 const val VCSUsername = "hhariri"
-const val VCSToken = "credentialsJSON:a48648d8-f9b1-4720-bef0-85445fe9171f"
+const val VCSToken = "credentialsJSON:ebbac88f-a779-43b3-9426-d90e411657b1"
 
 object VCSCore : PasswordVcsRoot({
     name = "Ktor"
