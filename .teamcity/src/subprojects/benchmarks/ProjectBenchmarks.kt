@@ -18,9 +18,12 @@ object ProjectBenchmarks : Project({
             root(VCSKtorBenchmarks, "+:.=>ktor-benchmarks")
         }
 
+        artifactRules = "+:allocation-benchmark/allocations => allocations.zip"
+
         steps {
             gradle {
-                tasks = "publishJvmPublicationToMavenLocal publishKotlinMultiplatformPublicationToMavenLocal -xdokka -PreleaseVersion=1.0.0-BENCHMARKS"
+                tasks =
+                    "publishJvmPublicationToMavenLocal publishKotlinMultiplatformPublicationToMavenLocal -xdokka -PreleaseVersion=1.0.0-BENCHMARKS"
                 workingDir = "ktor"
                 buildFile = "build.gradle"
                 jdkHome = "%env.${java11.env}%"
@@ -39,6 +42,33 @@ object ProjectBenchmarks : Project({
 
         triggers {
             onChangeAllBranchesTrigger()
+        }
+    }
+
+    features {
+        feature {
+            id = "benchmarks_allocations_report_classes"
+            type = "ReportTab"
+            param("title", "Allocated classes")
+
+            param("buildTypeId", "Ktor_AllocationTests")
+            param("startPage", "allocations.zip!previewClasses.html")
+            param("revisionRuleName", "lastSuccessful")
+            param("revisionRuleRevision", "latest.lastSuccessful")
+            param("type", "BuildReportTab")
+        }
+
+        feature {
+            id = "benchmarks_allocations_report_sites"
+            type = "ReportTab"
+
+            param("title", "Allocation sites")
+
+            param("buildTypeId", "Ktor_AllocationTests")
+            param("startPage", "allocations.zip!previewSites.html")
+            param("revisionRuleName", "lastSuccessful")
+            param("revisionRuleRevision", "latest.lastSuccessful")
+            param("type", "BuildReportTab")
         }
     }
 })
