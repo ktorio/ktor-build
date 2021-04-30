@@ -41,7 +41,7 @@ object ProjectReleaseAPIDocs : Project({
                     git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
                     git add "%releaseVersion%" assets/versions.js sitemap.xml latest
                     git commit -m "Update for %releaseVersion%"
-                    git push origin master
+                    git push origin main
                 """.trimIndent()
             }
         }
