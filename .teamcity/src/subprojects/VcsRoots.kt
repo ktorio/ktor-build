@@ -108,11 +108,11 @@ fun Triggers.onChangeAllBranchesTrigger() {
         triggerRules = """
                             -:*.md
                             -:.gitignore
-                        """.trimIndent()
+        """.trimIndent()
         branchFilter = """
                             +:*
                             -:pull/*
-                        """.trimIndent()
+        """.trimIndent()
         quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
     }
 }

@@ -22,6 +22,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         gradle {
             name = "Build"
             tasks = "cleanJsIrTest cleanJsLegacyTest jsIrTest jsLegacyTest --no-parallel --continue --info -Penable-js-tests"
+            buildFile = "build.gradle.kts"
             setupDockerForJavaScriptTests(jsEntry)
         }
     }

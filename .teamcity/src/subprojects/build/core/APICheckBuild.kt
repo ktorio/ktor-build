@@ -19,6 +19,7 @@ object APICheckBuild: BuildType({
     }
     steps {
         gradle {
+            buildFile = "build.gradle.kts"
             name = "API Check"
             tasks = "apiCheck"
             jdkHome = "%env.${java8.env}%"

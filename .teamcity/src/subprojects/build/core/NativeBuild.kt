@@ -49,6 +49,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
             name = "Build and Run Tests"
             tasks = "${osEntry.taskName} --info"
             jdkHome = "%env.JDK_11%"
+            buildFile = "build.gradle.kts"
         }
     }
 

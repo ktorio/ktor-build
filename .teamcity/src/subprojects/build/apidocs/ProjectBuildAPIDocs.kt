@@ -34,6 +34,7 @@ object BuildDokka: BuildType({
 
     steps {
         gradle {
+            buildFile = "build.gradle.kts"
             name = "Run Dokka"
             tasks = "dokkaWebsite"
         }

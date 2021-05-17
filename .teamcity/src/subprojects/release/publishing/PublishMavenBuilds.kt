@@ -1,8 +1,6 @@
 package subprojects.release.publishing
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
@@ -25,7 +23,8 @@ object PublishJvmToMaven : BuildType({
                 "publishJvmPublicationToMavenRepository",
                 "publishKotlinMultiplatformPublicationToMavenRepository",
                 "publishMavenPublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+            ),
+            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -49,7 +48,8 @@ object PublishJSToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishJsPublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+            ),
+            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -77,7 +77,7 @@ object PublishWindowsNativeToMaven : BuildType({
             scriptMode = script {
                 content = """
                 $libcurlSoftware
-            """.trimIndent()
+                """.trimIndent()
             }
         }
         publishToMaven(
@@ -100,7 +100,7 @@ object PublishWindowsNativeToMaven : BuildType({
 })
 
 object PublishLinuxNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishLinuxNativeToMavenBuild", "Publish Linux Native to Maven",  "", releaseVersion)
+    createDeploymentBuild("KtorPublishLinuxNativeToMavenBuild", "Publish Linux Native to Maven", "", releaseVersion)
     vcs {
         root(VCSCore)
     }
@@ -111,7 +111,8 @@ object PublishLinuxNativeToMaven : BuildType({
         publishToMaven(
             listOf(
                 "publishLinuxX64PublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+            ),
+            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -145,7 +146,8 @@ object PublishMacOSNativeToMaven : BuildType({
                 "publishWatchosArm32PublicationToMavenRepository",
                 "publishWatchosArm64PublicationToMavenRepository",
                 "publishWatchosX86PublicationToMavenRepository"
-            ), gradleParams = "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+            ),
+            gradleParams = "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -198,7 +200,7 @@ echo "Sending keys"
 & "gpgconf" --homedir "/c/Users/builduser/.gnupg" --launch gpg-agent
 
 
-            """.trimIndent()
+                    """.trimIndent()
                 }
             }
         }
@@ -228,7 +230,7 @@ rm -v keyfile
 echo "Sending keys"
 gpg --keyserver hkp://ha.pool.sks-keyservers.net --send-keys %env.SIGN_KEY_ID%
 gpg --keyserver hkp://keyserver.ubuntu.com --send-keys %env.SIGN_KEY_ID%
-""".trimIndent()
+                """.trimIndent()
                 workingDir = "."
             }
         }
@@ -244,7 +246,7 @@ fun BuildSteps.cleanupKeyFile(os: String = "") {
                 scriptMode = script {
                     content = """
 rm -r -fo C:\Users\builduser\.gnupg
-            """.trimIndent()
+                    """.trimIndent()
                 }
             }
         }
@@ -255,7 +257,7 @@ rm -r -fo C:\Users\builduser\.gnupg
                 scriptContent = """
 cd .
 rm -rf .gnupg
-                        """.trimIndent()
+                """.trimIndent()
                 workingDir = "."
             }
         }
@@ -269,8 +271,7 @@ private fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: S
         tasks =
             "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
+        buildFile = "build.gradle.kts"
     }
     cleanupKeyFile(os)
 }
-
-

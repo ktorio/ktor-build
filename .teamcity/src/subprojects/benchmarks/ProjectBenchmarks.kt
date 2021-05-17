@@ -25,7 +25,7 @@ object ProjectBenchmarks : Project({
                 tasks =
                     "publishJvmPublicationToMavenLocal publishKotlinMultiplatformPublicationToMavenLocal -xdokka -PreleaseVersion=1.0.0-BENCHMARKS"
                 workingDir = "ktor"
-                buildFile = "build.gradle"
+                buildFile = "build.gradle.kts"
                 jdkHome = "%env.${java11.env}%"
             }
             gradle {
