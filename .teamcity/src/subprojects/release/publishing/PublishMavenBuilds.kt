@@ -264,7 +264,7 @@ rm -rf .gnupg
     }
 }
 
-private fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: String = "", os: String = "") {
+fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: String = "", os: String = "") {
     prepareKeyFile(os)
     gradle {
         name = "Assemble"

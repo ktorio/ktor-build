@@ -6,6 +6,7 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
+import subprojects.release.publishing.*
 
 const val eapVersion = "%teamcity.build.branch%-%build.counter%"
 object PublishJvmToSpace : BuildType({
@@ -73,10 +74,20 @@ object PublishWindowsNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        publishToSpace(
+        powerShell {
+            name = "Get dependencies and environment ready"
+            scriptMode = script {
+                content = """
+                $libcurlSoftware
+                """.trimIndent()
+            }
+        }
+        publishToMaven(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
-            )
+            ),
+            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\"",
+            os = "Windows"
         )
     }
     params {
