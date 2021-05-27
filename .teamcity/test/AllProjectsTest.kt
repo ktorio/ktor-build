@@ -7,7 +7,6 @@ import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
 import org.reflections.util.FilterBuilder
 import subprojects.build.ProjectBuild
-import subprojects.build.apidocs.ProjectBuildAPIDocs
 import subprojects.build.core.*
 import subprojects.build.docsamples.ProjectDocSamples
 import subprojects.build.generator.ProjectGenerator
@@ -32,7 +31,6 @@ class AllProjectsTest {
                 ProjectSamples to "ProjectKtorSamples",
                 ProjectBuild to "ProjectKtorBuild",
                 ProjectRelease to "ProjectKtorRelease",
-                ProjectBuildAPIDocs to "ProjectKtorBuildAPIDocs",
                 ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs",
                 ProjectPublishing to "ProjectKtorPublishing",
                 CodeStyleVerify to "KtorCodeStyleVerifyKtLint"
@@ -71,7 +69,6 @@ class AllProjectsTest {
                         "KtorSamplesValidate_generic",
                         "KtorSamplesValidate_All"
                 ),
-                ProjectBuildAPIDocs to setOf("KtorAPIDocs_Dokka"),
                 ProjectReleaseAPIDocs to setOf("KtorAPIDocs_Deploy")
         )
 

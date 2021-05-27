@@ -6,9 +6,8 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import subprojects.VCSAPIDocs
 import subprojects.VCSToken
 import subprojects.VCSUsername
-import subprojects.build.apidocs.BuildDokka
 import subprojects.build.core.*
-import subprojects.release.configureReleaseVersion
+import subprojects.release.*
 
 object ProjectReleaseAPIDocs : Project({
     id("ProjectKtorReleaseAPIDocs")
@@ -21,7 +20,7 @@ object ProjectReleaseAPIDocs : Project({
         configureReleaseVersion()
     }
 
-    buildType {
+    apiBuild = buildType {
         id("KtorAPIDocs_Deploy")
         name = "Deploy API docs website"
 
@@ -34,8 +33,7 @@ object ProjectReleaseAPIDocs : Project({
             script {
                 name = "Generate static files for version and push changes to git"
                 scriptContent = """
-                    ./build_doc.sh "%releaseVersion%" apidoc
-    
+                    ./build_doc.sh "%releaseVersion%"
                     git config user.email "deploy@jetbrains.com"
                     git config user.name "Auto deploy"
                     git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
@@ -43,17 +41,6 @@ object ProjectReleaseAPIDocs : Project({
                     git commit -m "Update for %releaseVersion%"
                     git push origin main
                 """.trimIndent()
-            }
-        }
-
-        dependencies {
-            dependency(BuildDokka) {
-                snapshot {
-                }
-
-                artifacts {
-                    artifactRules = formatArtifacts("apidoc.zip!**=>apidoc")
-                }
             }
         }
 

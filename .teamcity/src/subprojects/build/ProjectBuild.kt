@@ -6,7 +6,6 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
 import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
 import subprojects.*
-import subprojects.build.apidocs.ProjectBuildAPIDocs
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
 import subprojects.build.generator.*
@@ -49,7 +48,6 @@ object ProjectBuild : Project({
     subProject(ProjectSamples)
     subProject(ProjectCore)
     subProject(ProjectDocSamples)
-    subProject(ProjectBuildAPIDocs)
     subProject(ProjectPlugin)
 
     cleanup {

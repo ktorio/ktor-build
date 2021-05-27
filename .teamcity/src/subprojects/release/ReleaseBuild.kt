@@ -3,8 +3,6 @@ package subprojects.release
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
 import subprojects.*
-import subprojects.build.*
-import subprojects.release.publishing.*
 
 var samplesBuild: BuildType? = null
 var apiBuild: BuildType? = null
