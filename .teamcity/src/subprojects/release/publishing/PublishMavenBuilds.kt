@@ -18,7 +18,7 @@ object PublishJvmToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        publishToMaven(
+        publish(
             listOf(
                 "publishJvmPublicationToMavenRepository",
                 "publishKotlinMultiplatformPublicationToMavenRepository",
@@ -45,10 +45,8 @@ object PublishJSToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        publishToMaven(
-            listOf(
-                "publishJsPublicationToMavenRepository"
-            ),
+        publish(
+            listOf("publishJsPublicationToMavenRepository"),
             gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
@@ -56,6 +54,28 @@ object PublishJSToMaven : BuildType({
         snapshot(jsBuild!!) {
         }
         snapshot(PublishJvmToMaven) {
+        }
+    }
+    requirements {
+        require(os = linux.agentString, minMemoryMB = 7000)
+    }
+})
+
+object PublishJSToNPM : BuildType({
+    createDeploymentBuild("KtorPublishJSToNPMBuild", "Publish JS to NPM", "", releaseVersion)
+    vcs {
+        root(VCSCore)
+    }
+    params {
+        configureReleaseVersion()
+    }
+    steps {
+        publish(listOf("publishNpm"))
+    }
+    dependencies {
+        snapshot(jsBuild!!) {
+        }
+        snapshot(PublishJSToMaven) {
         }
     }
     requirements {
@@ -80,7 +100,7 @@ object PublishWindowsNativeToMaven : BuildType({
                 """.trimIndent()
             }
         }
-        publishToMaven(
+        publish(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
             ),
@@ -91,7 +111,7 @@ object PublishWindowsNativeToMaven : BuildType({
     dependencies {
         snapshot(nativeWindowsBuild!!) {
         }
-        snapshot(PublishJSToMaven) {
+        snapshot(PublishJSToNPM) {
         }
     }
     requirements {
@@ -108,7 +128,7 @@ object PublishLinuxNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        publishToMaven(
+        publish(
             listOf(
                 "publishLinuxX64PublicationToMavenRepository"
             ),
@@ -135,7 +155,7 @@ object PublishMacOSNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        publishToMaven(
+        publish(
             listOf(
                 "publishIosArm32PublicationToMavenRepository",
                 "publishIosArm64PublicationToMavenRepository",
@@ -264,7 +284,7 @@ rm -rf .gnupg
     }
 }
 
-fun BuildSteps.publishToMaven(gradleTasks: List<String>, gradleParams: String = "", os: String = "") {
+fun BuildSteps.publish(gradleTasks: List<String>, gradleParams: String = "", os: String = "") {
     prepareKeyFile(os)
     gradle {
         name = "Assemble"
