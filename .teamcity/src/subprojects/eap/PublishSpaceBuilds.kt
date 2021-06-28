@@ -82,7 +82,7 @@ object PublishWindowsNativeToSpace : BuildType({
                 """.trimIndent()
             }
         }
-        publishToMaven(
+        publish(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
             ),

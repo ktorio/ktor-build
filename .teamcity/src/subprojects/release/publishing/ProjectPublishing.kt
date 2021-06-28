@@ -12,6 +12,7 @@ object ProjectPublishing : Project({
 
     buildType(PublishJvmToMaven)
     buildType(PublishJSToMaven)
+    buildType(PublishJSToNPM)
     buildType(PublishWindowsNativeToMaven)
     buildType(PublishLinuxNativeToMaven)
     buildType(PublishMacOSNativeToMaven)
@@ -28,6 +29,7 @@ object ProjectPublishing : Project({
             listOf(
                 PublishJvmToMaven,
                 PublishJSToMaven,
+                PublishJSToNPM,
                 PublishWindowsNativeToMaven,
                 PublishLinuxNativeToMaven,
                 PublishMacOSNativeToMaven
