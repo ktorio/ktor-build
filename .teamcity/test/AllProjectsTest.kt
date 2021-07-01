@@ -14,6 +14,7 @@ import subprojects.build.plugin.ProjectPlugin
 import subprojects.build.samples.ProjectSamples
 import subprojects.release.ProjectRelease
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
+import subprojects.release.generator.ProjectReleaseGeneratorWebsite
 import subprojects.release.publishing.*
 import java.lang.IllegalStateException
 import kotlin.test.assertEquals
@@ -24,16 +25,18 @@ class AllProjectsTest {
     @Test
     fun projectsHasDefinedIDs() {
         val projectsIDs = mapOf(
-                ProjectCore to "ProjectKtorCore",
-                ProjectDocSamples to "ProjectKtorDocs",
-                ProjectGenerator to "ProjectKtorGenerator",
-                ProjectPlugin to "ProjectKtorPlugin",
-                ProjectSamples to "ProjectKtorSamples",
-                ProjectBuild to "ProjectKtorBuild",
-                ProjectRelease to "ProjectKtorRelease",
-                ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs",
-                ProjectPublishing to "ProjectKtorPublishing",
-                CodeStyleVerify to "KtorCodeStyleVerifyKtLint"
+            ProjectCore to "ProjectKtorCore",
+            ProjectDocSamples to "ProjectKtorDocs",
+            ProjectGenerator to "ProjectKtorGenerator",
+            ProjectPlugin to "ProjectKtorPlugin",
+            ProjectSamples to "ProjectKtorSamples",
+            ProjectBuild to "ProjectKtorBuild",
+            ProjectRelease to "ProjectKtorRelease",
+
+            ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs",
+            ProjectReleaseGeneratorWebsite to "ProjectReleaseGeneratorWebsite",
+            ProjectPublishing to "ProjectKtorPublishing",
+            CodeStyleVerify to "KtorCodeStyleVerifyKtLint"
         )
 
         allProjects().forEach { project ->
@@ -46,38 +49,46 @@ class AllProjectsTest {
     @Test
     fun projectsBuildTypesHasDefinedIDs() {
         val buildTypesIDs = mapOf(
-                ProjectCore to setOf(
-                        "KtorMatrixMacOSJava8",
-                        "KtorMatrixMacOSJava11",
-                        "KtorMatrixLinuxJava8",
-                        "KtorMatrixLinuxJava11",
-                        "KtorMatrixWindowsJava8",
-                        "KtorMatrixWindowsJava11",
-                        "KtorMatrixNativeMacOS",
-                        "KtorMatrixNativeLinux",
-                        "KtorMatrixNativeWindows",
-                        "KtorMatrixJavaScriptChromeNodeJs",
-                        "KtorMatrixStressTestLinuxJava8",
-                        "KtorMatrixStressTestWindowsJava8",
-                        "KtorCore_All",
-                        "KtorCodeStyleVerifyKtLint"
-                ),
-                ProjectDocSamples to setOf("KtorDocs_ValidateSamples"),
-                ProjectSamples to setOf(
-                        "KtorSamplesValidate_client_mpp",
-                        "KtorSamplesValidate_fullstack_mpp",
-                        "KtorSamplesValidate_generic",
-                        "KtorSamplesValidate_All"
-                ),
-                ProjectReleaseAPIDocs to setOf("KtorAPIDocs_Deploy")
+            ProjectCore to setOf(
+                "KtorMatrixMacOSJava8",
+                "KtorMatrixMacOSJava11",
+                "KtorMatrixLinuxJava8",
+                "KtorMatrixLinuxJava11",
+                "KtorMatrixWindowsJava8",
+                "KtorMatrixWindowsJava11",
+                "KtorMatrixNativeMacOS",
+                "KtorMatrixNativeLinux",
+                "KtorMatrixNativeWindows",
+                "KtorMatrixJavaScriptChromeNodeJs",
+                "KtorMatrixStressTestLinuxJava8",
+                "KtorMatrixStressTestWindowsJava8",
+                "KtorCore_All",
+                "KtorCodeStyleVerifyKtLint"
+            ),
+            ProjectDocSamples to setOf("KtorDocs_ValidateSamples"),
+            ProjectSamples to setOf(
+                "KtorSamplesValidate_client_mpp",
+                "KtorSamplesValidate_fullstack_mpp",
+                "KtorSamplesValidate_generic",
+                "KtorSamplesValidate_All"
+            ),
+
+            ProjectReleaseAPIDocs to setOf("KtorAPIDocs_Deploy")
         )
 
         allProjects().forEach { project ->
             if (project.buildTypes.size > 0) {
-                assertTrue(buildTypesIDs.containsKey(project), "Cannot find build types IDs for project ${project.name}")
+                assertTrue(
+                    buildTypesIDs.containsKey(project),
+                    "Cannot find build types IDs for project ${project.name}"
+                )
                 val ids = project.buildTypes.map { it.id.toString() }.toSet()
                 val mismatchIDs = buildTypesIDs[project]!!.subtract(ids)
-                assertEquals(buildTypesIDs[project], ids, "Build types IDs $mismatchIDs for project ${project.name} doesn't match")
+                assertEquals(
+                    buildTypesIDs[project],
+                    ids,
+                    "Build types IDs $mismatchIDs for project ${project.name} doesn't match"
+                )
             }
         }
     }
@@ -89,7 +100,11 @@ class AllProjectsTest {
 
     private fun assertHasUniqueID(project: Project) {
         val className = project.javaClass.name.split('.').last()
-        assertNotEquals(className, project.id.toString(), "Project ID '${project.id.toString()}' should differ from its class name")
+        assertNotEquals(
+            className,
+            project.id.toString(),
+            "Project ID '${project.id.toString()}' should differ from its class name"
+        )
     }
 
     private fun allProjects(): List<Project> {
@@ -97,10 +112,17 @@ class AllProjectsTest {
     }
 
     private fun projectsFromPackage(pkg: String): List<Project> {
-        val reflections = Reflections(ConfigurationBuilder()
+        val reflections = Reflections(
+            ConfigurationBuilder()
                 .setScanners(SubTypesScanner(false), ResourcesScanner())
-                .setUrls(ClasspathHelper.forClassLoader(ClasspathHelper.contextClassLoader(), ClasspathHelper.staticClassLoader()))
-                .filterInputsBy(FilterBuilder().include(FilterBuilder.prefix(pkg))))
+                .setUrls(
+                    ClasspathHelper.forClassLoader(
+                        ClasspathHelper.contextClassLoader(),
+                        ClasspathHelper.staticClassLoader()
+                    )
+                )
+                .filterInputsBy(FilterBuilder().include(FilterBuilder.prefix(pkg)))
+        )
         val projects = reflections.getSubTypesOf(Project::class.java).map { it.kotlin.objectInstance }
 
         if (projects.any { it == null }) {

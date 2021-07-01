@@ -39,6 +39,7 @@ project {
     vcsRoot(VCSCoreEAP)
     vcsRoot(VCSKotlinxHtml)
     vcsRoot(VCSKtorBenchmarks)
+    vcsRoot(VCSKtorGeneratorWebsite)
 
     vcsRoot(VCSGetStartedSample)
     vcsRoot(VCSGradleSample)

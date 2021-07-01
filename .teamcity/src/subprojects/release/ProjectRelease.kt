@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.SIGN_KEY_PUBLIC
 import subprojects.build.*
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
+import subprojects.release.generator.ProjectReleaseGeneratorWebsite
 import subprojects.release.publishing.*
 import java.io.*
 
@@ -13,6 +14,7 @@ object ProjectRelease : Project({
     description = " The Full Monty! - Release Ktor framework, update docs, site, etc."
 
     subProject(ProjectReleaseAPIDocs)
+    subProject(ProjectReleaseGeneratorWebsite)
     subProject(ProjectPublishing)
 
     buildType(ReleaseBuild)

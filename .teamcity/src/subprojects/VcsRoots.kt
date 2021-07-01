@@ -87,6 +87,12 @@ object VCSKtorBenchmarks : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor-benchmarks.git"
 })
 
+object VCSKtorGeneratorWebsite : PasswordVcsRoot({
+    name = "Ktor Generator Website"
+    url = "https://github.com/ktorio/ktor-generator-website.git"
+    branch = "master"
+})
+
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     userNameStyle = UserNameStyle.NAME
     branch = defaultBranch
