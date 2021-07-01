@@ -6,6 +6,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import subprojects.VCSKtorGeneratorWebsite
 import subprojects.VCSToken
 import subprojects.VCSUsername
+import subprojects.build.*
 import subprojects.build.core.*
 
 object ProjectReleaseGeneratorWebsite : Project({
@@ -31,8 +32,8 @@ object ProjectReleaseGeneratorWebsite : Project({
                 name = "Build website and commit to repo"
                 scriptContent = """
                     cd ktor-generator-website
-                    npm install
-                    npm run build
+                    npm install --verbose
+                    npm run build --verbose
                     cd ..
                     git clone "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/ktor-init-tools.git"
                     cd ktor-init-tools 
@@ -44,14 +45,11 @@ object ProjectReleaseGeneratorWebsite : Project({
                     git commit -m "Deploy website"
                     git push origin generator
                 """.trimIndent()
-
-                dockerPull = true
-                dockerImage = "node:14"
             }
         }
 
         requirements {
-            require(os = "Linux")
+            require(os = macOS.agentString)
         }
     }
 })
