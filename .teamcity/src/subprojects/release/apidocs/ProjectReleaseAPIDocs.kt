@@ -16,7 +16,6 @@ object ProjectReleaseAPIDocs : Project({
     params {
         param("env.GITHUB_USER", VCSUsername)
         password("env.GITHUB_PASSWORD", VCSToken)
-        param("env.NPM_AUTH_TOKEN", value = "%npm.authToken%")
 
         configureReleaseVersion()
     }

@@ -61,28 +61,6 @@ object PublishJSToMaven : BuildType({
     }
 })
 
-object PublishJSToNPM : BuildType({
-    createDeploymentBuild("KtorPublishJSToNPMBuild", "Publish JS to NPM", "", releaseVersion)
-    vcs {
-        root(VCSCore)
-    }
-    params {
-        configureReleaseVersion()
-    }
-    steps {
-        publish(listOf("publishNpm"))
-    }
-    dependencies {
-        snapshot(jsBuild!!) {
-        }
-        snapshot(PublishJSToMaven) {
-        }
-    }
-    requirements {
-        require(os = linux.agentString, minMemoryMB = 7000)
-    }
-})
-
 object PublishWindowsNativeToMaven : BuildType({
     createDeploymentBuild("KtorPublishWindowsNativeToMavenBuild", "Publish Windows Native to Maven", "", releaseVersion)
     vcs {
@@ -111,7 +89,7 @@ object PublishWindowsNativeToMaven : BuildType({
     dependencies {
         snapshot(nativeWindowsBuild!!) {
         }
-        snapshot(PublishJSToNPM) {
+        snapshot(PublishJSToMaven) {
         }
     }
     requirements {

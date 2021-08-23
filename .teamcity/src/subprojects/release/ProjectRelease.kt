@@ -32,7 +32,6 @@ object ProjectRelease : Project({
         param("env.PUBLISHING_URL", value = "%sonatype.url%")
         param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
         param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
-        param("env.NPM_AUTH_TOKEN", value = "%npm.authToken%")
     }
 })
 
