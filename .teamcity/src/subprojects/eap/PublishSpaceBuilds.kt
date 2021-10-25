@@ -8,7 +8,8 @@ import subprojects.build.core.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 
-const val eapVersion = "%teamcity.build.branch%-%build.counter%"
+const val eapVersion = "%build.counter%"
+
 object PublishJvmToSpace : BuildType({
     createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
@@ -24,7 +25,7 @@ object PublishJvmToSpace : BuildType({
         )
     }
     params {
-        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+        param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
 
     dependencies {
@@ -52,7 +53,7 @@ object PublishJSToSpace : BuildType({
         )
     }
     params {
-        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+        param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
     dependencies {
         snapshot(SetBuildNumber) {
@@ -91,7 +92,7 @@ object PublishWindowsNativeToSpace : BuildType({
         )
     }
     params {
-        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+        param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
     dependencies {
         snapshot(SetBuildNumber) {
@@ -120,7 +121,7 @@ object PublishLinuxNativeToSpace : BuildType({
         )
     }
     params {
-        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+        param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
     dependencies {
         snapshot(SetBuildNumber) {
@@ -158,7 +159,7 @@ object PublishMacOSNativeToSpace : BuildType({
         )
     }
     params {
-        param("releaseVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+        param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
     }
     dependencies {
         snapshot(SetBuildNumber) {
@@ -179,10 +180,8 @@ private fun BuildSteps.publishToSpace(gradleTasks: List<String>, gradleParams: S
     gradle {
         name = "Assemble"
         tasks =
-            "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=%releaseVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "${gradleTasks.joinToString(" ")} --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
         buildFile = "build.gradle.kts"
     }
 }
-
-
