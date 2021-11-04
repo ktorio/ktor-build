@@ -16,6 +16,8 @@ object ProjectPublishing : Project({
     buildType(PublishLinuxNativeToMaven)
     buildType(PublishMacOSNativeToMaven)
 
+    buildType(PublishCustomTaskToMaven)
+
     params {
         configureReleaseVersion()
     }

@@ -9,6 +9,23 @@ import subprojects.release.*
 
 const val releaseVersion = "%releaseVersion%"
 
+object PublishCustomTaskToMaven : BuildType({
+    createDeploymentBuild("KtorPublishCustomToMavenBuild", "Publish Custom to Maven", "", releaseVersion)
+    vcs {
+        root(VCSCore)
+    }
+    params {
+        configureReleaseVersion()
+        text("tasks", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+    }
+    steps {
+        publish(
+            listOf("%tasks%"),
+            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+        )
+    }
+})
+
 object PublishJvmToMaven : BuildType({
     createDeploymentBuild("KtorPublishJvmToMavenBuild", "Publish JVM to Maven", "", releaseVersion)
     vcs {
