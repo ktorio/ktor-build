@@ -1,11 +1,16 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v10.*
+import jetbrains.buildServer.configs.kotlin.v10.toExtId
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
-import subprojects.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
+import subprojects.VCSCore
 import subprojects.build.*
-import subprojects.release.*
+import subprojects.onChangeAllBranchesTrigger
+import subprojects.release.nativeLinuxBuild
+import subprojects.release.nativeMacOSBuild
+import subprojects.release.nativeWindowsBuild
 
 val libcurlSoftware = """
                 rm -fo C:\Tools\msys64\var\lib\pacman\db.lck 
@@ -17,7 +22,7 @@ val libSoftware = """
         sudo apt-get update
         sudo apt-get install -y libncurses5 libncursesw5 libtinfo5
         sudo apt-get install -y libcurl4-openssl-dev
-    """.trimIndent()
+""".trimIndent()
 
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
     id("KtorMatrixNative_${osEntry.name}".toExtId())
