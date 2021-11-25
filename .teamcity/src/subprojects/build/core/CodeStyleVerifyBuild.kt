@@ -1,11 +1,13 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
-import subprojects.*
-import subprojects.build.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
+import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+import subprojects.VCSCore
+import subprojects.build.githubCommitStatusPublisher
+import subprojects.build.java11
 
 object CodeStyleVerify : BuildType({
     id("KtorCodeStyleVerifyKtLint")
@@ -38,7 +40,7 @@ object CodeStyleVerify : BuildType({
                 +:gradle.properties
                 +:settings.gradle
                 +:.editorconfig
-                """.trimIndent()
+            """.trimIndent()
         }
     }
 
@@ -47,9 +49,7 @@ object CodeStyleVerify : BuildType({
             metric = BuildFailureOnMetric.MetricType.INSPECTION_ERROR_COUNT
             units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
             comparison = BuildFailureOnMetric.MetricComparison.MORE
-            compareTo = build {
-                buildRule = lastSuccessful()
-            }
+            compareTo = value()
         }
     }
 
