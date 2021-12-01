@@ -20,6 +20,10 @@ object ProjectBenchmarks : Project({
 
         artifactRules = "+:allocation-benchmark/allocations => allocations.zip"
 
+        triggers {
+            onChangeAllBranchesTrigger()
+        }
+
         steps {
             gradle {
                 tasks =
@@ -38,10 +42,6 @@ object ProjectBenchmarks : Project({
 
         features {
             githubCommitStatusPublisher()
-        }
-
-        triggers {
-            onChangeAllBranchesTrigger()
         }
     }
 

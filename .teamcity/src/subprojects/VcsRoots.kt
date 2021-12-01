@@ -119,7 +119,6 @@ fun Triggers.onChangeAllBranchesTrigger() {
                             +:*
                             -:pull/*
         """.trimIndent()
-        quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_DEFAULT
     }
 }
 

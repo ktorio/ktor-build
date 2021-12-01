@@ -32,9 +32,6 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
-    triggers {
-        onChangeAllBranchesTrigger()
-    }
     steps {
         if (osEntry == windows) {
             powerShell {

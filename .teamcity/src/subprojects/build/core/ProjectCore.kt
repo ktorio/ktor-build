@@ -25,7 +25,7 @@ object ProjectCore : Project({
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
 
-    val allBuilds = osJdkBuilds.plus(nativeBuilds).plus(javaScriptBuilds).plus(stressTestBuilds).plus(apiCheck)
+    val allBuilds = osJdkBuilds + nativeBuilds + javaScriptBuilds + stressTestBuilds + apiCheck
 
     allBuilds.forEach(::buildType)
 
@@ -45,6 +45,9 @@ fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: 
 
     vcs {
         root(vcsRoot)
+    }
+    triggers {
+        onChangeAllBranchesTrigger()
     }
     dependencies {
         builds.mapNotNull { it.id }.forEach { id ->

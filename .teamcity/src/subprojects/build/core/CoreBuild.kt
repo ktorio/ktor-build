@@ -20,20 +20,21 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
-    triggers {
-        onChangeAllBranchesTrigger()
-    }
     steps {
-        if (osJdkEntry.osEntry == windows) {
-            defineTCPPortRange()
-            installJdk7OnWindows()
-        } else if (osJdkEntry.osEntry == linux) {
-            installJdk7OnLinux()
-            script {
-                name = "Obtain Library Dependencies"
-                scriptContent = libSoftware
+        when (osJdkEntry.osEntry) {
+            windows -> {
+                defineTCPPortRange()
+                installJdk7OnWindows()
+            }
+            linux -> {
+                installJdk7OnLinux()
+                script {
+                    name = "Obtain Library Dependencies"
+                    scriptContent = libSoftware
+                }
             }
         }
+
         gradle {
             name = "Build and Run Tests"
             buildFile = "build.gradle.kts"
