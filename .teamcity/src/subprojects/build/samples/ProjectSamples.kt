@@ -45,6 +45,7 @@ val sampleProjects = listOf(
     SampleProjectSettings("simulate-slow-server", VCSSamples),
     SampleProjectSettings("sse", VCSSamples),
     SampleProjectSettings("structured-logging", VCSSamples),
+    SampleProjectSettings("version-diff", VCSSamples, "build.gradle.kts"),
     SampleProjectSettings("youkube", VCSSamples),
 
     SampleProjectSettings("get-started", VCSGetStartedSample),
