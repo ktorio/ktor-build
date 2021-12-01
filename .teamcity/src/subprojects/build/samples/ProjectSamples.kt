@@ -1,6 +1,5 @@
 package subprojects.build.samples
 
-import com.sun.org.apache.xpath.internal.operations.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
@@ -8,19 +7,52 @@ import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
 
-data class SampleProjectSettings(val projectName: String, val vcsRoot: VcsRoot, val gradleFile: String = "build.gradle", val runTests: Boolean = true)
+enum class BuildSystem {
+    MAVEN,
+    GRADLE
+}
 
-val gradleProjects = listOf(
+data class SampleProjectSettings(
+    val projectName: String,
+    val vcsRoot: VcsRoot,
+    val buildFile: String = "build.gradle",
+    val buildSystem: BuildSystem = BuildSystem.GRADLE
+)
+
+val sampleProjects = listOf(
+    SampleProjectSettings("chat", VCSSamples),
     SampleProjectSettings("client-mpp", VCSSamples),
+    SampleProjectSettings("client-multipart", VCSSamples),
+    SampleProjectSettings("client-tools", VCSSamples),
+    SampleProjectSettings("css-dsl", VCSSamples),
+    SampleProjectSettings("di-kodein", VCSSamples),
+    SampleProjectSettings("docker-image", VCSSamples, "build.gradle.kts"),
+    SampleProjectSettings("file-listing", VCSSamples),
     SampleProjectSettings("fullstack-mpp", VCSSamples),
-    SampleProjectSettings("generic", VCSSamples),
+    SampleProjectSettings("graalvm", VCSSamples, "build.gradle.kts"),
+    SampleProjectSettings("httpbin", VCSSamples),
+    SampleProjectSettings("kweet", VCSSamples),
+    SampleProjectSettings("location-header", VCSSamples),
+    SampleProjectSettings("maven-google-appengine-standard", VCSSamples, buildSystem = BuildSystem.MAVEN),
+    SampleProjectSettings("maven-netty", VCSSamples, buildSystem = BuildSystem.MAVEN),
+    SampleProjectSettings("multiple-connectors", VCSSamples),
+    SampleProjectSettings("native-client", VCSSamples),
+    SampleProjectSettings("proguard", VCSSamples),
+    SampleProjectSettings("redirect-with-exception", VCSSamples),
+    SampleProjectSettings("reverse-proxy", VCSSamples),
+    SampleProjectSettings("reverse-proxy-ws", VCSSamples),
+    SampleProjectSettings("rx", VCSSamples),
+    SampleProjectSettings("simulate-slow-server", VCSSamples),
+    SampleProjectSettings("sse", VCSSamples),
+    SampleProjectSettings("structured-logging", VCSSamples),
+    SampleProjectSettings("youkube", VCSSamples),
+
     SampleProjectSettings("get-started", VCSGetStartedSample),
     SampleProjectSettings("gradle-sample", VCSGradleSample),
     SampleProjectSettings("maven-sample", VCSMavenSample),
     SampleProjectSettings("http-api-sample", VCSHttpApiSample),
     SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample),
     SampleProjectSettings("website-sample", VCSWebsiteSample),
-    SampleProjectSettings("graalvm", VCSSamples, "build.gradle.kts", false)
 )
 
 object ProjectSamples : Project({
@@ -28,7 +60,7 @@ object ProjectSamples : Project({
     name = "Samples"
     description = "Code samples"
 
-    val projects = gradleProjects.map(::SampleProject)
+    val projects = sampleProjects.map(::SampleProject)
     projects.forEach(::buildType)
 
     samplesBuild = buildType {
@@ -48,27 +80,31 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
 
     steps {
         acceptAndroidSDKLicense()
-        validateSamples(sample.projectName, sample.gradleFile, sample.runTests)
+
+        when (sample.buildSystem) {
+            BuildSystem.MAVEN -> buildMavenSample(sample.projectName)
+            BuildSystem.GRADLE -> buildGradleSample(sample.projectName, sample.buildFile)
+        }
     }
 })
 
-fun BuildSteps.validateSamples(relativeDir: String, gradleFile: String, runTests: Boolean) {
+fun BuildSteps.buildGradleSample(relativeDir: String, gradleFile: String) {
     gradle {
         buildFile = gradleFile
         name = "Build"
-        tasks = "clean build"
+        tasks = "build"
         workingDir = relativeDir
-    }
-    if (runTests) {
-        gradle {
-            buildFile = gradleFile
-            name = "Test"
-            tasks = "allTests"
-            workingDir = relativeDir
-        }
     }
 }
 
+
+fun BuildSteps.buildMavenSample(relativeDir: String) {
+    maven {
+        name = "Test"
+        goals = "test"
+        workingDir = relativeDir
+    }
+}
 fun BuildSteps.acceptAndroidSDKLicense() = script {
     name = "Accept Android SDK license"
     scriptContent = "yes | JAVA_HOME=%env.JDK_18% %env.ANDROID_SDK_HOME%/tools/bin/sdkmanager --licenses"
