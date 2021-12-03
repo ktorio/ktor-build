@@ -20,6 +20,7 @@ object ProjectPublishEAPToSpace : Project({
     }
 
     buildType(SetBuildNumber)
+    buildType(PublishCustomTaskToSpace)
     buildType(PublishJvmToSpace)
     buildType(PublishJSToSpace)
     buildType(PublishWindowsNativeToSpace)

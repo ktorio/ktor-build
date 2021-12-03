@@ -10,6 +10,28 @@ import subprojects.release.publishing.*
 
 const val eapVersion = "%build.counter%"
 
+object PublishCustomTaskToSpace : BuildType({
+    createDeploymentBuild("KtorPublishCustomToSpaceBuild", "Publish Custom to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
+    vcs {
+        root(VCSCoreEAP)
+    }
+    steps {
+        gradle {
+            name = "Assemble"
+            tasks =
+                "%taskList% --i -PeapVersion=%eapVersion% --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            jdkHome = "%env.${java11.env}%"
+            buildFile = "build.gradle.kts"
+        }
+    }
+    params {
+        text("eapVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+        text("taskList", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+    }
+
+    buildNumberPattern = "%eapVersion%"
+})
+
 object PublishJvmToSpace : BuildType({
     createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
@@ -182,7 +204,6 @@ object PublishMacOSNativeToSpace : BuildType({
         require(macOS.agentString)
     }
 })
-
 
 private fun BuildSteps.publishToSpace(gradleTasks: List<String>, gradleParams: String = "", os: String = "Linux") {
     gradle {
