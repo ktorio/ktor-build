@@ -1,10 +1,10 @@
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import subprojects.build.*
-import subprojects.benchmarks.*
-import subprojects.release.*
-import subprojects.eap.*
 import subprojects.*
+import subprojects.benchmarks.*
+import subprojects.build.*
+import subprojects.eap.*
 import subprojects.kotlinx.html.*
+import subprojects.release.*
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -59,7 +59,3 @@ project {
     subProject(ProjectPublishEAPToSpace)
     subProject(PublishKotlinxHtml)
 }
-
-
-
-

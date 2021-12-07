@@ -10,6 +10,7 @@ object ProjectPublishing : Project({
     name = "Publishing"
     description = "Publish artifacts to repositories"
 
+    buildType(CreateSonatypeRepository)
     buildType(PublishJvmToMaven)
     buildType(PublishJSToMaven)
     buildType(PublishWindowsNativeToMaven)
@@ -28,6 +29,7 @@ object ProjectPublishing : Project({
             "Publish All",
             VCSCore,
             listOf(
+                CreateSonatypeRepository,
                 PublishJvmToMaven,
                 PublishJSToMaven,
                 PublishWindowsNativeToMaven,
