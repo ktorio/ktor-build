@@ -6,7 +6,7 @@ import subprojects.build.*
 import subprojects.build.core.*
 
 
-object SetBuildNumber: BuildType( {
+object SetBuildNumber : BuildType({
     id("SetBuildNumberBuild")
     name = "Set EAP Build Number"
     buildNumberPattern = eapVersion

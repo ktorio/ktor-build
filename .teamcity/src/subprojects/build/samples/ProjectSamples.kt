@@ -65,7 +65,7 @@ object ProjectSamples : Project({
     projects.forEach(::buildType)
 
     samplesBuild = buildType {
-        createCompositeBuild("KtorSamplesValidate_All", "Validate all samples", VCSSamples, projects)
+        createCompositeBuild("KtorSamplesValidate_All", "Validate all samples", VCSSamples, projects, withTrigger = true)
     }
 })
 

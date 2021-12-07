@@ -23,12 +23,17 @@ fun BuildType.createDeploymentBuild(id: String, name: String, description: Strin
     buildNumberPattern = versionPattern
     maxRunningBuilds = 1
     features {
-        perfmon {  }
+        perfmon { }
     }
 }
 
 object ReleaseBuild : BuildType({
-    createDeploymentBuild("KtorReleaseAllBuild", "Release All", "Publish all artifacts and release documentation", "")
+    createDeploymentBuild(
+        "KtorReleaseAllBuild",
+        "Release All",
+        "Publish all artifacts and release documentation",
+        ""
+    )
 
     vcs {
         root(VCSSamples)

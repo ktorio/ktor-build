@@ -31,13 +31,13 @@ object ProjectCore : Project({
 
     buildType {
         allowExternalStatus = true
-        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds)
+        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, withTrigger = true)
     }
 
     buildType(CodeStyleVerify)
 })
 
-fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>) {
+fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>, withTrigger: Boolean = false) {
     id(buildId)
     name = buildName
     type = BuildTypeSettings.Type.COMPOSITE
@@ -47,7 +47,9 @@ fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: 
         root(vcsRoot)
     }
     triggers {
-        onChangeAllBranchesTrigger()
+        if (withTrigger) {
+            onChangeAllBranchesTrigger()
+        }
     }
     dependencies {
         builds.mapNotNull { it.id }.forEach { id ->
