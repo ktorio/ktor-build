@@ -28,7 +28,7 @@ val sampleProjects = listOf(
     SampleProjectSettings("css-dsl", VCSSamples),
     SampleProjectSettings("di-kodein", VCSSamples),
     SampleProjectSettings("docker-image", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("file-listing", VCSSamples),
+    SampleProjectSettings("filelisting", VCSSamples),
     SampleProjectSettings("fullstack-mpp", VCSSamples),
     SampleProjectSettings("graalvm", VCSSamples, "build.gradle.kts"),
     SampleProjectSettings("httpbin", VCSSamples),
@@ -49,13 +49,17 @@ val sampleProjects = listOf(
     SampleProjectSettings("version-diff", VCSSamples, "build.gradle.kts"),
     SampleProjectSettings("youkube", VCSSamples),
 
-    SampleProjectSettings("get-started", VCSGetStartedSample, standalone = true),
+    SampleProjectSettings("get-started", VCSGetStartedSample, "build.gradle.kts", standalone = true),
     SampleProjectSettings("gradle-sample", VCSGradleSample, standalone = true),
-    SampleProjectSettings("maven-sample", VCSMavenSample, standalone = true),
+    SampleProjectSettings("maven-sample", VCSMavenSample, buildSystem = BuildSystem.MAVEN, standalone = true),
     SampleProjectSettings("http-api-sample", VCSHttpApiSample, standalone = true),
-    SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample, standalone = true),
     SampleProjectSettings("website-sample", VCSWebsiteSample, standalone = true),
 )
+
+/**
+ * Custom Samples
+ */
+val WebSocketChatSample = SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample, standalone = true)
 
 object ProjectSamples : Project({
     id("ProjectKtorSamples")
@@ -65,8 +69,50 @@ object ProjectSamples : Project({
     val projects = sampleProjects.map(::SampleProject)
     projects.forEach(::buildType)
 
+    buildType(WebSocketSample)
+
     samplesBuild = buildType {
-        createCompositeBuild("KtorSamplesValidate_All", "Validate all samples", VCSSamples, projects, withTrigger = true)
+        createCompositeBuild(
+            "KtorSamplesValidate_All",
+            "Validate all samples",
+            VCSSamples,
+            projects + WebSocketSample,
+            withTrigger = true
+        )
+    }
+})
+
+object WebSocketSample: BuildType({
+    val sample = WebSocketChatSample
+    id("KtorSamplesValidate_${sample.projectName.replace('-', '_')}")
+    name = "Validate ${sample.projectName} sample"
+
+    vcs {
+        root(sample.vcsRoot)
+    }
+
+    params {
+        param("env.ANDROID_SDK_HOME", "%android-sdk.location%")
+    }
+
+    defaultBuildFeatures(sample.vcsRoot.id.toString())
+
+    steps {
+        acceptAndroidSDKLicense()
+
+        gradle {
+            buildFile = sample.buildFile
+            name = "Build Server"
+            tasks = "build"
+            workingDir = "server"
+        }
+
+        gradle {
+            buildFile = sample.buildFile
+            name = "Build Client"
+            tasks = "build"
+            workingDir = "client"
+        }
     }
 })
 
@@ -114,6 +160,7 @@ fun BuildSteps.buildMavenSample(relativeDir: String) {
         workingDir = relativeDir
     }
 }
+
 fun BuildSteps.acceptAndroidSDKLicense() = script {
     name = "Accept Android SDK license"
     scriptContent = "yes | JAVA_HOME=%env.JDK_18% %env.ANDROID_SDK_HOME%/tools/bin/sdkmanager --licenses"
