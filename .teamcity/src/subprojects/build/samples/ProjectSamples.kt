@@ -16,7 +16,8 @@ data class SampleProjectSettings(
     val projectName: String,
     val vcsRoot: VcsRoot,
     val buildFile: String = "build.gradle",
-    val buildSystem: BuildSystem = BuildSystem.GRADLE
+    val buildSystem: BuildSystem = BuildSystem.GRADLE,
+    val standalone: Boolean = false
 )
 
 val sampleProjects = listOf(
@@ -48,12 +49,12 @@ val sampleProjects = listOf(
     SampleProjectSettings("version-diff", VCSSamples, "build.gradle.kts"),
     SampleProjectSettings("youkube", VCSSamples),
 
-    SampleProjectSettings("get-started", VCSGetStartedSample),
-    SampleProjectSettings("gradle-sample", VCSGradleSample),
-    SampleProjectSettings("maven-sample", VCSMavenSample),
-    SampleProjectSettings("http-api-sample", VCSHttpApiSample),
-    SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample),
-    SampleProjectSettings("website-sample", VCSWebsiteSample),
+    SampleProjectSettings("get-started", VCSGetStartedSample, standalone = true),
+    SampleProjectSettings("gradle-sample", VCSGradleSample, standalone = true),
+    SampleProjectSettings("maven-sample", VCSMavenSample, standalone = true),
+    SampleProjectSettings("http-api-sample", VCSHttpApiSample, standalone = true),
+    SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample, standalone = true),
+    SampleProjectSettings("website-sample", VCSWebsiteSample, standalone = true),
 )
 
 object ProjectSamples : Project({
@@ -77,6 +78,10 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
         root(sample.vcsRoot)
     }
 
+    params {
+        param("env.ANDROID_SDK_HOME", "%android-sdk.location%")
+    }
+
     defaultBuildFeatures(sample.vcsRoot.id.toString())
 
     steps {
@@ -84,17 +89,20 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
 
         when (sample.buildSystem) {
             BuildSystem.MAVEN -> buildMavenSample(sample.projectName)
-            BuildSystem.GRADLE -> buildGradleSample(sample.projectName, sample.buildFile)
+            BuildSystem.GRADLE -> buildGradleSample(sample.projectName, sample.buildFile, sample.standalone)
         }
     }
 })
 
-fun BuildSteps.buildGradleSample(relativeDir: String, gradleFile: String) {
+fun BuildSteps.buildGradleSample(relativeDir: String, gradleFile: String, standalone: Boolean) {
     gradle {
         buildFile = gradleFile
         name = "Build"
         tasks = "build"
-        workingDir = relativeDir
+
+        if (!standalone) {
+            workingDir = relativeDir
+        }
     }
 }
 

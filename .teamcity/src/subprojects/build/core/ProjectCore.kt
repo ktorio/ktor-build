@@ -41,7 +41,13 @@ object ProjectCore : Project({
     buildType(CodeStyleVerify)
 })
 
-fun BuildType.createCompositeBuild(buildId: String, buildName: String, vcsRoot: VcsRoot, builds: List<BuildType>, withTrigger: Boolean = false) {
+fun BuildType.createCompositeBuild(
+    buildId: String,
+    buildName: String,
+    vcsRoot: VcsRoot,
+    builds: List<BuildType>,
+    withTrigger: Boolean = false
+) {
     id(buildId)
     name = buildName
     type = BuildTypeSettings.Type.COMPOSITE
