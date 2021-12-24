@@ -102,9 +102,9 @@ fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
     }
 }
 
-fun BuildFeatures.githubCommitStatusPublisher() {
+fun BuildFeatures.githubCommitStatusPublisher(vcsRootId: String = VCSCore.id.toString()) {
     commitStatusPublisher {
-        vcsRootExtId = VCSCore.id.toString()
+        vcsRootExtId = vcsRootId
 
         publisher = github {
             githubUrl = "https://api.github.com"

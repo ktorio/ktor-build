@@ -32,6 +32,10 @@ object ProjectCore : Project({
     buildType {
         allowExternalStatus = true
         createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, withTrigger = true)
+
+        features {
+            githubCommitStatusPublisher(VCSSamples.id.toString())
+        }
     }
 
     buildType(CodeStyleVerify)
