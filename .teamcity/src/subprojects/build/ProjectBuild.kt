@@ -70,7 +70,7 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
         }
 
         githubPullRequestsLoader(rootId)
-        githubCommitStatusPublisher()
+        githubCommitStatusPublisher(rootId)
     }
 
     failureConditions {
