@@ -19,7 +19,7 @@ object ProjectCore : Project({
         jdkVersions.map { jdk -> OSJDKEntry(os, jdk) }
     }
 
-    val jpmsCheck = APICheckBuild
+    val jpmsCheck = JPMSCheckBuild
     val apiCheck = APICheckBuild
     val osJdkBuilds = OsJdk.map(::CoreBuild)
     val nativeBuilds = operatingSystems.map(::NativeBuild)
