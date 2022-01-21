@@ -20,7 +20,7 @@ object JPMSCheckBuild: BuildType({
             buildFile = "build.gradle.kts"
             name = "Check JPMS build"
             tasks = ":ktor-java-modules-test:compileJava"
-            jdkHome = "%env.${java8.env}%"
+            jdkHome = "%env.${java11.env}%"
         }
     }
     defaultBuildFeatures(VCSCore.id.toString())
