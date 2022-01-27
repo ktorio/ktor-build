@@ -45,7 +45,7 @@ object CreateSonatypeRepository : BuildType({
     }
 
     requirements {
-        require(linux.agentString)
+        require(linux.agentString, minMemoryMB = 7000)
     }
 })
 
@@ -72,7 +72,7 @@ object PublishJvmToMaven : BuildType({
         snapshot(CreateSonatypeRepository) {}
     }
     requirements {
-        require(linux.agentString)
+        require(linux.agentString, minMemoryMB = 7000)
     }
 })
 
@@ -160,7 +160,7 @@ object PublishLinuxNativeToMaven : BuildType({
         }
     }
     requirements {
-        require(linux.agentString)
+        require(linux.agentString, minMemoryMB = 7000)
     }
 })
 
@@ -203,7 +203,7 @@ object PublishMacOSNativeToMaven : BuildType({
         }
     }
     requirements {
-        require(macOS.agentString)
+        require(macOS.agentString, minMemoryMB = 7000)
     }
 })
 

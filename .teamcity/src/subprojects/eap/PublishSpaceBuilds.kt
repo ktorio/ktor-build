@@ -58,7 +58,7 @@ object PublishJvmToSpace : BuildType({
         }
     }
     requirements {
-        require(linux.agentString)
+        require(linux.agentString, minMemoryMB = 7000)
     }
 })
 
@@ -155,7 +155,7 @@ object PublishLinuxNativeToSpace : BuildType({
         }
     }
     requirements {
-        require(linux.agentString)
+        require(linux.agentString, minMemoryMB = 7000)
     }
 })
 
@@ -201,7 +201,7 @@ object PublishMacOSNativeToSpace : BuildType({
         }
     }
     requirements {
-        require(macOS.agentString)
+        require(macOS.agentString, minMemoryMB = 7000)
     }
 })
 

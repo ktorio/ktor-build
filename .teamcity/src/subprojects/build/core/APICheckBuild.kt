@@ -6,8 +6,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
-
-object APICheckBuild: BuildType({
+object APICheckBuild : BuildType({
     id("KtorMatrixCore_APICheck".toExtId())
     name = "Check API"
     artifactRules = formatArtifacts(memoryReportArtifact)
