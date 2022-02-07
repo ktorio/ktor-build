@@ -7,7 +7,6 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import subprojects.VCSCore
 import subprojects.build.*
-import subprojects.onChangeAllBranchesTrigger
 import subprojects.release.nativeLinuxBuild
 import subprojects.release.nativeMacOSBuild
 import subprojects.release.nativeWindowsBuild
@@ -49,7 +48,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         }
         gradle {
             name = "Build and Run Tests"
-            tasks = "${osEntry.taskName} --info"
+            tasks = "${osEntry.testTaskName} --info"
             jdkHome = "%env.JDK_11%"
             buildFile = "build.gradle.kts"
         }

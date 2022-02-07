@@ -1,5 +1,6 @@
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import subprojects.*
+import subprojects.cli.*
 import subprojects.benchmarks.*
 import subprojects.build.*
 import subprojects.eap.*
@@ -40,6 +41,7 @@ project {
     vcsRoot(VCSKotlinxHtml)
     vcsRoot(VCSKtorBenchmarks)
     vcsRoot(VCSKtorGeneratorWebsite)
+    vcsRoot(VCSKtorCLI)
 
     vcsRoot(VCSGetStartedSample)
     vcsRoot(VCSGradleSample)
@@ -58,4 +60,5 @@ project {
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
     subProject(PublishKotlinxHtml)
+    subProject(ProjectKtorCLI)
 }

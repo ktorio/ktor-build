@@ -93,6 +93,12 @@ object VCSKtorGeneratorWebsite : PasswordVcsRoot({
     branch = "master"
 })
 
+object VCSKtorCLI : PasswordVcsRoot({
+    name = "Ktor CLI"
+    url = "https://github.com/ktorio/ktor-cli.git"
+    branch = "main"
+})
+
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     userNameStyle = UserNameStyle.NAME
     branch = defaultBranch
