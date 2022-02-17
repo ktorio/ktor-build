@@ -12,7 +12,37 @@ object ProjectKtorCLI : Project({
     name = "Ktor CLI"
 
     val platforms = listOf(linux, macOS, windows)
-    platforms.map(::buildCLI)
+    val builds = platforms.map(::buildCLI)
+
+    buildType {
+        id("BuildAllCLI")
+        name = "Run all CLI builds"
+
+        vcs {
+            root(VCSKtorCLI)
+        }
+
+        artifactRules = "+:**/build/**/*.kexe"
+
+        triggers {
+            onChangeAllBranchesTrigger()
+        }
+
+        features {
+            perfmon {
+            }
+
+            githubPullRequestsLoader(VCSKtorCLI.id.toString())
+            githubCommitStatusPublisher(VCSKtorCLI.id.toString())
+        }
+
+        dependencies {
+            builds.mapNotNull {it.id }.forEach {
+                snapshot(it) {
+                }
+            }
+        }
+    }
 })
 
 fun Project.buildCLI(os: OSEntry): BuildType = buildType {
@@ -41,10 +71,6 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
 
     requirements {
         require(os = os.agentString, minMemoryMB = 7000)
-    }
-
-    triggers {
-        onChangeAllBranchesTrigger()
     }
 
     features {

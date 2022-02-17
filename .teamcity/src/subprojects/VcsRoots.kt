@@ -97,6 +97,10 @@ object VCSKtorCLI : PasswordVcsRoot({
     name = "Ktor CLI"
     url = "https://github.com/ktorio/ktor-cli.git"
     branch = "main"
+    branchSpec = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
