@@ -21,7 +21,7 @@ const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
 
 val macOS = OSEntry("macOS", "Mac OS X", "cleanMacosX64Test macosX64Test", "linkReleaseExecutableMacosX64")
-val macOSArm = OSEntry("macOS M1", "Mac OS X", "cleanMacosArm64Test macosArm64Test", "linkReleaseExecutableMacosArm64")
+val macOSArm = OSEntry("macOS_M1", "Mac OS X", "cleanMacosArm64Test macosArm64Test", "linkReleaseExecutableMacosArm64")
 val linux = OSEntry("Linux", "Linux", "cleanLinuxX64Test linuxX64Test", "linkReleaseExecutableLinuxX64")
 val windows = OSEntry("Windows", "Windows", "cleanMingwX64Test mingwX64Test", "linkReleaseExecutableMingwX64")
 
