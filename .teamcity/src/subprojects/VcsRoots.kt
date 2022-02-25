@@ -6,10 +6,10 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
 
 const val defaultBranch = "main"
 const val VCSUsername = "hhariri"
-const val VCSToken = "credentialsJSON:ebbac88f-a779-43b3-9426-d90e411657b1"
+const val VCSToken = "%github.token%"
 
 object VCSCore : PasswordVcsRoot({
-    name = "Ktor"
+    name = "Ktor Core"
     url = "https://github.com/ktorio/ktor.git"
     branchSpec = """
         +:refs/heads/*
@@ -18,7 +18,7 @@ object VCSCore : PasswordVcsRoot({
 })
 
 object VCSCoreEAP : PasswordVcsRoot({
-    name = "Ktor EAP Branches"
+    name = "Ktor Core EAP Branches"
     url = "https://github.com/ktorio/ktor.git"
     branchSpec = """
         +:refs/heads/(*-eap)
