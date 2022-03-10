@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
+import subprojects.eap.*
 import subprojects.release.*
 
 const val releaseVersion = "%releaseVersion%"
@@ -21,7 +22,7 @@ object PublishCustomTaskToMaven : BuildType({
     steps {
         publish(
             listOf("%tasks%"),
-            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+            gradleParams = "-psigning.gnupg.homedir=%env.sign_key_location%/.gnupg"
         )
     }
 })

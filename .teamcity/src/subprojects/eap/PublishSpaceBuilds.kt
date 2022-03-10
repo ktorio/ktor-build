@@ -6,7 +6,6 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
-import subprojects.release.publishing.*
 
 const val eapVersion = "%build.counter%"
 
@@ -38,7 +37,7 @@ object PublishJvmToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        publishToSpace(
+        releaseToSpace(
             listOf(
                 "publishJvmPublicationToMavenRepository",
                 "publishKotlinMultiplatformPublicationToMavenRepository",
@@ -68,7 +67,7 @@ object PublishJSToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        publishToSpace(
+        releaseToSpace(
             listOf(
                 "publishJsPublicationToMavenRepository"
             )
@@ -105,7 +104,7 @@ object PublishWindowsNativeToSpace : BuildType({
                 """.trimIndent()
             }
         }
-        publishToSpace(
+        releaseToSpace(
             listOf(
                 "publishMingwX64PublicationToMavenRepository"
             ),
@@ -136,7 +135,7 @@ object PublishLinuxNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        publishToSpace(
+        releaseToSpace(
             listOf(
                 "publishLinuxX64PublicationToMavenRepository"
             )
@@ -165,7 +164,7 @@ object PublishMacOSNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        publishToSpace(
+        releaseToSpace(
             listOf(
                 "publishIosArm32PublicationToMavenRepository",
                 "publishIosArm64PublicationToMavenRepository",
@@ -205,7 +204,7 @@ object PublishMacOSNativeToSpace : BuildType({
     }
 })
 
-private fun BuildSteps.publishToSpace(gradleTasks: List<String>, gradleParams: String = "", os: String = "Linux") {
+private fun BuildSteps.releaseToSpace(gradleTasks: List<String>, gradleParams: String = "", os: String = "Linux") {
     gradle {
         name = "Assemble"
         tasks =

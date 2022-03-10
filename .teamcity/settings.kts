@@ -6,6 +6,7 @@ import subprojects.build.*
 import subprojects.eap.*
 import subprojects.kotlinx.html.*
 import subprojects.release.*
+import subprojects.release.space.*
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -59,6 +60,7 @@ project {
     subProject(ProjectBenchmarks)
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
+    subProject(ProjectPublishReleaseToSpace)
     subProject(PublishKotlinxHtml)
     subProject(ProjectKtorCLI)
 }
