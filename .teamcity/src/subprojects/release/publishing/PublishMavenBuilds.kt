@@ -206,6 +206,9 @@ object PublishMacOSNativeToMaven : BuildType({
     requirements {
         require(macOS.agentString, minMemoryMB = 7000)
     }
+    failureConditions {
+        executionTimeoutMin = 8 * 60
+    }
 })
 
 fun BuildSteps.prepareKeyFile(os: String = "") {
