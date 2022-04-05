@@ -194,7 +194,7 @@ object PublishMacOSNativeToMaven : BuildType({
                 "publishWatchosX64PublicationToMavenRepository",
                 "publishWatchosSimulatorArm64PublicationToMavenRepository"
             ),
-            gradleParams = "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+            gradleParams = "--parallel -Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     dependencies {
@@ -314,7 +314,7 @@ fun BuildSteps.publish(gradleTasks: List<String>, gradleParams: String = "", os:
     gradle {
         name = "Assemble"
         tasks =
-            "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
         buildFile = "build.gradle.kts"
     }
