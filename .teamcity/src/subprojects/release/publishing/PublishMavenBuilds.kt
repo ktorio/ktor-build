@@ -5,7 +5,6 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
-import subprojects.eap.*
 import subprojects.release.*
 
 const val releaseVersion = "%releaseVersion%"
@@ -312,10 +311,21 @@ rm -rf .gnupg
     }
 }
 
+fun BuildSteps.localPublish(gradleTasks: List<String>, gradleParams: String = "", os: String = "") {
+    prepareKeyFile(os)
+    gradle {
+        name = "Local publication"
+        tasks = "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
+        jdkHome = "%env.${java11.env}%"
+        buildFile = "build.gradle.kts"
+    }
+    cleanupKeyFile(os)
+}
+
 fun BuildSteps.publish(gradleTasks: List<String>, gradleParams: String = "", os: String = "") {
     prepareKeyFile(os)
     gradle {
-        name = "Assemble"
+        name = "Publish"
         tasks =
             "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
