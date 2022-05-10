@@ -53,8 +53,6 @@ object PublishJvmToSpace : BuildType({
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
         }
-        snapshot(jvmBuild!!) {
-        }
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -79,10 +77,6 @@ object PublishJSToSpace : BuildType({
     dependencies {
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
-        }
-        snapshot(jsBuild!!) {
-        }
-        snapshot(PublishJvmToSpace) {
         }
     }
     requirements {
@@ -119,10 +113,6 @@ object PublishWindowsNativeToSpace : BuildType({
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
         }
-        snapshot(nativeWindowsBuild!!) {
-        }
-        snapshot(PublishJSToSpace) {
-        }
     }
     requirements {
         require(windows.agentString, minMemoryMB = 7000)
@@ -147,10 +137,6 @@ object PublishLinuxNativeToSpace : BuildType({
     dependencies {
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
-        }
-        snapshot(nativeLinuxBuild!!) {
-        }
-        snapshot(PublishWindowsNativeToSpace) {
         }
     }
     requirements {
@@ -193,10 +179,6 @@ object PublishMacOSNativeToSpace : BuildType({
     dependencies {
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
-        }
-        snapshot(nativeMacOSBuild!!) {
-        }
-        snapshot(PublishLinuxNativeToSpace) {
         }
     }
     requirements {
