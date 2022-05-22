@@ -11,7 +11,7 @@ object ProjectKtorCLI : Project({
     id("ProjectKtorCLI")
     name = "Ktor CLI"
 
-    val platforms = listOf(linux, macOS, windows, macOSArm)
+    val platforms = listOf(linux, macOS, windows)
     val builds = platforms.map(::buildCLI)
 
     buildType {
