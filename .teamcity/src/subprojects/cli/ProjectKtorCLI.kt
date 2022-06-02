@@ -67,19 +67,6 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
             tasks = os.testTaskName
             buildFile = "build.gradle.kts"
         }
-
-        script {
-            name = "Generate executable and push to git"
-            scriptContent = """
-                    ./build_doc.sh "%releaseVersion%"
-                    git config user.email "deploy@jetbrains.com"
-                    git config user.name "Auto deploy"
-                    git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
-                    git add .
-                    git commit -m "Update for %releaseVersion%"
-                    git push origin main
-                """.trimIndent()
-        }
     }
 
     requirements {
