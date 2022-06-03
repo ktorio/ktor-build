@@ -43,6 +43,7 @@ project {
     vcsRoot(VCSKtorBenchmarks)
     vcsRoot(VCSKtorGeneratorWebsite)
     vcsRoot(VCSKtorCLI)
+    vcsRoot(VCSKtorBuildPlugins)
 
     vcsRoot(VCSGetStartedSample)
     vcsRoot(VCSGradleSample)
@@ -63,4 +64,5 @@ project {
     subProject(ProjectPublishReleaseToSpace)
     subProject(PublishKotlinxHtml)
     subProject(ProjectKtorCLI)
+    subProject(ProjectKtorGradlePlugin)
 }
