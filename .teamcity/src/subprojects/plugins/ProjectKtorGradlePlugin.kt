@@ -9,11 +9,6 @@ object ProjectKtorGradlePlugin : Project({
     name = "Ktor Gradle Plugin"
     description = "Publish Ktor Gradle Plugin"
 
-    params {
-        password("env.GRADLE_PUBLISH_KEY", "%gradle.publish.key%")
-        password("env.GRADLE_PUBLISH_SECRET", "%gradle.publish.secret%")
-    }
-
     buildType {
         id("PublishGradlePlugin")
         name = "Build and publish Ktor Gradle Plugin"
