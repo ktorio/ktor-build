@@ -1,8 +1,9 @@
 package subprojects
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.Triggers
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.schedule
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.GitVcsRoot
 
 const val defaultBranch = "main"
 const val VCSUsername = "hhariri"
@@ -101,6 +102,11 @@ object VCSKtorCLI : PasswordVcsRoot({
         +:refs/heads/*
         +:refs/(pull/*)/head
     """.trimIndent()
+})
+
+object VCSKtorBuildPlugins : PasswordVcsRoot({
+    name = "Ktor Build Plugins"
+    url = "https://github.com/ktorio/ktor-build-plugins.git"
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
