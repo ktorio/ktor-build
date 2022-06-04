@@ -1,8 +1,7 @@
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import org.junit.Test
 import org.reflections.Reflections
-import org.reflections.scanners.ResourcesScanner
-import org.reflections.scanners.SubTypesScanner
+import org.reflections.scanners.Scanners
 import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
 import org.reflections.util.FilterBuilder
@@ -17,7 +16,6 @@ import subprojects.release.ProjectRelease
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
 import subprojects.release.generator.ProjectReleaseGeneratorWebsite
 import subprojects.release.publishing.*
-import java.lang.IllegalStateException
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
@@ -116,14 +114,14 @@ class AllProjectsTest {
     private fun projectsFromPackage(pkg: String): List<Project> {
         val reflections = Reflections(
             ConfigurationBuilder()
-                .setScanners(SubTypesScanner(false), ResourcesScanner())
+                .setScanners(Scanners.SubTypes.filterResultsBy { true }, Scanners.Resources)
                 .setUrls(
                     ClasspathHelper.forClassLoader(
                         ClasspathHelper.contextClassLoader(),
                         ClasspathHelper.staticClassLoader()
                     )
                 )
-                .filterInputsBy(FilterBuilder().include(FilterBuilder.prefix(pkg)))
+                .filterInputsBy(FilterBuilder().includePackage(pkg))
         )
         val projects = reflections.getSubTypesOf(Project::class.java).map { it.kotlin.objectInstance }
 
