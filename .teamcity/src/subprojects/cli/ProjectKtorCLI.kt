@@ -43,8 +43,6 @@ object ProjectKtorCLI : Project({
             }
         }
     }
-
-    buildType(CodeStyleVerify)
 })
 
 fun Project.buildCLI(os: OSEntry): BuildType = buildType {
