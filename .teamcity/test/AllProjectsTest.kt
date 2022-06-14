@@ -12,7 +12,6 @@ import subprojects.build.docsamples.ProjectDocSamples
 import subprojects.build.generator.ProjectGenerator
 import subprojects.build.plugin.ProjectPlugin
 import subprojects.build.samples.ProjectSamples
-import subprojects.plugins.ProjectKtorGradleEAPPlugin
 import subprojects.plugins.ProjectKtorGradlePlugin
 import subprojects.release.ProjectRelease
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
@@ -34,7 +33,6 @@ class AllProjectsTest {
             ProjectBuild to "ProjectKtorBuild",
             ProjectRelease to "ProjectKtorRelease",
             ProjectKtorGradlePlugin to "ProjectKtorGradlePlugin",
-            ProjectKtorGradleEAPPlugin to "ProjectKtorGradleEAPPlugin",
 
             ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs",
             ProjectReleaseGeneratorWebsite to "ProjectReleaseGeneratorWebsite",
