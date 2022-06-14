@@ -6,16 +6,18 @@ import org.reflections.util.ClasspathHelper
 import org.reflections.util.ConfigurationBuilder
 import org.reflections.util.FilterBuilder
 import subprojects.build.ProjectBuild
-import subprojects.build.core.*
+import subprojects.build.core.CodeStyleVerify
+import subprojects.build.core.ProjectCore
 import subprojects.build.docsamples.ProjectDocSamples
 import subprojects.build.generator.ProjectGenerator
 import subprojects.build.plugin.ProjectPlugin
 import subprojects.build.samples.ProjectSamples
+import subprojects.plugins.ProjectKtorGradleEAPPlugin
 import subprojects.plugins.ProjectKtorGradlePlugin
 import subprojects.release.ProjectRelease
 import subprojects.release.apidocs.ProjectReleaseAPIDocs
 import subprojects.release.generator.ProjectReleaseGeneratorWebsite
-import subprojects.release.publishing.*
+import subprojects.release.publishing.ProjectPublishing
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
@@ -32,6 +34,7 @@ class AllProjectsTest {
             ProjectBuild to "ProjectKtorBuild",
             ProjectRelease to "ProjectKtorRelease",
             ProjectKtorGradlePlugin to "ProjectKtorGradlePlugin",
+            ProjectKtorGradleEAPPlugin to "ProjectKtorGradleEAPPlugin",
 
             ProjectReleaseAPIDocs to "ProjectKtorReleaseAPIDocs",
             ProjectReleaseGeneratorWebsite to "ProjectReleaseGeneratorWebsite",
