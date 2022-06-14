@@ -16,6 +16,7 @@ object ProjectKtorGradlePlugin : Project({
         password("env.PUBLISHING_USER", value = "%space.packages.user%")
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.secret%")
         param("env.PUBLISHING_URL", value = "%space.packages.url%")
+        param("env.BUILD_NUMBER", value = "%build.counter%")
     }
 
     buildType {
@@ -52,6 +53,7 @@ object ProjectKtorGradlePlugin : Project({
                 name = "Publish to Space Packages"
                 tasks = ":plugin:publish"
                 buildFile = "build.gradle.kts"
+                gradleParams = "-Peap"
             }
         }
     }
