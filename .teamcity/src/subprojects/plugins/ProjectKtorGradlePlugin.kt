@@ -1,6 +1,7 @@
 package subprojects.plugins
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.branchRemoteRun
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import subprojects.VCSKtorBuildPlugins
 import subprojects.build.defaultTimeouts
@@ -61,7 +62,7 @@ object ProjectKtorGradlePlugin : Project({
 
     buildType {
         id("TestGradlePlugin")
-        name = "Test gradle plugin"
+        name = "Test Ktor Gradle Plugin"
 
         vcs.root(VCSKtorBuildPlugins)
 

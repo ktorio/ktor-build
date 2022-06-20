@@ -107,6 +107,11 @@ object VCSKtorCLI : PasswordVcsRoot({
 object VCSKtorBuildPlugins : PasswordVcsRoot({
     name = "Ktor Build Plugins"
     url = "https://github.com/ktorio/ktor-build-plugins.git"
+    branch = defaultBranch
+    branchSpec = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
