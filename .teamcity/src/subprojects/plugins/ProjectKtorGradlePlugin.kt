@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import subprojects.VCSKtorBuildPlugins
 import subprojects.build.defaultTimeouts
 import subprojects.nightlyEAPBranchesTrigger
+import subprojects.onChangeAllBranchesTrigger
 
 object ProjectKtorGradlePlugin : Project({
     id("ProjectKtorGradlePlugin")
@@ -55,6 +56,21 @@ object ProjectKtorGradlePlugin : Project({
                 buildFile = "build.gradle.kts"
                 gradleParams = "-Peap"
             }
+        }
+    }
+
+    buildType {
+        id("TestGradlePlugin")
+        name = "Test gradle plugin"
+
+        vcs.root(VCSKtorBuildPlugins)
+
+        triggers.onChangeAllBranchesTrigger()
+
+        steps.gradle {
+            name = "Run tests"
+            tasks = ":plugin:test test"
+            buildFile = "build.gradle.kts"
         }
     }
 })
