@@ -1,10 +1,10 @@
 package subprojects.plugins
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.branchRemoteRun
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import subprojects.VCSKtorBuildPlugins
 import subprojects.build.defaultTimeouts
+import subprojects.build.githubCommitStatusPublisher
 import subprojects.nightlyEAPBranchesTrigger
 import subprojects.onChangeAllBranchesTrigger
 
@@ -67,6 +67,8 @@ object ProjectKtorGradlePlugin : Project({
         vcs.root(VCSKtorBuildPlugins)
 
         triggers.onChangeAllBranchesTrigger()
+
+        features.githubCommitStatusPublisher(VCSKtorBuildPlugins.id.toString())
 
         steps.gradle {
             name = "Run tests"
