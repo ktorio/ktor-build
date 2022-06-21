@@ -107,10 +107,17 @@ object VCSKtorCLI : PasswordVcsRoot({
 object VCSKtorBuildPlugins : PasswordVcsRoot({
     name = "Ktor Build Plugins"
     url = "https://github.com/ktorio/ktor-build-plugins.git"
-    branch = defaultBranch
     branchSpec = """
         +:refs/heads/*
         +:refs/(pull/*)/head
+    """.trimIndent()
+})
+
+object VCSKtorBuildPluginsEAP : PasswordVcsRoot({
+    name = "Ktor Build Plugins EAP"
+    url = "https://github.com/ktorio/ktor-build-plugins.git"
+    branchSpec = """
+        +:refs/heads/($defaultBranch)
     """.trimIndent()
 })
 
