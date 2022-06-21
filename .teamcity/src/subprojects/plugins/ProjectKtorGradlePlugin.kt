@@ -64,7 +64,13 @@ object ProjectKtorGradlePlugin : Project({
         id("TestGradlePlugin")
         name = "Test Ktor Gradle Plugin"
 
-        vcs.root(VCSKtorBuildPlugins)
+        vcs {
+            root(VCSKtorBuildPlugins)
+            branchFilter = """
+                -:*
+                +:main
+            """.trimIndent()
+        }
 
         triggers.onChangeAllBranchesTrigger()
 
