@@ -44,7 +44,7 @@ object ProjectKtorGradlePlugin : Project({
         name = "Build and publish Ktor Gradle EAP Plugin to Space Packages"
 
         vcs {
-            root(VCSKtorBuildPlugins)
+            root(VCSKtorBuildPluginsEAP)
         }
 
         triggers {
@@ -65,7 +65,7 @@ object ProjectKtorGradlePlugin : Project({
         id("TestGradlePlugin")
         name = "Test Ktor Gradle Plugin"
 
-        vcs.root(VCSKtorBuildPluginsEAP)
+        vcs.root(VCSKtorBuildPlugins)
 
         triggers.onChangeAllBranchesTrigger()
 
