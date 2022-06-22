@@ -2,10 +2,10 @@ package subprojects.plugins
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.schedule
 import subprojects.VCSKtorBuildPlugins
 import subprojects.build.defaultTimeouts
 import subprojects.build.githubCommitStatusPublisher
+import subprojects.nightlyEAPBranchesTrigger
 import subprojects.onChangeAllBranchesTrigger
 
 object ProjectKtorGradlePlugin : Project({
@@ -50,13 +50,7 @@ object ProjectKtorGradlePlugin : Project({
         }
 
         triggers {
-            schedule {
-                schedulingPolicy = daily {
-                    hour = 11
-                    minute = 25
-                }
-                triggerBuild = always()
-            }
+            nightlyEAPBranchesTrigger()
         }
 
         steps {
@@ -75,7 +69,6 @@ object ProjectKtorGradlePlugin : Project({
 
         vcs {
             root(VCSKtorBuildPlugins)
-            branchFilter = "+:refs/heads/main"
         }
 
         triggers {
