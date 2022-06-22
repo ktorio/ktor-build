@@ -2,11 +2,10 @@ package subprojects.plugins
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.schedule
 import subprojects.VCSKtorBuildPlugins
-import subprojects.VCSKtorBuildPluginsEAP
 import subprojects.build.defaultTimeouts
 import subprojects.build.githubCommitStatusPublisher
-import subprojects.nightlyEAPBranchesTrigger
 import subprojects.onChangeAllBranchesTrigger
 
 object ProjectKtorGradlePlugin : Project({
@@ -44,11 +43,21 @@ object ProjectKtorGradlePlugin : Project({
         name = "Build and publish Ktor Gradle EAP Plugin to Space Packages"
 
         vcs {
-            root(VCSKtorBuildPluginsEAP)
+            root(VCSKtorBuildPlugins)
+            branchFilter = """
+                -:*
+                +:<default>
+            """.trimIndent()
         }
 
         triggers {
-            nightlyEAPBranchesTrigger()
+            schedule {
+                schedulingPolicy = daily {
+                    hour = 11
+                    minute = 20
+                }
+                triggerBuild = always()
+            }
         }
 
         steps {
@@ -65,16 +74,25 @@ object ProjectKtorGradlePlugin : Project({
         id("TestGradlePlugin")
         name = "Test Ktor Gradle Plugin"
 
-        vcs.root(VCSKtorBuildPlugins)
+        vcs {
+            root(VCSKtorBuildPlugins)
+            branchFilter = "+:refs/heads/main"
+        }
 
-        triggers.onChangeAllBranchesTrigger()
+        triggers {
+            onChangeAllBranchesTrigger()
+        }
 
-        features.githubCommitStatusPublisher(VCSKtorBuildPlugins.id.toString())
+        features {
+            githubCommitStatusPublisher(VCSKtorBuildPlugins.id.toString())
+        }
 
-        steps.gradle {
-            name = "Run tests"
-            tasks = ":plugin:test test"
-            buildFile = "build.gradle.kts"
+        steps {
+            gradle {
+                name = "Run tests"
+                tasks = ":plugin:test test"
+                buildFile = "build.gradle.kts"
+            }
         }
     }
 })
