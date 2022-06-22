@@ -116,9 +116,6 @@ object VCSKtorBuildPlugins : PasswordVcsRoot({
 object VCSKtorBuildPluginsEAP : PasswordVcsRoot({
     name = "Ktor Build Plugins EAP"
     url = "https://github.com/ktorio/ktor-build-plugins.git"
-    branchSpec = """
-        +:refs/heads/($defaultBranch)
-    """.trimIndent()
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
