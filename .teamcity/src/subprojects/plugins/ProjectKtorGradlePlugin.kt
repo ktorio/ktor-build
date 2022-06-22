@@ -45,7 +45,6 @@ object ProjectKtorGradlePlugin : Project({
         vcs {
             root(VCSKtorBuildPlugins)
             branchFilter = """
-                -:*
                 +:<default>
             """.trimIndent()
         }
@@ -54,7 +53,7 @@ object ProjectKtorGradlePlugin : Project({
             schedule {
                 schedulingPolicy = daily {
                     hour = 11
-                    minute = 20
+                    minute = 25
                 }
                 triggerBuild = always()
             }
