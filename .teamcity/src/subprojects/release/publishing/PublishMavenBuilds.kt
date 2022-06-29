@@ -21,7 +21,7 @@ object PublishCustomTaskToMaven : BuildType({
     steps {
         publish(
             "%tasks%",
-            gradleParams = "-psigning.gnupg.homedir=%env.sign_key_location%/.gnupg"
+            gradleParams = "-Psigning.gnupg.homedir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
 })

@@ -20,7 +20,7 @@ object PublishCustomTaskToSpaceRelease : BuildType({
         gradle {
             name = "Assemble"
             tasks =
-                "%taskList% --i -PreleaseVersion=$releaseVersion --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000 -psigning.gnupg.homedir=%env.sign_key_location%/.gnupg"
+                "%taskList% --i -PreleaseVersion=$releaseVersion --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000 -psigning.gnupg.homedir=%env.SIGN_KEY_LOCATION%/.gnupg"
             jdkHome = "%env.${java11.env}%"
             buildFile = "build.gradle.kts"
         }
