@@ -59,7 +59,7 @@ object ProjectKtorGradlePlugin : Project({
                 name = "Publish to Space Packages"
                 tasks = ":plugin:publish"
                 buildFile = "build.gradle.kts"
-                gradleParams = "-Peap"
+                gradleParams = "-Pspace -PversionSuffix=eap-%build.counter%"
             }
         }
     }
