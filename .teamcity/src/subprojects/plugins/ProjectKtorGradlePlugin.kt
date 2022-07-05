@@ -34,6 +34,7 @@ object ProjectKtorGradlePlugin : Project({
                 name = "Publish"
                 tasks = ":plugin:publishPlugins"
                 buildFile = "build.gradle.kts"
+                gradleParams = "-PversionSuffix=eap-%build.counter%"
             }
         }
     }
