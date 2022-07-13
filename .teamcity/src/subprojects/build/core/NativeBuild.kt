@@ -11,16 +11,20 @@ import subprojects.release.nativeLinuxBuild
 import subprojects.release.nativeMacOSBuild
 import subprojects.release.nativeWindowsBuild
 
-val libcurlSoftware = """
-                rm -fo C:\Tools\msys64\var\lib\pacman\db.lck 
+val windowsSoftware = """
+                rm -fo C:\Tools\msys64\var\lib\pacman\db.lck
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
 """.trimIndent()
 
-val libSoftware = """
+val linuxSoftware = """
         sudo apt-get update
         sudo apt-get install -y libncurses5 libncursesw5 libtinfo5
         sudo apt-get install -y libcurl4-openssl-dev
+""".trimIndent()
+
+val macSoftware = """
+    brew install curl ca-certificates
 """.trimIndent()
 
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
@@ -32,18 +36,23 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         root(VCSCore)
     }
     steps {
-        if (osEntry == windows) {
-            powerShell {
-                name = "Get dependencies and environment ready"
-                scriptMode = script {
-                    content = libcurlSoftware.trimIndent()
+        when (osEntry) {
+            windows -> {
+                powerShell {
+                    name = "Get dependencies and environment ready"
+                    scriptMode = script {
+                        content = windowsSoftware.trimIndent()
+                    }
                 }
+                defineTCPPortRange()
             }
-            defineTCPPortRange()
-        } else if (osEntry == linux) {
-            script {
+            linux -> script {
                 name = "Obtain Library Dependencies"
-                scriptContent = libSoftware
+                scriptContent = linuxSoftware
+            }
+            macOS -> script {
+                name = "Obtain Library Dependencies"
+                scriptContent = macSoftware
             }
         }
         gradle {

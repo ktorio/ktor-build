@@ -90,13 +90,9 @@ object PublishWindowsNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        powerShell {
-            name = "Get dependencies and environment ready"
-            scriptMode = script {
-                content = """
-                $libcurlSoftware
-                """.trimIndent()
-            }
+        script {
+            name = "Obtain Library Dependencies"
+            scriptContent = windowsSoftware
         }
         releaseToSpace(
             listOf(
@@ -150,6 +146,10 @@ object PublishMacOSNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
+        script {
+            name = "Obtain Library Dependencies"
+            scriptContent = macSoftware
+        }
         releaseToSpace(
             listOf(
                 "publishIosArm32PublicationToMavenRepository",

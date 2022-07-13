@@ -91,13 +91,9 @@ object PublishWindowsNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        powerShell {
-            name = "Get dependencies and environment ready"
-            scriptMode = script {
-                content = """
-                $libcurlSoftware
-                """.trimIndent()
-            }
+        script {
+            name = "Obtain Library Dependencies"
+            scriptContent = windowsSoftware
         }
         releaseToSpace(
             listOf("publishMingwX64PublicationToMavenRepository"),

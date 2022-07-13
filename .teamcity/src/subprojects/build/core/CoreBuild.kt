@@ -23,12 +23,22 @@ class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     steps {
         when (osJdkEntry.osEntry) {
             windows -> {
+                script {
+                    name = "Obtain Library Dependencies"
+                    scriptContent = windowsSoftware
+                }
                 defineTCPPortRange()
             }
             linux -> {
                 script {
                     name = "Obtain Library Dependencies"
-                    scriptContent = libSoftware
+                    scriptContent = linuxSoftware
+                }
+            }
+            macOS -> {
+                script {
+                    name = "Obtain Library Dependencies"
+                    scriptContent = macSoftware
                 }
             }
         }

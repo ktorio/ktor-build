@@ -79,13 +79,9 @@ object PublishWindowsNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        powerShell {
-            name = "Get dependencies and environment ready"
-            scriptMode = script {
-                content = """
-                $libcurlSoftware
-                """.trimIndent()
-            }
+        script {
+            name = "Obtain Library Dependencies"
+            scriptContent = windowsSoftware
         }
         publish(
             "publishMingwX64PublicationToMavenRepository",
@@ -127,6 +123,10 @@ object PublishMacOSNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
+        script {
+            name = "Obtain Library Dependencies"
+            scriptContent = macSoftware
+        }
         MACOS_PUBLISH_TASKS.forEach {
             createSonatypeRepository(it)
             publish(it, MACOS_GRADLE_ARGS)
