@@ -40,6 +40,23 @@ object ProjectKtorGradlePlugin : Project({
     }
 
     buildType {
+        id("PublishGradlePluginRelease")
+        name = "Build and publish Ktor Gradle Plugin Release to Gradle Plugin Repository"
+
+        vcs {
+            root(VCSKtorBuildPlugins)
+        }
+
+        steps {
+            gradle {
+                name = "Publish"
+                tasks = ":plugin:publishPlugins"
+                buildFile = "build.gradle.kts"
+            }
+        }
+    }
+
+    buildType {
         id("PublishGradlePluginBeta")
         name = "Build and publish Ktor Gradle Plugin Beta to Gradle Plugin Repository"
 
