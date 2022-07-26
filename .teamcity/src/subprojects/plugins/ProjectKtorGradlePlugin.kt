@@ -23,7 +23,7 @@ object ProjectKtorGradlePlugin : Project({
 
     buildType {
         id("PublishGradlePlugin")
-        name = "Build and publish Ktor Gradle Plugin to Gradle Plugin Repository"
+        name = "Build and publish Ktor Gradle Plugin EAP to Gradle Plugin Portal"
 
         vcs {
             root(VCSKtorBuildPlugins)
@@ -41,7 +41,7 @@ object ProjectKtorGradlePlugin : Project({
 
     buildType {
         id("PublishGradlePluginRelease")
-        name = "Build and publish Ktor Gradle Plugin Release to Gradle Plugin Repository"
+        name = "Build and publish Ktor Gradle Plugin Release to Gradle Plugin Portal"
 
         vcs {
             root(VCSKtorBuildPlugins)
@@ -58,7 +58,7 @@ object ProjectKtorGradlePlugin : Project({
 
     buildType {
         id("PublishGradlePluginBeta")
-        name = "Build and publish Ktor Gradle Plugin Beta to Gradle Plugin Repository"
+        name = "Build and publish Ktor Gradle Plugin Beta to Gradle Plugin Portal"
 
         vcs {
             root(VCSKtorBuildPlugins)
