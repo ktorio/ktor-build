@@ -188,9 +188,9 @@ object PublishMacOSNativeToSpace : BuildType({
 
 private fun BuildSteps.releaseToSpace(gradleTasks: List<String>, gradleParams: String = "", os: String = "Linux") {
     gradle {
-        name = "Assemble"
+        name = "Publish"
         tasks =
-            "${gradleTasks.joinToString(" ")} --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "${gradleTasks.joinToString(" ")} --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
         buildFile = "build.gradle.kts"
     }
