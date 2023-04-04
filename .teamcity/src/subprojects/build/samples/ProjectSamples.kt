@@ -88,7 +88,7 @@ object WebSocketSample: BuildType({
         acceptAndroidSDKLicense()
 
         gradle {
-            buildFile = sample.buildFile
+            buildFile = "build.gradle.kts"
             name = "Build Server"
             tasks = "build"
             workingDir = "server"
