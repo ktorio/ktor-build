@@ -70,7 +70,6 @@ fun Project.publishKotlinxHtmlJvmToSpace() = buildType {
     val tasks = listOf(
         "publishJvmPublicationToMavenRepository",
         "publishKotlinMultiplatformPublicationToMavenRepository",
-        "publishKotlinx-html-assemblyPublicationToMavenRepository"
     )
 
     releaseToSpace(
@@ -92,7 +91,6 @@ fun Project.publishKotlinxHtmlJsToSpace() = buildType {
 
 fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
     val tasks = listOf(
-        "publishIosArm32PublicationToMavenRepository",
         "publishIosArm64PublicationToMavenRepository",
         "publishIosX64PublicationToMavenRepository",
         "publishIosX64PublicationToMavenRepository",
@@ -107,7 +105,6 @@ fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
 
         "publishWatchosArm32PublicationToMavenRepository",
         "publishWatchosArm64PublicationToMavenRepository",
-        "publishWatchosX86PublicationToMavenRepository",
         "publishWatchosX64PublicationToMavenRepository",
         "publishWatchosSimulatorArm64PublicationToMavenRepository"
     )
