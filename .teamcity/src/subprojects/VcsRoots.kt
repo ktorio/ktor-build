@@ -15,6 +15,7 @@ object VCSCore : PasswordVcsRoot({
     branchSpec = """
         +:refs/heads/*
         +:refs/(pull/*)/head
+        -:refs/heads/(renovate/*)
     """.trimIndent()
 })
 
