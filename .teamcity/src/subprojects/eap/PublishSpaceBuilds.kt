@@ -152,7 +152,6 @@ object PublishMacOSNativeToSpace : BuildType({
         }
         releaseToSpace(
             listOf(
-                "publishIosArm32PublicationToMavenRepository",
                 "publishIosArm64PublicationToMavenRepository",
                 "publishIosX64PublicationToMavenRepository",
                 "publishIosX64PublicationToMavenRepository",
@@ -167,7 +166,6 @@ object PublishMacOSNativeToSpace : BuildType({
 
                 "publishWatchosArm32PublicationToMavenRepository",
                 "publishWatchosArm64PublicationToMavenRepository",
-                "publishWatchosX86PublicationToMavenRepository",
                 "publishWatchosX64PublicationToMavenRepository",
                 "publishWatchosSimulatorArm64PublicationToMavenRepository"
             )
