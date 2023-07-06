@@ -120,7 +120,7 @@ fun Project.publishKotlinxHtmlLinuxToSpace() = buildType {
     releaseToSpace(
         "NativeLinux",
         linux.agentString,
-        "publishLinuxX64PublicationToMavenRepository",
+        "publishLinuxX64PublicationToMavenRepository publishLinuxArm64PublicationToMavenRepository",
         "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
     )
 }
