@@ -12,6 +12,7 @@ import subprojects.release.nativeMacOSBuild
 import subprojects.release.nativeWindowsBuild
 
 val windowsSoftware = """
+                ${'$'}env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
                 rm -fo C:\Tools\msys64\var\lib\pacman\db.lck
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
                 C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
@@ -38,6 +39,16 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     steps {
         when (osEntry) {
             windows -> {
+                powerShell {
+                    name = "Remove git from PATH"
+                    scriptMode = script {
+                        content = """
+                            ${'$'}oldPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+                            ${'$'}newPath = (${'$'}oldPath.Split(';') | Where-Object { ${'$'}_ -ne "C:\Program Files\Git\usr\bin" }) -join ';'
+                            [Environment]::SetEnvironmentVariable('Path', ${'$'}newPath, 'Machine')
+                        """.trimIndent()
+                    }
+                }
                 powerShell {
                     name = "Get dependencies and environment ready"
                     scriptMode = script {
