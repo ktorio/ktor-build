@@ -26,9 +26,10 @@ object ProjectCore : Project({
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
 
-    val allBuilds = osJdkBuilds + nativeBuilds + javaScriptBuilds + stressTestBuilds + apiCheck + jpmsCheck
+    val allBuilds = osJdkBuilds + nativeBuilds + javaScriptBuilds + apiCheck + jpmsCheck
+    val allBuildsWithStress = allBuilds + stressTestBuilds
 
-    allBuilds.forEach(::buildType)
+    allBuildsWithStress.forEach(::buildType)
 
     buildType {
         allowExternalStatus = true
