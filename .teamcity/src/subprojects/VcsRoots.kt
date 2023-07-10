@@ -15,7 +15,6 @@ object VCSCore : PasswordVcsRoot({
     branchSpec = """
         +:refs/heads/*
         +:refs/(pull/*)/head
-        -:refs/heads/(renovate/*)
     """.trimIndent()
 })
 
@@ -139,6 +138,8 @@ fun Triggers.onChangeAllBranchesTrigger() {
         branchFilter = """
                             +:*
                             -:pull/*
+                            -:dependabot/*
+                            -:renovate/*
         """.trimIndent()
     }
 }
