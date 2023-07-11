@@ -106,7 +106,8 @@ fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
         "publishWatchosArm32PublicationToMavenRepository",
         "publishWatchosArm64PublicationToMavenRepository",
         "publishWatchosX64PublicationToMavenRepository",
-        "publishWatchosSimulatorArm64PublicationToMavenRepository"
+        "publishWatchosSimulatorArm64PublicationToMavenRepository",
+        "publishWatchosDeviceArm64PublicationToMavenRepository"
     )
     releaseToSpace(
         "NativeMacos",
