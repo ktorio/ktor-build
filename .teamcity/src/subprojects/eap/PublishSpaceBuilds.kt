@@ -123,7 +123,8 @@ object PublishLinuxNativeToSpace : BuildType({
     steps {
         releaseToSpace(
             listOf(
-                "publishLinuxX64PublicationToMavenRepository"
+                "publishLinuxX64PublicationToMavenRepository",
+                "publishLinuxArm64PublicationToMavenRepository",
             )
         )
     }
