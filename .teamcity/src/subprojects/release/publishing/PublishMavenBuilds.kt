@@ -105,8 +105,7 @@ object PublishLinuxNativeToMaven : BuildType({
     steps {
         createSonatypeRepository("Linux")
         publish(
-            "publishLinuxX64PublicationToMavenRepository",
-            "publishLinuxArm64PublicationToMavenRepository",
+            "publishLinuxX64PublicationToMavenRepository publishLinuxArm64PublicationToMavenRepository",
             gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }

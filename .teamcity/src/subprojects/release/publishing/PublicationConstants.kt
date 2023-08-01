@@ -1,7 +1,6 @@
 package subprojects.release.publishing
 
 internal val MACOS_PUBLISH_TASKS = listOf(
-    "publishIosArm32PublicationToMavenRepository",
     "publishIosArm64PublicationToMavenRepository",
     "publishIosX64PublicationToMavenRepository",
     "publishIosSimulatorArm64PublicationToMavenRepository",
@@ -15,7 +14,6 @@ internal val MACOS_PUBLISH_TASKS = listOf(
 
     "publishWatchosArm32PublicationToMavenRepository",
     "publishWatchosArm64PublicationToMavenRepository",
-    "publishWatchosX86PublicationToMavenRepository",
     "publishWatchosX64PublicationToMavenRepository",
     "publishWatchosSimulatorArm64PublicationToMavenRepository"
 )
