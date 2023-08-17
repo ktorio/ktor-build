@@ -15,13 +15,17 @@ object ProjectCore : Project({
         defaultTimeouts()
     }
 
-    val OsJdk = operatingSystems.flatMap { os ->
-        jdkVersions.map { jdk -> OSJDKEntry(os, jdk) }
-    }
+    val osJdks: List<OSJDKEntry> = listOf(
+        OSJDKEntry(linux, java8),
+        OSJDKEntry(linux, java11),
+        OSJDKEntry(windows, java11),
+        OSJDKEntry(macOS, java8),
+        OSJDKEntry(macOS, java11)
+    )
 
     val jpmsCheck = JPMSCheckBuild
     val apiCheck = APICheckBuild
-    val osJdkBuilds = OsJdk.map(::CoreBuild)
+    val osJdkBuilds = osJdks.map(::CoreBuild)
     val nativeBuilds = operatingSystems.map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)

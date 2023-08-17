@@ -3,13 +3,10 @@ package subprojects.build.core
 import jetbrains.buildServer.configs.kotlin.v10.toExtId
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
 import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.PowerShellStep
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import subprojects.VCSCore
 import subprojects.build.*
-import subprojects.onChangeAllBranchesTrigger
 import subprojects.release.jvmBuild
 
 class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({

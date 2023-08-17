@@ -29,8 +29,6 @@ val operatingSystems = listOf(macOS, linux, windows)
 val java8 = JDKEntry("Java 8", "JDK_18")
 val java11 = JDKEntry("Java 11", "JDK_11")
 
-val jdkVersions = listOf(java8, java11)
-
 val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
 
 val javaScriptEngines = listOf(js)
