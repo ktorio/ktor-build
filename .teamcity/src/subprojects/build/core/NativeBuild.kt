@@ -26,6 +26,7 @@ val linuxSoftware = """
 
 val macSoftware = """
     brew install curl ca-certificates
+    brew upgrade libidn2
 """.trimIndent()
 
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
