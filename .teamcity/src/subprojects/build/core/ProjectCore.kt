@@ -18,6 +18,7 @@ object ProjectCore : Project({
     val osJdks: List<OSJDKEntry> = listOf(
         OSJDKEntry(linux, java8),
         OSJDKEntry(linux, java11),
+        OSJDKEntry(linux, java17),
         OSJDKEntry(windows, java11),
         OSJDKEntry(macOS, java8),
         OSJDKEntry(macOS, java11)
