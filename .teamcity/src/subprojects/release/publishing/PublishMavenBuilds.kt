@@ -17,8 +17,13 @@ object PublishCustomTaskToMaven : BuildType({
     params {
         configureReleaseVersion()
         text("tasks", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+        text("prepublish_script", "", display = ParameterDisplay.PROMPT, allowEmpty = true)
     }
     steps {
+        script {
+            name = "Script"
+            scriptContent = "%prepublish_script%"
+        }
         publish(
             "%tasks%",
             gradleParams = "-Psigning.gnupg.homedir=%env.SIGN_KEY_LOCATION%/.gnupg"
