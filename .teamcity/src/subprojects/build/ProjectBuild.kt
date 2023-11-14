@@ -82,7 +82,7 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
             compareTo = value()
             param("metricThreshold", "15MB")
         }
-        executionTimeoutMin = 50
+        executionTimeoutMin = 90
     }
 }
 
