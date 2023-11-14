@@ -36,6 +36,8 @@ object ProjectCore : Project({
 
     allBuildsWithStress.forEach(::buildType)
 
+    buildType(DependenciesCheckBuild())
+
     buildType {
         allowExternalStatus = true
         createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, withTrigger = true)
