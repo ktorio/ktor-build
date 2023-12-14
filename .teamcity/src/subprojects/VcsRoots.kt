@@ -88,6 +88,12 @@ object VCSKtorBenchmarks : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor-benchmarks.git"
 })
 
+object VCSPluginRegistry : PasswordVcsRoot({
+    name = "Ktor Plugin Registry"
+    url = "https://github.com/ktorio/ktor-plugin-registry.git"
+    branch = "main"
+})
+
 object VCSKtorGeneratorWebsite : PasswordVcsRoot({
     name = "Ktor Generator Website"
     url = "https://github.com/ktorio/ktor-generator-website.git"
