@@ -15,6 +15,7 @@ object ProjectGenerator : Project({
     }
 
     buildType {
+        id("KtorPluginRegistry")
         name = "Build plugin registry"
         vcs {
             root(VCSPluginRegistry)
