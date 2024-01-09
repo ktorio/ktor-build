@@ -68,6 +68,10 @@ fun BuildType.createCompositeBuild(
     triggers {
         if (withTrigger) {
             onChangeAllBranchesTrigger()
+            retryBuild {
+                attempts = 1
+                delaySeconds = 60
+            }
         }
     }
     dependencies {
