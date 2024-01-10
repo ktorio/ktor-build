@@ -3,8 +3,10 @@ package subprojects.build.generator
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import subprojects.VCSPluginRegistry
 import subprojects.build.java11
+import subprojects.onChangeAllBranchesTrigger
 
 object ProjectGenerator : Project({
     id("ProjectKtorGenerator")
@@ -20,6 +22,7 @@ object ProjectGenerator : Project({
         vcs {
             root(VCSPluginRegistry)
         }
+
         steps {
             gradle {
                 name = "Build plugin registry"
@@ -36,6 +39,10 @@ object ProjectGenerator : Project({
                       --upload-file build/distributions/registry.tar.gz
                 """
             }
+        }
+
+        vcs {
+            branchFilter = "+:<default>"
         }
     }
 
