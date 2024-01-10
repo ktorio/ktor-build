@@ -31,8 +31,8 @@ val macSoftware = """
 """.trimIndent()
 
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
-    id("KtorMatrixNative_${osEntry.name}".toExtId())
-    name = "Native on ${osEntry.name}"
+    id("KtorMatrixNative_${osEntry.name}_${osEntry.osArch ?: "x64"}".toExtId())
+    name = "Native on ${osEntry.name} ${osEntry.osArch ?: "x64"}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
     vcs {
@@ -79,7 +79,7 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        require(os = osEntry.agentString, minMemoryMB = 7000)
+        require(os = osEntry.agentString, osEntry.osArch, minMemoryMB = 7000)
     }
     when (osEntry) {
         macOS -> nativeMacOSBuild = this

@@ -13,16 +13,40 @@ import subprojects.build.plugin.*
 import subprojects.build.samples.*
 
 data class JDKEntry(val name: String, val env: String)
-data class OSEntry(val name: String, val agentString: String, val testTaskName: String, val binaryTaskName: String)
+data class OSEntry(
+    val name: String,
+    val agentString: String,
+    val testTaskName: String,
+    val binaryTaskName: String,
+    val osArch: String? = null
+)
+
 data class JSEntry(val name: String, val dockerContainer: String)
 data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
 const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
 
-val macOS = OSEntry("macOS", "Mac OS X", "cleanMacosX64Test macosX64Test", "linkReleaseExecutableMacosX64")
-val linux = OSEntry("Linux", "Linux", "cleanLinuxX64Test linuxX64Test", "linkReleaseExecutableLinuxX64")
-val windows = OSEntry("Windows", "Windows", "cleanMingwX64Test mingwX64Test", "linkReleaseExecutableMingwX64")
+val macOS = OSEntry(
+    "macOS",
+    "Mac OS X",
+    "cleanMacosX64Test macosX64Test",
+    "linkReleaseExecutableMacosX64"
+)
+
+val linux = OSEntry(
+    "Linux",
+    "Linux",
+    "cleanLinuxX64Test linuxX64Test",
+    "linkReleaseExecutableLinuxX64 linkReleaseExecutableLinuxArm64"
+)
+
+val windows = OSEntry(
+    "Windows",
+    "Windows",
+    "cleanMingwX64Test mingwX64Test",
+    "linkReleaseExecutableMingwX64"
+)
 
 val operatingSystems = listOf(macOS, linux, windows)
 
