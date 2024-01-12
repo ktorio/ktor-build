@@ -18,7 +18,7 @@ object ProjectGenerator : Project({
 
     buildType {
         id("KtorPluginRegistry")
-        name = "Build plugin registry"
+        name = "Publish plugin registry"
         vcs {
             root(VCSPluginRegistry)
         }
@@ -41,8 +41,31 @@ object ProjectGenerator : Project({
             }
         }
 
+        triggers {
+            vcs {
+                branchFilter = "+:<default>"
+            }
+        }
+    }
+
+    buildType {
+        id("KtorPluginRegistryVerify")
+        name = "Test plugin registry"
         vcs {
-            branchFilter = "+:<default>"
+            root(VCSPluginRegistry)
+        }
+
+        steps {
+            gradle {
+                name = "Test plugin registry"
+                tasks = "buildRegistry"
+                buildFile = "build.gradle.kts"
+                jdkHome = "%env.${java11.env}%"
+            }
+        }
+
+        triggers {
+            onChangeAllBranchesTrigger()
         }
     }
 
