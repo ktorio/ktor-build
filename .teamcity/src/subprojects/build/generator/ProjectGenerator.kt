@@ -58,7 +58,7 @@ object ProjectGenerator : Project({
         steps {
             gradle {
                 name = "Test plugin registry"
-                tasks = "buildRegistry"
+                tasks = "resolvePlugins detekt test buildRegistry"
                 buildFile = "build.gradle.kts"
                 jdkHome = "%env.${java11.env}%"
             }
