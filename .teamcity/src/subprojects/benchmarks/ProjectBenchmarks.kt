@@ -28,7 +28,7 @@ object ProjectBenchmarks : Project({
         steps {
             gradle {
                 tasks =
-                    "publishJvmPublicationToMavenLocal -PreleaseVersion=1.0.0-BENCHMARKS -Pktor.ide.jvmAndCommonOnly=true"
+                    "publishJvmPublicationToMavenLocal publishKotlinMultiplatformPublicationToMavenLocal -PreleaseVersion=1.0.0-BENCHMARKS"
                 workingDir = "ktor"
                 buildFile = "build.gradle.kts"
                 jdkHome = "%env.${java11.env}%"
