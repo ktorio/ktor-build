@@ -4,7 +4,9 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+import subprojects.VCSCore
 import subprojects.VCSPluginRegistry
+import subprojects.build.defaultBuildFeatures
 import subprojects.build.java11
 import subprojects.onChangeAllBranchesTrigger
 
@@ -40,6 +42,7 @@ object ProjectGenerator : Project({
                 """
             }
         }
+        defaultBuildFeatures(VCSPluginRegistry.id.toString())
 
         triggers {
             vcs {
