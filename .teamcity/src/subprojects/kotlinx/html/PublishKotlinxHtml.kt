@@ -84,7 +84,7 @@ fun Project.publishKotlinxHtmlJsToSpace() = buildType {
     releaseToSpace(
         "Js",
         linux.agentString,
-        "publishJsPublicationToMavenRepository",
+        "publishJsPublicationToMavenRepository publishWasmJsPublicationToMavenRepository",
         "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
     )
 }
