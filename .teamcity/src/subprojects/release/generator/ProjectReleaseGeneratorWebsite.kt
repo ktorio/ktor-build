@@ -3,6 +3,7 @@ package subprojects.release.generator
 import jetbrains.buildServer.configs.kotlin.v2019_2.CheckoutMode
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import subprojects.VCSKtorGeneratorWebsite
 import subprojects.VCSToken
 import subprojects.VCSUsername
@@ -50,6 +51,12 @@ object ProjectReleaseGeneratorWebsite : Project({
 
         requirements {
             require(os = macOS.agentString)
+        }
+
+        triggers {
+            vcs {
+                branchFilter = "+:<default>"
+            }
         }
     }
 })

@@ -2,8 +2,10 @@ package subprojects.build.generator
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.nodeJS
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+import subprojects.VCSKtorGeneratorWebsite
 import subprojects.VCSPluginRegistry
 import subprojects.build.defaultBuildFeatures
 import subprojects.build.java11
@@ -66,6 +68,31 @@ object ProjectGenerator : Project({
         }
 
         defaultBuildFeatures(VCSPluginRegistry.id.toString())
+
+        triggers {
+            onChangeAllBranchesTrigger()
+        }
+    }
+
+    buildType {
+        id("KtorGeneratorWebsite_Test")
+        name = "Test generator website"
+
+        vcs {
+            root(VCSKtorGeneratorWebsite, "+:.=>ktor-generator-website")
+        }
+
+        steps {
+            nodeJS {
+                name = "Node.js test"
+                shellScript = """
+                    npm ci
+                    npm run lint
+                """.trimIndent()
+            }
+        }
+
+        defaultBuildFeatures(VCSKtorGeneratorWebsite.id.toString())
 
         triggers {
             onChangeAllBranchesTrigger()

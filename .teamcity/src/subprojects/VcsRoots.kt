@@ -101,7 +101,10 @@ object VCSPluginRegistry : PasswordVcsRoot({
 object VCSKtorGeneratorWebsite : PasswordVcsRoot({
     name = "Ktor Generator Website"
     url = "https://github.com/ktorio/ktor-generator-website.git"
-    branch = "master"
+    branch = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 object VCSKtorCLI : PasswordVcsRoot({
