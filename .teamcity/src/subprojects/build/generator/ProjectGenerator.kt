@@ -86,6 +86,7 @@ object ProjectGenerator : Project({
             nodeJS {
                 name = "Node.js test"
                 shellScript = """
+                    npm install
                     npm ci
                     npm run lint
                 """.trimIndent()
