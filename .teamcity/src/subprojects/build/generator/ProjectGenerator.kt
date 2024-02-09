@@ -79,7 +79,7 @@ object ProjectGenerator : Project({
         name = "Test generator website"
 
         vcs {
-            root(VCSKtorGeneratorWebsite, "+:.=>ktor-generator-website")
+            root(VCSKtorGeneratorWebsite)
         }
 
         steps {
