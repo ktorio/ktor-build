@@ -67,7 +67,7 @@ object PublishJSToSpaceRelease : BuildType({
     }
     steps {
         releaseToSpace(
-            listOf("publishJsPublicationToMavenRepository"),
+            listOf("publishJsPublicationToMavenRepository", "publishWasmJsPublicationToMavenRepository"),
             gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
