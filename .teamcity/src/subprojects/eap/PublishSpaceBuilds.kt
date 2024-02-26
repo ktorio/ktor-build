@@ -67,7 +67,8 @@ object PublishJSToSpace : BuildType({
     steps {
         releaseToSpace(
             listOf(
-                "publishJsPublicationToMavenRepository"
+                "publishJsPublicationToMavenRepository",
+                "publishWasmJsPublicationToMavenRepository"
             )
         )
     }
