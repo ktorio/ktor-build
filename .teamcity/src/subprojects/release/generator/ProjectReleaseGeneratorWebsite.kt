@@ -2,6 +2,7 @@ package subprojects.release.generator
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.CheckoutMode
 import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.nodeJS
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import subprojects.VCSKtorGeneratorWebsite
@@ -29,9 +30,9 @@ object ProjectReleaseGeneratorWebsite : Project({
         }
 
         steps {
-            script {
+            nodeJS {
                 name = "Build website and commit to repo"
-                scriptContent = """
+                shellScript = """
                     cd ktor-generator-website
                     npm install --verbose
                     npm run build --verbose
