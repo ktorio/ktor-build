@@ -50,10 +50,6 @@ object ProjectReleaseGeneratorWebsite : Project({
             }
         }
 
-        requirements {
-            require(os = macOS.agentString)
-        }
-
         triggers {
             vcs {
                 branchFilter = "+:<default>"
