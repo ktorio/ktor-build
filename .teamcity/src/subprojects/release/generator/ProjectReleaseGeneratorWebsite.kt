@@ -33,6 +33,7 @@ object ProjectReleaseGeneratorWebsite : Project({
             nodeJS {
                 name = "Build website and commit to repo"
                 shellScript = """
+                    set -e
                     cd ktor-generator-website
                     npm install --verbose
                     npm run build --verbose
@@ -43,6 +44,8 @@ object ProjectReleaseGeneratorWebsite : Project({
                     rm * -rf
                     cp -R ../ktor-generator-website/build/* ./
                     echo start.ktor.io > CNAME
+                    git config user.email "ktor@jetbrains.com"
+                    git config user.name "ktor"
                     git add .
                     git commit -m "Deploy website"
                     git push origin generator
