@@ -190,7 +190,7 @@ private fun BuildSteps.releaseToSpace(gradleTasks: List<String>, gradleParams: S
     gradle {
         name = "Publish"
         tasks =
-            "${gradleTasks.joinToString(" ")} --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "${gradleTasks.joinToString(" ")} --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000 --no-cache"
         jdkHome = "%env.${java11.env}%"
         buildFile = "build.gradle.kts"
     }
