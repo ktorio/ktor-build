@@ -66,7 +66,7 @@ object PublishJSToMaven : BuildType({
     steps {
         createSonatypeRepository("Js")
         publish(
-            "publishJsPublicationToMavenRepository publishWasmJsPublicationToMavenRepository",
+            "publishJsPublicationToMavenRepository",
             gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
