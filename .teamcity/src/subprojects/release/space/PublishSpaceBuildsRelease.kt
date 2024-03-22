@@ -67,7 +67,11 @@ object PublishJSToSpaceRelease : BuildType({
     }
     steps {
         releaseToSpace(
-            listOf("publishJsPublicationToMavenRepository", "publishWasmJsPublicationToMavenRepository"),
+            listOf("publishJsPublicationToMavenRepository"),
+            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+        )
+        releaseToSpace(
+            listOf("publishWasmJsPublicationToMavenRepository"),
             gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
@@ -176,6 +180,7 @@ private fun BuildSteps.releaseToSpace(
     gradleTasks: List<String>,
     gradleParams: String = "",
     os: String = "",
+    optional: Boolean = false,
 ) {
     prepareKeyFile(os)
     gradle {
@@ -184,6 +189,8 @@ private fun BuildSteps.releaseToSpace(
             "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
         buildFile = "build.gradle.kts"
+        if (optional)
+            executionMode = BuildStep.ExecutionMode.ALWAYS
     }
     cleanupKeyFile(os)
 }

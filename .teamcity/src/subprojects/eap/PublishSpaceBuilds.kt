@@ -65,12 +65,8 @@ object PublishJSToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(
-            listOf(
-                "publishJsPublicationToMavenRepository",
-                "publishWasmJsPublicationToMavenRepository"
-            )
-        )
+        releaseToSpace(listOf("publishJsPublicationToMavenRepository"))
+        releaseToSpace(listOf("publishWasmJsPublicationToMavenRepository"), optional = true)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -186,12 +182,19 @@ object PublishMacOSNativeToSpace : BuildType({
     }
 })
 
-private fun BuildSteps.releaseToSpace(gradleTasks: List<String>, gradleParams: String = "", os: String = "Linux") {
+private fun BuildSteps.releaseToSpace(
+    gradleTasks: List<String>,
+    gradleParams: String = "",
+    os: String = "Linux",
+    optional: Boolean = false,
+) {
     gradle {
         name = "Publish"
         tasks =
             "${gradleTasks.joinToString(" ")} --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${java11.env}%"
         buildFile = "build.gradle.kts"
+        if (optional)
+            executionMode = BuildStep.ExecutionMode.ALWAYS
     }
 }
