@@ -16,6 +16,7 @@ object ProjectReleaseGeneratorWebsite : Project({
     name = "Generator Website"
 
     params {
+        param("env.GITHUB_FORK", "ktorio")
         param("env.GITHUB_USER", VCSUsername)
         password("env.GITHUB_PASSWORD", VCSToken)
     }
@@ -38,7 +39,7 @@ object ProjectReleaseGeneratorWebsite : Project({
                     npm install --verbose
                     npm run build --verbose
                     cd ..
-                    git clone "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/ktor-init-tools.git"
+                    git clone "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/${'$'}{GITHUB_FORK}/ktor-init-tools.git"
                     cd ktor-init-tools 
                     git checkout generator
                     rm * -rf
