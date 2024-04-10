@@ -70,7 +70,11 @@ object ProjectGenerator : Project({
         defaultBuildFeatures(VCSPluginRegistry.id.toString())
 
         triggers {
-            onChangeAllBranchesTrigger()
+            vcs {
+                branchFilter = """
+                    +:pull/*
+                """.trimIndent()
+            }
         }
     }
 
