@@ -72,7 +72,7 @@ object ProjectGenerator : Project({
         triggers {
             vcs {
                 branchFilter = """
-                    +:pull/*
+                    +:refs/pull/*
                 """.trimIndent()
             }
         }
