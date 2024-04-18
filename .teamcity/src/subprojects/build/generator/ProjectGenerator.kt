@@ -1,14 +1,16 @@
 package subprojects.build.generator
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.PullRequests
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.commitStatusPublisher
+import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.pullRequests
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.nodeJS
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import subprojects.VCSKtorGeneratorWebsite
 import subprojects.VCSPluginRegistry
-import subprojects.build.githubCommitStatusPublisher
-import subprojects.build.githubPullRequestsLoader
+import subprojects.VCSToken
 
 object ProjectGenerator : Project({
     id("ProjectKtorGenerator")
@@ -67,8 +69,29 @@ object ProjectGenerator : Project({
         }
 
         features {
-            githubPullRequestsLoader(VCSPluginRegistry.id.toString())
-            githubCommitStatusPublisher(VCSPluginRegistry.id.toString())
+            pullRequests {
+                vcsRootExtId = VCSPluginRegistry.id.toString()
+                provider = github {
+                    authType = token {
+                        token = VCSToken
+                    }
+                    filterTargetBranch = """
+            +:*
+            -:pull/*
+        """.trimIndent()
+                    filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
+                }
+            }
+            commitStatusPublisher {
+                vcsRootExtId = VCSPluginRegistry.id.toString()
+
+                publisher = github {
+                    githubUrl = "https://api.github.com"
+                    authType = personalToken {
+                        token = VCSToken
+                    }
+                }
+            }
         }
 
         triggers {
@@ -100,8 +123,29 @@ object ProjectGenerator : Project({
         }
 
         features {
-            githubPullRequestsLoader(VCSKtorGeneratorWebsite.id.toString())
-            githubCommitStatusPublisher(VCSKtorGeneratorWebsite.id.toString())
+            pullRequests {
+                vcsRootExtId = VCSKtorGeneratorWebsite.id.toString()
+                provider = github {
+                    authType = token {
+                        token = VCSToken
+                    }
+                    filterTargetBranch = """
+            +:*
+            -:pull/*
+        """.trimIndent()
+                    filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
+                }
+            }
+            commitStatusPublisher {
+                vcsRootExtId = VCSKtorGeneratorWebsite.id.toString()
+
+                publisher = github {
+                    githubUrl = "https://api.github.com"
+                    authType = personalToken {
+                        token = VCSToken
+                    }
+                }
+            }
         }
 
         triggers {
