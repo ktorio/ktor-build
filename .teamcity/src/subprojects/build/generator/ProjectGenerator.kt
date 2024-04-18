@@ -1,15 +1,12 @@
 package subprojects.build.generator
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.nodeJS
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import subprojects.VCSKtorGeneratorWebsite
-import subprojects.VCSPluginRegistry
-import subprojects.build.defaultBuildFeatures
-import subprojects.build.java11
-import subprojects.onChangeAllBranchesTrigger
+import subprojects.build.*
+import subprojects.*
 
 object ProjectGenerator : Project({
     id("ProjectKtorGenerator")
