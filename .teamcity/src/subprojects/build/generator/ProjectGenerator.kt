@@ -5,8 +5,10 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.nodeJS
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import subprojects.build.*
-import subprojects.*
+import subprojects.VCSKtorGeneratorWebsite
+import subprojects.VCSPluginRegistry
+import subprojects.build.githubCommitStatusPublisher
+import subprojects.build.githubPullRequestsLoader
 
 object ProjectGenerator : Project({
     id("ProjectKtorGenerator")
@@ -28,7 +30,7 @@ object ProjectGenerator : Project({
                 name = "Build plugin registry"
                 tasks = "packageRegistry"
                 buildFile = "build.gradle.kts"
-                jdkHome = "%env.${java11.env}%"
+                jdkHome = "%env.JDK_11%"
             }
             script {
                 name = "Push registry archive to Space"
@@ -60,11 +62,14 @@ object ProjectGenerator : Project({
                 name = "Test plugin registry"
                 tasks = "resolvePlugins detekt test buildRegistry"
                 buildFile = "build.gradle.kts"
-                jdkHome = "%env.${java11.env}%"
+                jdkHome = "%env.JDK_11%"
             }
         }
 
-        defaultBuildFeatures(VCSPluginRegistry.id.toString())
+        features {
+            githubPullRequestsLoader(VCSPluginRegistry.id.toString())
+            githubCommitStatusPublisher(VCSPluginRegistry.id.toString())
+        }
 
         triggers {
             vcs {
@@ -94,10 +99,17 @@ object ProjectGenerator : Project({
             }
         }
 
-        defaultBuildFeatures(VCSKtorGeneratorWebsite.id.toString())
+        features {
+            githubPullRequestsLoader(VCSKtorGeneratorWebsite.id.toString())
+            githubCommitStatusPublisher(VCSKtorGeneratorWebsite.id.toString())
+        }
 
         triggers {
-            onChangeAllBranchesTrigger()
+            vcs {
+                branchFilter = """
+                    +:refs/pull/*/head
+                """.trimIndent()
+            }
         }
     }
 
