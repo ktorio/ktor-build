@@ -10,7 +10,6 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import subprojects.VCSKtorGeneratorWebsite
 import subprojects.VCSPluginRegistry
-import subprojects.VCSToken
 
 object ProjectGenerator : Project({
     id("ProjectKtorGenerator")
@@ -73,7 +72,7 @@ object ProjectGenerator : Project({
                 vcsRootExtId = VCSPluginRegistry.id.toString()
                 provider = github {
                     authType = token {
-                        token = VCSToken
+                        token = "%github.token%"
                     }
                     filterTargetBranch = """
             +:*
@@ -88,7 +87,7 @@ object ProjectGenerator : Project({
                 publisher = github {
                     githubUrl = "https://api.github.com"
                     authType = personalToken {
-                        token = VCSToken
+                        token = "%github.token%"
                     }
                 }
             }
@@ -127,7 +126,7 @@ object ProjectGenerator : Project({
                 vcsRootExtId = VCSKtorGeneratorWebsite.id.toString()
                 provider = github {
                     authType = token {
-                        token = VCSToken
+                        token = "%github.token%"
                     }
                     filterTargetBranch = """
             +:*
@@ -142,7 +141,7 @@ object ProjectGenerator : Project({
                 publisher = github {
                     githubUrl = "https://api.github.com"
                     authType = personalToken {
-                        token = VCSToken
+                        token = "%github.token%"
                     }
                 }
             }
