@@ -74,10 +74,6 @@ object ProjectGenerator : Project({
                     authType = token {
                         token = "%github.token%"
                     }
-                    filterTargetBranch = """
-            +:*
-            -:pull/*
-        """.trimIndent()
                     filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
                 }
             }
@@ -95,9 +91,7 @@ object ProjectGenerator : Project({
 
         triggers {
             vcs {
-                branchFilter = """
-                    +:refs/pull/*/head
-                """.trimIndent()
+                branchFilter = "+:refs/pull/*"
             }
         }
     }
@@ -128,10 +122,6 @@ object ProjectGenerator : Project({
                     authType = token {
                         token = "%github.token%"
                     }
-                    filterTargetBranch = """
-            +:*
-            -:pull/*
-        """.trimIndent()
                     filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
                 }
             }
@@ -149,9 +139,7 @@ object ProjectGenerator : Project({
 
         triggers {
             vcs {
-                branchFilter = """
-                    +:refs/pull/*/head
-                """.trimIndent()
+                branchFilter = "+:refs/pull/*"
             }
         }
     }
