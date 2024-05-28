@@ -91,7 +91,11 @@ object ProjectGenerator : Project({
 
         triggers {
             vcs {
-                branchFilter = "+:refs/pull/*"
+                branchFilter = """
+                    +:refs/pull/*
+                    +:refs/pull/*/head
+                    +:refs/heads/*
+                """.trimIndent()
             }
         }
     }
@@ -139,7 +143,11 @@ object ProjectGenerator : Project({
 
         triggers {
             vcs {
-                branchFilter = "+:refs/pull/*"
+                branchFilter = """
+                    +:refs/pull/*
+                    +:refs/pull/*/head
+                    +:refs/heads/*
+                """.trimIndent()
             }
         }
     }
