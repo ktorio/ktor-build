@@ -8,6 +8,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.nodeJS
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
+import subprojects.VCSKtorGeneratorBackend
 import subprojects.VCSKtorGeneratorWebsite
 import subprojects.VCSPluginRegistry
 
@@ -94,7 +95,54 @@ object ProjectGenerator : Project({
                 branchFilter = """
                     +:refs/pull/*
                     +:refs/pull/*/head
-                    +:refs/heads/*
+                """.trimIndent()
+            }
+        }
+    }
+
+    buildType {
+        id("KtorGeneratorBackendVerify")
+        name = "Test generator backend"
+        vcs {
+            root(VCSKtorGeneratorBackend)
+        }
+
+        steps {
+            gradle {
+                name = "Test generator backend"
+                tasks = "test"
+                buildFile = "build.gradle.kts"
+                jdkHome = "%env.JDK_11%"
+            }
+        }
+
+        features {
+            pullRequests {
+                vcsRootExtId = VCSKtorGeneratorBackend.id.toString()
+                provider = github {
+                    authType = token {
+                        token = "%github.token%"
+                    }
+                    filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
+                }
+            }
+            commitStatusPublisher {
+                vcsRootExtId = VCSKtorGeneratorBackend.id.toString()
+
+                publisher = github {
+                    githubUrl = "https://api.github.com"
+                    authType = personalToken {
+                        token = "%github.token%"
+                    }
+                }
+            }
+        }
+
+        triggers {
+            vcs {
+                branchFilter = """
+                    +:refs/pull/*
+                    +:refs/pull/*/head
                 """.trimIndent()
             }
         }
@@ -146,7 +194,6 @@ object ProjectGenerator : Project({
                 branchFilter = """
                     +:refs/pull/*
                     +:refs/pull/*/head
-                    +:refs/heads/*
                 """.trimIndent()
             }
         }
