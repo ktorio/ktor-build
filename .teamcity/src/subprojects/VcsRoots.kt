@@ -91,17 +91,29 @@ object VCSKtorBenchmarks : PasswordVcsRoot({
 object VCSPluginRegistry : PasswordVcsRoot({
     name = "Ktor Plugin Registry"
     url = "https://github.com/ktorio/ktor-plugin-registry.git"
+    branchSpec = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 object VCSKtorGeneratorBackend : PasswordVcsRoot({
     name = "Ktor Generator Backend"
     url = "https://github.com/ktorio/ktor-generator-backend.git"
+    branchSpec = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 object VCSKtorGeneratorWebsite : PasswordVcsRoot({
     name = "Ktor Generator Website"
     url = "https://github.com/ktorio/ktor-generator-website.git"
     branch = "master"
+    branchSpec = """
+        +:refs/heads/*
+        +:refs/(pull/*)/head
+    """.trimIndent()
 })
 
 object VCSKtorCLI : PasswordVcsRoot({
