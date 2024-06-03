@@ -46,6 +46,7 @@ project {
     vcsRoot(VCSKtorCLI)
     vcsRoot(VCSKtorBuildPlugins)
     vcsRoot(VCSPluginRegistry)
+    vcsRoot(VCSKtorGeneratorBackend)
 
     vcsRoot(VCSGetStartedSample)
     vcsRoot(VCSGradleSample)
