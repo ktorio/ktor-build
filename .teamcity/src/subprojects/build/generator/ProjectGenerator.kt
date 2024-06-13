@@ -98,6 +98,10 @@ object ProjectGenerator : Project({
     buildType {
         id("KtorGeneratorBackendVerify")
         name = "Test generator backend"
+        params {
+            password("env.SPACE_USERNAME", value = "%space.packages.apl.user%")
+            password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%")
+        }
         vcs {
             root(VCSKtorGeneratorBackend)
         }
