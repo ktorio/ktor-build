@@ -138,8 +138,7 @@ object ProjectGenerator : Project({
         }
 
         triggers {
-            // Disable for now...
-            // vcs {}
+            vcs {}
         }
     }
 
