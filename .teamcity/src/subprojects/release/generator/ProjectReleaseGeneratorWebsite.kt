@@ -8,8 +8,6 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import subprojects.VCSKtorGeneratorWebsite
 import subprojects.VCSToken
 import subprojects.VCSUsername
-import subprojects.build.*
-import subprojects.build.core.*
 
 object ProjectReleaseGeneratorWebsite : Project({
     id("ProjectKtorReleaseGeneratorWebsite")
@@ -19,6 +17,8 @@ object ProjectReleaseGeneratorWebsite : Project({
         param("env.GITHUB_FORK", "ktorio")
         param("env.GITHUB_USER", VCSUsername)
         password("env.GITHUB_PASSWORD", VCSToken)
+
+        password("env.PUBLISHING_TOKEN", value = "%space.packages.publish.token%")
     }
 
     buildType {
@@ -32,13 +32,29 @@ object ProjectReleaseGeneratorWebsite : Project({
 
         steps {
             nodeJS {
-                name = "Build website and commit to repo"
+                name = "Build website"
+                workingDir = "ktor-generator-website"
                 shellScript = """
                     set -e
-                    cd ktor-generator-website
                     npm install --verbose
                     npm run build --verbose
-                    cd ..
+                """.trimIndent()
+            }
+            script {
+                name = "Upload archive to Space"
+                workingDir = "ktor-generator-website"
+                scriptContent = """
+                   tar -zcvf website.tar.gz -C build .
+                   curl -i \
+                      -H "Authorization: Bearer %env.PUBLISHING_TOKEN%" \
+                      https://packages.jetbrains.team/files/p/ktor/files/ktor-generator-website/main/ \
+                      --upload-file website.tar.gz
+                """.trimIndent()
+            }
+            script {
+                name = "Commit to github pages repository"
+                scriptContent = """
+                    set -e
                     git clone "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/${'$'}{GITHUB_FORK}/ktor-init-tools.git"
                     cd ktor-init-tools 
                     git checkout generator
