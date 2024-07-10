@@ -19,7 +19,10 @@ object ProjectBenchmarks : Project({
             root(VCSKtorBenchmarks, "+:.=>ktor-benchmarks")
         }
 
-        artifactRules = "+:ktor-benchmarks/allocation-benchmark/allocations => allocations.zip"
+        artifactRules = """
+        +:ktor-benchmarks/allocation-benchmark/allocations => old_allocations.zip
+        +:ktor-benchmarks/allocation-benchmark/build/allocations => new_allocations.zip
+        """.trimIndent()
 
         triggers {
             onChangeAllBranchesTrigger()
