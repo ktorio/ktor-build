@@ -31,7 +31,8 @@ val macOS = OSEntry(
     "macOS",
     "Mac OS X",
     "cleanMacosX64Test macosX64Test",
-    "linkReleaseExecutableMacosX64"
+    "linkReleaseExecutableMacosX64",
+    "x86_64"
 )
 
 val linux = OSEntry(
