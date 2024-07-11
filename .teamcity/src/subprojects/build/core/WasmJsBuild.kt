@@ -7,18 +7,19 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
 
-class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
-    id("KtorMatrixJavaScript_${jsEntry.name}".toExtId())
-    name = "JavaScript on ${jsEntry.name}"
+class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
+    id("KtorMatrixWasmJs_${jsEntry.name}".toExtId())
+    name = "WasmJS on ${jsEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
     vcs {
         root(VCSCore)
     }
     steps {
+
         gradle {
-            name = "Build Js"
-            tasks = "cleanJsTest jsTest --no-parallel --continue --info -Penable-js-tests"
+            name = "Build Wasm Js"
+            tasks = "cleanWasmJsTest wasmJsTest --no-parallel --continue --info -Penable-js-tests"
             buildFile = "build.gradle.kts"
             setupDockerForJavaScriptTests(jsEntry)
         }
@@ -30,12 +31,6 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         require(os = "Linux", minMemoryMB = 7000)
     }
     if (jsEntry == js) {
-        jsBuild = this
+        wasmJsBuild = this
     }
 })
-
-internal fun GradleBuildStep.setupDockerForJavaScriptTests(JSEntry: JSEntry) {
-    dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
-    dockerPull = true
-    dockerImage = JSEntry.dockerContainer
-}

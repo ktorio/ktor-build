@@ -9,6 +9,7 @@ var apiBuild: BuildType? = null
 var docSamplesBuild: BuildType? = null
 var jvmBuild: BuildType? = null
 var jsBuild: BuildType? = null
+var wasmJsBuild: BuildType? = null
 var nativeWindowsBuild: BuildType? = null
 var nativeLinuxBuild: BuildType? = null
 var nativeMacOSBuild: BuildType? = null

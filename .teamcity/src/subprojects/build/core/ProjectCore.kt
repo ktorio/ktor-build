@@ -29,9 +29,10 @@ object ProjectCore : Project({
     val osJdkBuilds = osJdks.map(::CoreBuild)
     val nativeBuilds = operatingSystems.map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
+    val wasmJsBuilds = javaScriptEngines.map(::WasmJsBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
 
-    val allBuilds = osJdkBuilds + nativeBuilds + javaScriptBuilds + apiCheck + jpmsCheck
+    val allBuilds = osJdkBuilds + nativeBuilds + javaScriptBuilds + apiCheck + jpmsCheck + wasmJsBuilds
     val allBuildsWithStress = allBuilds + stressTestBuilds
 
     allBuildsWithStress.forEach(::buildType)
