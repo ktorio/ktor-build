@@ -159,7 +159,6 @@ fun Triggers.onChangeAllBranchesTrigger() {
         """.trimIndent()
         branchFilter = """
                             +:*
-                            -:pull/*
                             -:dependabot/*
                             -:renovate/*
         """.trimIndent()
