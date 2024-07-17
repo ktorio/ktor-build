@@ -75,6 +75,26 @@ object PublishJSToMaven : BuildType({
     }
 })
 
+object PublishWasmJsToMaven : BuildType({
+    createDeploymentBuild("KtorPublishWasmJsToMavenBuild", "Publish WasmJs to Maven", "", releaseVersion)
+    vcs {
+        root(VCSCore)
+    }
+    params {
+        configureReleaseVersion()
+    }
+    steps {
+        createSonatypeRepository("WasmJs")
+        publish(
+            "publishWasmJsPublicationToMavenRepository",
+            gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+        )
+    }
+    requirements {
+        require(os = linux.agentString, minMemoryMB = 7000)
+    }
+})
+
 object PublishWindowsNativeToMaven : BuildType({
     createDeploymentBuild("KtorPublishWindowsNativeToMavenBuild", "Publish Windows Native to Maven", "", releaseVersion)
     vcs {
