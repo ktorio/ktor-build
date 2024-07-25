@@ -6,19 +6,23 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.commitStatusPu
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.pullRequests
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import subprojects.VCSPluginRegistry
+import subprojects.VCSKtorGeneratorBackend
 
-object TestPluginRegistry : BuildType({
-    id("KtorPluginRegistryVerify")
-    name = "Test plugin registry"
+object TestGeneratorBackEnd : BuildType({
+    id("KtorGeneratorBackendVerify")
+    name = "Test generator backend"
+    params {
+        password("env.SPACE_USERNAME", value = "%space.packages.apl.user%")
+        password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%")
+    }
     vcs {
-        root(VCSPluginRegistry)
+        root(VCSKtorGeneratorBackend)
     }
 
     steps {
         gradle {
-            name = "Test plugin registry"
-            tasks = "resolvePlugins detekt test buildRegistry"
+            name = "Test generator backend"
+            tasks = "test"
             buildFile = "build.gradle.kts"
             jdkHome = "%env.JDK_11%"
         }
@@ -26,7 +30,7 @@ object TestPluginRegistry : BuildType({
 
     features {
         pullRequests {
-            vcsRootExtId = VCSPluginRegistry.id.toString()
+            vcsRootExtId = VCSKtorGeneratorBackend.id.toString()
             provider = github {
                 authType = token {
                     token = "%github.token%"
@@ -35,7 +39,7 @@ object TestPluginRegistry : BuildType({
             }
         }
         commitStatusPublisher {
-            vcsRootExtId = VCSPluginRegistry.id.toString()
+            vcsRootExtId = VCSKtorGeneratorBackend.id.toString()
 
             publisher = github {
                 githubUrl = "https://api.github.com"

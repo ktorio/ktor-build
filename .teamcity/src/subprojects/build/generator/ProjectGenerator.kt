@@ -13,9 +13,14 @@ object ProjectGenerator : Project({
     buildType(PublishPluginRegistry)
 
     /**
-     * Tests registry, and ensures any new plugins can be built.
+     * Tests registry and ensures any new plugins can be built.
      */
     buildType(TestPluginRegistry)
+
+    /**
+     * Tests backend for generating different project types when modified.
+     */
+    buildType(TestGeneratorBackEnd)
 
     /**
      * Runs on every PR for ktor-generator-website.
