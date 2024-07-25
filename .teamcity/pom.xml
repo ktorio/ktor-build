@@ -10,7 +10,7 @@
     <groupId>org.jetbrains.teamcity</groupId>
     <artifactId>configs-dsl-kotlin-parent</artifactId>
     <version>1.0-SNAPSHOT</version>
-    </parent>
+  </parent>
 
   <repositories>
 

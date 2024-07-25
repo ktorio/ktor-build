@@ -2,6 +2,7 @@ package subprojects.benchmarks
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.require
