@@ -11,38 +11,8 @@ object ProjectKtorCLI : Project({
     id("ProjectKtorCLI")
     name = "Ktor CLI"
 
-    val platforms = listOf(linux, macOS)
-    val builds = platforms.map(::buildCLI)
-
-    buildType {
-        id("BuildAllCLI")
-        name = "Run all CLI builds"
-
-        vcs {
-            root(VCSKtorCLI)
-        }
-
-        artifactRules = "+:**/build/**/*.kexe"
-
-        triggers {
-            onChangeAllBranchesTrigger()
-        }
-
-        features {
-            perfmon {
-            }
-
-            githubPullRequestsLoader(VCSKtorCLI.id.toString())
-            githubCommitStatusPublisher(VCSKtorCLI.id.toString())
-        }
-
-        dependencies {
-            builds.mapNotNull {it.id }.forEach {
-                snapshot(it) {
-                }
-            }
-        }
-    }
+    val platforms = listOf(linux)
+    platforms.forEach(::buildCLI)
 })
 
 fun Project.buildCLI(os: OSEntry): BuildType = buildType {
@@ -53,24 +23,30 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
         root(VCSKtorCLI)
     }
 
-    artifactRules = "+:**/build/**/*.kexe"
+    artifactRules = "+:./ktor"
 
     steps {
-        gradle {
-            name = "Build binary"
-            tasks = os.binaryTaskName
-            buildFile = "build.gradle.kts"
+        dockerCommand {
+            name = "Build application"
+
+            commandType = other {
+                subCommand = "run"
+                commandArgs = goCommand("go build -buildvcs=false -v github.com/ktorio/ktor-cli/cmd/ktor")
+            }
         }
 
-        gradle {
-            name = "Run tests"
-            tasks = os.testTaskName
-            buildFile = "build.gradle.kts"
+        dockerCommand {
+            name = "Run unit tests"
+
+            commandType = other {
+                subCommand = "run"
+                commandArgs = goCommand("go test -buildvcs=false -v ./internal...")
+            }
         }
     }
 
     requirements {
-        require(os = os.agentString, minMemoryMB = 7000)
+        require(os = os.agentString)
     }
 
     features {
@@ -80,4 +56,9 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
         githubPullRequestsLoader(VCSKtorCLI.id.toString())
         githubCommitStatusPublisher(VCSKtorCLI.id.toString())
     }
+}
+
+private fun goCommand(command: String): String {
+    val dockerPart = "--rm -v .:/usr/src/app -w /usr/src/app golang:1.21 "
+    return dockerPart + command
 }
