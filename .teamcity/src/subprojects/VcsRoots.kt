@@ -8,7 +8,7 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.GitVcsRoot
 const val defaultBranch = "<default>"
 const val VCSUsername = "hhariri"
 const val VCSToken = "%github.token%"
-const val DefaultAndPullRequests = "+:<default>\n+refs/pull/*"
+const val DefaultAndPullRequests = "+:<default>\n+:refs/pull/*"
 
 object VCSCore : PasswordVcsRoot({
     name = "Ktor Core"
