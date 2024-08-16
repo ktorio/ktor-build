@@ -96,6 +96,9 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
 
         githubPullRequestsLoader(rootId)
         githubCommitStatusPublisher(rootId)
+        sharedResources {
+            readLock("TestInfrastructure")
+        }
     }
 
     failureConditions {
