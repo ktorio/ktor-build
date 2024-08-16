@@ -5,27 +5,21 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.schedule
 import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
 import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.GitVcsRoot
 
-const val defaultBranch = "main"
+const val defaultBranch = "<default>"
 const val VCSUsername = "hhariri"
 const val VCSToken = "%github.token%"
+const val DefaultAndPullRequests = "+:<default>\n+pr:*"
 
 object VCSCore : PasswordVcsRoot({
     name = "Ktor Core"
     url = "https://github.com/ktorio/ktor.git"
-    branchSpec = """
-        +:refs/heads/*
-        +:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = DefaultAndPullRequests
 })
 
 object VCSCoreEAP : PasswordVcsRoot({
     name = "Ktor Core EAP Branches"
     url = "https://github.com/ktorio/ktor.git"
-    branchSpec = """
-        +:refs/heads/(*-eap)
-        +:refs/heads/($defaultBranch)
-        -:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = DefaultAndPullRequests
 })
 
 object VCSDocs : PasswordVcsRoot({
@@ -91,48 +85,33 @@ object VCSKtorBenchmarks : PasswordVcsRoot({
 object VCSPluginRegistry : PasswordVcsRoot({
     name = "Ktor Plugin Registry"
     url = "https://github.com/ktorio/ktor-plugin-registry.git"
-    branchSpec = """
-        +:refs/heads/*
-        +:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = DefaultAndPullRequests
 })
 
 object VCSKtorGeneratorBackend : PasswordVcsRoot({
     name = "Ktor Generator Backend"
     url = "https://github.com/ktorio/ktor-generator-backend.git"
-    branchSpec = """
-        +:refs/heads/*
-        +:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = DefaultAndPullRequests
 })
 
 object VCSKtorGeneratorWebsite : PasswordVcsRoot({
     name = "Ktor Generator Website"
     url = "https://github.com/ktorio/ktor-generator-website.git"
     branch = "master"
-    branchSpec = """
-        +:refs/heads/*
-        +:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = DefaultAndPullRequests
 })
 
 object VCSKtorCLI : PasswordVcsRoot({
     name = "Ktor CLI"
     url = "https://github.com/ktorio/ktor-cli.git"
     branch = "main"
-    branchSpec = """
-        +:refs/heads/*
-        +:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = DefaultAndPullRequests
 })
 
 object VCSKtorBuildPlugins : PasswordVcsRoot({
     name = "Ktor Build Plugins"
     url = "https://github.com/ktorio/ktor-build-plugins.git"
-    branchSpec = """
-        +:refs/heads/*
-        +:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = DefaultAndPullRequests
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
