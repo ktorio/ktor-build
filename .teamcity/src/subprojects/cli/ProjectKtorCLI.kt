@@ -23,17 +23,26 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
         root(VCSKtorCLI)
     }
 
-    artifactRules = "+:./ktor"
+    artifactRules = "+:./build/**/ktor*"
 
     steps {
-        dockerCommand {
-            name = "Build application"
-
-            commandType = other {
-                subCommand = "run"
-                commandArgs = goCommand("go build -buildvcs=false -v github.com/ktorio/ktor-cli/cmd/ktor")
-            }
+        script {
+            name = "Create build directories"
+            scriptContent = """
+                mkdir -p build/darwin/amd64
+                mkdir -p build/darwin/arm64
+                mkdir -p build/linux/amd64
+                mkdir -p build/linux/arm64
+                mkdir -p build/windows/amd64
+            """.trimIndent()
+            workingDir = "."
         }
+
+        buildFor("darwin", "amd64")
+        buildFor("darwin", "arm64")
+        buildFor("linux", "amd64")
+        buildFor("linux", "arm64")
+        buildFor("windows", "amd64")
 
         dockerCommand {
             name = "Run unit tests"
@@ -58,7 +67,29 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
     }
 }
 
-private fun goCommand(command: String): String {
-    val dockerPart = "--rm -v .:/usr/src/app -w /usr/src/app golang:1.21 "
+private fun BuildSteps.buildFor(os: String, arch: String) {
+    val ext = if (os == "windows") ".exe" else ""
+    dockerCommand {
+        name = "Build for $os $arch"
+
+        commandType = other {
+            subCommand = "run"
+            commandArgs = goCommand(
+                "go build -buildvcs=false -v -o build/$os/$arch/ktor$ext github.com/ktorio/ktor-cli/cmd/ktor",
+                mapOf("GOOS" to os, "GOARCH" to arch)
+            )
+        }
+    }
+}
+
+private fun goCommand(command: String, env: Map<String, String> = mapOf()): String {
+    val dockerEnv = buildString {
+        for ((name, value) in env) {
+            append("-e $name=$value")
+            append(" ")
+        }
+    }
+
+    val dockerPart = "--rm $dockerEnv -v .:/usr/src/app -w /usr/src/app golang:1.21 "
     return dockerPart + command
 }
