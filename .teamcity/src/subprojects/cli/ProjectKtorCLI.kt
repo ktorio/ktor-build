@@ -76,7 +76,7 @@ private fun BuildSteps.buildFor(os: String, arch: String) {
             subCommand = "run"
             commandArgs = goCommand(
                 "go build -buildvcs=false -v -o build/$os/$arch/ktor$ext github.com/ktorio/ktor-cli/cmd/ktor",
-                mapOf("GOOS" to os, "GOARCH" to arch)
+                mapOf("GOOS" to os, "GOARCH" to arch, "CGO_ENABLED" to "0")
             )
         }
     }
