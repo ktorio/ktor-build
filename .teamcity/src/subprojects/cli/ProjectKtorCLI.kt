@@ -49,7 +49,7 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
 
             commandType = other {
                 subCommand = "run"
-                commandArgs = goCommand("go test -buildvcs=false -v ./internal...")
+                commandArgs = goCommand("go test -v ./internal...")
             }
         }
     }
@@ -75,7 +75,7 @@ private fun BuildSteps.buildFor(os: String, arch: String) {
         commandType = other {
             subCommand = "run"
             commandArgs = goCommand(
-                "go build -buildvcs=false -v -o build/$os/$arch/ktor$ext github.com/ktorio/ktor-cli/cmd/ktor",
+                "go build -v -o build/$os/$arch/ktor$ext github.com/ktorio/ktor-cli/cmd/ktor",
                 mapOf("GOOS" to os, "GOARCH" to arch, "CGO_ENABLED" to "0")
             )
         }
@@ -90,6 +90,7 @@ private fun goCommand(command: String, env: Map<String, String> = mapOf()): Stri
         }
     }
 
-    val dockerPart = "--rm $dockerEnv -v .:/usr/src/app -w /usr/src/app golang:1.21 "
-    return dockerPart + command
+    val dockerPart = "--rm $dockerEnv -v .:/usr/src/app -w /usr/src/app golang:1.21 " +
+            "/bin/bash -c \"git config --global --add safe.directory /usr/src/app; "
+    return dockerPart + command + "\""
 }
