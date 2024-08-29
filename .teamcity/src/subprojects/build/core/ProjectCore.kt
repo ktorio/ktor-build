@@ -54,7 +54,7 @@ object ProjectCore : Project({
 enum class TriggerType {
     ALL_BRANCHES,
     VERIFICATION,
-    NO_FILTER,
+    NONE,
 }
 
 fun BuildType.createCompositeBuild(
@@ -62,7 +62,7 @@ fun BuildType.createCompositeBuild(
     buildName: String,
     vcsRoot: VcsRoot,
     builds: List<BuildType>,
-    withTrigger: TriggerType = TriggerType.NO_FILTER
+    withTrigger: TriggerType = TriggerType.NONE
 ) {
     id(buildId)
     name = buildName
@@ -76,7 +76,7 @@ fun BuildType.createCompositeBuild(
         when (withTrigger) {
             TriggerType.ALL_BRANCHES -> onChangeAllBranchesTrigger()
             TriggerType.VERIFICATION -> onChangeDefaultOrPullRequest()
-            TriggerType.NO_FILTER -> {}
+            TriggerType.NONE -> {}
         }
     }
     dependencies {
