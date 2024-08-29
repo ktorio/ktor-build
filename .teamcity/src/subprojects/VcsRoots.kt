@@ -139,10 +139,7 @@ fun Triggers.onChangeDefaultOrPullRequest() {
             -:user=renovate[bot]
             -:user=dependabot[bot]
         """.trimIndent()
-        branchFilter = """
-            +:pull/*
-            +:main
-        """
+        branchFilter = "+pr:*"
     }
 }
 
