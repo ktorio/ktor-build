@@ -35,7 +35,8 @@ object ProjectPublishing : Project({
                 PublishWindowsNativeToMaven,
                 PublishLinuxNativeToMaven,
                 PublishMacOSNativeToMaven
-            )
+            ),
+            withTrigger = TriggerType.ALL_BRANCHES,
         )
     }
 })

@@ -41,7 +41,7 @@ object ProjectCore : Project({
 
     buildType {
         allowExternalStatus = true
-        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, withTrigger = true)
+        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, withTrigger = TriggerType.VERIFICATION)
 
         features {
             githubCommitStatusPublisher(VCSSamples.id.toString())
@@ -51,12 +51,18 @@ object ProjectCore : Project({
     buildType(CodeStyleVerify)
 })
 
+enum class TriggerType {
+    ALL_BRANCHES,
+    VERIFICATION,
+    NO_FILTER,
+}
+
 fun BuildType.createCompositeBuild(
     buildId: String,
     buildName: String,
     vcsRoot: VcsRoot,
     builds: List<BuildType>,
-    withTrigger: Boolean = false
+    withTrigger: TriggerType = TriggerType.NO_FILTER
 ) {
     id(buildId)
     name = buildName
@@ -67,8 +73,10 @@ fun BuildType.createCompositeBuild(
         root(vcsRoot)
     }
     triggers {
-        if (withTrigger) {
-            onChangeAllBranchesTrigger()
+        when (withTrigger) {
+            TriggerType.ALL_BRANCHES -> onChangeAllBranchesTrigger()
+            TriggerType.VERIFICATION -> onChangeDefaultOrPullRequest()
+            TriggerType.NO_FILTER -> {}
         }
     }
     dependencies {

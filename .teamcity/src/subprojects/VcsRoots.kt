@@ -8,18 +8,22 @@ import jetbrains.buildServer.configs.kotlin.v2019_2.vcs.GitVcsRoot
 const val defaultBranch = "main"
 const val VCSUsername = "hhariri"
 const val VCSToken = "%github.token%"
-const val DefaultAndPullRequests = "+:refs/heads/main\n+:refs/(pull/*)/head"
+const val DefaultAndPullRequests = "+:refs/heads/$defaultBranch\n+:refs/(pull/*)/head"
+const val AllBranchesAndPullRequests = "+:refs/heads/*\n+:refs/(pull/*)/head"
 
 object VCSCore : PasswordVcsRoot({
     name = "Ktor Core"
     url = "https://github.com/ktorio/ktor.git"
-    branchSpec = DefaultAndPullRequests
+    branchSpec = AllBranchesAndPullRequests
 })
 
 object VCSCoreEAP : PasswordVcsRoot({
     name = "Ktor Core EAP Branches"
     url = "https://github.com/ktorio/ktor.git"
-    branchSpec = DefaultAndPullRequests
+    branchSpec = """
+        +:refs/heads/(*-eap)
+        +:refs/heads/$defaultBranch
+    """.trimIndent()
 })
 
 object VCSDocs : PasswordVcsRoot({
@@ -71,10 +75,7 @@ object VCSKotlinxHtml : PasswordVcsRoot({
     name = "Kotlinx.html Library"
     url = "https://github.com/Kotlin/kotlinx.html.git"
     branch = "master"
-    branchSpec = """
-        +:refs/heads/*
-        +:refs/(pull/*)/head
-    """.trimIndent()
+    branchSpec = AllBranchesAndPullRequests
 })
 
 object VCSKtorBenchmarks : PasswordVcsRoot({
@@ -130,16 +131,30 @@ open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit) : KtorVcsRoot({
     init()
 })
 
+fun Triggers.onChangeDefaultOrPullRequest() {
+    vcs {
+        triggerRules = """
+            -:*.md
+            -:.gitignore
+            -:user=renovate[bot]
+            -:user=dependabot[bot]
+        """.trimIndent()
+        branchFilter = DefaultAndPullRequests
+    }
+}
+
 fun Triggers.onChangeAllBranchesTrigger() {
     vcs {
         triggerRules = """
-                            -:*.md
-                            -:.gitignore
+            -:*.md
+            -:.gitignore
+            -:user=renovate[bot]
+            -:user=dependabot[bot]
         """.trimIndent()
         branchFilter = """
-                            +:*
-                            -:dependabot/*
-                            -:renovate/*
+            +:*
+            -:dependabot/*
+            -:renovate/*
         """.trimIndent()
     }
 }

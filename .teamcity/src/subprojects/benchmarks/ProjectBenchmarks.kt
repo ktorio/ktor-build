@@ -2,7 +2,6 @@ package subprojects.benchmarks
 
 import jetbrains.buildServer.configs.kotlin.v2019_2.*
 import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.require
@@ -21,12 +20,12 @@ object ProjectBenchmarks : Project({
         }
 
         artifactRules = """
-        +:ktor-benchmarks/allocation-benchmark/allocations => old_allocations.zip
-        +:ktor-benchmarks/allocation-benchmark/build/allocations => new_allocations.zip
+            +:ktor-benchmarks/allocation-benchmark/allocations => old_allocations.zip
+            +:ktor-benchmarks/allocation-benchmark/build/allocations => new_allocations.zip
         """.trimIndent()
 
         triggers {
-            onChangeAllBranchesTrigger()
+            onChangeDefaultOrPullRequest()
         }
 
         steps {

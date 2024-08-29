@@ -64,7 +64,7 @@ object ProjectSamples : Project({
             "Validate all samples",
             VCSSamples,
             projects + WebSocketSample,
-            withTrigger = true
+            withTrigger = TriggerType.ALL_BRANCHES
         )
     }
 })
