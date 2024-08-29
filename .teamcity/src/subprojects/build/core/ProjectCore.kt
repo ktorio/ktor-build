@@ -75,7 +75,7 @@ fun BuildType.createCompositeBuild(
     triggers {
         when (withTrigger) {
             TriggerType.ALL_BRANCHES -> onChangeAllBranchesTrigger()
-            TriggerType.VERIFICATION -> onChangeDefaultOrPullRequest()
+            TriggerType.VERIFICATION -> onChangeNoBranchFilter()
             TriggerType.NO_FILTER -> {}
         }
     }

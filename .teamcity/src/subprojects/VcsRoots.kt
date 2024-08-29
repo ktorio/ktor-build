@@ -131,7 +131,7 @@ open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit) : KtorVcsRoot({
     init()
 })
 
-fun Triggers.onChangeDefaultOrPullRequest() {
+fun Triggers.onChangeNoBranchFilter() {
     vcs {
         triggerRules = """
             -:*.md
@@ -139,7 +139,6 @@ fun Triggers.onChangeDefaultOrPullRequest() {
             -:user=renovate[bot]
             -:user=dependabot[bot]
         """.trimIndent()
-        branchFilter = "+pr:*"
     }
 }
 

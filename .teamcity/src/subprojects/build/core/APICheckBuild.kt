@@ -14,7 +14,7 @@ object APICheckBuild : BuildType({
         root(VCSCore)
     }
     triggers {
-        onChangeDefaultOrPullRequest()
+        onChangeNoBranchFilter()
     }
     steps {
         gradle {
