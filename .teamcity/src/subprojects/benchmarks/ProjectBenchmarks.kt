@@ -25,7 +25,7 @@ object ProjectBenchmarks : Project({
         """.trimIndent()
 
         triggers {
-            onChangeNoBranchFilter()
+            onChangeDefaultOrPullRequest()
         }
 
         steps {

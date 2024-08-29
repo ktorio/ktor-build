@@ -13,7 +13,7 @@ object JPMSCheckBuild: BuildType({
         root(VCSCore)
     }
     triggers {
-        onChangeNoBranchFilter()
+        onChangeDefaultOrPullRequest()
     }
     steps {
         gradle {
