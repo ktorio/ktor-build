@@ -25,7 +25,7 @@ data class JSEntry(val name: String, val dockerContainer: String)
 data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
 
 const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
-const val memoryReportArtifact = "+:**/hs_err* => outOfMemoryDumps.tgz"
+const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.tgz"
 
 val macOS = OSEntry(
     "macOS",
