@@ -141,7 +141,7 @@ fun Triggers.onChangeDefaultOrPullRequest() {
         """.trimIndent()
         branchFilter = """
             +:pull/*
-            +:main
+            +:<default>
         """
     }
 }
