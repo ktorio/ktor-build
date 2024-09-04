@@ -23,7 +23,10 @@ object PublishWinGet : BuildType({
         root(VCSKtorCLI)
     }
 
-    artifactRules = "+:./*.msi"
+    artifactRules = """
+        +:./*.msi
+        +:./checksum.txt
+    """.trimIndent()
 
     dependencies {
         artifacts(BuildCLI.id!!) {
