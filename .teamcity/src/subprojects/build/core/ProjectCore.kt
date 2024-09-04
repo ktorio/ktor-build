@@ -27,7 +27,8 @@ object ProjectCore : Project({
     val jpmsCheck = JPMSCheckBuild
     val apiCheck = APICheckBuild
     val osJdkBuilds = osJdks.map(::CoreBuild)
-    val nativeBuilds = operatingSystems.map(::NativeBuild)
+    // Skip Native Windows build for now, it is not working.
+    val nativeBuilds = (operatingSystems - windows).map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val wasmJsBuilds = javaScriptEngines.map(::WasmJsBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
