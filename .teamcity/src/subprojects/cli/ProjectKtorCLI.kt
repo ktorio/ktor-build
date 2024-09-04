@@ -16,8 +16,8 @@ object ProjectKtorCLI : Project({
 })
 
 object PublishWinGet : BuildType({
-    id("PublishWinGetCLI")
-    name = "Publish into WinGet for Windows"
+    id("PackMsiInstallerCLI")
+    name = "Pack MSI installer"
 
     vcs {
         root(VCSKtorCLI)
@@ -44,7 +44,8 @@ object PublishWinGet : BuildType({
         script {
             name = "Pack installer"
             scriptContent = """
-                .\packInstaller.ps1 -wixExe "wixToolset\wix.exe" -toolPath "build\ktor.exe" -outPath "ktor-installer.msi"
+                powershell -file packInstaller.ps1
+#                .\packInstaller.ps1 -wixExe "wixToolset\wix.exe" -toolPath "build\ktor.exe" -outPath "ktor-installer.msi"
             """.trimIndent()
             workingDir = "."
         }
