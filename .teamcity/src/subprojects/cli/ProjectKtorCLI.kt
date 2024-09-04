@@ -11,13 +11,53 @@ object ProjectKtorCLI : Project({
     id("ProjectKtorCLI")
     name = "Ktor CLI"
 
-    val platforms = listOf(linux)
-    platforms.forEach(::buildCLI)
+    buildType(BuildCLI)
+    buildType(PublishWinGet)
 })
 
-fun Project.buildCLI(os: OSEntry): BuildType = buildType {
-    id("BuildCLIon${os.name}")
-    name = "Build CLI on ${os.name}"
+object PublishWinGet : BuildType({
+    id("PublishWinGetCLI")
+    name = "Publish into WinGet for Windows"
+
+    vcs {
+        root(VCSKtorCLI)
+    }
+
+    artifactRules = "+:./*.msi"
+
+    dependencies {
+        artifacts(BuildCLI.id!!) {
+            artifactRules = "**/windows/amd64/ktor.exe => ./build"
+        }
+    }
+
+    steps {
+        script {
+            name = "Install Wix toolset"
+            scriptContent = """
+                dotnet tool install --tool-path=wixToolset wix               
+                .\wixToolset\wix.exe extension add -g WixToolset.UI.wixext
+            """.trimIndent()
+            workingDir = "."
+        }
+
+        script {
+            name = "Pack installer"
+            scriptContent = """
+                .\packInstaller.ps1 -wixExe "wixToolset\wix.exe" -toolPath "build\ktor.exe" -outPath "ktor-installer.msi"
+            """.trimIndent()
+            workingDir = "."
+        }
+    }
+
+    requirements {
+        require(os = windows.agentString)
+    }
+})
+
+object BuildCLI: BuildType({
+    id("BuildCLI")
+    name = "Build"
 
     vcs {
         root(VCSKtorCLI)
@@ -55,7 +95,7 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
     }
 
     requirements {
-        require(os = os.agentString)
+        require(os = linux.agentString)
     }
 
     features {
@@ -65,7 +105,7 @@ fun Project.buildCLI(os: OSEntry): BuildType = buildType {
         githubPullRequestsLoader(VCSKtorCLI.id.toString())
         githubCommitStatusPublisher(VCSKtorCLI.id.toString())
     }
-}
+})
 
 private fun BuildSteps.buildFor(os: String, arch: String) {
     val ext = if (os == "windows") ".exe" else ""
