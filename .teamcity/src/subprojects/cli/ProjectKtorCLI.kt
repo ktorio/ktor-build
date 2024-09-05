@@ -13,6 +13,31 @@ object ProjectKtorCLI : Project({
 
     buildType(BuildCLI)
     buildType(PublishWinGet)
+    buildType(ReleaseGithub)
+})
+
+object ReleaseGithub: BuildType({
+    id("ReleaseGithubCLI")
+    name = "Create GitHub release"
+
+    vcs {
+        root(VCSKtorCLI)
+    }
+
+    steps {
+        script {
+            name = "Create release"
+            scriptContent = """
+                python3 --version
+                python --version
+            """.trimIndent()
+            workingDir = "."
+        }
+    }
+
+    requirements {
+        require(os = linux.agentString)
+    }
 })
 
 object PublishWinGet : BuildType({
