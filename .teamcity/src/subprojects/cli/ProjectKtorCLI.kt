@@ -12,7 +12,7 @@ object ProjectKtorCLI : Project({
     name = "Ktor CLI"
 
     buildType(BuildCLI)
-    buildType(PublishWinGet)
+    buildType(PackMsiInstaller)
     buildType(ReleaseGithub)
 })
 
@@ -24,12 +24,96 @@ object ReleaseGithub: BuildType({
         root(VCSKtorCLI)
     }
 
+    dependencies {
+        artifacts(BuildCLI.id!!) {
+            artifactRules = "./build => ./build"
+        }
+
+        artifacts(PackMsiInstaller.id!!) {
+            artifactRules = "./*.msi => ./build/windows/amd64/"
+        }
+    }
+
     steps {
         script {
-            name = "Create release"
+            name = "Create GitHub release"
             scriptContent = """
-                python3 --version
-                python --version
+python3 -m pip install requests
+
+python3 <<EOF
+import datetime
+import sys
+from pathlib import Path
+import requests
+import re
+
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
+
+owner = "ktorio"
+repo = "ktor-cli"
+token = "$VCSToken"
+tag = "${'$'}(git describe --tags --contains --abbrev=7 2>/dev/null)"
+
+if not re.match(r"\d+\.\d+\.\d+", tag):
+    eprint(f"Expected tag in the format *.*.*, got '{tag}'")
+    exit(1)
+
+print(f"Releasing {tag}...")
+
+response = requests.post(f"https://api.github.com/repos/{owner}/{repo}/releases", headers={
+    "Accept": "application/vnd.github+json",
+    "Authorization": f"Bearer {token}",
+    "X-GitHub-Api-Version": "2022-11-28",
+}, json={
+    "tag_name": f"{tag}",
+    "name": f"{tag}",
+    "body": f"> Published {datetime.datetime.now().strftime('%d %B %Y')}",
+    "draft": False,
+    "prerelease": False,
+    "generate_release_notes": False
+})
+
+if response.status_code != 201:
+    eprint(f"GitHub release creation failed with {response.status_code} status, expected 201")
+    eprint(response.text)
+    sys.exit(1)
+
+json_response = response.json()
+release_id = json_response["id"]
+release_url = json_response["html_url"]
+
+print(f"Release {release_id} has been created")
+print("Uploading assets...")
+
+assets = {
+    f"ktor_linux_amd64": 'build/linux/amd64/ktor',
+    f"ktor_linux_arm64": 'build/linux/arm64/ktor',
+    f"ktor_macos_amd64": 'build/darwin/arm64/ktor',
+    f"ktor_macos_arm64": 'build/darwin/arm64/ktor',
+    f"ktor_windows_amd64": 'build/windows/amd64/ktor.exe',
+    f"ktor_windows_installer_amd64": 'build/windows/amd64/ktor-installer.msi',
+}
+
+for name, filepath in assets.items():
+    response = requests.post(
+        f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={name}", headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/octet-stream",
+        }, data=Path(filepath).read_bytes())
+
+    if response.status_code != 201:
+        eprint(f"Assets upload failed with status {response.status_code}, expected 201")
+        eprint(response.text)
+        sys.exit(1)
+
+    print(f"Asset {name} has been uploaded")
+
+print(f"Release {release_url} has been successfully created")
+
+EOF
             """.trimIndent()
             workingDir = "."
         }
@@ -40,7 +124,7 @@ object ReleaseGithub: BuildType({
     }
 })
 
-object PublishWinGet : BuildType({
+object PackMsiInstaller : BuildType({
     id("PackMsiInstallerCLI")
     name = "Pack MSI installer"
 
