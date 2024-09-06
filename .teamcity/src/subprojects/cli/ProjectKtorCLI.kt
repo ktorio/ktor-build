@@ -89,7 +89,7 @@ print("Uploading assets...")
 assets = {
     f"ktor_linux_amd64": 'build/linux/amd64/ktor',
     f"ktor_linux_arm64": 'build/linux/arm64/ktor',
-    f"ktor_macos_amd64": 'build/darwin/arm64/ktor',
+    f"ktor_macos_amd64": 'build/darwin/amd64/ktor',
     f"ktor_macos_arm64": 'build/darwin/arm64/ktor',
     f"ktor_windows_amd64": 'build/windows/amd64/ktor.exe',
     f"ktor_windows_installer_amd64": 'build/windows/amd64/ktor-installer.msi',
