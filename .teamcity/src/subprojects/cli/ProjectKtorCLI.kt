@@ -139,7 +139,7 @@ object PackMsiInstaller : BuildType({
 
     dependencies {
         artifacts(BuildCLI.id!!) {
-            artifactRules = "**/windows/amd64/ktor.exe => ./build"
+            artifactRules = "./build/windows/amd64/ktor.exe => ./build/"
         }
     }
 
@@ -175,7 +175,7 @@ object BuildCLI: BuildType({
         root(VCSKtorCLI)
     }
 
-    artifactRules = "+:./build/**/ktor*"
+    artifactRules = "+:./build => ./build"
 
     steps {
         script {
