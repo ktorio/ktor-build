@@ -46,7 +46,7 @@ object ProjectReleaseAPIDocs : Project({
         }
 
         requirements {
-            require(os = macOS.agentString, minMemoryMB = 12000)
+            require(os = macOS.agentString)
         }
     }
 })
