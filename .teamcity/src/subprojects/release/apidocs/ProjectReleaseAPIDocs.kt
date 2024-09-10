@@ -7,6 +7,7 @@ import subprojects.VCSAPIDocs
 import subprojects.VCSToken
 import subprojects.VCSUsername
 import subprojects.build.core.*
+import subprojects.build.macOS
 import subprojects.release.*
 
 object ProjectReleaseAPIDocs : Project({
@@ -45,7 +46,7 @@ object ProjectReleaseAPIDocs : Project({
         }
 
         requirements {
-            require(os = "Linux", minMemoryMB = 12000)
+            require(os = macOS.agentString, minMemoryMB = 12000)
         }
     }
 })
