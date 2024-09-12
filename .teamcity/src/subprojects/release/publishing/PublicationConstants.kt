@@ -15,7 +15,8 @@ internal val MACOS_PUBLISH_TASKS = listOf(
     "publishWatchosArm32PublicationToMavenRepository",
     "publishWatchosArm64PublicationToMavenRepository",
     "publishWatchosX64PublicationToMavenRepository",
-    "publishWatchosSimulatorArm64PublicationToMavenRepository"
+    "publishWatchosSimulatorArm64PublicationToMavenRepository",
+    "publishWatchosDeviceArm64PublicationToMavenRepository",
 )
 
 internal val MACOS_GRADLE_ARGS =
