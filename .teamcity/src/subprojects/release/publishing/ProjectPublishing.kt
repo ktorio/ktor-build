@@ -1,6 +1,6 @@
 package subprojects.release.publishing
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
 import subprojects.build.core.*
 import subprojects.release.*

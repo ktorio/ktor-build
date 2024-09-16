@@ -1,6 +1,6 @@
 package subprojects.build.plugin
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.*
 
 object ProjectPlugin : Project({
     id("ProjectKtorPlugin")

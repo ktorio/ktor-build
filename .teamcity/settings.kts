@@ -1,13 +1,13 @@
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
-import subprojects.cli.*
 import subprojects.benchmarks.*
 import subprojects.build.*
+import subprojects.cli.*
 import subprojects.eap.*
 import subprojects.kotlinx.html.*
+import subprojects.plugins.*
 import subprojects.release.*
 import subprojects.release.space.*
-import subprojects.plugins.*
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -30,7 +30,7 @@ To debug in IntelliJ Idea, open the 'Maven Projects' tool window (View
 (Plugins -> teamcity-configs -> teamcity-configs:generate), the
 'Debug' option is available in the context menu for the task.
 */
-version = "2021.2"
+version = "2024.03"
 
 project {
     description = "Ktor Framework"

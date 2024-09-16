@@ -1,10 +1,9 @@
 package subprojects.build
 
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
+import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import subprojects.*
 import subprojects.build.core.*
 import subprojects.build.docsamples.*

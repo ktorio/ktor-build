@@ -1,8 +1,7 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
-import subprojects.build.defaultTimeouts
 import subprojects.build.*
 import subprojects.release.publishing.*
 

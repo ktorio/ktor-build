@@ -1,10 +1,10 @@
 package subprojects.release
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import subprojects.SIGN_KEY_PUBLIC
+import jetbrains.buildServer.configs.kotlin.*
+import subprojects.*
 import subprojects.build.*
-import subprojects.release.apidocs.ProjectReleaseAPIDocs
-import subprojects.release.generator.ProjectReleaseGeneratorWebsite
+import subprojects.release.apidocs.*
+import subprojects.release.generator.*
 import subprojects.release.publishing.*
 import java.io.*
 

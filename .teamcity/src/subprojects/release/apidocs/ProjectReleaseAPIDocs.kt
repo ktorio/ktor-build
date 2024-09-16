@@ -1,13 +1,10 @@
 package subprojects.release.apidocs
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.CheckoutMode
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import subprojects.VCSAPIDocs
-import subprojects.VCSToken
-import subprojects.VCSUsername
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import subprojects.*
+import subprojects.build.*
 import subprojects.build.core.*
-import subprojects.build.macOS
 import subprojects.release.*
 
 object ProjectReleaseAPIDocs : Project({

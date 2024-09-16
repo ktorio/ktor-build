@@ -1,12 +1,10 @@
 package subprojects.build.generator
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.PullRequests
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.commitStatusPublisher
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.pullRequests
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import subprojects.VCSPluginRegistry
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
+import subprojects.*
 
 object TestPluginRegistry : BuildType({
     id("KtorPluginRegistryVerify")

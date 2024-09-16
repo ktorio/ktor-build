@@ -1,7 +1,7 @@
 package subprojects.release
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import subprojects.*
 
 var samplesBuild: BuildType? = null

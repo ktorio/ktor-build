@@ -1,15 +1,14 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v10.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.*
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.*
 
 class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
-    id("KtorMatrixStressTest_${osJVMComboEntry.osEntry.name}${osJVMComboEntry.jdkEntry.name}".toExtId())
+    id("KtorMatrixStressTest_${osJVMComboEntry.osEntry.name}${osJVMComboEntry.jdkEntry.name}".toId())
     name = "Stress Test on ${osJVMComboEntry.osEntry.name} and ${osJVMComboEntry.jdkEntry.name}"
     vcs {
         root(VCSCore)
@@ -36,7 +35,7 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
         }
     }
     features {
-        perfmon {  }
+        perfmon { }
     }
     requirements {
         require(os = osJVMComboEntry.osEntry.agentString, minMemoryMB = 7000)

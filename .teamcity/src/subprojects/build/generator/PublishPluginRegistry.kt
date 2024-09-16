@@ -1,10 +1,9 @@
 package subprojects.build.generator
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import subprojects.VCSPluginRegistry
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
+import subprojects.*
 
 object PublishPluginRegistry : BuildType({
     id("KtorPluginRegistry")

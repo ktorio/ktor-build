@@ -1,8 +1,8 @@
 package subprojects.cli
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildFeatures.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*

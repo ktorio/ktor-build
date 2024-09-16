@@ -1,13 +1,9 @@
 package subprojects.release.generator
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.CheckoutMode
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.nodeJS
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import subprojects.VCSKtorGeneratorWebsite
-import subprojects.VCSToken
-import subprojects.VCSUsername
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
+import subprojects.*
 
 object ProjectReleaseGeneratorWebsite : Project({
     id("ProjectKtorReleaseGeneratorWebsite")
