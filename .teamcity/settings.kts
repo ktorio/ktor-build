@@ -66,6 +66,6 @@ project {
     subProject(ProjectPublishEAPToSpace)
     subProject(ProjectPublishReleaseToSpace)
     subProject(PublishKotlinxHtml)
-    subProject(ProjectKtorCLI)
-    subProject(ProjectKtorGradlePlugin)
+    subProject(ProjectCLI)
+    subProject(ProjectGradlePlugin)
 }

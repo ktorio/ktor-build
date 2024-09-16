@@ -7,7 +7,7 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 
-object ProjectKtorCLI : Project({
+object ProjectCLI : Project({
     id("ProjectKtorCLI")
     name = "Ktor CLI"
 

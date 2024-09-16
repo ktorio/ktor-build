@@ -13,7 +13,6 @@
   </parent>
 
   <repositories>
-
     <repository>
       <id>jetbrains-all</id>
       <url>https://download.jetbrains.com/teamcity-repository</url>
@@ -118,6 +117,7 @@
       <version>${kotlin.version}</version>
       <scope>compile</scope>
     </dependency>
+
     <dependency>
       <groupId>org.reflections</groupId>
       <artifactId>reflections</artifactId>
@@ -132,6 +132,15 @@
       <groupId>org.jetbrains.kotlin</groupId>
       <artifactId>kotlin-test-junit</artifactId>
       <version>${kotlin.version}</version>
+    </dependency>
+    <!--
+      Tests fail with "ClassNotFoundException: jetbrains.buildServer.configs.ValidationException" without this dependency.
+      Issue: TW-73943
+    -->
+    <dependency>
+      <groupId>org.jetbrains.teamcity</groupId>
+      <artifactId>server-api</artifactId>
+      <version>${teamcity.dsl.version}</version>
     </dependency>
   </dependencies>
 </project>
