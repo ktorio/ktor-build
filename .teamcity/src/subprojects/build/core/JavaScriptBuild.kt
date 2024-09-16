@@ -11,9 +11,15 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     name = "JavaScript on ${jsEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+
     vcs {
         root(VCSCore)
     }
+
+    triggers {
+        onBuildTargetChanges(BuildTarget.JS)
+    }
+
     steps {
         gradle {
             name = "Build Js"

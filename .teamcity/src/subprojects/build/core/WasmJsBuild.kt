@@ -11,11 +11,16 @@ class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
     name = "WasmJS on ${jsEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+
     vcs {
         root(VCSCore)
     }
-    steps {
 
+    triggers {
+        onBuildTargetChanges(BuildTarget.WasmJS)
+    }
+
+    steps {
         gradle {
             name = "Build Wasm Js"
             tasks = "cleanWasmJsTest wasmJsTest --no-parallel --continue --info -Penable-js-tests"

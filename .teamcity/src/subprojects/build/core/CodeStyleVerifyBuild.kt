@@ -32,11 +32,9 @@ object CodeStyleVerify : BuildType({
             // we only verify *.kt, project and plugin configs
             triggerRules = """
                 +:**/*.kt
-                +:gradle/codestyle.gradle*
-                +:build.gradle*
-                +:**/*.gradle*
-                +:gradle.properties
-                +:settings.gradle
+                +:**/*.gradle
+                +:**/*.gradle.kts
+                +:**/gradle.properties
                 +:.editorconfig
             """.trimIndent()
         }
