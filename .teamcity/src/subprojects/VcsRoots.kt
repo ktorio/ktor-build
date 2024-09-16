@@ -172,8 +172,12 @@ fun Triggers.nightlyEAPBranchesTrigger() {
 
 fun Triggers.onBuildTargetChanges(target: BuildTarget) {
     val targetSources = target.sourceSets.joinToString("\n") { sourceSet ->
-        // Include all possible suffixes like Arm64/X64, Main/Test, Simulator/Device
-        "+:**/$sourceSet*/**"
+        // Include the sourceSet itself and all possible suffixes like Arm64/X64, Main/Test, Simulator/Device
+        """
+            +:**/$sourceSet/**
+            +:**/$sourceSet*/**
+        """.trimIndent()
+
     }
     val gradle = """
         +:**/*.gradle
