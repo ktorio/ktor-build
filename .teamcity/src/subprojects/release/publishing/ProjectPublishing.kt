@@ -37,6 +37,7 @@ object ProjectPublishing : Project({
                 PublishMacOSNativeToMaven
             ),
             withTrigger = TriggerType.NONE,
+            buildNumber = releaseVersion,
         )
     }
 })

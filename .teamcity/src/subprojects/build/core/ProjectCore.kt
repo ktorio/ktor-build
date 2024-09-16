@@ -62,12 +62,13 @@ fun BuildType.createCompositeBuild(
     buildName: String,
     vcsRoot: VcsRoot,
     builds: List<BuildType>,
-    withTrigger: TriggerType = TriggerType.NONE
+    withTrigger: TriggerType = TriggerType.NONE,
+    buildNumber: String = "%build.counter%-%teamcity.build.branch%",
 ) {
     id(buildId)
     name = buildName
     type = BuildTypeSettings.Type.COMPOSITE
-    buildNumberPattern = releaseVersion
+    buildNumberPattern = buildNumber
 
     vcs {
         root(vcsRoot)
