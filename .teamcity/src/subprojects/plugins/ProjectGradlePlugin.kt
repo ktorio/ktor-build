@@ -5,7 +5,7 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
-object ProjectKtorGradlePlugin : Project({
+object ProjectGradlePlugin : Project({
     id("ProjectKtorGradlePlugin")
     name = "Ktor Gradle Plugin"
     description = "Publish Ktor Gradle Plugin"
