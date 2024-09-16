@@ -1,13 +1,12 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v10.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
 object JPMSCheckBuild: BuildType({
-    id("JPMSCheck".toExtId())
+    id("JPMSCheck".toId())
     name = "Check JPMS"
     vcs {
         root(VCSCore)

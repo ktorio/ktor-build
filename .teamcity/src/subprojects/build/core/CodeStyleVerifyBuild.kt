@@ -1,13 +1,11 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnMetric
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnMetricChange
-import jetbrains.buildServer.configs.kotlin.v2019_2.triggers.vcs
-import subprojects.VCSCore
-import subprojects.build.githubCommitStatusPublisher
-import subprojects.build.java11
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.failureConditions.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
+import subprojects.*
+import subprojects.build.*
 
 object CodeStyleVerify : BuildType({
     id("KtorCodeStyleVerifyKtLint")

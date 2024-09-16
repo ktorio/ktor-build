@@ -1,15 +1,10 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v10.toExtId
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.powerShell
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import subprojects.VCSCore
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import subprojects.*
 import subprojects.build.*
-import subprojects.release.nativeLinuxBuild
-import subprojects.release.nativeMacOSBuild
-import subprojects.release.nativeWindowsBuild
+import subprojects.release.*
 
 val windowsSoftware = """
                 ${'$'}env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
@@ -31,7 +26,7 @@ val macSoftware = """
 """.trimIndent()
 
 class NativeBuild(private val osEntry: OSEntry) : BuildType({
-    id("KtorMatrixNative_${osEntry.name}_${osEntry.osArch ?: "x64"}".toExtId())
+    id("KtorMatrixNative_${osEntry.name}_${osEntry.osArch ?: "x64"}".toId())
     name = "Native on ${osEntry.name} ${osEntry.osArch ?: "x64"}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
@@ -59,10 +54,12 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
                 }
                 defineTCPPortRange()
             }
+
             linux -> script {
                 name = "Obtain Library Dependencies"
                 scriptContent = linuxSoftware
             }
+
             macOS -> script {
                 name = "Obtain Library Dependencies"
                 scriptContent = macSoftware

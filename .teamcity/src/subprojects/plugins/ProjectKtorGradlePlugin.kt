@@ -1,12 +1,9 @@
 package subprojects.plugins
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import subprojects.VCSKtorBuildPlugins
-import subprojects.build.defaultTimeouts
-import subprojects.build.githubCommitStatusPublisher
-import subprojects.nightlyEAPBranchesTrigger
-import subprojects.onChangeAllBranchesTrigger
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import subprojects.*
+import subprojects.build.*
 
 object ProjectKtorGradlePlugin : Project({
     id("ProjectKtorGradlePlugin")

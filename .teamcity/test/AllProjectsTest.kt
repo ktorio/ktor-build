@@ -1,25 +1,20 @@
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
+import jetbrains.buildServer.configs.kotlin.*
 import org.junit.Test
-import org.reflections.Reflections
-import org.reflections.scanners.Scanners
-import org.reflections.util.ClasspathHelper
-import org.reflections.util.ConfigurationBuilder
-import org.reflections.util.FilterBuilder
-import subprojects.build.ProjectBuild
-import subprojects.build.core.CodeStyleVerify
-import subprojects.build.core.ProjectCore
-import subprojects.build.docsamples.ProjectDocSamples
-import subprojects.build.generator.ProjectGenerator
-import subprojects.build.plugin.ProjectPlugin
-import subprojects.build.samples.ProjectSamples
-import subprojects.plugins.ProjectKtorGradlePlugin
-import subprojects.release.ProjectRelease
-import subprojects.release.apidocs.ProjectReleaseAPIDocs
-import subprojects.release.generator.ProjectReleaseGeneratorWebsite
-import subprojects.release.publishing.ProjectPublishing
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
-import kotlin.test.assertTrue
+import org.reflections.*
+import org.reflections.scanners.*
+import org.reflections.util.*
+import subprojects.build.*
+import subprojects.build.core.*
+import subprojects.build.docsamples.*
+import subprojects.build.generator.*
+import subprojects.build.plugin.*
+import subprojects.build.samples.*
+import subprojects.plugins.*
+import subprojects.release.*
+import subprojects.release.apidocs.*
+import subprojects.release.generator.*
+import subprojects.release.publishing.*
+import kotlin.test.*
 
 class AllProjectsTest {
     @Test

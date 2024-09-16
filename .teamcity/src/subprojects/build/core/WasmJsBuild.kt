@@ -1,14 +1,13 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v10.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
 
 class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
-    id("KtorMatrixWasmJs_${jsEntry.name}".toExtId())
+    id("KtorMatrixWasmJs_${jsEntry.name}".toId())
     name = "WasmJS on ${jsEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)

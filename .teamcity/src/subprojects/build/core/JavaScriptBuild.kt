@@ -1,14 +1,13 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v10.*
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
 
 class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
-    id("KtorMatrixJavaScript_${jsEntry.name}".toExtId())
+    id("KtorMatrixJavaScript_${jsEntry.name}".toId())
     name = "JavaScript on ${jsEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)

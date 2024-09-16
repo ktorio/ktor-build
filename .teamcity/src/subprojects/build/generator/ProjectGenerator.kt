@@ -1,6 +1,6 @@
 package subprojects.build.generator
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.*
+import jetbrains.buildServer.configs.kotlin.*
 
 object ProjectGenerator : Project({
     id("ProjectKtorGenerator")

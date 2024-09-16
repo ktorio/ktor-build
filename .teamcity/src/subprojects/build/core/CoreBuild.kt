@@ -1,16 +1,13 @@
 package subprojects.build.core
 
-import jetbrains.buildServer.configs.kotlin.v10.toExtId
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.gradle
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import subprojects.VCSCore
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import subprojects.*
 import subprojects.build.*
-import subprojects.release.jvmBuild
+import subprojects.release.*
 
 class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
-    id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toExtId())
+    id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toId())
     name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)

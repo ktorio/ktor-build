@@ -1,7 +1,7 @@
 package subprojects.release.publishing
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 
 internal fun BuildSteps.createSonatypeRepository(task: String) {
     script {
