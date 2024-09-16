@@ -6,14 +6,20 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
 
-class CoreBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
+class JDKBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toId())
     name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+
     vcs {
         root(VCSCore)
     }
+
+    triggers {
+        onBuildTargetChanges(BuildTarget.JVM)
+    }
+
     steps {
         when (osJdkEntry.osEntry) {
             windows -> {

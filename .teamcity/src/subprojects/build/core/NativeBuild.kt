@@ -30,9 +30,15 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
     name = "Native on ${osEntry.name} ${osEntry.osArch ?: "x64"}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+
     vcs {
         root(VCSCore)
     }
+
+    triggers {
+        onBuildTargetChanges(BuildTarget.Native(osEntry))
+    }
+
     steps {
         when (osEntry) {
             windows -> {
