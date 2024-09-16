@@ -19,9 +19,7 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
                 hour = 8
                 timezone = "Europe/Moscow"
             }
-            branchFilter = """
-                    +:$defaultBranch
-                    """.trimIndent()
+            branchFilter = "+:$defaultBranch"
             triggerBuild = always()
             param("revisionRuleBuildBranch", "<default>")
         }

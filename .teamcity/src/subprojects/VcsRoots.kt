@@ -5,10 +5,10 @@ import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.vcs.*
 import subprojects.build.*
 
-const val defaultBranch = "main"
+const val defaultBranch = "refs/heads/main"
 const val VCSUsername = "hhariri"
 const val VCSToken = "%github.token%"
-const val DefaultAndPullRequests = "+:refs/heads/$defaultBranch\n+:refs/(pull/*)/head"
+const val DefaultAndPullRequests = "+:$defaultBranch\n+:refs/(pull/*)/head"
 const val AllBranchesAndPullRequests = "+:refs/heads/*\n+:refs/(pull/*)/head"
 
 object VCSCore : PasswordVcsRoot({
@@ -22,7 +22,7 @@ object VCSCoreEAP : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor.git"
     branchSpec = """
         +:refs/heads/(*-eap)
-        +:refs/heads/$defaultBranch
+        +:$defaultBranch
     """.trimIndent()
 })
 
@@ -74,7 +74,7 @@ object VCSAPIDocs : PasswordVcsRoot({
 object VCSKotlinxHtml : PasswordVcsRoot({
     name = "Kotlinx.html Library"
     url = "https://github.com/Kotlin/kotlinx.html.git"
-    branch = "master"
+    branch = "refs/heads/master"
     branchSpec = AllBranchesAndPullRequests
 })
 
@@ -98,14 +98,13 @@ object VCSKtorGeneratorBackend : PasswordVcsRoot({
 object VCSKtorGeneratorWebsite : PasswordVcsRoot({
     name = "Ktor Generator Website"
     url = "https://github.com/ktorio/ktor-generator-website.git"
-    branch = "master"
+    branch = "refs/heads/master"
     branchSpec = DefaultAndPullRequests
 })
 
 object VCSKtorCLI : PasswordVcsRoot({
     name = "Ktor CLI"
     url = "https://github.com/ktorio/ktor-cli.git"
-    branch = "main"
     branchSpec = DefaultAndPullRequests
 })
 
