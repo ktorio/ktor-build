@@ -58,7 +58,7 @@ object ReleaseBuild : BuildType({
             vcsRootId = "${VCSCore.id}"
             labelingPattern = "%reverse.dep.*.releaseVersion%"
             successfulOnly = true
-            branchFilter = "+:$defaultBranch"
+            branchFilter = "+:<default>"
         }
     }
 
