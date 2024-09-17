@@ -135,8 +135,8 @@ fun Triggers.onChangeDefaultOrPullRequest() {
         triggerRules = """
             -:*.md
             -:.gitignore
-            -:user=renovate[bot]:.
-            -:user=dependabot[bot]:.
+            -:user=*+renovate[bot]:.
+            -:user=*+dependabot[bot]:.
         """.trimIndent()
         branchFilter = """
             +:pull/*
@@ -150,8 +150,8 @@ fun Triggers.onChangeAllBranchesTrigger() {
         triggerRules = """
             -:*.md
             -:.gitignore
-            -:user=renovate[bot]:.
-            -:user=dependabot[bot]:.
+            -:user=*+renovate[bot]:.
+            -:user=*+dependabot[bot]:.
         """.trimIndent()
         branchFilter = """
             +:*
@@ -177,8 +177,8 @@ fun Triggers.onBuildTargetChanges(target: BuildTarget) {
             +:**/$sourceSet/**
             +:**/$sourceSet*/**
         """.trimIndent()
-
     }
+
     val gradle = """
         +:**/*.gradle
         +:**/*.gradle.kts
