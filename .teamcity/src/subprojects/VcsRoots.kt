@@ -115,7 +115,7 @@ object VCSKtorBuildPlugins : PasswordVcsRoot({
 })
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
-    userNameStyle = UserNameStyle.EMAIL
+    userNameStyle = UserNameStyle.USERID
     branch = defaultBranch
 
     init()
