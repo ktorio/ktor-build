@@ -227,7 +227,8 @@ private fun BuildSteps.buildFor(os: String, arch: String) {
         commandType = other {
             subCommand = "run"
             commandArgs = goCommand(
-                "go build -v -o build/$os/$arch/ktor$ext github.com/ktorio/ktor-cli/cmd/ktor",
+                "go build -v -ldflags=-X\\ main.Version=\$(git describe --tags --contains --always --abbrev=7)" +
+                    " -o build/$os/$arch/ktor$ext github.com/ktorio/ktor-cli/cmd/ktor",
                 mapOf("GOOS" to os, "GOARCH" to arch, "CGO_ENABLED" to "0")
             )
         }
