@@ -24,6 +24,8 @@ object ReleaseGithub: BuildType({
         root(VCSKtorCLI)
     }
 
+    artifactRules = "+:./installer_download_url.txt"
+
     dependencies {
         artifacts(BuildCLI.id!!) {
             artifactRules = "./build => ./build"
@@ -95,6 +97,7 @@ assets = {
     f"ktor_installer.msi": 'build/windows/amd64/ktor-installer.msi',
 }
 
+installer_download_url = ""
 for name, filepath in assets.items():
     response = requests.post(
         f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={name}", headers={
@@ -108,8 +111,14 @@ for name, filepath in assets.items():
         eprint(f"Assets upload failed with status {response.status_code}, expected 201")
         eprint(response.text)
         sys.exit(1)
+        
+    if name == "ktor_installer.msi":
+        installer_download_url = response["browser_download_url"]
 
     print(f"Asset {name} has been uploaded")
+
+with open("installer_download_url.txt", "w") as f:
+    f.write(installer_download_url)
 
 print(f"Release {release_url} has been successfully created")
 
@@ -134,7 +143,6 @@ object PackMsiInstaller : BuildType({
 
     artifactRules = """
         +:./*.msi
-        +:./checksum.txt
     """.trimIndent()
 
     dependencies {
