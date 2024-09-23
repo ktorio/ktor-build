@@ -3,7 +3,6 @@ package subprojects.build.core
 import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.release.publishing.*
 
 object ProjectCore : Project({
     id("ProjectKtorCore")
@@ -13,15 +12,6 @@ object ProjectCore : Project({
     params {
         defaultTimeouts()
     }
-
-    val osJdks: List<OSJDKEntry> = listOf(
-        OSJDKEntry(linux, java8),
-        OSJDKEntry(linux, java11),
-        OSJDKEntry(linux, java17),
-        OSJDKEntry(windows, java11),
-        OSJDKEntry(macOS, java8),
-        OSJDKEntry(macOS, java11)
-    )
 
     val jpmsCheck = JPMSCheckBuild
     val apiCheck = APICheckBuild
