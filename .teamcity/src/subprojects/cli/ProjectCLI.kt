@@ -14,6 +14,93 @@ object ProjectCLI : Project({
     buildType(BuildCLI)
     buildType(PackMsiInstaller)
     buildType(ReleaseGithub)
+    buildType(ReleaseBrew)
+    buildType(ReleaseWinGet)
+})
+
+object ReleaseWinGet: BuildType({
+    id("ReleaseWinGetCLI")
+    name = "Release to WinGet"
+
+    vcs {
+        root(VCSKtorCLI)
+    }
+
+    dependencies {
+        snapshot(ReleaseGithub) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+
+        artifacts(ReleaseGithub.id!!) {
+            buildRule = lastFinished()
+            artifactRules = "./installer_download_url.txt => ."
+        }
+    }
+
+    steps {
+        script {
+            name = "Release via wingetcreate"
+            scriptContent = """
+                powershell -NoProfile -Command ^
+    Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe; ^
+    ${'$'}version = (git describe --tags --contains --abbrev=7).TrimEnd(); ^
+    ${'$'}url = (Get-Content installer_download_url.txt -Raw).TrimEnd(); ^
+    .\wingetcreate.exe update --submit --token $VCSToken --urls ${'$'}url --version ${'$'}version JetBrains.KtorCLI
+
+            """.trimIndent()
+            workingDir = "."
+        }
+    }
+
+    requirements {
+        require(os = windows.agentString)
+    }
+})
+
+object ReleaseBrew: BuildType({
+    id("ReleaseBrewCLI")
+    name = "Release to Homebrew"
+
+    vcs {
+        root(VCSKtorCLI)
+    }
+
+    dependencies {
+        snapshot(ReleaseGithub) {
+           reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+    }
+
+    steps {
+        script {
+            name = "Install brew"
+            scriptContent = """
+                /bin/bash -c "${'$'}(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            """.trimIndent()
+            workingDir = "."
+        }
+
+        script {
+            name = "Bump version"
+            scriptContent = """
+                git config --global user.email "aleksei.tirman@jetbrains.com"
+                git config --global user.name "Aleksei Tirman"
+                
+                BREW_BIN=/home/linuxbrew/.linuxbrew/bin/brew
+                VERSION=${'$'}(git describe --tags --contains --abbrev=7)
+                URL="https://github.com/ktorio/ktor-cli/archive/refs/tags/${'$'}VERSION.tar.gz"
+                export HOMEBREW_GITHUB_API_TOKEN="$VCSToken"
+                ${'$'}BREW_BIN update --force --quiet
+                ${'$'}BREW_BIN tap homebrew/core --force
+                ${'$'}BREW_BIN bump-formula-pr --strict --online --no-browse --fork-org=ktorio --version=${'$'}VERSION --url=${'$'}URL ktor
+            """.trimIndent()
+            workingDir = "."
+        }
+    }
+
+    requirements {
+        require(os = linux.agentString)
+    }
 })
 
 object ReleaseGithub: BuildType({
@@ -31,7 +118,12 @@ object ReleaseGithub: BuildType({
             artifactRules = "./build => ./build"
         }
 
+        snapshot(PackMsiInstaller) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+
         artifacts(PackMsiInstaller.id!!) {
+            buildRule = lastFinished()
             artifactRules = "./*.msi => ./build/windows/amd64/"
         }
     }
@@ -52,10 +144,44 @@ import re
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
+def save_installer_url(url):
+    with open("installer_download_url.txt", "w") as f:
+        f.write(url)
+
 owner = "ktorio"
 repo = "ktor-cli"
 token = "$VCSToken"
 tag = "${'$'}(git describe --tags --contains --abbrev=7 2>/dev/null)"
+
+def get_installer_url():
+    response = requests.get(f"https://api.github.com/repos/{owner}/{repo}/releases/tags/{tag}", headers={
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
+
+    if response.status_code != 200:
+        eprint(f"Cannot find release {tag}")
+        sys.exit(1)
+
+    id = response.json()['id']
+    response = requests.get(f"https://api.github.com/repos/{owner}/{repo}/releases/{id}/assets", headers={
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {token}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
+
+    if response.status_code != 200:
+        eprint(f"Cannot get release assets for release #{id}")
+        sys.exit(1)
+
+    for asset in response.json():
+        if asset['name'] == 'ktor_installer.msi':
+            return asset['browser_download_url']
+
+    eprint("Cannot find ktor_installer.msi asset")
+    sys.exit(1)
+
 
 if not re.match(r"\d+\.\d+\.\d+", tag):
     eprint(f"Expected tag in the format *.*.*, got '{tag}'")
@@ -75,6 +201,13 @@ response = requests.post(f"https://api.github.com/repos/{owner}/{repo}/releases"
     "prerelease": False,
     "generate_release_notes": False
 })
+
+if response.status_code == 422:
+    error_response = response.json()
+    if len(error_response['errors']) > 0 and error_response['errors'][0]['code'] == 'already_exists':
+        print("Release does already exist")
+        save_installer_url(get_installer_url())
+        sys.exit(0)
 
 if response.status_code != 201:
     eprint(f"GitHub release creation failed with {response.status_code} status, expected 201")
@@ -97,7 +230,6 @@ assets = {
     f"ktor_installer.msi": 'build/windows/amd64/ktor-installer.msi',
 }
 
-installer_download_url = ""
 for name, filepath in assets.items():
     response = requests.post(
         f"https://uploads.github.com/repos/{owner}/{repo}/releases/{release_id}/assets?name={name}", headers={
@@ -111,14 +243,11 @@ for name, filepath in assets.items():
         eprint(f"Assets upload failed with status {response.status_code}, expected 201")
         eprint(response.text)
         sys.exit(1)
-        
+
     if name == "ktor_installer.msi":
-        installer_download_url = response["browser_download_url"]
+        save_installer_url(response.json()["browser_download_url"])
 
     print(f"Asset {name} has been uploaded")
-
-with open("installer_download_url.txt", "w") as f:
-    f.write(installer_download_url)
 
 print(f"Release {release_url} has been successfully created")
 
