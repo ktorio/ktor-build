@@ -19,7 +19,7 @@ class DependenciesCheckBuild : BuildType({
             name = "Check Dependencies"
             buildFile = "build.gradle.kts"
             tasks = "snyk-test"
-            jdkHome = "%env.${java11.env}%"
+            jdkHome = "%env.${javaLTS.env}%"
         }
     }
 

@@ -171,7 +171,7 @@ fun BuildSteps.publish(gradleTask: String, gradleParams: String = "", os: String
         name = "Publish $gradleTask"
         tasks = "$gradleTask --i -PreleaseVersion=$releaseVersion $gradleParams" +
                 " --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
-        jdkHome = "%env.${java11.env}%"
+        jdkHome = "%env.${javaLTS.env}%"
         buildFile = "build.gradle.kts"
     }
     cleanupKeyFile(os)

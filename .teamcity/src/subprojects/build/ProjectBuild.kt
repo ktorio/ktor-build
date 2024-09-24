@@ -50,17 +50,24 @@ val windows = OSEntry(
 
 val operatingSystems = listOf(macOS, linux, windows)
 
-val java8 = JDKEntry("Java 8", "JDK_18")
-val java11 = JDKEntry("Java 11", "JDK_11")
+val java8 = JDKEntry("Java 8", "JDK_1_8")
 val java17 = JDKEntry("Java 17", "JDK_17_0")
+val java21 = JDKEntry("Java 21", "JDK_21_0")
+val javaLTS = java21
+
+val osJdks = listOf(
+    OSJDKEntry(linux, java8), // Minimal supported version
+    OSJDKEntry(linux, java17), // Version used to build Android projects
+    OSJDKEntry(linux, javaLTS), // Latest LTS
+)
 
 val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
 
 val javaScriptEngines = listOf(js)
 
 val stressTests = listOf(
-    OSJDKEntry(linux, java8),
-    OSJDKEntry(windows, java8)
+    OSJDKEntry(linux, javaLTS),
+    OSJDKEntry(windows, javaLTS)
 )
 
 object ProjectBuild : Project({
