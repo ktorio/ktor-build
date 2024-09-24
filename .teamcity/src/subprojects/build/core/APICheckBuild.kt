@@ -20,7 +20,7 @@ object APICheckBuild : BuildType({
             buildFile = "build.gradle.kts"
             name = "API Check"
             tasks = "apiCheck"
-            jdkHome = "%env.${java8.env}%"
+            jdkHome = "%env.${javaLTS.env}%"
         }
     }
     defaultBuildFeatures(VCSCore.id.toString())

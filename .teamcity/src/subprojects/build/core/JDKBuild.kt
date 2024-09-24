@@ -56,7 +56,7 @@ class JDKBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
     requirements {
         require(os = osJdkEntry.osEntry.agentString, minMemoryMB = 7000)
     }
-    if (osJdkEntry.osEntry == linux && osJdkEntry.jdkEntry == java11) {
+    if (osJdkEntry.osEntry == linux && osJdkEntry.jdkEntry == javaLTS) {
         jvmBuild = this
     }
 })

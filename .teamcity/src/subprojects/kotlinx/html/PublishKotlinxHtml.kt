@@ -157,7 +157,7 @@ private fun BuildType.releaseToSpace(platformName: String, agent: String, publis
                     "--i -Prelease -PreleaseVersion=%releaseVersion% --stacktrace --no-parallel " +
                     "-Porg.gradle.internal.network.retry.max.attempts=100000 " +
                     gradleParameters
-            jdkHome = "%env.${java11.env}%"
+            jdkHome = "%env.${javaLTS.env}%"
             buildFile = "build.gradle.kts"
         }
 
