@@ -31,12 +31,11 @@ object CodeStyleVerify : BuildType({
         vcs {
             // we only verify *.kt, project and plugin configs
             triggerRules = """
+                ${TriggerRules.GradleFiles}
                 +:**/*.kt
-                +:**/*.gradle
-                +:**/*.gradle.kts
-                +:**/gradle.properties
                 +:.editorconfig
             """.trimIndent()
+            branchFilter = BranchFilter.PullRequest
         }
     }
 

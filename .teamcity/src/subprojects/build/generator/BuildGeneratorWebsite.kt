@@ -62,9 +62,7 @@ object BuildGeneratorWebsite : BuildType({
 
     triggers {
         vcs {
-            branchFilter = """
-                +:refs/pull/*
-            """.trimIndent()
+            branchFilter = BranchFilter.PullRequest
         }
     }
 })

@@ -35,7 +35,7 @@ object PublishPluginRegistry : BuildType({
 
     triggers {
         vcs {
-            branchFilter = "+:<default>"
+            branchFilter = BranchFilter.DefaultBranch
         }
     }
 })

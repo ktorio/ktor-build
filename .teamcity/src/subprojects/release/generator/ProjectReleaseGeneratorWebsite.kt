@@ -68,7 +68,7 @@ object ProjectReleaseGeneratorWebsite : Project({
 
         triggers {
             vcs {
-                branchFilter = "+:<default>"
+                branchFilter = BranchFilter.DefaultBranch
             }
         }
     }

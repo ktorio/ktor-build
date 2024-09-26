@@ -77,9 +77,7 @@ object ProjectGradlePlugin : Project({
 
         vcs {
             root(VCSKtorBuildPlugins)
-            branchFilter = """
-                +:<default>
-            """.trimIndent()
+            branchFilter = BranchFilter.DefaultBranch
         }
 
         triggers {
