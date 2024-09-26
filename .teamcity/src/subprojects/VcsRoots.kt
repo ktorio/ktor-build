@@ -5,11 +5,12 @@ import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.vcs.*
 import subprojects.build.*
 
-const val defaultBranch = "refs/heads/main"
 const val VCSUsername = "hhariri"
 const val VCSToken = "%github.token%"
-const val DefaultAndPullRequests = "+:$defaultBranch\n+:refs/(pull/*)/head"
-const val AllBranchesAndPullRequests = "+:refs/heads/*\n+:refs/(pull/*)/head"
+
+private const val defaultBranch = "refs/heads/(main)"
+private const val DefaultAndPullRequests = "+:$defaultBranch\n+:refs/(pull/*)/head"
+private const val AllBranchesAndPullRequests = "+:refs/heads/*\n+:refs/(pull/*)/head"
 
 object VCSCore : PasswordVcsRoot({
     name = "Ktor Core"

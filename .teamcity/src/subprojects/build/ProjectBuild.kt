@@ -127,14 +127,15 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
 fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
     pullRequests {
         vcsRootExtId = rootId
+
         provider = github {
             authType = token {
                 token = VCSToken
             }
             filterTargetBranch = """
-            +:*
-            -:pull/*
-        """.trimIndent()
+                +:refs/heads/*
+                -:refs/pull/*/head
+            """.trimIndent()
             filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
         }
     }
