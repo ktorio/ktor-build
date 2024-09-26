@@ -1,4 +1,5 @@
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.projectFeatures.*
 import subprojects.*
 import subprojects.benchmarks.*
 import subprojects.build.*
@@ -58,6 +59,16 @@ project {
     // DO NOT REMOVE
     params {
         param("teamcity.ui.settings.readOnly", "true")
+    }
+
+    features {
+        untrustedBuildsSettings {
+            id = "UntrustedBuildsPolicy"
+            defaultAction = UntrustedBuildsSettings.DefaultAction.APPROVE
+            approvalRules = "group:ALL_USERS_GROUP:1"
+            manualRunsApproved = true
+            enableLog = true
+        }
     }
 
     subProject(ProjectBuild)

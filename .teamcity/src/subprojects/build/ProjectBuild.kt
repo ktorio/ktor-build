@@ -133,7 +133,7 @@ fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
                 +:refs/heads/*
                 -:refs/pull/*/head
             """.trimIndent()
-            filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
+            filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
         }
     }
 }

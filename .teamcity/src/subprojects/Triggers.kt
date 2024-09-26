@@ -15,7 +15,7 @@ import subprojects.build.*
 object BranchFilter {
     const val AllBranches = "+:*"
     const val DefaultBranch = "+:<default>"
-    const val PullRequest = "+:pull/*"
+    const val PullRequest = "+pr:*"
     const val DefaultOrPullRequest = "$DefaultBranch\n$PullRequest"
 }
 
