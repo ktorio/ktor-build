@@ -1,7 +1,6 @@
 package subprojects.cli
 
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
@@ -347,13 +346,7 @@ object BuildCLI: BuildType({
         require(os = linux.agentString)
     }
 
-    features {
-        perfmon {
-        }
-
-        githubPullRequestsLoader(VCSKtorCLI.id.toString())
-        githubCommitStatusPublisher(VCSKtorCLI.id.toString())
-    }
+    defaultBuildFeatures(VCSKtorCLI.id.toString())
 })
 
 private fun BuildSteps.buildFor(os: String, arch: String) {

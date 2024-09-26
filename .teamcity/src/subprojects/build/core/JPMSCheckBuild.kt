@@ -8,12 +8,15 @@ import subprojects.build.*
 object JPMSCheckBuild: BuildType({
     id("JPMSCheck".toId())
     name = "Check JPMS"
+
     vcs {
         root(VCSCore)
     }
+
     triggers {
         onChangeDefaultOrPullRequest()
     }
+
     steps {
         gradle {
             buildFile = "build.gradle.kts"
@@ -22,6 +25,7 @@ object JPMSCheckBuild: BuildType({
             jdkHome = "%env.${javaLTS.env}%"
         }
     }
+
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {

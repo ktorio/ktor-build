@@ -31,11 +31,13 @@ object ProjectCore : Project({
 
     buildType {
         allowExternalStatus = true
-        createCompositeBuild("KtorCore_All", "Build All Core", VCSCore, allBuilds, withTrigger = TriggerType.VERIFICATION)
-
-        features {
-            githubCommitStatusPublisher(VCSSamples.id.toString())
-        }
+        createCompositeBuild(
+            buildId = "KtorCore_All",
+            buildName = "Build All Core",
+            vcsRoot = VCSCore,
+            builds = allBuilds,
+            withTrigger = TriggerType.VERIFICATION,
+        )
     }
 
     buildType(CodeStyleVerify)
@@ -63,6 +65,7 @@ fun BuildType.createCompositeBuild(
     vcs {
         root(vcsRoot)
     }
+
     triggers {
         when (withTrigger) {
             TriggerType.ALL_BRANCHES -> onChangeAllBranchesTrigger()
@@ -70,6 +73,7 @@ fun BuildType.createCompositeBuild(
             TriggerType.NONE -> {}
         }
     }
+
     dependencies {
         builds.mapNotNull { it.id }.forEach { id ->
             snapshot(id) {
@@ -77,6 +81,8 @@ fun BuildType.createCompositeBuild(
             }
         }
     }
+
+    defaultBuildFeatures(vcsRoot.id.toString())
 }
 
 fun Requirements.require(os: String, osarch: String? = null, minMemoryMB: Int = -1) {

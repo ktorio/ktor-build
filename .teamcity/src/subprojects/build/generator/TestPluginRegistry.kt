@@ -1,10 +1,10 @@
 package subprojects.build.generator
 
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
+import subprojects.build.*
 
 object TestPluginRegistry : BuildType({
     id("KtorPluginRegistryVerify")
@@ -22,27 +22,7 @@ object TestPluginRegistry : BuildType({
         }
     }
 
-    features {
-        pullRequests {
-            vcsRootExtId = VCSPluginRegistry.id.toString()
-            provider = github {
-                authType = token {
-                    token = "%github.token%"
-                }
-                filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
-            }
-        }
-        commitStatusPublisher {
-            vcsRootExtId = VCSPluginRegistry.id.toString()
-
-            publisher = github {
-                githubUrl = "https://api.github.com"
-                authType = personalToken {
-                    token = "%github.token%"
-                }
-            }
-        }
-    }
+    defaultBuildFeatures(VCSPluginRegistry.id.toString())
 
     triggers {
         vcs {}

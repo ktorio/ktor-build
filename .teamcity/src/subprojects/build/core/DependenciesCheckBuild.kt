@@ -1,7 +1,6 @@
 package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
@@ -23,11 +22,7 @@ class DependenciesCheckBuild : BuildType({
         }
     }
 
-    features {
-        perfmon {}
-        githubPullRequestsLoader(VCSCore.id.toString())
-        githubCommitStatusPublisher(VCSCore.id.toString())
-    }
+    defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
         require(os = linux.agentString, minMemoryMB = 7000)

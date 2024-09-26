@@ -48,9 +48,7 @@ object ProjectBenchmarks : Project({
             require(os = linux.agentString, minMemoryMB = 7000)
         }
 
-        features {
-            githubCommitStatusPublisher()
-        }
+        defaultBuildFeatures(VCSCore.id.toString())
     }
 
     features {
