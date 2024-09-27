@@ -77,8 +77,8 @@ fun Triggers.onBuildTargetChanges(target: BuildTarget) {
     val targetSources = target.sourceSets.joinToString("\n") { sourceSet ->
         // Include the sourceSet itself and all possible suffixes like Arm64/X64, Main/Test, Simulator/Device
         """
-            +:**/$sourceSet/**
-            +:**/$sourceSet*/**
+            +:**/ktor-*/$sourceSet/**
+            +:**/ktor-*/$sourceSet*/**
         """.trimIndent()
     }
 
