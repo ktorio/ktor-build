@@ -45,11 +45,11 @@ object TriggerRules {
     """.trimIndent()
 }
 
-fun Triggers.onChangeDefaultOrPullRequest() {
+fun Triggers.onChangeDefaultOrPullRequest(additionalTriggerRules: String = "") {
     vcs {
         triggerRules = """
             ${TriggerRules.IgnoreNonCodeChanges}
-            ${TriggerRules.IgnoreBotCommits}
+            $additionalTriggerRules
         """.trimIndent()
         branchFilter = BranchFilter.DefaultOrPullRequest
     }
@@ -59,7 +59,6 @@ fun Triggers.onChangeAllBranchesTrigger() {
     vcs {
         triggerRules = """
             ${TriggerRules.IgnoreNonCodeChanges}
-            ${TriggerRules.IgnoreBotCommits}
         """.trimIndent()
         branchFilter = BranchFilter.AllBranches
     }

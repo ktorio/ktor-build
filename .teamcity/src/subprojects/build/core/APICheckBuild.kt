@@ -15,7 +15,7 @@ object APICheckBuild : BuildType({
     }
 
     triggers {
-        onChangeDefaultOrPullRequest()
+        onChangeDefaultOrPullRequest(additionalTriggerRules = TriggerRules.IgnoreBotCommits)
     }
 
     steps {
