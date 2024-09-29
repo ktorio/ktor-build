@@ -51,6 +51,7 @@ val windows = OSEntry(
 val operatingSystems = listOf(macOS, linux, windows)
 
 val java8 = JDKEntry("Java 8", "JDK_1_8")
+val java11 = JDKEntry("Java 11", "JDK_11_0")
 val java17 = JDKEntry("Java 17", "JDK_17_0")
 val java21 = JDKEntry("Java 21", "JDK_21_0")
 val javaLTS = java21
@@ -59,6 +60,9 @@ val osJdks = listOf(
     OSJDKEntry(linux, java8), // Minimal supported version
     OSJDKEntry(linux, java17), // Version used to build Android projects
     OSJDKEntry(linux, javaLTS), // Latest LTS
+    // As soon as native Windows builds are disabled,
+    // we should check that the project builds successfully on Windows
+    OSJDKEntry(windows, java11),
 )
 
 val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
