@@ -49,11 +49,12 @@ object CodeStyleVerify : BuildType({
     }
 
     features {
-        githubCommitStatusPublisher()
         feature {
             type = "xml-report-plugin"
             param("xmlReportParsing.reportType", "checkstyle")
             param("xmlReportParsing.reportDirs", "+:**/build/reports/ktlint/*.xml")
         }
     }
+
+    defaultBuildFeatures(VCSCore.id.toString())
 })

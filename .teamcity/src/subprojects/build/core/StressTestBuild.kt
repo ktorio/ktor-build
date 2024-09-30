@@ -1,7 +1,6 @@
 package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
@@ -32,9 +31,9 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
             buildFile = "build.gradle.kts"
         }
     }
-    features {
-        perfmon { }
-    }
+
+    defaultBuildFeatures(VCSCore.id.toString())
+
     requirements {
         require(os = osJVMComboEntry.osEntry.agentString, minMemoryMB = 7000)
     }
