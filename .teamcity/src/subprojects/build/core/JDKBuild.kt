@@ -6,7 +6,10 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.release.*
 
-class JDKBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
+class JDKBuild(
+    private val osJdkEntry: OSJDKEntry,
+    private val addTriggers: Boolean = true,
+) : BuildType({
     id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toId())
     name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.name}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
@@ -16,8 +19,10 @@ class JDKBuild(private val osJdkEntry: OSJDKEntry) : BuildType({
         root(VCSCore)
     }
 
-    triggers {
-        onBuildTargetChanges(BuildTarget.JVM)
+    if (addTriggers) {
+        triggers {
+            onBuildTargetChanges(BuildTarget.JVM)
+        }
     }
 
     steps {

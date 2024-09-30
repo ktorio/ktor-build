@@ -60,9 +60,6 @@ val osJdks = listOf(
     OSJDKEntry(linux, java8), // Minimal supported version
     OSJDKEntry(linux, java17), // Version used to build Android projects
     OSJDKEntry(linux, javaLTS), // Latest LTS
-    // As soon as native Windows builds are disabled,
-    // we should check that the project builds successfully on Windows
-    OSJDKEntry(windows, java11),
 )
 
 val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
