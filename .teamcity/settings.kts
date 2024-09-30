@@ -61,15 +61,16 @@ project {
         param("teamcity.ui.settings.readOnly", "true")
     }
 
-    features {
-        untrustedBuildsSettings {
-            id = "UntrustedBuildsPolicy"
-            defaultAction = UntrustedBuildsSettings.DefaultAction.APPROVE
-            approvalRules = "group:ALL_USERS_GROUP:1"
-            manualRunsApproved = true
-            enableLog = true
-        }
-    }
+    // TODO: Create narrow group of approvers not to spam to averyone with notifications
+    //features {
+    //    untrustedBuildsSettings {
+    //        id = "UntrustedBuildsPolicy"
+    //        defaultAction = UntrustedBuildsSettings.DefaultAction.APPROVE
+    //        approvalRules = "group:ALL_USERS_GROUP:1"
+    //        manualRunsApproved = true
+    //        enableLog = true
+    //    }
+    //}
 
     subProject(ProjectBuild)
     subProject(ProjectBenchmarks)
