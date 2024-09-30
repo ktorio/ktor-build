@@ -6,6 +6,7 @@ const val VCSUsername = "hhariri"
 const val VCSToken = "%github.token%"
 
 private const val defaultBranch = "refs/heads/(main)"
+private const val defaultBranchRef = "refs/heads/main" // Reference without braces around logical name
 private const val DefaultAndPullRequests = "+:$defaultBranch\n+:refs/(pull/*)/head"
 private const val AllBranchesAndPullRequests = "+:refs/heads/*\n+:refs/(pull/*)/head"
 
@@ -114,7 +115,7 @@ object VCSKtorBuildPlugins : PasswordVcsRoot({
 
 open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     userNameStyle = UserNameStyle.USERID
-    branch = defaultBranch
+    branch = defaultBranchRef
 
     init()
 })
