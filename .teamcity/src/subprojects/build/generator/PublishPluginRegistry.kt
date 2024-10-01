@@ -19,7 +19,7 @@ object PublishPluginRegistry : BuildType({
         gradle {
             name = "Build plugin registry"
             tasks = "packageRegistry"
-            jdkHome = "%env.JDK_11%"
+            jdkHome = Env.JDK_LTS
         }
         script {
             name = "Upload registry archive to Space"

@@ -147,5 +147,5 @@ fun BuildSteps.buildMavenSample(relativeDir: String) {
 
 fun BuildSteps.acceptAndroidSDKLicense() = script {
     name = "Accept Android SDK license"
-    scriptContent = "yes | JAVA_HOME=%env.JDK_18% %env.ANDROID_HOME%/tools/bin/sdkmanager --licenses"
+    scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_HOME%/tools/bin/sdkmanager --licenses"
 }
