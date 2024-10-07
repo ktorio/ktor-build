@@ -10,12 +10,16 @@ object ProjectPublishing : Project({
     name = "Publishing"
     description = "Publish artifacts to repositories"
 
-    buildType(PublishJvmToMaven)
-    buildType(PublishJSToMaven)
-    buildType(PublishWasmJsToMaven)
-    buildType(PublishWindowsNativeToMaven)
-    buildType(PublishLinuxNativeToMaven)
-    buildType(PublishMacOSNativeToMaven)
+    val builds = listOf(
+        PublishJvmToMaven,
+        PublishJSToMaven,
+        PublishWasmJsToMaven,
+        PublishWindowsNativeToMaven,
+        PublishLinuxNativeToMaven,
+        PublishMacOSNativeToMaven,
+        PublishAndroidNativeToMaven,
+    )
+    builds.forEach(::buildType)
 
     buildType(PublishCustomTaskToMaven)
 
@@ -28,14 +32,7 @@ object ProjectPublishing : Project({
             "KtorPublish_All",
             "Publish All",
             VCSCore,
-            listOf(
-                PublishJvmToMaven,
-                PublishJSToMaven,
-                PublishWasmJsToMaven,
-                PublishWindowsNativeToMaven,
-                PublishLinuxNativeToMaven,
-                PublishMacOSNativeToMaven
-            ),
+            builds,
             withTrigger = TriggerType.NONE,
             buildNumber = releaseVersion,
         )

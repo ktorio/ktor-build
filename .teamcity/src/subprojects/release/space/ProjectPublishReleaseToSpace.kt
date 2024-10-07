@@ -34,7 +34,8 @@ object ProjectPublishReleaseToSpace : Project({
         PublishJSToSpaceRelease,
         PublishWindowsNativeToSpaceRelease,
         PublishLinuxNativeToSpaceRelease,
-        PublishMacOSNativeToSpaceRelease
+        PublishMacOSNativeToSpaceRelease,
+        PublishAndroidNativeToSpaceRelease,
     )
 
     builds.forEach { buildType(it) }

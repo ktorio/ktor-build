@@ -6,6 +6,7 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.*
 import subprojects.release.*
+import subprojects.release.publishing.*
 
 const val eapVersion = "%build.counter%"
 
@@ -148,24 +149,33 @@ object PublishMacOSNativeToSpace : BuildType({
             name = "Obtain Library Dependencies"
             scriptContent = macSoftware
         }
+        releaseToSpace(MACOS_PUBLISH_TASKS)
+    }
+    params {
+        param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
+    }
+    dependencies {
+        snapshot(SetBuildNumber) {
+            reuseBuilds = ReuseBuilds.NO
+        }
+    }
+    requirements {
+        require(macOS.agentString, minMemoryMB = 7000)
+    }
+})
+
+object PublishAndroidNativeToSpace : BuildType({
+    createDeploymentBuild("KtorPublishAndroidNativeToSpaceBuild", "Publish Android Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
+    vcs {
+        root(VCSCoreEAP)
+    }
+    steps {
         releaseToSpace(
             listOf(
-                "publishIosArm64PublicationToMavenRepository",
-                "publishIosX64PublicationToMavenRepository",
-                "publishIosX64PublicationToMavenRepository",
-                "publishIosSimulatorArm64PublicationToMavenRepository",
-
-                "publishMacosX64PublicationToMavenRepository",
-                "publishMacosArm64PublicationToMavenRepository",
-
-                "publishTvosArm64PublicationToMavenRepository",
-                "publishTvosX64PublicationToMavenRepository",
-                "publishTvosSimulatorArm64PublicationToMavenRepository",
-
-                "publishWatchosArm32PublicationToMavenRepository",
-                "publishWatchosArm64PublicationToMavenRepository",
-                "publishWatchosX64PublicationToMavenRepository",
-                "publishWatchosSimulatorArm64PublicationToMavenRepository"
+                "publishAndroidNativeArm64PublicationToMavenRepository",
+                "publishAndroidNativeArm32PublicationToMavenRepository",
+                "publishAndroidNativeX64PublicationToMavenRepository",
+                "publishAndroidNativeX86PublicationToMavenRepository",
             )
         )
     }
@@ -178,7 +188,7 @@ object PublishMacOSNativeToSpace : BuildType({
         }
     }
     requirements {
-        require(macOS.agentString, minMemoryMB = 7000)
+        require(linux.agentString, minMemoryMB = 7000)
     }
 })
 

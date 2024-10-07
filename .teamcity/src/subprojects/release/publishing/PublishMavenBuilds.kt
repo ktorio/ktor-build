@@ -165,6 +165,29 @@ object PublishMacOSNativeToMaven : BuildType({
     }
 })
 
+object PublishAndroidNativeToMaven : BuildType({
+    createDeploymentBuild("KtorPublishAndroidNativeToMavenBuild", "Publish Android Native to Maven", "", releaseVersion)
+    vcs {
+        root(VCSCore)
+    }
+    params {
+        configureReleaseVersion()
+    }
+    steps {
+        createSonatypeRepository("Android Native")
+        publish(
+            "publishAndroidNativeArm64PublicationToMavenRepository " +
+                "publishAndroidNativeArm32PublicationToMavenRepository " +
+                "publishAndroidNativeX64PublicationToMavenRepository " +
+                "publishAndroidNativeX86PublicationToMavenRepository",
+            gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+        )
+    }
+    requirements {
+        require(linux.agentString, minMemoryMB = 7000)
+    }
+})
+
 fun BuildSteps.publish(gradleTask: String, gradleParams: String = "", os: String = "") {
     prepareKeyFile(os)
     gradle {
