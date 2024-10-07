@@ -25,7 +25,7 @@ val macSoftware = """
     brew reinstall libidn2
 """.trimIndent()
 
-class NativeBuild(private val osEntry: OSEntry) : BuildType({
+class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : BuildType({
     id("KtorMatrixNative_${osEntry.name}_${osEntry.osArch ?: "x64"}".toId())
     name = "Native on ${osEntry.name} ${osEntry.osArch ?: "x64"}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
@@ -35,8 +35,10 @@ class NativeBuild(private val osEntry: OSEntry) : BuildType({
         root(VCSCore)
     }
 
-    triggers {
-        onBuildTargetChanges(BuildTarget.Native(osEntry))
+    if (addTriggers) {
+        triggers {
+            onBuildTargetChanges(BuildTarget.Native(osEntry))
+        }
     }
 
     steps {

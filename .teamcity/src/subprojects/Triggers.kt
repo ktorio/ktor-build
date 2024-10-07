@@ -83,10 +83,7 @@ fun Triggers.onBuildTargetChanges(target: BuildTarget) {
     }
 
     vcs {
-        triggerRules = """
-            $targetSources
-            ${TriggerRules.GradleFiles}
-        """.trimIndent()
+        triggerRules = listOf(targetSources, TriggerRules.GradleFiles).joinToString("\n")
         branchFilter = BranchFilter.DefaultOrPullRequest
     }
 }

@@ -30,6 +30,7 @@ object ProjectCore : Project({
     // Builds to be run manually on demand
     buildType(DependenciesCheckBuild())
     // As soon as native Windows builds are disabled, we give an ability to run build on Windows manually
+    buildType(NativeBuild(windows, addTriggers = false))
     buildType(JDKBuild(OSJDKEntry(windows, java11), addTriggers = false))
 
     buildType {
