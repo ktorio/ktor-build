@@ -21,11 +21,16 @@ object ProjectPublishEAPToSpace : Project({
 
     buildType(SetBuildNumber)
     buildType(PublishCustomTaskToSpace)
-    buildType(PublishJvmToSpace)
-    buildType(PublishJSToSpace)
-    buildType(PublishWindowsNativeToSpace)
-    buildType(PublishLinuxNativeToSpace)
-    buildType(PublishMacOSNativeToSpace)
+
+    val builds = listOf(
+        PublishJvmToSpace,
+        PublishJSToSpace,
+        PublishWindowsNativeToSpace,
+        PublishLinuxNativeToSpace,
+        PublishMacOSNativeToSpace,
+        PublishAndroidNativeToSpace,
+    )
+    builds.forEach(::buildType)
 
     publishAllEAPBuild = buildType {
         id("KtorPublish_AllEAP")
@@ -39,13 +44,6 @@ object ProjectPublishEAPToSpace : Project({
             nightlyEAPBranchesTrigger()
         }
         dependencies {
-            val builds = listOf(
-                PublishJvmToSpace,
-                PublishJSToSpace,
-                PublishWindowsNativeToSpace,
-                PublishLinuxNativeToSpace,
-                PublishMacOSNativeToSpace
-            )
             builds.mapNotNull { it.id }.forEach { id ->
                 snapshot(id) {
                     reuseBuilds = ReuseBuilds.NO

@@ -149,30 +149,37 @@ object PublishMacOSNativeToSpaceRelease : BuildType({
     }
     steps {
         releaseToSpace(
-            listOf(
-                "publishIosArm64PublicationToMavenRepository",
-                "publishIosX64PublicationToMavenRepository",
-                "publishIosX64PublicationToMavenRepository",
-                "publishIosSimulatorArm64PublicationToMavenRepository",
-
-                "publishMacosX64PublicationToMavenRepository",
-                "publishMacosArm64PublicationToMavenRepository",
-
-                "publishTvosArm64PublicationToMavenRepository",
-                "publishTvosX64PublicationToMavenRepository",
-                "publishTvosSimulatorArm64PublicationToMavenRepository",
-
-                "publishWatchosArm32PublicationToMavenRepository",
-                "publishWatchosArm64PublicationToMavenRepository",
-                "publishWatchosX64PublicationToMavenRepository",
-                "publishWatchosSimulatorArm64PublicationToMavenRepository"
-            ),
+            MACOS_PUBLISH_TASKS,
             gradleParams = "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
 
     requirements {
         require(macOS.agentString, minMemoryMB = 7000)
+    }
+})
+
+object PublishAndroidNativeToSpaceRelease : BuildType({
+    createDeploymentBuild("KtorPublishAndroidNativeToSpaceReleaseBuild", "Publish Android Native to Maven", "", releaseVersion)
+    vcs {
+        root(VCSCore)
+    }
+    params {
+        configureReleaseVersion()
+    }
+    steps {
+        releaseToSpace(
+            listOf(
+                "publishAndroidNativeArm64PublicationToMavenRepository",
+                "publishAndroidNativeArm32PublicationToMavenRepository",
+                "publishAndroidNativeX64PublicationToMavenRepository",
+                "publishAndroidNativeX86PublicationToMavenRepository",
+            ),
+            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+        )
+    }
+    requirements {
+        require(linux.agentString, minMemoryMB = 7000)
     }
 })
 

@@ -47,19 +47,17 @@ object TriggerRules {
 
 fun Triggers.onChangeDefaultOrPullRequest(additionalTriggerRules: String = "") {
     vcs {
-        triggerRules = """
-            ${TriggerRules.IgnoreNonCodeChanges}
-            $additionalTriggerRules
-        """.trimIndent()
+        triggerRules = listOf(
+            TriggerRules.IgnoreNonCodeChanges,
+            additionalTriggerRules,
+        ).joinToString("\n")
         branchFilter = BranchFilter.DefaultOrPullRequest
     }
 }
 
 fun Triggers.onChangeAllBranchesTrigger() {
     vcs {
-        triggerRules = """
-            ${TriggerRules.IgnoreNonCodeChanges}
-        """.trimIndent()
+        triggerRules = TriggerRules.IgnoreNonCodeChanges
         branchFilter = BranchFilter.AllBranches
     }
 }
