@@ -1,6 +1,7 @@
 package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.*
 
@@ -41,6 +42,14 @@ object ProjectCore : Project({
             vcsRoot = VCSCore,
             builds = allBuilds,
             withTrigger = TriggerType.VERIFICATION,
+            additionalTriggers = {
+                // We want to detect flaky tests.
+                // A test is marked as flaky if its result changes after retry.
+                retryBuild {
+                    attempts = 3
+                    branchFilter = BranchFilter.DefaultBranch
+                }
+            }
         )
     }
 
@@ -59,6 +68,7 @@ fun BuildType.createCompositeBuild(
     vcsRoot: VcsRoot,
     builds: List<BuildType>,
     withTrigger: TriggerType = TriggerType.NONE,
+    additionalTriggers: Triggers.() -> Unit = {},
     buildNumber: String = "%build.counter%-%teamcity.build.branch%",
 ) {
     id(buildId)
@@ -76,12 +86,14 @@ fun BuildType.createCompositeBuild(
             TriggerType.VERIFICATION -> onChangeDefaultOrPullRequest()
             TriggerType.NONE -> {}
         }
+        apply(additionalTriggers)
     }
 
     dependencies {
         builds.mapNotNull { it.id }.forEach { id ->
             snapshot(id) {
                 onDependencyFailure = FailureAction.ADD_PROBLEM
+                reuseBuilds = ReuseBuilds.SUCCESSFUL
             }
         }
     }
