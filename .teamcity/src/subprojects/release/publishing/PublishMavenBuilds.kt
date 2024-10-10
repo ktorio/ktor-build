@@ -134,12 +134,8 @@ object PublishMacOSNativeToMaven : BuildType({
             name = "Obtain Library Dependencies"
             scriptContent = macSoftware
         }
-        // Publish targets in separate steps to avoid implicit dependency between different targets
-        // Issue: https://youtrack.jetbrains.com/issue/KTOR-7556/
-        MACOS_PUBLISH_TASKS.forEach {
-            createSonatypeRepository(it)
-            publish(it, GPG_MACOS_GRADLE_ARGS)
-        }
+        createSonatypeRepository("Mac Native")
+        publish(MACOS_PUBLISH_TASKS, GPG_MACOS_GRADLE_ARGS)
     }
     requirements {
         require(macOS.agentString, minMemoryMB = 7000)
@@ -158,12 +154,8 @@ object PublishAndroidNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        // Publish targets in separate steps to avoid implicit dependency between different targets
-        // Issue: https://youtrack.jetbrains.com/issue/KTOR-7556/
-        for (task in ANDROID_NATIVE_PUBLISH_TASKS) {
-            createSonatypeRepository(task)
-            publish(task)
-        }
+        createSonatypeRepository("Android Native")
+        publish(ANDROID_NATIVE_PUBLISH_TASKS)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
