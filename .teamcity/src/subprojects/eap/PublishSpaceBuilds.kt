@@ -170,14 +170,7 @@ object PublishAndroidNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(
-            listOf(
-                "publishAndroidNativeArm64PublicationToMavenRepository",
-                "publishAndroidNativeArm32PublicationToMavenRepository",
-                "publishAndroidNativeX64PublicationToMavenRepository",
-                "publishAndroidNativeX86PublicationToMavenRepository",
-            )
-        )
+        releaseToSpace(ANDROID_NATIVE_PUBLISH_TASKS)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
