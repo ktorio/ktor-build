@@ -38,13 +38,7 @@ object PublishJvmToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(
-            listOf(
-                "publishJvmPublicationToMavenRepository",
-                "publishKotlinMultiplatformPublicationToMavenRepository",
-                "publishMavenPublicationToMavenRepository"
-            )
-        )
+        releaseToSpace(JVM_PUBLISH_TASKS)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -92,13 +86,7 @@ object PublishWindowsNativeToSpace : BuildType({
             name = "Obtain Library Dependencies"
             scriptContent = windowsSoftware
         }
-        releaseToSpace(
-            listOf(
-                "publishMingwX64PublicationToMavenRepository"
-            ),
-            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\"",
-            os = "Windows"
-        )
+        releaseToSpace(listOf("publishMingwX64PublicationToMavenRepository"))
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -119,12 +107,7 @@ object PublishLinuxNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(
-            listOf(
-                "publishLinuxX64PublicationToMavenRepository",
-                "publishLinuxArm64PublicationToMavenRepository",
-            )
-        )
+        releaseToSpace(LINUX_PUBLISH_TASKS)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -188,7 +171,6 @@ object PublishAndroidNativeToSpace : BuildType({
 private fun BuildSteps.releaseToSpace(
     gradleTasks: List<String>,
     gradleParams: String = "",
-    os: String = "Linux",
     optional: Boolean = false,
 ) {
     gradle {

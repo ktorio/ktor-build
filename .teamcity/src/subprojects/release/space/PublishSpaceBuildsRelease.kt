@@ -42,14 +42,7 @@ object PublishJvmToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(
-            listOf(
-                "publishJvmPublicationToMavenRepository",
-                "publishKotlinMultiplatformPublicationToMavenRepository",
-                "publishMavenPublicationToMavenRepository"
-            ),
-            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        releaseToSpace(JVM_PUBLISH_TASKS)
     }
 
     requirements {
@@ -66,14 +59,8 @@ object PublishJSToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(
-            listOf("publishJsPublicationToMavenRepository"),
-            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
-        releaseToSpace(
-            listOf("publishWasmJsPublicationToMavenRepository"),
-            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        releaseToSpace(listOf("publishJsPublicationToMavenRepository"))
+        releaseToSpace(listOf("publishWasmJsPublicationToMavenRepository"))
     }
 
     requirements {
@@ -101,7 +88,7 @@ object PublishWindowsNativeToSpaceRelease : BuildType({
         }
         releaseToSpace(
             listOf("publishMingwX64PublicationToMavenRepository"),
-            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\"",
+            GPG_WINDOWS_GRADLE_ARGS,
             os = "Windows"
         )
     }
@@ -126,7 +113,6 @@ object PublishLinuxNativeToSpaceRelease : BuildType({
     steps {
         releaseToSpace(
             listOf("publishLinuxX64PublicationToMavenRepository"),
-            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }
     requirements {
@@ -148,10 +134,7 @@ object PublishMacOSNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(
-            MACOS_PUBLISH_TASKS,
-            gradleParams = "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        releaseToSpace(MACOS_PUBLISH_TASKS, GPG_MACOS_GRADLE_ARGS)
     }
 
     requirements {
@@ -168,10 +151,7 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(
-            ANDROID_NATIVE_PUBLISH_TASKS,
-            gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        releaseToSpace(ANDROID_NATIVE_PUBLISH_TASKS)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -180,7 +160,7 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
 
 private fun BuildSteps.releaseToSpace(
     gradleTasks: List<String>,
-    gradleParams: String = "",
+    gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
     os: String = "",
     optional: Boolean = false,
 ) {
