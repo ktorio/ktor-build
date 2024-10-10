@@ -75,7 +75,6 @@ fun Project.publishKotlinxHtmlJvmToSpace() = buildType {
         "Jvm",
         linux.agentString,
         tasks.joinToString(" "),
-        "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
     )
 }
 
@@ -84,35 +83,15 @@ fun Project.publishKotlinxHtmlJsToSpace() = buildType {
         "Js",
         linux.agentString,
         "publishJsPublicationToMavenRepository publishWasmJsPublicationToMavenRepository",
-        "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
     )
 }
 
 fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
-    val tasks = listOf(
-        "publishIosArm64PublicationToMavenRepository",
-        "publishIosX64PublicationToMavenRepository",
-        "publishIosX64PublicationToMavenRepository",
-        "publishIosSimulatorArm64PublicationToMavenRepository",
-
-        "publishMacosX64PublicationToMavenRepository",
-        "publishMacosArm64PublicationToMavenRepository",
-
-        "publishTvosArm64PublicationToMavenRepository",
-        "publishTvosX64PublicationToMavenRepository",
-        "publishTvosSimulatorArm64PublicationToMavenRepository",
-
-        "publishWatchosArm32PublicationToMavenRepository",
-        "publishWatchosArm64PublicationToMavenRepository",
-        "publishWatchosX64PublicationToMavenRepository",
-        "publishWatchosSimulatorArm64PublicationToMavenRepository",
-        "publishWatchosDeviceArm64PublicationToMavenRepository"
-    )
     releaseToSpace(
         "NativeMacos",
         macOS.agentString,
-        tasks.joinToString(" "),
-        "-Psigning.gnupg.executable=gpg -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
+        MACOS_PUBLISH_TASKS.joinToString(" "),
+        GPG_MACOS_GRADLE_ARGS,
     )
 }
 
@@ -121,7 +100,6 @@ fun Project.publishKotlinxHtmlLinuxToSpace() = buildType {
         "NativeLinux",
         linux.agentString,
         "publishLinuxX64PublicationToMavenRepository publishLinuxArm64PublicationToMavenRepository",
-        "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
     )
 }
 
@@ -130,11 +108,16 @@ fun Project.publishKotlinxHtmlMingwToSpace() = buildType {
         "NativeWindows",
         windows.agentString,
         "publishMingwX64PublicationToMavenRepository",
-        "-Psigning.gnupg.executable=gpg.exe"
+        GPG_WINDOWS_GRADLE_ARGS,
     )
 }
 
-private fun BuildType.releaseToSpace(platformName: String, agent: String, publishTasks: String, gradleParameters: String) {
+private fun BuildType.releaseToSpace(
+    platformName: String,
+    agent: String,
+    publishTasks: String,
+    gradleParameters: String = GPG_DEFAULT_GRADLE_ARGS,
+) {
     id("PublishKotlinxHtmlToSpace_$platformName")
     name = "Publish kotlinx.html $platformName to Space"
     description = "Publish kotlinx.html $platformName to Space"
@@ -146,7 +129,6 @@ private fun BuildType.releaseToSpace(platformName: String, agent: String, publis
     params {
         text("releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
     }
-
 
     steps {
         prepareKeyFile(agent)

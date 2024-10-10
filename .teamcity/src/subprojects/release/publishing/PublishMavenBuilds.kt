@@ -24,10 +24,7 @@ object PublishCustomTaskToMaven : BuildType({
             name = "Script"
             scriptContent = "%prepublish_script%"
         }
-        publish(
-            "%tasks%",
-            gradleParams = "-Psigning.gnupg.homedir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        publish("%tasks%", parallel = false)
     }
 })
 
@@ -41,14 +38,7 @@ object PublishJvmToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("Jvm")
-        publish(
-            listOf(
-                "publishJvmPublicationToMavenRepository",
-                "publishKotlinMultiplatformPublicationToMavenRepository",
-                "publishMavenPublicationToMavenRepository"
-            ).joinToString(" "),
-            gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        publish(JVM_PUBLISH_TASKS)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -65,10 +55,7 @@ object PublishJSToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("Js")
-        publish(
-            "publishJsPublicationToMavenRepository",
-            gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        publish("publishJsPublicationToMavenRepository")
     }
     requirements {
         require(os = linux.agentString, minMemoryMB = 7000)
@@ -85,10 +72,7 @@ object PublishWasmJsToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("WasmJs")
-        publish(
-            "publishWasmJsPublicationToMavenRepository",
-            gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        publish("publishWasmJsPublicationToMavenRepository")
     }
     requirements {
         require(os = linux.agentString, minMemoryMB = 7000)
@@ -110,8 +94,9 @@ object PublishWindowsNativeToMaven : BuildType({
         }
         publish(
             "publishMingwX64PublicationToMavenRepository",
-            gradleParams = "-P\"signing.gnupg.executable=gpg.exe\"",
-            os = "Windows"
+            GPG_WINDOWS_GRADLE_ARGS,
+            os = "Windows",
+            parallel = false,
         )
     }
     requirements {
@@ -129,10 +114,7 @@ object PublishLinuxNativeToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("Linux")
-        publish(
-            "publishLinuxX64PublicationToMavenRepository publishLinuxArm64PublicationToMavenRepository",
-            gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        publish(LINUX_PUBLISH_TASKS)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -156,7 +138,7 @@ object PublishMacOSNativeToMaven : BuildType({
         // Issue: https://youtrack.jetbrains.com/issue/KTOR-7556/
         MACOS_PUBLISH_TASKS.forEach {
             createSonatypeRepository(it)
-            publish(it, MACOS_GRADLE_ARGS)
+            publish(it, GPG_MACOS_GRADLE_ARGS)
         }
     }
     requirements {
@@ -180,7 +162,7 @@ object PublishAndroidNativeToMaven : BuildType({
         // Issue: https://youtrack.jetbrains.com/issue/KTOR-7556/
         for (task in ANDROID_NATIVE_PUBLISH_TASKS) {
             createSonatypeRepository(task)
-            publish(task, gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg")
+            publish(task)
         }
     }
     requirements {
@@ -188,12 +170,27 @@ object PublishAndroidNativeToMaven : BuildType({
     }
 })
 
-fun BuildSteps.publish(gradleTask: String, gradleParams: String = "", os: String = "") {
+fun BuildSteps.publish(
+    gradleTask: String,
+    gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
+    os: String = "",
+    parallel: Boolean = true,
+) {
+    publish(listOf(gradleTask), gradleParams, os, parallel)
+}
+
+fun BuildSteps.publish(
+    gradleTasks: List<String>,
+    gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
+    os: String = "",
+    parallel: Boolean = true,
+) {
     prepareKeyFile(os)
     gradle {
-        name = "Publish $gradleTask"
-        tasks = "$gradleTask --i -PreleaseVersion=$releaseVersion $gradleParams" +
-                " --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
+        name = "Publish"
+        tasks = "${gradleTasks.joinToString(" ")} -PreleaseVersion=$releaseVersion $gradleParams " +
+            "${if (parallel) "--parallel" else "--no-parallel"} " +
+            "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
         buildFile = "build.gradle.kts"
     }
