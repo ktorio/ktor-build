@@ -169,12 +169,7 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
     }
     steps {
         releaseToSpace(
-            listOf(
-                "publishAndroidNativeArm64PublicationToMavenRepository",
-                "publishAndroidNativeArm32PublicationToMavenRepository",
-                "publishAndroidNativeX64PublicationToMavenRepository",
-                "publishAndroidNativeX86PublicationToMavenRepository",
-            ),
+            ANDROID_NATIVE_PUBLISH_TASKS,
             gradleParams = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
         )
     }

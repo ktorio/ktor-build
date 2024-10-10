@@ -152,6 +152,8 @@ object PublishMacOSNativeToMaven : BuildType({
             name = "Obtain Library Dependencies"
             scriptContent = macSoftware
         }
+        // Publish targets in separate steps to avoid implicit dependency between different targets
+        // Issue: https://youtrack.jetbrains.com/issue/KTOR-7556/
         MACOS_PUBLISH_TASKS.forEach {
             createSonatypeRepository(it)
             publish(it, MACOS_GRADLE_ARGS)
@@ -174,14 +176,12 @@ object PublishAndroidNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        createSonatypeRepository("Android Native")
-        publish(
-            "publishAndroidNativeArm64PublicationToMavenRepository " +
-                "publishAndroidNativeArm32PublicationToMavenRepository " +
-                "publishAndroidNativeX64PublicationToMavenRepository " +
-                "publishAndroidNativeX86PublicationToMavenRepository",
-            gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"
-        )
+        // Publish targets in separate steps to avoid implicit dependency between different targets
+        // Issue: https://youtrack.jetbrains.com/issue/KTOR-7556/
+        for (task in ANDROID_NATIVE_PUBLISH_TASKS) {
+            createSonatypeRepository(task)
+            publish(task, gradleParams = "--parallel -Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg")
+        }
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
