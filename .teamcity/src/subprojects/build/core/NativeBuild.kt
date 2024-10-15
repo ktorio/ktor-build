@@ -1,5 +1,6 @@
 package subprojects.build.core
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -39,6 +40,7 @@ class NativeBuild(private val entry: NativeEntry, addTriggers: Boolean = true) :
         }
     }
 
+    cancelPreviousBuilds()
     steps {
         when (entry.os) {
             OS.Windows -> {

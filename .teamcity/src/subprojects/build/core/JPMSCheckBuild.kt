@@ -1,5 +1,6 @@
 package subprojects.build.core
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -17,6 +18,7 @@ object JPMSCheckBuild: BuildType({
         onChangeDefaultOrPullRequest()
     }
 
+    cancelPreviousBuilds()
     steps {
         gradle {
             name = "Check JPMS build"
