@@ -1,5 +1,6 @@
 package subprojects.build.core
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
@@ -17,6 +18,7 @@ object CodeStyleVerify : BuildType({
         root(VCSCore)
     }
 
+    cancelPreviousBuilds()
     steps {
         gradle {
             name = "Run ktlint"

@@ -1,5 +1,6 @@
 package subprojects.build.core
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -18,6 +19,7 @@ object APICheckBuild : BuildType({
         onChangeDefaultOrPullRequest(additionalTriggerRules = TriggerRules.IgnoreBotCommits)
     }
 
+    cancelPreviousBuilds()
     steps {
         gradle {
             name = "API Check"

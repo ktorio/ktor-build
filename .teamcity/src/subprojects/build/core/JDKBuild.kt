@@ -1,5 +1,6 @@
 package subprojects.build.core
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -25,6 +26,7 @@ class JDKBuild(
         }
     }
 
+    cancelPreviousBuilds()
     steps {
         when (osJdkEntry.os) {
             OS.Windows -> {

@@ -131,8 +131,7 @@ fun ParametrizedWithType.defaultGradleParams() {
 
 fun BuildType.defaultBuildFeatures(rootId: String) {
     features {
-        perfmon {
-        }
+        perfmon {}
 
         githubPullRequestsLoader(rootId)
         githubCommitStatusPublisher(rootId)

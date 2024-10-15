@@ -1,5 +1,6 @@
 package subprojects.build.core
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -19,6 +20,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         onBuildTargetChanges(BuildTarget.JS)
     }
 
+    cancelPreviousBuilds()
     steps {
         gradle {
             name = "Build Js"
