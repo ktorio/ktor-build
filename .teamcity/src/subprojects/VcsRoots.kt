@@ -104,7 +104,6 @@ object VCSKtorGeneratorWebsite : PasswordVcsRoot({
 object VCSKtorCLI : PasswordVcsRoot({
     name = "Ktor CLI"
     url = "https://github.com/ktorio/ktor-cli.git"
-    branchSpec = DefaultAndPullRequests
 })
 
 object VCSKtorBuildPlugins : PasswordVcsRoot({
