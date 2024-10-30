@@ -22,7 +22,7 @@ object TestGeneratorBackEnd : BuildType({
             name = "Test generator backend"
             tasks = "test"
             buildFile = "build.gradle.kts"
-            jdkHome = "%env.JDK_11%"
+            jdkHome = "%env.JDK_17_0%"
         }
     }
 
