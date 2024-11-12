@@ -17,6 +17,7 @@ object PublishCustomTaskToMaven : BuildType({
     params {
         configureReleaseVersion()
         text("tasks", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+        text("repo_name", "Custom Task", display = ParameterDisplay.PROMPT, allowEmpty = false)
         text("prepublish_script", "", display = ParameterDisplay.PROMPT, allowEmpty = true)
     }
     steps {
@@ -24,6 +25,7 @@ object PublishCustomTaskToMaven : BuildType({
             name = "Script"
             scriptContent = "%prepublish_script%"
         }
+        createSonatypeRepository("%repo_name%")
         publish("%tasks%", parallel = false)
     }
 })
@@ -163,16 +165,16 @@ object PublishAndroidNativeToMaven : BuildType({
 })
 
 fun BuildSteps.publish(
-    gradleTask: String,
+    gradleTasks: List<String>,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
     os: String = "",
     parallel: Boolean = true,
 ) {
-    publish(listOf(gradleTask), gradleParams, os, parallel)
+    publish(gradleTasks.joinToString(" "), gradleParams, os, parallel)
 }
 
 fun BuildSteps.publish(
-    gradleTasks: List<String>,
+    gradleTasks: String,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
     os: String = "",
     parallel: Boolean = true,
@@ -180,7 +182,7 @@ fun BuildSteps.publish(
     prepareKeyFile(os)
     gradle {
         name = "Publish"
-        tasks = "${gradleTasks.joinToString(" ")} -PreleaseVersion=$releaseVersion $gradleParams " +
+        tasks = "$gradleTasks -PreleaseVersion=$releaseVersion $gradleParams " +
             "${if (parallel) "--parallel" else "--no-parallel"} " +
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
