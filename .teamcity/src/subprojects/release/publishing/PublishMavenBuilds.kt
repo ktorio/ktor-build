@@ -22,8 +22,9 @@ object PublishCustomTaskToMaven : BuildType({
     }
     steps {
         script {
-            name = "Script"
+            name = "Prepublish Script"
             scriptContent = "%prepublish_script%"
+            conditions { doesNotEqual("prepublish_script", "") }
         }
         createSonatypeRepository("%repo_name%")
         publish("%tasks%", parallel = false)
