@@ -42,7 +42,7 @@ object PublishJvmToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(JVM_PUBLISH_TASKS)
+        releaseToSpace(JVM_AND_COMMON_PUBLISH_TASK)
     }
 
     requirements {
@@ -59,8 +59,7 @@ object PublishJSToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(listOf("publishJsPublicationToMavenRepository"))
-        releaseToSpace(listOf("publishWasmJsPublicationToMavenRepository"))
+        releaseToSpace(JS_PUBLISH_TASK)
     }
 
     requirements {
@@ -87,7 +86,7 @@ object PublishWindowsNativeToSpaceRelease : BuildType({
             scriptContent = windowsSoftware
         }
         releaseToSpace(
-            listOf("publishMingwX64PublicationToMavenRepository"),
+            WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
             os = "Windows"
         )
@@ -111,9 +110,7 @@ object PublishLinuxNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(
-            listOf("publishLinuxX64PublicationToMavenRepository"),
-        )
+        releaseToSpace(LINUX_PUBLISH_TASK)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -134,7 +131,7 @@ object PublishMacOSNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(MACOS_PUBLISH_TASKS, GPG_MACOS_GRADLE_ARGS)
+        releaseToSpace(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
 
     requirements {
@@ -151,7 +148,7 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        releaseToSpace(ANDROID_NATIVE_PUBLISH_TASKS)
+        releaseToSpace(ANDROID_NATIVE_PUBLISH_TASK)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -159,7 +156,7 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
 })
 
 private fun BuildSteps.releaseToSpace(
-    gradleTasks: List<String>,
+    gradleTasks: String,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
     os: String = "",
     optional: Boolean = false,
@@ -168,7 +165,7 @@ private fun BuildSteps.releaseToSpace(
     gradle {
         name = "Assemble"
         tasks =
-            "${gradleTasks.joinToString(" ")} --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "$gradleTasks --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
         buildFile = "build.gradle.kts"
         if (optional)

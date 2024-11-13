@@ -38,7 +38,7 @@ object PublishJvmToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(JVM_PUBLISH_TASKS)
+        releaseToSpace(JVM_AND_COMMON_PUBLISH_TASK)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -60,8 +60,7 @@ object PublishJSToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(listOf("publishJsPublicationToMavenRepository"))
-        releaseToSpace(listOf("publishWasmJsPublicationToMavenRepository"), optional = true)
+        releaseToSpace(JS_PUBLISH_TASK)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -86,7 +85,7 @@ object PublishWindowsNativeToSpace : BuildType({
             name = "Obtain Library Dependencies"
             scriptContent = windowsSoftware
         }
-        releaseToSpace(listOf("publishMingwX64PublicationToMavenRepository"))
+        releaseToSpace(WINDOWS_PUBLISH_TASK)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -107,7 +106,7 @@ object PublishLinuxNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(LINUX_PUBLISH_TASKS)
+        releaseToSpace(LINUX_PUBLISH_TASK)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -132,7 +131,7 @@ object PublishMacOSNativeToSpace : BuildType({
             name = "Obtain Library Dependencies"
             scriptContent = macSoftware
         }
-        releaseToSpace(MACOS_PUBLISH_TASKS)
+        releaseToSpace(DARWIN_PUBLISH_TASK)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -153,7 +152,7 @@ object PublishAndroidNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        releaseToSpace(ANDROID_NATIVE_PUBLISH_TASKS)
+        releaseToSpace(ANDROID_NATIVE_PUBLISH_TASK)
     }
     params {
         param("eapVersion", SetBuildNumber.depParamRefs.buildNumber.ref)
@@ -169,14 +168,14 @@ object PublishAndroidNativeToSpace : BuildType({
 })
 
 private fun BuildSteps.releaseToSpace(
-    gradleTasks: List<String>,
+    gradleTasks: String,
     gradleParams: String = "",
     optional: Boolean = false,
 ) {
     gradle {
         name = "Publish"
         tasks =
-            "${gradleTasks.joinToString(" ")} --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "$gradleTasks --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
         buildFile = "build.gradle.kts"
         if (optional)
