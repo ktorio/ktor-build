@@ -13,7 +13,6 @@ object ProjectPublishing : Project({
     val builds = listOf(
         PublishJvmToMaven,
         PublishJSToMaven,
-        PublishWasmJsToMaven,
         PublishWindowsNativeToMaven,
         PublishLinuxNativeToMaven,
         PublishMacOSNativeToMaven,

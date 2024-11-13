@@ -1,16 +1,11 @@
 package subprojects.release.publishing
 
-// JVM artifacts + multiplatform metadata
-internal val JVM_PUBLISH_TASKS = listOf(
-    "publishJvmPublicationToMavenRepository",
-    "publishKotlinMultiplatformPublicationToMavenRepository",
-    "publishMavenPublicationToMavenRepository",
-)
-
-internal val LINUX_PUBLISH_TASKS = listOf(
-    "publishLinuxX64PublicationToMavenRepository",
-    "publishLinuxArm64PublicationToMavenRepository",
-)
+internal const val JVM_AND_COMMON_PUBLISH_TASK = "publishJvmAndCommonPublications"
+internal const val JS_PUBLISH_TASK = "publishJsPublications"
+internal const val LINUX_PUBLISH_TASK = "publishLinuxPublications"
+internal const val WINDOWS_PUBLISH_TASK = "publishWindowsPublications"
+internal const val DARWIN_PUBLISH_TASK = "publishDarwinPublications"
+internal const val ANDROID_NATIVE_PUBLISH_TASK = "publishAndroidNativePublications"
 
 internal val MACOS_PUBLISH_TASKS = listOf(
     "publishIosArm64PublicationToMavenRepository",
@@ -29,13 +24,6 @@ internal val MACOS_PUBLISH_TASKS = listOf(
     "publishWatchosX64PublicationToMavenRepository",
     "publishWatchosSimulatorArm64PublicationToMavenRepository",
     "publishWatchosDeviceArm64PublicationToMavenRepository",
-)
-
-internal val ANDROID_NATIVE_PUBLISH_TASKS = listOf(
-    "publishAndroidNativeArm64PublicationToMavenRepository",
-    "publishAndroidNativeArm32PublicationToMavenRepository",
-    "publishAndroidNativeX64PublicationToMavenRepository",
-    "publishAndroidNativeX86PublicationToMavenRepository",
 )
 
 internal const val GPG_DEFAULT_GRADLE_ARGS = "-Psigning.gnupg.homeDir=%env.SIGN_KEY_LOCATION%/.gnupg"

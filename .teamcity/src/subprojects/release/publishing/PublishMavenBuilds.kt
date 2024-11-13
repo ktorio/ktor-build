@@ -41,7 +41,7 @@ object PublishJvmToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("Jvm")
-        publish(JVM_PUBLISH_TASKS)
+        publish(JVM_AND_COMMON_PUBLISH_TASK)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -58,24 +58,7 @@ object PublishJSToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("Js")
-        publish("publishJsPublicationToMavenRepository")
-    }
-    requirements {
-        require(os = linux.agentString, minMemoryMB = 7000)
-    }
-})
-
-object PublishWasmJsToMaven : BuildType({
-    createDeploymentBuild("KtorPublishWasmJsToMavenBuild", "Publish WasmJs to Maven", "", releaseVersion)
-    vcs {
-        root(VCSCore)
-    }
-    params {
-        configureReleaseVersion()
-    }
-    steps {
-        createSonatypeRepository("WasmJs")
-        publish("publishWasmJsPublicationToMavenRepository")
+        publish(JS_PUBLISH_TASK)
     }
     requirements {
         require(os = linux.agentString, minMemoryMB = 7000)
@@ -96,7 +79,7 @@ object PublishWindowsNativeToMaven : BuildType({
             scriptContent = windowsSoftware
         }
         publish(
-            "publishMingwX64PublicationToMavenRepository",
+            WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
             os = "Windows",
             parallel = false,
@@ -117,7 +100,7 @@ object PublishLinuxNativeToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("Linux")
-        publish(LINUX_PUBLISH_TASKS)
+        publish(LINUX_PUBLISH_TASK)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
@@ -138,7 +121,7 @@ object PublishMacOSNativeToMaven : BuildType({
             scriptContent = macSoftware
         }
         createSonatypeRepository("Mac Native")
-        publish(MACOS_PUBLISH_TASKS, GPG_MACOS_GRADLE_ARGS)
+        publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
     requirements {
         require(macOS.agentString, minMemoryMB = 7000)
@@ -158,7 +141,7 @@ object PublishAndroidNativeToMaven : BuildType({
     }
     steps {
         createSonatypeRepository("Android Native")
-        publish(ANDROID_NATIVE_PUBLISH_TASKS)
+        publish(ANDROID_NATIVE_PUBLISH_TASK)
     }
     requirements {
         require(linux.agentString, minMemoryMB = 7000)
