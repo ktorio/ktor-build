@@ -24,6 +24,6 @@ class DependenciesCheckBuild : BuildType({
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        require(os = linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })

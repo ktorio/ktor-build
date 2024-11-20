@@ -4,7 +4,6 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.build.core.*
 
 object ProjectBenchmarks : Project({
     id("ProjectKtorBenchmarks")
@@ -43,7 +42,7 @@ object ProjectBenchmarks : Project({
         }
 
         requirements {
-            require(os = linux.agentString, minMemoryMB = 7000)
+            agent(linux)
         }
 
         defaultBuildFeatures(VCSCore.id.toString())

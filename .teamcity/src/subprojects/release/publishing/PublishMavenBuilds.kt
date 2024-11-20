@@ -44,7 +44,7 @@ object PublishJvmToMaven : BuildType({
         publish(JVM_AND_COMMON_PUBLISH_TASK)
     }
     requirements {
-        require(linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 
@@ -61,7 +61,7 @@ object PublishJSToMaven : BuildType({
         publish(JS_PUBLISH_TASK)
     }
     requirements {
-        require(os = linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 
@@ -86,7 +86,7 @@ object PublishWindowsNativeToMaven : BuildType({
         )
     }
     requirements {
-        require(windows.agentString, minMemoryMB = 7000)
+        agent(windows)
     }
 })
 
@@ -103,7 +103,7 @@ object PublishLinuxNativeToMaven : BuildType({
         publish(LINUX_PUBLISH_TASK)
     }
     requirements {
-        require(linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 
@@ -124,7 +124,7 @@ object PublishMacOSNativeToMaven : BuildType({
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
     requirements {
-        require(macOS.agentString, minMemoryMB = 7000)
+        agent(macOS)
     }
     failureConditions {
         executionTimeoutMin = 8 * 60
@@ -144,7 +144,7 @@ object PublishAndroidNativeToMaven : BuildType({
         publish(ANDROID_NATIVE_PUBLISH_TASK)
     }
     requirements {
-        require(linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 

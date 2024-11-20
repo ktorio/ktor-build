@@ -4,7 +4,6 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.build.core.*
 import subprojects.release.publishing.*
 import java.io.*
 
@@ -146,6 +145,6 @@ private fun BuildType.releaseToSpace(
     }
 
     requirements {
-        require(agent)
+        agent(agent)
     }
 }

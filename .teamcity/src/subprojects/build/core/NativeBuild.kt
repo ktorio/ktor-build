@@ -82,7 +82,7 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        require(os = osEntry.agentString, osEntry.osArch, minMemoryMB = 7000)
+        agent(osEntry)
     }
     when (osEntry) {
         macOS -> nativeMacOSBuild = this

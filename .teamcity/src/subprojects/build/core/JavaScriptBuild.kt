@@ -31,7 +31,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        require(os = "Linux", minMemoryMB = 7000)
+        agent(linux)
     }
     if (jsEntry == js) {
         jsBuild = this
