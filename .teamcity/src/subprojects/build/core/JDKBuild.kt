@@ -58,7 +58,7 @@ class JDKBuild(
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        require(os = osJdkEntry.osEntry.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
     if (osJdkEntry.osEntry == linux && osJdkEntry.jdkEntry == javaLTS) {
         jvmBuild = this

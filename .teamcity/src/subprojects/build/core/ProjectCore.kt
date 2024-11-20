@@ -100,14 +100,3 @@ fun BuildType.createCompositeBuild(
 
     defaultBuildFeatures(vcsRoot.id.toString())
 }
-
-fun Requirements.require(os: String, osarch: String? = null, minMemoryMB: Int = -1) {
-    contains("teamcity.agent.jvm.os.name", os)
-    if (osarch != null) {
-        contains("teamcity.agent.jvm.os.arch", osarch)
-    }
-
-    if (minMemoryMB != -1) {
-        noLessThan("teamcity.agent.hardware.memorySizeMb", minMemoryMB.toString())
-    }
-}

@@ -34,6 +34,6 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        require(os = osJVMComboEntry.osEntry.agentString, minMemoryMB = 7000)
+        agent(osJVMComboEntry.osEntry)
     }
 })

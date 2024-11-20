@@ -49,7 +49,7 @@ object PublishJvmToSpace : BuildType({
         }
     }
     requirements {
-        require(linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 
@@ -70,7 +70,7 @@ object PublishJSToSpace : BuildType({
         }
     }
     requirements {
-        require(os = linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 
@@ -95,7 +95,7 @@ object PublishWindowsNativeToSpace : BuildType({
         }
     }
     requirements {
-        require(windows.agentString, minMemoryMB = 7000)
+        agent(windows)
     }
 })
 
@@ -116,7 +116,7 @@ object PublishLinuxNativeToSpace : BuildType({
         }
     }
     requirements {
-        require(linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 
@@ -141,7 +141,7 @@ object PublishMacOSNativeToSpace : BuildType({
         }
     }
     requirements {
-        require(macOS.agentString, minMemoryMB = 7000)
+        agent(macOS)
     }
 })
 
@@ -162,7 +162,7 @@ object PublishAndroidNativeToSpace : BuildType({
         }
     }
     requirements {
-        require(linux.agentString, minMemoryMB = 7000)
+        agent(linux)
     }
 })
 

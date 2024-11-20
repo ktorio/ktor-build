@@ -4,7 +4,6 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.build.core.*
 
 object ProjectCLI : Project({
     id("ProjectKtorCLI")
@@ -52,7 +51,7 @@ object ReleaseWinGet: BuildType({
     }
 
     requirements {
-        require(os = windows.agentString)
+        agent(windows, Agents.ANY)
     }
 })
 
@@ -98,7 +97,7 @@ object ReleaseBrew: BuildType({
     }
 
     requirements {
-        require(os = linux.agentString)
+        agent(linux, Agents.ANY)
     }
 })
 
@@ -257,7 +256,7 @@ EOF
     }
 
     requirements {
-        require(os = linux.agentString)
+        agent(linux, Agents.ANY)
     }
 })
 
@@ -299,7 +298,7 @@ object PackMsiInstaller : BuildType({
     }
 
     requirements {
-        require(os = windows.agentString)
+        agent(windows, Agents.ANY)
     }
 })
 
@@ -343,7 +342,7 @@ object BuildCLI: BuildType({
     }
 
     requirements {
-        require(os = linux.agentString)
+        agent(linux, Agents.ANY)
     }
 
     defaultBuildFeatures(VCSKtorCLI.id.toString())
