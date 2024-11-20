@@ -21,8 +21,6 @@ val linuxSoftware = """
 
 val macSoftware = """
     brew install curl ca-certificates
-    brew upgrade gnupg
-    brew reinstall libassuan
     brew reinstall libidn2
 """.trimIndent()
 
