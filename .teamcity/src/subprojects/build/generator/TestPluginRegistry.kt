@@ -17,7 +17,6 @@ object TestPluginRegistry : BuildType({
         gradle {
             name = "Test plugin registry"
             tasks = "resolvePlugins detekt test buildRegistry"
-            buildFile = "build.gradle.kts"
             jdkHome = "%env.JDK_11%"
         }
     }

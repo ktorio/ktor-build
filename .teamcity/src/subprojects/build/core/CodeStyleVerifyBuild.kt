@@ -23,7 +23,6 @@ object CodeStyleVerify : BuildType({
             tasks = "lintKotlin"
             gradleParams = "-PenableCodeStyle=true"
             jdkHome = "%env.${javaLTS.env}%"
-            buildFile = "build.gradle.kts"
         }
     }
 

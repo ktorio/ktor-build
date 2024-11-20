@@ -19,7 +19,6 @@ object PublishPluginRegistry : BuildType({
         gradle {
             name = "Build plugin registry"
             tasks = "packageRegistry"
-            buildFile = "build.gradle.kts"
             jdkHome = "%env.JDK_11%"
         }
         script {

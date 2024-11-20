@@ -15,7 +15,6 @@ enum class BuildSystem {
 data class SampleProjectSettings(
     val projectName: String,
     val vcsRoot: VcsRoot,
-    val buildFile: String = "build.gradle",
     val buildSystem: BuildSystem = BuildSystem.GRADLE,
     val standalone: Boolean = false
 )
@@ -25,22 +24,22 @@ val sampleProjects = listOf(
     SampleProjectSettings("client-mpp", VCSSamples),
     SampleProjectSettings("client-multipart", VCSSamples),
     SampleProjectSettings("client-tools", VCSSamples),
-    SampleProjectSettings("di-kodein", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("filelisting", VCSSamples, "build.gradle.kts"),
+    SampleProjectSettings("di-kodein", VCSSamples),
+    SampleProjectSettings("filelisting", VCSSamples),
     SampleProjectSettings("fullstack-mpp", VCSSamples),
-    SampleProjectSettings("graalvm", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("httpbin", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("kweet", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("location-header", VCSSamples, "build.gradle.kts"),
+    SampleProjectSettings("graalvm", VCSSamples),
+    SampleProjectSettings("httpbin", VCSSamples),
+    SampleProjectSettings("kweet", VCSSamples),
+    SampleProjectSettings("location-header", VCSSamples),
     SampleProjectSettings("maven-google-appengine-standard", VCSSamples, buildSystem = BuildSystem.MAVEN),
-    SampleProjectSettings("redirect-with-exception", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("reverse-proxy", VCSSamples,"build.gradle.kts"),
-    SampleProjectSettings("reverse-proxy-ws", VCSSamples,"build.gradle.kts"),
-    SampleProjectSettings("rx", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("sse", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("structured-logging", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("version-diff", VCSSamples, "build.gradle.kts"),
-    SampleProjectSettings("youkube", VCSSamples, "build.gradle.kts")
+    SampleProjectSettings("redirect-with-exception", VCSSamples),
+    SampleProjectSettings("reverse-proxy", VCSSamples),
+    SampleProjectSettings("reverse-proxy-ws", VCSSamples),
+    SampleProjectSettings("rx", VCSSamples),
+    SampleProjectSettings("sse", VCSSamples),
+    SampleProjectSettings("structured-logging", VCSSamples),
+    SampleProjectSettings("version-diff", VCSSamples),
+    SampleProjectSettings("youkube", VCSSamples)
 )
 
 /**
@@ -88,14 +87,12 @@ object WebSocketSample: BuildType({
         acceptAndroidSDKLicense()
 
         gradle {
-            buildFile = sample.buildFile
             name = "Build Server"
             tasks = "build"
             workingDir = "server"
         }
 
         gradle {
-            buildFile = sample.buildFile
             name = "Build Client"
             tasks = "build"
             workingDir = "client"
@@ -122,14 +119,13 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
 
         when (sample.buildSystem) {
             BuildSystem.MAVEN -> buildMavenSample(sample.projectName)
-            BuildSystem.GRADLE -> buildGradleSample(sample.projectName, sample.buildFile, sample.standalone)
+            BuildSystem.GRADLE -> buildGradleSample(sample.projectName, sample.standalone)
         }
     }
 })
 
-fun BuildSteps.buildGradleSample(relativeDir: String, gradleFile: String, standalone: Boolean) {
+fun BuildSteps.buildGradleSample(relativeDir: String, standalone: Boolean) {
     gradle {
-        buildFile = gradleFile
         name = "Build"
         tasks = "build"
 

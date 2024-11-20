@@ -16,7 +16,6 @@ class DependenciesCheckBuild : BuildType({
     steps {
         gradle {
             name = "Check Dependencies"
-            buildFile = "build.gradle.kts"
             tasks = "snyk-test"
             jdkHome = "%env.${javaLTS.env}%"
         }

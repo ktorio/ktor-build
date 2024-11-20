@@ -170,7 +170,6 @@ fun BuildSteps.publish(
             "${if (parallel) "--parallel" else "--no-parallel"} " +
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
-        buildFile = "build.gradle.kts"
     }
     cleanupKeyFile(os)
 }

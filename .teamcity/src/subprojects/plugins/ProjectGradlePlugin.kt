@@ -30,7 +30,6 @@ object ProjectGradlePlugin : Project({
             gradle {
                 name = "Publish"
                 tasks = ":plugin:publishPlugins"
-                buildFile = "build.gradle.kts"
                 gradleParams = "-PversionSuffix=eap-%build.counter%"
             }
         }
@@ -48,7 +47,6 @@ object ProjectGradlePlugin : Project({
             gradle {
                 name = "Publish"
                 tasks = ":plugin:publishPlugins"
-                buildFile = "build.gradle.kts"
             }
         }
     }
@@ -65,7 +63,6 @@ object ProjectGradlePlugin : Project({
             gradle {
                 name = "Publish"
                 tasks = ":plugin:publishPlugins"
-                buildFile = "build.gradle.kts"
                 gradleParams = "-PversionSuffix=beta-%build.counter%"
             }
         }
@@ -88,7 +85,6 @@ object ProjectGradlePlugin : Project({
             gradle {
                 name = "Publish to Space Packages"
                 tasks = ":plugin:publish"
-                buildFile = "build.gradle.kts"
                 gradleParams = "-Pspace -PversionSuffix=eap-%build.counter%"
             }
         }
@@ -114,7 +110,6 @@ object ProjectGradlePlugin : Project({
             gradle {
                 name = "Run tests"
                 tasks = ":plugin:test test"
-                buildFile = "build.gradle.kts"
             }
         }
     }

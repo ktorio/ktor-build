@@ -140,7 +140,6 @@ private fun BuildType.releaseToSpace(
                     "-Porg.gradle.internal.network.retry.max.attempts=100000 " +
                     gradleParameters
             jdkHome = "%env.${javaLTS.env}%"
-            buildFile = "build.gradle.kts"
         }
 
         cleanupKeyFile(agent)

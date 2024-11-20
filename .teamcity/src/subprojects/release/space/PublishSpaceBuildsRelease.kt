@@ -22,7 +22,6 @@ object PublishCustomTaskToSpaceRelease : BuildType({
             tasks =
                 "%taskList% --i -PreleaseVersion=$releaseVersion --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000 -psigning.gnupg.homedir=%env.SIGN_KEY_LOCATION%/.gnupg"
             jdkHome = "%env.${javaLTS.env}%"
-            buildFile = "build.gradle.kts"
         }
     }
     params {
@@ -167,9 +166,7 @@ private fun BuildSteps.releaseToSpace(
         tasks =
             "$gradleTasks --i -PreleaseVersion=$releaseVersion $gradleParams --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
-        buildFile = "build.gradle.kts"
-        if (optional)
-            executionMode = BuildStep.ExecutionMode.ALWAYS
+        if (optional) executionMode = BuildStep.ExecutionMode.ALWAYS
     }
     cleanupKeyFile(os)
 }

@@ -76,7 +76,6 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
             name = "Build and Run Tests"
             tasks = "${osEntry.testTaskName} --info"
             jdkHome = "%env.JDK_11%"
-            buildFile = "build.gradle.kts"
         }
     }
 

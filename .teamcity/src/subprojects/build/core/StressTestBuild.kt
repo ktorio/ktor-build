@@ -28,7 +28,6 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
             name = "Run stress tests"
             tasks = "stressTest --info"
             jdkHome = "%env.${osJVMComboEntry.jdkEntry.env}%"
-            buildFile = "build.gradle.kts"
         }
     }
 

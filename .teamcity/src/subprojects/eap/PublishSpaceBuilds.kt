@@ -21,7 +21,6 @@ object PublishCustomTaskToSpace : BuildType({
             tasks =
                 "%taskList% --i -PeapVersion=%eapVersion% --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
             jdkHome = "%env.${javaLTS.env}%"
-            buildFile = "build.gradle.kts"
         }
     }
     params {
@@ -177,7 +176,6 @@ private fun BuildSteps.releaseToSpace(
         tasks =
             "$gradleTasks --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
-        buildFile = "build.gradle.kts"
         if (optional)
             executionMode = BuildStep.ExecutionMode.ALWAYS
     }

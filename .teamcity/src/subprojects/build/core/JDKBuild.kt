@@ -50,7 +50,6 @@ class JDKBuild(
 
         gradle {
             name = "Build and Run Tests"
-            buildFile = "build.gradle.kts"
             tasks = "cleanJvmTest jvmTest --no-parallel --continue --no-daemon -s"
             jdkHome = "%env.${osJdkEntry.jdkEntry.env}%"
         }

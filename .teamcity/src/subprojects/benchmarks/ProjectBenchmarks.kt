@@ -33,13 +33,11 @@ object ProjectBenchmarks : Project({
                 tasks =
                     "publishJvmPublicationToMavenLocal publishKotlinMultiplatformPublicationToMavenLocal -PreleaseVersion=1.0.0-BENCHMARKS"
                 workingDir = "ktor"
-                buildFile = "build.gradle.kts"
                 jdkHome = "%env.${javaLTS.env}%"
             }
             gradle {
                 tasks = "test -PktorVersion=1.0.0-BENCHMARKS"
                 workingDir = "ktor-benchmarks/allocation-benchmark"
-                buildFile = "build.gradle.kts"
                 jdkHome = "%env.${javaLTS.env}%"
             }
         }

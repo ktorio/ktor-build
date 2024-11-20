@@ -21,7 +21,6 @@ object TestGeneratorBackEnd : BuildType({
         gradle {
             name = "Test generator backend"
             tasks = "test"
-            buildFile = "build.gradle.kts"
             jdkHome = "%env.JDK_17_0%"
         }
     }
