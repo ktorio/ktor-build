@@ -11,7 +11,7 @@ object ProjectGradlePlugin : Project({
     description = "Publish Ktor Gradle Plugin"
 
     params {
-        defaultTimeouts()
+        defaultGradleParams()
         password("env.PUBLISHING_USER", value = "%space.packages.user%")
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.secret%")
         param("env.PUBLISHING_URL", value = "%space.packages.url%")

@@ -20,7 +20,7 @@ fun Project.publishKotlinxHtmlToSpace(): Project = subProject {
     description = "publish kotlinx.html project to Space Packages"
 
     params {
-        defaultTimeouts()
+        defaultGradleParams()
         param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
         param("env.PUBLISHING_USER", value = "%space.packages.kotlinx.html.user%")
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.kotlinx.html.secret%")

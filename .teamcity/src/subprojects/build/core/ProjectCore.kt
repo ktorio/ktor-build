@@ -11,7 +11,7 @@ object ProjectCore : Project({
     description = "Ktor Core Framework"
 
     params {
-        defaultTimeouts()
+        defaultGradleParams()
     }
 
     val jpmsCheck = JPMSCheckBuild
