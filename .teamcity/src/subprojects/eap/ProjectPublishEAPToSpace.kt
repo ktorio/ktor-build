@@ -12,7 +12,7 @@ object ProjectPublishEAPToSpace : Project({
 
 
     params {
-        defaultTimeouts()
+        defaultGradleParams()
         param("env.SIGN_KEY_ID", value = "")
         password("env.PUBLISHING_USER", value = "%space.packages.user%")
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.secret%")

@@ -12,7 +12,7 @@ object ProjectPublishReleaseToSpace : Project({
     description = "Publish Release to Space"
 
     params {
-        defaultTimeouts()
+        defaultGradleParams()
 
         text("reverse.dep.*.releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
 

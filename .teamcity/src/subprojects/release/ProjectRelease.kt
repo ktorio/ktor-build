@@ -20,7 +20,7 @@ object ProjectRelease : Project({
     buildType(ReleaseBuild)
 
     params {
-        defaultTimeouts()
+        defaultGradleParams()
         param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
 
         // Inherited from parent project. The reason for this is that security tokens seem to mess up with multiline values
