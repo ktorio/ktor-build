@@ -22,7 +22,7 @@ object APICheckBuild : BuildType({
         gradle {
             name = "API Check"
             tasks = "apiCheck"
-            jdkHome = "%env.${javaLTS.env}%"
+            jdkHome = Env.JDK_LTS
         }
     }
 

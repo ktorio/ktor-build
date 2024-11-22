@@ -20,7 +20,7 @@ object PublishCustomTaskToSpace : BuildType({
             name = "Assemble"
             tasks =
                 "%taskList% --i -PeapVersion=%eapVersion% --stacktrace --no-parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
-            jdkHome = "%env.${javaLTS.env}%"
+            jdkHome = Env.JDK_LTS
         }
     }
     params {
@@ -175,7 +175,7 @@ private fun BuildSteps.releaseToSpace(
         name = "Publish"
         tasks =
             "$gradleTasks --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
-        jdkHome = "%env.${javaLTS.env}%"
+        jdkHome = Env.JDK_LTS
         if (optional)
             executionMode = BuildStep.ExecutionMode.ALWAYS
     }

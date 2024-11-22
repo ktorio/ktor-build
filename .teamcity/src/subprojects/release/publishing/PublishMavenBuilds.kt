@@ -181,7 +181,7 @@ fun BuildSteps.publish(
         tasks = "$gradleTasks -PreleaseVersion=$releaseVersion $gradleParams " +
             "${if (parallel) "--parallel" else "--no-parallel"} " +
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
-        jdkHome = "%env.${javaLTS.env}%"
+        jdkHome = Env.JDK_LTS
     }
     cleanupKeyFile(os)
 }

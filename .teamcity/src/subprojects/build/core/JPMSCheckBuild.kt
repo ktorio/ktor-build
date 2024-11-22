@@ -21,7 +21,7 @@ object JPMSCheckBuild: BuildType({
         gradle {
             name = "Check JPMS build"
             tasks = ":ktor-java-modules-test:compileJava"
-            jdkHome = "%env.${javaLTS.env}%"
+            jdkHome = Env.JDK_LTS
         }
     }
 
