@@ -31,6 +31,7 @@ object ProjectGradlePlugin : Project({
                 name = "Publish"
                 tasks = ":plugin:publishPlugins"
                 gradleParams = "-PversionSuffix=eap-%build.counter%"
+                jdkHome = Env.JDK_LTS
             }
         }
     }
@@ -47,6 +48,7 @@ object ProjectGradlePlugin : Project({
             gradle {
                 name = "Publish"
                 tasks = ":plugin:publishPlugins"
+                jdkHome = Env.JDK_LTS
             }
         }
     }
@@ -64,6 +66,7 @@ object ProjectGradlePlugin : Project({
                 name = "Publish"
                 tasks = ":plugin:publishPlugins"
                 gradleParams = "-PversionSuffix=beta-%build.counter%"
+                jdkHome = Env.JDK_LTS
             }
         }
     }
@@ -86,6 +89,7 @@ object ProjectGradlePlugin : Project({
                 name = "Publish to Space Packages"
                 tasks = ":plugin:publish"
                 gradleParams = "-Pspace -PversionSuffix=eap-%build.counter%"
+                jdkHome = Env.JDK_LTS
             }
         }
     }
@@ -110,6 +114,7 @@ object ProjectGradlePlugin : Project({
             gradle {
                 name = "Run tests"
                 tasks = ":plugin:test test"
+                jdkHome = Env.JDK_LTS
             }
         }
     }
