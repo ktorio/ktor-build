@@ -12,7 +12,20 @@ import subprojects.build.generator.*
 import subprojects.build.plugin.*
 import subprojects.build.samples.*
 
-data class JDKEntry(val name: String, val env: String)
+data class JDKEntry(
+    val version: Int,
+    val name: String = "Java $version",
+    val env: String = "JDK_${version}_0",
+) {
+
+    companion object {
+        val Java8 = JDKEntry(8, env = "JDK_1_8")
+        val Java11 = JDKEntry(11)
+        val Java17 = JDKEntry(17)
+        val Java21 = JDKEntry(21)
+        val JavaLTS = Java21
+    }
+}
 
 data class NativeEntry(
     override val os: OS,
@@ -41,6 +54,7 @@ data class NativeEntry(
 }
 
 data class JSEntry(val name: String, val dockerContainer: String)
+
 data class OSJDKEntry(
     override val os: OS,
     val jdkEntry: JDKEntry,
@@ -50,16 +64,10 @@ data class OSJDKEntry(
 const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.tgz"
 
-val java8 = JDKEntry("Java 8", "JDK_1_8")
-val java11 = JDKEntry("Java 11", "JDK_11_0")
-val java17 = JDKEntry("Java 17", "JDK_17_0")
-val java21 = JDKEntry("Java 21", "JDK_21_0")
-val javaLTS = java21
-
 val osJdks = listOf(
-    OSJDKEntry(OS.Linux, java8), // Minimal supported version
-    OSJDKEntry(OS.Linux, java17), // Version used to build Android projects
-    OSJDKEntry(OS.Linux, javaLTS), // Latest LTS
+    OSJDKEntry(OS.Linux, JDKEntry.Java8), // Minimal supported version
+    OSJDKEntry(OS.Linux, JDKEntry.Java17), // Version used to build Android projects
+    OSJDKEntry(OS.Linux, JDKEntry.JavaLTS), // Latest LTS
 )
 
 val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
@@ -67,8 +75,8 @@ val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
 val javaScriptEngines = listOf(js)
 
 val stressTests = listOf(
-    OSJDKEntry(OS.Linux, javaLTS),
-    OSJDKEntry(OS.Windows, javaLTS)
+    OSJDKEntry(OS.Linux, JDKEntry.JavaLTS),
+    OSJDKEntry(OS.Windows, JDKEntry.JavaLTS)
 )
 
 object ProjectBuild : Project({

@@ -75,7 +75,7 @@ class NativeBuild(private val entry: NativeEntry, addTriggers: Boolean = true) :
         gradle {
             name = "Build and Run Tests"
             tasks = "${entry.testTasks} --info"
-            jdkHome = "%env.JDK_11%"
+            jdkHome = Env.JDK_LTS
         }
     }
 

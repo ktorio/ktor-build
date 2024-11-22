@@ -32,7 +32,7 @@ object ProjectCore : Project({
     buildType(DependenciesCheckBuild())
     // As soon as native Windows builds are disabled, we give an ability to run build on Windows manually
     buildType(NativeBuild(NativeEntry.Windows, addTriggers = false))
-    buildType(JDKBuild(OSJDKEntry(Agents.OS.Windows, java11), addTriggers = false))
+    buildType(JDKBuild(OSJDKEntry(Agents.OS.Windows, JDKEntry.Java11), addTriggers = false))
 
     buildType {
         allowExternalStatus = true
