@@ -56,7 +56,7 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
                 powerShell {
                     name = "Get dependencies and environment ready"
                     scriptMode = script {
-                        content = windowsSoftware.trimIndent()
+                        content = windowsSoftware
                     }
                 }
                 defineTCPPortRange()

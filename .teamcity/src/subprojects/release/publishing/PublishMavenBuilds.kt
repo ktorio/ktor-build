@@ -19,6 +19,17 @@ object PublishCustomTaskToMaven : BuildType({
         text("tasks", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
         text("repo_name", "Custom Task", display = ParameterDisplay.PROMPT, allowEmpty = false)
         text("prepublish_script", "", display = ParameterDisplay.PROMPT, allowEmpty = true)
+        select(
+            name = "gpg_args",
+            value = GPG_DEFAULT_GRADLE_ARGS,
+            label = "GPG Arguments",
+            display = ParameterDisplay.PROMPT,
+            options = listOf(
+                "Default" to GPG_DEFAULT_GRADLE_ARGS,
+                "macOS" to GPG_MACOS_GRADLE_ARGS,
+                "Windows" to GPG_WINDOWS_GRADLE_ARGS,
+            )
+        )
     }
     steps {
         script {
@@ -26,8 +37,9 @@ object PublishCustomTaskToMaven : BuildType({
             scriptContent = "%prepublish_script%"
             conditions { doesNotEqual("prepublish_script", "") }
         }
+        prepareEnvironment()
         createSonatypeRepository("%repo_name%")
-        publish("%tasks%", parallel = false)
+        publish("%tasks%", "%gpg_args%", parallel = false)
     }
 })
 
@@ -74,10 +86,7 @@ object PublishWindowsNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        script {
-            name = "Obtain Library Dependencies"
-            scriptContent = windowsSoftware
-        }
+        prepareEnvironment()
         publish(
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,

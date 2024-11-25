@@ -3,6 +3,18 @@ package subprojects.release.publishing
 import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import subprojects.build.core.*
+
+internal fun BuildSteps.prepareEnvironment() {
+    powerShell {
+        name = "Prepare environment (Windows)"
+        scriptMode = script {
+            content = windowsSoftware
+        }
+
+        conditions { isWindows() }
+    }
+}
 
 internal fun BuildSteps.createSonatypeRepository(task: String) {
     script {
