@@ -81,7 +81,6 @@ object PublishWindowsNativeToMaven : BuildType({
         publish(
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
-            os = "Windows",
             parallel = false,
         )
     }
@@ -151,19 +150,17 @@ object PublishAndroidNativeToMaven : BuildType({
 fun BuildSteps.publish(
     gradleTasks: List<String>,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
-    os: String = "",
     parallel: Boolean = true,
 ) {
-    publish(gradleTasks.joinToString(" "), gradleParams, os, parallel)
+    publish(gradleTasks.joinToString(" "), gradleParams, parallel)
 }
 
 fun BuildSteps.publish(
     gradleTasks: String,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
-    os: String = "",
     parallel: Boolean = true,
 ) {
-    prepareKeyFile(os)
+    prepareKeyFile()
     gradle {
         name = "Publish"
         tasks = "$gradleTasks -PreleaseVersion=$releaseVersion $gradleParams " +
@@ -171,5 +168,5 @@ fun BuildSteps.publish(
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
     }
-    cleanupKeyFile(os)
+    cleanupKeyFile()
 }

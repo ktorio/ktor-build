@@ -1,5 +1,6 @@
 package subprojects.release.publishing
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 
@@ -18,6 +19,6 @@ internal fun BuildSteps.createSonatypeRepository(task: String) {
         """.trimIndent()
 
         // Currently this step doesn't support running on Windows
-        conditions { doesNotEqual("teamcity.agent.jvm.os.family", "Windows") }
+        conditions { isNotWindows() }
     }
 }
