@@ -16,5 +16,8 @@ internal fun BuildSteps.createSonatypeRepository(task: String) {
 
                 echo "##teamcity[setParameter name='env.REPOSITORY_ID' value='${'$'}(cat repo.xml | grep -o 'ioktor-[0-9]*')']"
         """.trimIndent()
+
+        // Currently this step doesn't support running on Windows
+        conditions { doesNotEqual("teamcity.agent.jvm.os.family", "Windows") }
     }
 }
