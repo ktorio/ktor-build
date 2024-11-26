@@ -72,7 +72,7 @@ fun Project.publishKotlinxHtmlJvmToSpace() = buildType {
 
     releaseToSpace(
         "Jvm",
-        linux.agentString,
+        linux.osFamily,
         tasks.joinToString(" "),
     )
 }
@@ -80,7 +80,7 @@ fun Project.publishKotlinxHtmlJvmToSpace() = buildType {
 fun Project.publishKotlinxHtmlJsToSpace() = buildType {
     releaseToSpace(
         "Js",
-        linux.agentString,
+        linux.osFamily,
         "publishJsPublicationToMavenRepository publishWasmJsPublicationToMavenRepository",
     )
 }
@@ -88,7 +88,7 @@ fun Project.publishKotlinxHtmlJsToSpace() = buildType {
 fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
     releaseToSpace(
         "NativeMacos",
-        macOS.agentString,
+        macOS.osFamily,
         MACOS_PUBLISH_TASKS.joinToString(" "),
         GPG_MACOS_GRADLE_ARGS,
     )
@@ -97,7 +97,7 @@ fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
 fun Project.publishKotlinxHtmlLinuxToSpace() = buildType {
     releaseToSpace(
         "NativeLinux",
-        linux.agentString,
+        linux.osFamily,
         "publishLinuxX64PublicationToMavenRepository publishLinuxArm64PublicationToMavenRepository",
     )
 }
@@ -105,7 +105,7 @@ fun Project.publishKotlinxHtmlLinuxToSpace() = buildType {
 fun Project.publishKotlinxHtmlMingwToSpace() = buildType {
     releaseToSpace(
         "NativeWindows",
-        windows.agentString,
+        windows.osFamily,
         "publishMingwX64PublicationToMavenRepository",
         GPG_WINDOWS_GRADLE_ARGS,
     )

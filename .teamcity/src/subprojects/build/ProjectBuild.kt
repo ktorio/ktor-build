@@ -14,7 +14,7 @@ import subprojects.build.samples.*
 data class JDKEntry(val name: String, val env: String)
 data class OSEntry(
     val name: String,
-    val agentString: String,
+    val osFamily: String,
     val testTaskName: String,
     val binaryTaskName: String,
     val osArch: String? = null
@@ -28,7 +28,7 @@ const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.t
 
 val macOS = OSEntry(
     "macOS",
-    "Mac OS X",
+    "Mac OS",
     "cleanMacosX64Test macosX64Test",
     "linkReleaseExecutableMacosX64",
     "x86_64"
