@@ -33,6 +33,9 @@ data class NativeEntry(
     override val arch: Agents.Arch = Agents.Arch.X64,
 ) : AgentSpec {
 
+    /** The ID to be used as a part of build ID. */
+    val id: String = "${os.id}_${arch.id}"
+
     companion object {
         val MacOS = NativeEntry(
             os = OS.MacOS,
@@ -59,7 +62,10 @@ data class OSJDKEntry(
     override val os: OS,
     val jdkEntry: JDKEntry,
     override val arch: Agents.Arch = Agents.Arch.X64,
-) : AgentSpec
+) : AgentSpec {
+    /** The ID to be used as a part of build ID. */
+    val id: String = "${os.id}${jdkEntry.name}"
+}
 
 const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.tgz"
