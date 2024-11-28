@@ -10,8 +10,8 @@ class JDKBuild(
     private val osJdkEntry: OSJDKEntry,
     private val addTriggers: Boolean = true,
 ) : BuildType({
-    id("KtorMatrixCore_${osJdkEntry.osEntry.name}${osJdkEntry.jdkEntry.name}".toId())
-    name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.name}"
+    id("KtorMatrixCore_${osJdkEntry.osEntry.id}${osJdkEntry.jdkEntry.name}".toId())
+    name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.id}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 

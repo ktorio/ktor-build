@@ -17,22 +17,35 @@ object Agents {
 
     /** 8 CPU, 16 GB RAM */
     const val LARGE = "Large"
+
+    /**
+     * CPU architectures available to run builds.
+     *
+     * @property agentArch The architecture name as it is specified on agents.
+     */
+    enum class Arch(val agentArch: String) {
+        X64("x86_64"),
+        Arm64("aarch64");
+
+        /** The architecture identifier to be used in build ID. */
+        val id: String = name.lowercase()
+    }
 }
 
 fun Requirements.agent(
     os: OSEntry,
     hardwareCapacity: String = MEDIUM
 ) {
-    agent(os.osFamily, os.osArch, hardwareCapacity)
+    agent(os.family, os.arch, hardwareCapacity)
 }
 
 fun Requirements.agent(
     os: String?,
-    osArch: String? = null,
+    osArch: Agents.Arch = Agents.Arch.X64,
     hardwareCapacity: String = MEDIUM,
 ) {
     if (os != null) equals("teamcity.agent.jvm.os.family", os)
-    if (osArch != null) equals("teamcity.agent.jvm.os.arch", osArch)
+    equals("teamcity.agent.jvm.os.arch", osArch.agentArch)
 
     // It is better to use memory constraint to select agent as it unlocks the possibility to use more powerful agents
     val memorySizeMb = when (hardwareCapacity) {

@@ -25,8 +25,8 @@ val macSoftware = """
 """.trimIndent()
 
 class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : BuildType({
-    id("KtorMatrixNative_${osEntry.name}_${osEntry.osArch ?: "x64"}".toId())
-    name = "Native on ${osEntry.name} ${osEntry.osArch ?: "x64"}"
+    id("KtorMatrixNative_${osEntry.id}_${osEntry.arch.id}".toId())
+    name = "Native on ${osEntry.id} ${osEntry.arch}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
@@ -74,7 +74,7 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
         }
         gradle {
             name = "Build and Run Tests"
-            tasks = "${osEntry.testTaskName} --info"
+            tasks = "${osEntry.testTasks} --info"
             jdkHome = "%env.JDK_11%"
         }
     }
