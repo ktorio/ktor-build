@@ -26,7 +26,7 @@ val macSoftware = """
 
 class NativeBuild(private val entry: NativeEntry, addTriggers: Boolean = true) : BuildType({
     id("KtorMatrixNative_${entry.id}".toId())
-    name = "Native on ${entry.os.id} ${entry.arch}"
+    name = "${entry.name} ${entry.arch}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 

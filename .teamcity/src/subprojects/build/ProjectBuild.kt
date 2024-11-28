@@ -27,14 +27,17 @@ data class JDKEntry(
     }
 }
 
+/**
+ * @property name The name to be shown as a part of a build name.
+ * @property id The ID to be used as a part of build ID.
+ */
 data class NativeEntry(
     override val os: OS,
     val testTasks: String,
     override val arch: Agents.Arch = Agents.Arch.X64,
+    val id: String = "${os.id}_${arch.id}",
+    val name: String = "Native ${os.id}",
 ) : AgentSpec {
-
-    /** The ID to be used as a part of build ID. */
-    val id: String = "${os.id}_${arch.id}"
 
     companion object {
         val MacOSX64 = NativeEntry(
@@ -58,7 +61,20 @@ data class NativeEntry(
             testTasks = "cleanMingwX64Test mingwX64Test",
         )
 
-        val All = listOf(Linux, MacOSX64, MacOSArm64, Windows)
+        val AndroidNative = NativeEntry(
+            id = "AndroidNativeX64",
+            name = "Android Native",
+            os = OS.Linux,
+            testTasks = "cleanAndroidNativeX64Test androidNativeX64Test",
+        )
+
+        val All = listOf(
+            Linux,
+            MacOSX64,
+            MacOSArm64,
+            Windows,
+            AndroidNative,
+        )
     }
 }
 
