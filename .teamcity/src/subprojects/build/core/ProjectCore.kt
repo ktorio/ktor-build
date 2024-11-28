@@ -18,7 +18,7 @@ object ProjectCore : Project({
     val apiCheck = APICheckBuild
     val osJdkBuilds = osJdks.map(::JDKBuild)
     // Skip Native Windows build for now, it is not working.
-    val nativeBuilds = (operatingSystems - windows).map(::NativeBuild)
+    val nativeBuilds = (NativeEntry.All - NativeEntry.Windows).map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val wasmJsBuilds = javaScriptEngines.map(::WasmJsBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
@@ -31,8 +31,8 @@ object ProjectCore : Project({
     // Builds to be run manually on demand
     buildType(DependenciesCheckBuild())
     // As soon as native Windows builds are disabled, we give an ability to run build on Windows manually
-    buildType(NativeBuild(windows, addTriggers = false))
-    buildType(JDKBuild(OSJDKEntry(windows, java11), addTriggers = false))
+    buildType(NativeBuild(NativeEntry.Windows, addTriggers = false))
+    buildType(JDKBuild(OSJDKEntry(Agents.OS.Windows, java11), addTriggers = false))
 
     buildType {
         allowExternalStatus = true

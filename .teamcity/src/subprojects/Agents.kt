@@ -3,7 +3,6 @@ package subprojects
 import jetbrains.buildServer.configs.kotlin.*
 import subprojects.Agents.LARGE
 import subprojects.Agents.MEDIUM
-import subprojects.build.*
 
 object Agents {
     /** Use any available agent for the specified OS. */
@@ -45,11 +44,16 @@ object Agents {
     }
 }
 
+interface AgentSpec {
+    val os: Agents.OS
+    val arch: Agents.Arch
+}
+
 fun Requirements.agent(
-    osEntry: OSEntry,
+    spec: AgentSpec,
     hardwareCapacity: String = MEDIUM
 ) {
-    agent(osEntry.os, osEntry.arch, hardwareCapacity)
+    agent(spec.os, spec.arch, hardwareCapacity)
 }
 
 fun Requirements.agent(
