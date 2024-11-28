@@ -66,6 +66,7 @@ const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.t
 
 val osJdks = listOf(
     OSJDKEntry(OS.Linux, JDKEntry.Java8), // Minimal supported version
+    OSJDKEntry(OS.Linux, JDKEntry.Java11), // Minimal supported version for Jakarta modules
     OSJDKEntry(OS.Linux, JDKEntry.Java17), // Version used to build Android projects
     OSJDKEntry(OS.Linux, JDKEntry.JavaLTS), // Latest LTS
 )
