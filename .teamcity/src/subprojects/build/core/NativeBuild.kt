@@ -24,9 +24,9 @@ val macSoftware = """
     brew reinstall libidn2
 """.trimIndent()
 
-class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : BuildType({
-    id("KtorMatrixNative_${osEntry.os.id}_${osEntry.arch.id}".toId())
-    name = "Native on ${osEntry.os.id} ${osEntry.arch}"
+class NativeBuild(private val entry: NativeEntry, addTriggers: Boolean = true) : BuildType({
+    id("KtorMatrixNative_${entry.os.id}_${entry.arch.id}".toId())
+    name = "Native on ${entry.os.id} ${entry.arch}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
@@ -36,12 +36,12 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
 
     if (addTriggers) {
         triggers {
-            onBuildTargetChanges(BuildTarget.Native(osEntry.os))
+            onBuildTargetChanges(BuildTarget.Native(entry.os))
         }
     }
 
     steps {
-        when (osEntry.os) {
+        when (entry.os) {
             OS.Windows -> {
                 powerShell {
                     name = "Remove git from PATH"
@@ -74,7 +74,7 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
         }
         gradle {
             name = "Build and Run Tests"
-            tasks = "${osEntry.testTasks} --info"
+            tasks = "${entry.testTasks} --info"
             jdkHome = "%env.JDK_11%"
         }
     }
@@ -82,6 +82,6 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        agent(osEntry)
+        agent(entry)
     }
 })

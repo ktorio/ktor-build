@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import subprojects.*
+import subprojects.Agents.OS
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
 import subprojects.build.generator.*
@@ -12,40 +13,42 @@ import subprojects.build.plugin.*
 import subprojects.build.samples.*
 
 data class JDKEntry(val name: String, val env: String)
-data class OSEntry(
-    val os: Agents.OS,
+
+data class NativeEntry(
+    override val os: OS,
     val testTasks: String,
-    val binaryTasks: String,
-    val arch: Agents.Arch = Agents.Arch.X64,
-)
+    override val arch: Agents.Arch = Agents.Arch.X64,
+) : AgentSpec {
+
+    companion object {
+        val MacOS = NativeEntry(
+            os = OS.MacOS,
+            testTasks = "cleanMacosX64Test macosX64Test",
+        )
+
+        val Linux = NativeEntry(
+            os = OS.Linux,
+            testTasks = "cleanLinuxX64Test linuxX64Test",
+        )
+
+        val Windows = NativeEntry(
+            os = OS.Windows,
+            testTasks = "cleanMingwX64Test mingwX64Test",
+        )
+
+        val All = listOf(Linux, MacOS, Windows)
+    }
+}
 
 data class JSEntry(val name: String, val dockerContainer: String)
-data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry) {
-    val os: Agents.OS get() = osEntry.os
-}
+data class OSJDKEntry(
+    override val os: OS,
+    val jdkEntry: JDKEntry,
+    override val arch: Agents.Arch = Agents.Arch.X64,
+) : AgentSpec
 
 const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.tgz"
-
-val macOS = OSEntry(
-    os = Agents.OS.MacOS,
-    testTasks = "cleanMacosX64Test macosX64Test",
-    binaryTasks = "linkReleaseExecutableMacosX64",
-)
-
-val linux = OSEntry(
-    os = Agents.OS.Linux,
-    testTasks = "cleanLinuxX64Test linuxX64Test",
-    binaryTasks = "linkReleaseExecutableLinuxX64 linkReleaseExecutableLinuxArm64"
-)
-
-val windows = OSEntry(
-    os = Agents.OS.Windows,
-    testTasks = "cleanMingwX64Test mingwX64Test",
-    binaryTasks = "linkReleaseExecutableMingwX64",
-)
-
-val operatingSystems = listOf(macOS, linux, windows)
 
 val java8 = JDKEntry("Java 8", "JDK_1_8")
 val java11 = JDKEntry("Java 11", "JDK_11_0")
@@ -54,9 +57,9 @@ val java21 = JDKEntry("Java 21", "JDK_21_0")
 val javaLTS = java21
 
 val osJdks = listOf(
-    OSJDKEntry(linux, java8), // Minimal supported version
-    OSJDKEntry(linux, java17), // Version used to build Android projects
-    OSJDKEntry(linux, javaLTS), // Latest LTS
+    OSJDKEntry(OS.Linux, java8), // Minimal supported version
+    OSJDKEntry(OS.Linux, java17), // Version used to build Android projects
+    OSJDKEntry(OS.Linux, javaLTS), // Latest LTS
 )
 
 val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
@@ -64,8 +67,8 @@ val js = JSEntry("Chrome/Node.js", "stl5/ktor-test-image:latest")
 val javaScriptEngines = listOf(js)
 
 val stressTests = listOf(
-    OSJDKEntry(linux, javaLTS),
-    OSJDKEntry(windows, javaLTS)
+    OSJDKEntry(OS.Linux, javaLTS),
+    OSJDKEntry(OS.Windows, javaLTS)
 )
 
 object ProjectBuild : Project({
