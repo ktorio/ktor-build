@@ -7,7 +7,7 @@ import subprojects.*
 import subprojects.build.*
 
 class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
-    id("KtorMatrixStressTest_${osJVMComboEntry.os.id}${osJVMComboEntry.jdkEntry.name}".toId())
+    id("KtorMatrixStressTest_${osJVMComboEntry.id}".toId())
     name = "Stress Test on ${osJVMComboEntry.os.id} and ${osJVMComboEntry.jdkEntry.name}"
     vcs {
         root(VCSCore)
