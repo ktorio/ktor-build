@@ -4,7 +4,6 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.release.*
 
 class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
     id("KtorMatrixWasmJs_${jsEntry.name}".toId())
@@ -31,9 +30,6 @@ class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        agent(linux)
-    }
-    if (jsEntry == js) {
-        wasmJsBuild = this
+        agent(Agents.OS.Linux)
     }
 })

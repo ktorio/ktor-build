@@ -2,7 +2,7 @@ package subprojects
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
-import subprojects.build.*
+import subprojects.Agents.OS
 
 /**
  * A set of common branch filters.
@@ -98,23 +98,22 @@ class BuildTarget(sourceSets: List<String>) {
         val JS = BuildTarget("js", "jsAndWasmShared")
         val WasmJS = BuildTarget("wasmJs", "jsAndWasmShared")
 
-        fun Native(osEntry: OSEntry) = BuildTarget(
+        fun Native(os: OS) = BuildTarget(
             listOf("desktop", "posix", "jvmAndPosix") +
-                nixSourceSets(osEntry) +
-                osSourceSets(osEntry)
+                nixSourceSets(os) +
+                osSourceSets(os)
         )
 
         /** Source sets that are built only on a specific OS. */
-        private fun osSourceSets(osEntry: OSEntry): List<String> = when (osEntry) {
-            macOS -> listOf("darwin", "macos", "ios", "tvos", "watchos")
-            linux -> listOf("linux")
-            windows -> listOf("windows", "mingw")
-            else -> emptyList()
+        private fun osSourceSets(os: OS): List<String> = when (os) {
+            OS.MacOS -> listOf("darwin", "macos", "ios", "tvos", "watchos")
+            OS.Linux -> listOf("linux")
+            OS.Windows -> listOf("windows", "mingw")
         }
 
-        private fun nixSourceSets(osEntry: OSEntry): List<String> = when (osEntry) {
-            linux, macOS -> listOf("nix", "jvmAndNix")
-            else -> emptyList()
+        private fun nixSourceSets(os: OS): List<String> = when (os) {
+            OS.Linux, OS.MacOS -> listOf("nix", "jvmAndNix")
+            OS.Windows -> emptyList()
         }
     }
 }

@@ -45,7 +45,7 @@ object PublishJvmToSpaceRelease : BuildType({
     }
 
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 
@@ -62,7 +62,7 @@ object PublishJSToSpaceRelease : BuildType({
     }
 
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 
@@ -91,7 +91,7 @@ object PublishWindowsNativeToSpaceRelease : BuildType({
         )
     }
     requirements {
-        agent(windows)
+        agent(Agents.OS.Windows)
     }
 })
 
@@ -112,7 +112,7 @@ object PublishLinuxNativeToSpaceRelease : BuildType({
         releaseToSpace(LINUX_PUBLISH_TASK)
     }
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 
@@ -134,7 +134,7 @@ object PublishMacOSNativeToSpaceRelease : BuildType({
     }
 
     requirements {
-        agent(macOS)
+        agent(Agents.OS.MacOS)
     }
 })
 
@@ -150,7 +150,7 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
         releaseToSpace(ANDROID_NATIVE_PUBLISH_TASK)
     }
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 

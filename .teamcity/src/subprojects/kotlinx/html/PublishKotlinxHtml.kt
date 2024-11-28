@@ -72,7 +72,7 @@ fun Project.publishKotlinxHtmlJvmToSpace() = buildType {
 
     releaseToSpace(
         "Jvm",
-        linux,
+        Agents.OS.Linux,
         tasks.joinToString(" "),
     )
 }
@@ -80,7 +80,7 @@ fun Project.publishKotlinxHtmlJvmToSpace() = buildType {
 fun Project.publishKotlinxHtmlJsToSpace() = buildType {
     releaseToSpace(
         "Js",
-        linux,
+        Agents.OS.Linux,
         "publishJsPublicationToMavenRepository publishWasmJsPublicationToMavenRepository",
     )
 }
@@ -88,7 +88,7 @@ fun Project.publishKotlinxHtmlJsToSpace() = buildType {
 fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
     releaseToSpace(
         "NativeMacos",
-        macOS,
+        Agents.OS.MacOS,
         MACOS_PUBLISH_TASKS.joinToString(" "),
         GPG_MACOS_GRADLE_ARGS,
     )
@@ -97,7 +97,7 @@ fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
 fun Project.publishKotlinxHtmlLinuxToSpace() = buildType {
     releaseToSpace(
         "NativeLinux",
-        linux,
+        Agents.OS.Linux,
         "publishLinuxX64PublicationToMavenRepository publishLinuxArm64PublicationToMavenRepository",
     )
 }
@@ -105,7 +105,7 @@ fun Project.publishKotlinxHtmlLinuxToSpace() = buildType {
 fun Project.publishKotlinxHtmlMingwToSpace() = buildType {
     releaseToSpace(
         "NativeWindows",
-        windows,
+        Agents.OS.Windows,
         "publishMingwX64PublicationToMavenRepository",
         GPG_WINDOWS_GRADLE_ARGS,
     )
@@ -113,7 +113,7 @@ fun Project.publishKotlinxHtmlMingwToSpace() = buildType {
 
 private fun BuildType.releaseToSpace(
     platformName: String,
-    os: OSEntry,
+    os: Agents.OS,
     publishTasks: String,
     gradleParameters: String = GPG_DEFAULT_GRADLE_ARGS,
 ) {
@@ -130,7 +130,7 @@ private fun BuildType.releaseToSpace(
     }
 
     steps {
-        prepareKeyFile(agent)
+        prepareKeyFile(os.name)
 
         gradle {
             name = "Publish"
@@ -141,7 +141,7 @@ private fun BuildType.releaseToSpace(
             jdkHome = "%env.${javaLTS.env}%"
         }
 
-        cleanupKeyFile(agent)
+        cleanupKeyFile(os.name)
     }
 
     requirements {

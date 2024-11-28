@@ -18,6 +18,19 @@ object Agents {
     /** 8 CPU, 16 GB RAM */
     const val LARGE = "Large"
 
+    /** Operating Systems available to run builds. */
+    enum class OS(id: String? = null, family: String? = null) {
+        Linux,
+        Windows,
+        MacOS(id = "macOS", family = "Mac OS");
+
+        /** The OS identifier to be used in build ID. */
+        val id: String = id ?: name
+
+        /** The OS family to be used to select the correct agent. */
+        val family: String = family ?: name
+    }
+
     /**
      * CPU architectures available to run builds.
      *
@@ -33,18 +46,18 @@ object Agents {
 }
 
 fun Requirements.agent(
-    os: OSEntry,
+    osEntry: OSEntry,
     hardwareCapacity: String = MEDIUM
 ) {
-    agent(os.family, os.arch, hardwareCapacity)
+    agent(osEntry.os, osEntry.arch, hardwareCapacity)
 }
 
 fun Requirements.agent(
-    os: String?,
+    os: Agents.OS?,
     osArch: Agents.Arch = Agents.Arch.X64,
     hardwareCapacity: String = MEDIUM,
 ) {
-    if (os != null) equals("teamcity.agent.jvm.os.family", os)
+    if (os != null) equals("teamcity.agent.jvm.os.family", os.family)
     equals("teamcity.agent.jvm.os.arch", osArch.agentArch)
 
     // It is better to use memory constraint to select agent as it unlocks the possibility to use more powerful agents
