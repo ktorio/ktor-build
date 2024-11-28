@@ -51,7 +51,7 @@ object ReleaseWinGet: BuildType({
     }
 
     requirements {
-        agent(windows, Agents.ANY)
+        agent(Agents.OS.Windows, hardwareCapacity = Agents.ANY)
     }
 })
 
@@ -97,7 +97,7 @@ object ReleaseBrew: BuildType({
     }
 
     requirements {
-        agent(linux, Agents.ANY)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
     }
 })
 
@@ -256,7 +256,7 @@ EOF
     }
 
     requirements {
-        agent(linux, Agents.ANY)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
     }
 })
 
@@ -298,7 +298,7 @@ object PackMsiInstaller : BuildType({
     }
 
     requirements {
-        agent(windows, Agents.ANY)
+        agent(Agents.OS.Windows, hardwareCapacity = Agents.ANY)
     }
 })
 
@@ -342,7 +342,7 @@ object BuildCLI: BuildType({
     }
 
     requirements {
-        agent(linux, Agents.ANY)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
     }
 
     defaultBuildFeatures(VCSKtorCLI.id.toString())

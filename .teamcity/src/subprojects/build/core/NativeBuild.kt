@@ -3,8 +3,8 @@ package subprojects.build.core
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
+import subprojects.Agents.OS
 import subprojects.build.*
-import subprojects.release.*
 
 val windowsSoftware = """
                 ${'$'}env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
@@ -25,8 +25,8 @@ val macSoftware = """
 """.trimIndent()
 
 class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : BuildType({
-    id("KtorMatrixNative_${osEntry.id}_${osEntry.arch.id}".toId())
-    name = "Native on ${osEntry.id} ${osEntry.arch}"
+    id("KtorMatrixNative_${osEntry.os.id}_${osEntry.arch.id}".toId())
+    name = "Native on ${osEntry.os.id} ${osEntry.arch}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib", "+:**/build/**/*.exe", "+:**/build/**/*.kexe")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
@@ -36,13 +36,13 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
 
     if (addTriggers) {
         triggers {
-            onBuildTargetChanges(BuildTarget.Native(osEntry))
+            onBuildTargetChanges(BuildTarget.Native(osEntry.os))
         }
     }
 
     steps {
-        when (osEntry) {
-            windows -> {
+        when (osEntry.os) {
+            OS.Windows -> {
                 powerShell {
                     name = "Remove git from PATH"
                     scriptMode = script {
@@ -62,12 +62,12 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
                 defineTCPPortRange()
             }
 
-            linux -> script {
+            OS.Linux -> script {
                 name = "Obtain Library Dependencies"
                 scriptContent = linuxSoftware
             }
 
-            macOS -> script {
+            OS.MacOS -> script {
                 name = "Obtain Library Dependencies"
                 scriptContent = macSoftware
             }
@@ -83,10 +83,5 @@ class NativeBuild(private val osEntry: OSEntry, addTriggers: Boolean = true) : B
 
     requirements {
         agent(osEntry)
-    }
-    when (osEntry) {
-        macOS -> nativeMacOSBuild = this
-        windows -> nativeWindowsBuild = this
-        linux -> nativeLinuxBuild = this
     }
 })

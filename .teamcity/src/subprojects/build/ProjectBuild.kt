@@ -13,34 +13,34 @@ import subprojects.build.samples.*
 
 data class JDKEntry(val name: String, val env: String)
 data class OSEntry(
-    val family: String,
+    val os: Agents.OS,
     val testTasks: String,
     val binaryTasks: String,
-    val id: String = family,
     val arch: Agents.Arch = Agents.Arch.X64,
 )
 
 data class JSEntry(val name: String, val dockerContainer: String)
-data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry)
+data class OSJDKEntry(val osEntry: OSEntry, val jdkEntry: JDKEntry) {
+    val os: Agents.OS get() = osEntry.os
+}
 
 const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.tgz"
 
 val macOS = OSEntry(
-    id = "macOS",
-    family = "Mac OS",
+    os = Agents.OS.MacOS,
     testTasks = "cleanMacosX64Test macosX64Test",
     binaryTasks = "linkReleaseExecutableMacosX64",
 )
 
 val linux = OSEntry(
-    family = "Linux",
+    os = Agents.OS.Linux,
     testTasks = "cleanLinuxX64Test linuxX64Test",
     binaryTasks = "linkReleaseExecutableLinuxX64 linkReleaseExecutableLinuxArm64"
 )
 
 val windows = OSEntry(
-    family = "Windows",
+    os = Agents.OS.Windows,
     testTasks = "cleanMingwX64Test mingwX64Test",
     binaryTasks = "linkReleaseExecutableMingwX64",
 )

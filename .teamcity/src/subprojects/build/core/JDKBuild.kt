@@ -3,15 +3,15 @@ package subprojects.build.core
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
+import subprojects.Agents.OS
 import subprojects.build.*
-import subprojects.release.*
 
 class JDKBuild(
     private val osJdkEntry: OSJDKEntry,
     private val addTriggers: Boolean = true,
 ) : BuildType({
-    id("KtorMatrixCore_${osJdkEntry.osEntry.id}${osJdkEntry.jdkEntry.name}".toId())
-    name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.osEntry.id}"
+    id("KtorMatrixCore_${osJdkEntry.os.id}${osJdkEntry.jdkEntry.name}".toId())
+    name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.os.id}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
@@ -26,21 +26,21 @@ class JDKBuild(
     }
 
     steps {
-        when (osJdkEntry.osEntry) {
-            windows -> {
+        when (osJdkEntry.os) {
+            OS.Windows -> {
                 script {
                     name = "Obtain Library Dependencies"
                     scriptContent = windowsSoftware
                 }
                 defineTCPPortRange()
             }
-            linux -> {
+            OS.Linux -> {
                 script {
                     name = "Obtain Library Dependencies"
                     scriptContent = linuxSoftware
                 }
             }
-            macOS -> {
+            OS.MacOS -> {
                 script {
                     name = "Obtain Library Dependencies"
                     scriptContent = macSoftware
@@ -58,10 +58,7 @@ class JDKBuild(
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        agent(linux)
-    }
-    if (osJdkEntry.osEntry == linux && osJdkEntry.jdkEntry == javaLTS) {
-        jvmBuild = this
+        agent(OS.Linux)
     }
 })
 

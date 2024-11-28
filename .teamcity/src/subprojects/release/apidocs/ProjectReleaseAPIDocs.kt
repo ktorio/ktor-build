@@ -3,7 +3,6 @@ package subprojects.release.apidocs
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
-import subprojects.build.*
 import subprojects.release.*
 
 object ProjectReleaseAPIDocs : Project({
@@ -42,7 +41,7 @@ object ProjectReleaseAPIDocs : Project({
         }
 
         requirements {
-            agent(macOS)
+            agent(Agents.OS.MacOS)
         }
     }
 })

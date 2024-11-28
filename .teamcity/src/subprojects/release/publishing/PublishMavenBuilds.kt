@@ -59,7 +59,7 @@ object PublishJvmToMaven : BuildType({
         publish(JVM_AND_COMMON_PUBLISH_TASK)
     }
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 
@@ -76,7 +76,7 @@ object PublishJSToMaven : BuildType({
         publish(JS_PUBLISH_TASK)
     }
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 
@@ -98,7 +98,7 @@ object PublishWindowsNativeToMaven : BuildType({
         )
     }
     requirements {
-        agent(windows)
+        agent(Agents.OS.Windows)
     }
 })
 
@@ -115,7 +115,7 @@ object PublishLinuxNativeToMaven : BuildType({
         publish(LINUX_PUBLISH_TASK)
     }
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 
@@ -136,7 +136,7 @@ object PublishMacOSNativeToMaven : BuildType({
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
     requirements {
-        agent(macOS)
+        agent(Agents.OS.MacOS)
     }
     failureConditions {
         executionTimeoutMin = 8 * 60
@@ -156,7 +156,7 @@ object PublishAndroidNativeToMaven : BuildType({
         publish(ANDROID_NATIVE_PUBLISH_TASK)
     }
     requirements {
-        agent(linux)
+        agent(Agents.OS.Linux)
     }
 })
 

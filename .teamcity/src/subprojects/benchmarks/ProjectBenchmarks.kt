@@ -42,7 +42,7 @@ object ProjectBenchmarks : Project({
         }
 
         requirements {
-            agent(linux)
+            agent(Agents.OS.Linux)
         }
 
         defaultBuildFeatures(VCSCore.id.toString())

@@ -4,7 +4,6 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.release.*
 
 class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     id("KtorMatrixJavaScript_${jsEntry.name}".toId())
@@ -31,10 +30,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     defaultBuildFeatures(VCSCore.id.toString())
 
     requirements {
-        agent(linux)
-    }
-    if (jsEntry == js) {
-        jsBuild = this
+        agent(Agents.OS.Linux)
     }
 })
 
