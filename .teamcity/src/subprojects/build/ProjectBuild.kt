@@ -37,9 +37,15 @@ data class NativeEntry(
     val id: String = "${os.id}_${arch.id}"
 
     companion object {
-        val MacOS = NativeEntry(
+        val MacOSX64 = NativeEntry(
             os = OS.MacOS,
             testTasks = "cleanMacosX64Test macosX64Test",
+        )
+
+        val MacOSArm64 = NativeEntry(
+            os = OS.MacOS,
+            arch = Agents.Arch.Arm64,
+            testTasks = "cleanMacosArm64Test macosArm64Test",
         )
 
         val Linux = NativeEntry(
@@ -52,7 +58,7 @@ data class NativeEntry(
             testTasks = "cleanMingwX64Test mingwX64Test",
         )
 
-        val All = listOf(Linux, MacOS, Windows)
+        val All = listOf(Linux, MacOSX64, MacOSArm64, Windows)
     }
 }
 
