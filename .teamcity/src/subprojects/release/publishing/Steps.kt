@@ -6,11 +6,9 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.build.core.*
 
 internal fun BuildSteps.prepareEnvironment() {
-    powerShell {
+    script {
         name = "Prepare environment (Windows)"
-        scriptMode = script {
-            content = windowsSoftware
-        }
+        scriptContent = windowsSoftware
 
         conditions { isWindows() }
     }

@@ -130,7 +130,7 @@ private fun BuildType.releaseToSpace(
     }
 
     steps {
-        prepareKeyFile()
+        prepareKeyFile(agent)
 
         gradle {
             name = "Publish"
@@ -141,7 +141,7 @@ private fun BuildType.releaseToSpace(
             jdkHome = "%env.${javaLTS.env}%"
         }
 
-        cleanupKeyFile()
+        cleanupKeyFile(agent)
     }
 
     requirements {

@@ -86,7 +86,8 @@ object PublishWindowsNativeToSpaceRelease : BuildType({
         }
         releaseToSpace(
             WINDOWS_PUBLISH_TASK,
-            GPG_WINDOWS_GRADLE_ARGS
+            GPG_WINDOWS_GRADLE_ARGS,
+            os = "Windows",
         )
     }
     requirements {
@@ -156,9 +157,10 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
 private fun BuildSteps.releaseToSpace(
     gradleTasks: String,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
+    os: String = "",
     optional: Boolean = false,
 ) {
-    prepareKeyFile()
+    prepareKeyFile(os)
     gradle {
         name = "Assemble"
         tasks =
@@ -166,5 +168,5 @@ private fun BuildSteps.releaseToSpace(
         jdkHome = "%env.${javaLTS.env}%"
         if (optional) executionMode = BuildStep.ExecutionMode.ALWAYS
     }
-    cleanupKeyFile()
+    cleanupKeyFile(os)
 }

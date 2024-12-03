@@ -39,7 +39,7 @@ object PublishCustomTaskToMaven : BuildType({
         }
         prepareEnvironment()
         createSonatypeRepository("%repo_name%")
-        publish("%tasks%", "%gpg_args%", parallel = false)
+        publish("%tasks%", "%gpg_args%", os = "Auto", parallel = false)
     }
 })
 
@@ -90,6 +90,7 @@ object PublishWindowsNativeToMaven : BuildType({
         publish(
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
+            os = "Windows",
             parallel = false,
         )
     }
@@ -159,17 +160,19 @@ object PublishAndroidNativeToMaven : BuildType({
 fun BuildSteps.publish(
     gradleTasks: List<String>,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
+    os: String = "",
     parallel: Boolean = true,
 ) {
-    publish(gradleTasks.joinToString(" "), gradleParams, parallel)
+    publish(gradleTasks.joinToString(" "), gradleParams, os, parallel)
 }
 
 fun BuildSteps.publish(
     gradleTasks: String,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
+    os: String = "",
     parallel: Boolean = true,
 ) {
-    prepareKeyFile()
+    prepareKeyFile(os)
     gradle {
         name = "Publish"
         tasks = "$gradleTasks -PreleaseVersion=$releaseVersion $gradleParams " +
@@ -177,5 +180,5 @@ fun BuildSteps.publish(
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = "%env.${javaLTS.env}%"
     }
-    cleanupKeyFile()
+    cleanupKeyFile(os)
 }
