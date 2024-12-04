@@ -41,6 +41,9 @@ object PublishCustomTaskToMaven : BuildType({
         createSonatypeRepository("%repo_name%")
         publish("%tasks%", "%gpg_args%", os = "Auto", parallel = false)
     }
+    requirements {
+        agent(os = null, hardwareCapacity = Agents.MEDIUM)
+    }
 })
 
 object PublishJvmToMaven : BuildType({

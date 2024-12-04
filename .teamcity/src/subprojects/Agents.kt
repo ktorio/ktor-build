@@ -27,11 +27,11 @@ fun Requirements.agent(
 }
 
 fun Requirements.agent(
-    os: String,
+    os: String?,
     osArch: String? = null,
     hardwareCapacity: String = MEDIUM,
 ) {
-    equals("teamcity.agent.jvm.os.family", os)
+    if (os != null) equals("teamcity.agent.jvm.os.family", os)
     if (osArch != null) equals("teamcity.agent.jvm.os.arch", osArch)
 
     // It is better to use memory constraint to select agent as it unlocks the possibility to use more powerful agents
