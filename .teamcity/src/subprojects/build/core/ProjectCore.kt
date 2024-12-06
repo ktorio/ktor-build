@@ -1,6 +1,7 @@
 package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.*
@@ -36,6 +37,37 @@ object ProjectCore : Project({
 
     buildType {
         allowExternalStatus = true
+
+        steps {
+            script {
+                name = "Cancel Previous Builds"
+                scriptContent = """
+                    #!/bin/bash
+    
+                    function teamcityApiRequest() {
+                        local route=${'$'}1; shift
+                        curl --silent --user "%teamcity.auth.userId%:%teamcity.auth.password%" \
+                            "%teamcity.serverUrl%/app/rest${'$'}route" \
+                            --header "Content-Type: application/json" \
+                            "${'$'}@"
+                    }
+                    
+                    currentBuildId="%teamcity.build.id%"
+                    
+                    # Get running builds on the same branch
+                    runningBuilds=${'$'}(teamcityApiRequest "/builds?locator=buildType:%system.teamcity.buildType.id%,branch:%teamcity.build.branch%,state:running" | jq -r '.build[].id')
+                    
+                    # Cancel each running build except the current one
+                    body='{"comment": "Superseded by build '${'$'}currentBuildId'", "readdIntoQueue": false}'
+                    for buildId in ${'$'}runningBuilds; do
+                        if [ "${'$'}buildId" != "${'$'}currentBuildId" ]; then
+                            teamcityApiRequest "/builds/${'$'}buildId" --request POST --data "${'$'}body"
+                        fi
+                    done
+                """.trimIndent()
+            }
+        }
+
         createCompositeBuild(
             buildId = "KtorCore_All",
             buildName = "Build All Core",
