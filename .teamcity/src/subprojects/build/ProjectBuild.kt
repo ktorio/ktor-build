@@ -61,19 +61,11 @@ data class NativeEntry(
             testTasks = "cleanMingwX64Test mingwX64Test",
         )
 
-        val AndroidNative = NativeEntry(
-            id = "AndroidNativeX64",
-            name = "Android Native",
-            os = OS.Linux,
-            testTasks = "cleanAndroidNativeX64Test androidNativeX64Test",
-        )
-
         val All = listOf(
             Linux,
             MacOSX64,
             MacOSArm64,
             Windows,
-            AndroidNative,
         )
     }
 }
