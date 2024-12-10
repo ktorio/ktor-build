@@ -141,6 +141,7 @@ fun BuildSteps.buildMavenSample(relativeDir: String) {
         name = "Test"
         goals = "test"
         workingDir = relativeDir
+        pomLocation = "$relativeDir/pom.xml"
     }
 }
 
