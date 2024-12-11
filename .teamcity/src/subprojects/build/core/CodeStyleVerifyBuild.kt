@@ -34,7 +34,7 @@ object CodeStyleVerify : BuildType({
                 +:**/*.kt
                 +:.editorconfig
             """.trimIndent()
-            branchFilter = BranchFilter.PullRequest
+            branchFilter = BranchFilter.DefaultOrPullRequest
         }
     }
 
