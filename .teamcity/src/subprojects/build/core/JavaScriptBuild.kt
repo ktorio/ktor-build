@@ -34,8 +34,8 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     }
 })
 
-internal fun GradleBuildStep.setupDockerForJavaScriptTests(JSEntry: JSEntry) {
+internal fun GradleBuildStep.setupDockerForJavaScriptTests(jsEntry: JSEntry) {
     dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
     dockerPull = true
-    dockerImage = JSEntry.dockerContainer
+    dockerImage = jsEntry.dockerContainer
 }
