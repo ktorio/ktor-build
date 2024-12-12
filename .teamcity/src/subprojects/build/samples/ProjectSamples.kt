@@ -77,10 +77,7 @@ object WebSocketSample: BuildType({
         root(sample.vcsRoot)
     }
 
-    params {
-        param("env.ANDROID_HOME", "%android-sdk.location%")
-    }
-
+    configureAndroidHome()
     defaultBuildFeatures(sample.vcsRoot.id.toString())
 
     steps {
@@ -108,10 +105,7 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
         root(sample.vcsRoot)
     }
 
-    params {
-        param("env.ANDROID_HOME", "%android-sdk.location%")
-    }
-
+    configureAndroidHome()
     defaultBuildFeatures(sample.vcsRoot.id.toString())
 
     steps {
@@ -145,7 +139,17 @@ fun BuildSteps.buildMavenSample(relativeDir: String) {
     }
 }
 
+fun BuildType.configureAndroidHome() {
+    requirements {
+        doesNotExist("env.ANDROID_SDK_HOME")
+    }
+
+    params {
+        param("env.ANDROID_HOME", "%android-sdk.location%")
+    }
+}
+
 fun BuildSteps.acceptAndroidSDKLicense() = script {
     name = "Accept Android SDK license"
-    scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_HOME%/tools/bin/sdkmanager --licenses"
+    scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
 }
