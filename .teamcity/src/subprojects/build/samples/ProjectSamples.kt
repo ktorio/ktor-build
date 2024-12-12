@@ -16,12 +16,13 @@ data class SampleProjectSettings(
     val projectName: String,
     val vcsRoot: VcsRoot,
     val buildSystem: BuildSystem = BuildSystem.GRADLE,
-    val standalone: Boolean = false
+    val standalone: Boolean = false,
+    val withAndroidSdk: Boolean = false,
 )
 
 val sampleProjects = listOf(
     SampleProjectSettings("chat", VCSSamples),
-    SampleProjectSettings("client-mpp", VCSSamples),
+    SampleProjectSettings("client-mpp", VCSSamples, withAndroidSdk = true),
     SampleProjectSettings("client-multipart", VCSSamples),
     SampleProjectSettings("client-tools", VCSSamples),
     SampleProjectSettings("di-kodein", VCSSamples),
@@ -29,6 +30,7 @@ val sampleProjects = listOf(
     SampleProjectSettings("fullstack-mpp", VCSSamples),
     SampleProjectSettings("graalvm", VCSSamples),
     SampleProjectSettings("httpbin", VCSSamples),
+    SampleProjectSettings("ktor-client-wasm", VCSSamples, withAndroidSdk = true),
     SampleProjectSettings("kweet", VCSSamples),
     SampleProjectSettings("location-header", VCSSamples),
     SampleProjectSettings("maven-google-appengine-standard", VCSSamples, buildSystem = BuildSystem.MAVEN),
@@ -77,15 +79,9 @@ object WebSocketSample: BuildType({
         root(sample.vcsRoot)
     }
 
-    params {
-        param("env.ANDROID_HOME", "%android-sdk.location%")
-    }
-
     defaultBuildFeatures(sample.vcsRoot.id.toString())
 
     steps {
-        acceptAndroidSDKLicense()
-
         gradle {
             name = "Build Server"
             tasks = "build"
@@ -108,14 +104,11 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
         root(sample.vcsRoot)
     }
 
-    params {
-        param("env.ANDROID_HOME", "%android-sdk.location%")
-    }
-
+    if (sample.withAndroidSdk) configureAndroidHome()
     defaultBuildFeatures(sample.vcsRoot.id.toString())
 
     steps {
-        acceptAndroidSDKLicense()
+        if (sample.withAndroidSdk) acceptAndroidSDKLicense()
 
         when (sample.buildSystem) {
             BuildSystem.MAVEN -> buildMavenSample(sample.projectName)
@@ -145,7 +138,13 @@ fun BuildSteps.buildMavenSample(relativeDir: String) {
     }
 }
 
+fun BuildType.configureAndroidHome() {
+    params {
+        param("env.ANDROID_HOME", "%android-sdk.location%")
+    }
+}
+
 fun BuildSteps.acceptAndroidSDKLicense() = script {
     name = "Accept Android SDK license"
-    scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_HOME%/tools/bin/sdkmanager --licenses"
+    scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
 }
