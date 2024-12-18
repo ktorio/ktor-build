@@ -7,16 +7,15 @@ import subprojects.Agents.OS
 import subprojects.build.*
 
 val windowsSoftware = """
-                ${'$'}env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
-                rm -fo C:\Tools\msys64\var\lib\pacman\db.lck
-                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
-                C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
+    ${'$'}env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine")
+    rm -fo C:\Tools\msys64\var\lib\pacman\db.lck
+    C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-curl
+    C:\Tools\msys64\usr\bin\pacman -S --noconfirm --noprogressbar mingw-w64-x86_64-ca-certificates
 """.trimIndent()
 
 val linuxSoftware = """
-        sudo apt-get update
-        sudo apt-get install -y libncurses5 libncursesw5 libtinfo5
-        sudo apt-get install -y libcurl4-openssl-dev
+    sudo apt-get update
+    sudo apt-get install -y libcurl4-openssl-dev libncurses-dev
 """.trimIndent()
 
 val macSoftware = """
