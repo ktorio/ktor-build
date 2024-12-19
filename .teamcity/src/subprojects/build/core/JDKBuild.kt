@@ -9,7 +9,6 @@ import subprojects.build.*
 
 class JDKBuild(
     private val osJdkEntry: OSJDKEntry,
-    private val addTriggers: Boolean = true,
 ) : BuildType({
     id("KtorMatrixCore_${osJdkEntry.id}".toId())
     name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.os.id}"
@@ -18,12 +17,6 @@ class JDKBuild(
 
     vcs {
         root(VCSCore)
-    }
-
-    if (addTriggers) {
-        triggers {
-            onBuildTargetChanges(BuildTarget.JVM)
-        }
     }
 
     cancelPreviousBuilds()

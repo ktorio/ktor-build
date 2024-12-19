@@ -16,10 +16,6 @@ class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
         root(VCSCore)
     }
 
-    triggers {
-        onBuildTargetChanges(BuildTarget.WasmJS)
-    }
-
     cancelPreviousBuilds()
     steps {
         gradle {

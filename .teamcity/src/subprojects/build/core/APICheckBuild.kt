@@ -15,10 +15,6 @@ object APICheckBuild : BuildType({
         root(VCSCore)
     }
 
-    triggers {
-        onChangeDefaultOrPullRequest(additionalTriggerRules = TriggerRules.IgnoreBotCommits)
-    }
-
     cancelPreviousBuilds()
     steps {
         gradle {

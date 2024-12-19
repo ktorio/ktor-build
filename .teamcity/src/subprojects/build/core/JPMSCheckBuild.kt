@@ -14,10 +14,6 @@ object JPMSCheckBuild: BuildType({
         root(VCSCore)
     }
 
-    triggers {
-        onChangeDefaultOrPullRequest()
-    }
-
     cancelPreviousBuilds()
     steps {
         gradle {
