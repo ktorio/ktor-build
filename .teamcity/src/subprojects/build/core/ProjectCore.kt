@@ -93,6 +93,7 @@ fun BuildType.createCompositeBuild(
         builds.mapNotNull { it.id }.forEach { id ->
             snapshot(id) {
                 onDependencyFailure = FailureAction.ADD_PROBLEM
+                onDependencyCancel = FailureAction.CANCEL
                 reuseBuilds = ReuseBuilds.SUCCESSFUL
             }
         }
