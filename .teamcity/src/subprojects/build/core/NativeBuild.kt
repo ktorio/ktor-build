@@ -69,7 +69,7 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
         }
         gradle {
             name = "Build and Run Tests"
-            tasks = "${entry.testTasks} --info"
+            tasks = "${entry.testTasks} --info --continue"
             jdkHome = Env.JDK_LTS
         }
     }
