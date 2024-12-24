@@ -41,7 +41,8 @@ object PublishCustomTaskToMaven : BuildType({
         publish("%tasks%", "%gpg_args%", os = "Auto", parallel = false)
     }
     requirements {
-        agent(os = null, hardwareCapacity = Agents.MEDIUM)
+        // Allow selection of any OS and arch
+        agent(os = null, osArch = null, hardwareCapacity = Agents.MEDIUM)
     }
 })
 

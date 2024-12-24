@@ -55,11 +55,11 @@ fun Requirements.agent(
 
 fun Requirements.agent(
     os: Agents.OS?,
-    osArch: Agents.Arch = Agents.Arch.X64,
+    osArch: Agents.Arch? = Agents.Arch.X64,
     hardwareCapacity: String = MEDIUM,
 ) {
     if (os != null) equals("teamcity.agent.os.family", os.name)
-    equals("teamcity.agent.cpuArchitecture", osArch.agentArch)
+    if (osArch != null) equals("teamcity.agent.cpuArchitecture", osArch.agentArch)
 
     // It is better to use memory constraint to select agent as it unlocks the possibility to use more powerful agents
     val memorySizeMb = when (hardwareCapacity) {

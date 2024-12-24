@@ -31,7 +31,6 @@ internal fun BuildSteps.cleanupKeyFile(os: String) {
             executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptMode = script {
                 content = """
-                    gpgconf --kill gpg-agent
                     rm -r -fo C:\Users\builduser\.gnupg
                 """
             }
