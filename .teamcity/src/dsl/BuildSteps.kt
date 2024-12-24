@@ -1,10 +1,8 @@
 package dsl
 
-import jetbrains.buildServer.configs.kotlin.BuildType
-import jetbrains.buildServer.configs.kotlin.buildSteps.ScriptBuildStep
-import jetbrains.buildServer.configs.kotlin.buildSteps.script
-import kotlin.io.path.Path
-import kotlin.io.path.readText
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import kotlin.io.path.*
 
 fun BuildType.cancelPreviousBuilds(default: Boolean = true) {
     params {
@@ -30,5 +28,13 @@ fun BuildType.cancelPreviousBuilds(default: Boolean = true) {
 }
 
 internal fun ScriptBuildStep.scriptFile(fileName: String) {
-    scriptContent = Path("scripts/$fileName").readText()
+    scriptContent = scriptContent(fileName)
 }
+
+internal fun PowerShellStep.scriptFile(fileName: String) {
+    scriptMode = script {
+        content = scriptContent(fileName)
+    }
+}
+
+private fun scriptContent(fileName: String) = Path("scripts/$fileName").readText()
