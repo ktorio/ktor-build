@@ -55,11 +55,6 @@ object VCSHttpApiSample : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor-http-api-sample.git"
 })
 
-object VCSWebSocketsChatSample : PasswordVcsRoot({
-    name = "Ktor Websockets Chat Sample"
-    url = "https://github.com/ktorio/ktor-websockets-chat-sample.git"
-})
-
 object VCSWebsiteSample : PasswordVcsRoot({
     name = "Ktor Website Sample"
     url = "https://github.com/ktorio/ktor-website-sample.git"

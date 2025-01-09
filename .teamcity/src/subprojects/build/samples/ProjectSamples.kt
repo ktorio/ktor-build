@@ -44,11 +44,6 @@ val sampleProjects = listOf(
     SampleProjectSettings("youkube", VCSSamples)
 )
 
-/**
- * Custom Samples
- */
-val WebSocketChatSample = SampleProjectSettings("websockets-chat-sample", VCSWebSocketsChatSample, standalone = true)
-
 object ProjectSamples : Project({
     id("ProjectKtorSamples")
     name = "Samples"
@@ -57,42 +52,14 @@ object ProjectSamples : Project({
     val projects = sampleProjects.map(::SampleProject)
     projects.forEach(::buildType)
 
-    buildType(WebSocketSample)
-
     samplesBuild = buildType {
         createCompositeBuild(
             "KtorSamplesValidate_All",
             "Validate all samples",
             VCSSamples,
-            projects + WebSocketSample,
+            projects,
             withTrigger = TriggerType.ALL_BRANCHES
         )
-    }
-})
-
-object WebSocketSample: BuildType({
-    val sample = WebSocketChatSample
-    id("KtorSamplesValidate_${sample.projectName.replace('-', '_')}")
-    name = "Validate ${sample.projectName} sample"
-
-    vcs {
-        root(sample.vcsRoot)
-    }
-
-    defaultBuildFeatures(sample.vcsRoot.id.toString())
-
-    steps {
-        gradle {
-            name = "Build Server"
-            tasks = "build"
-            workingDir = "server"
-        }
-
-        gradle {
-            name = "Build Client"
-            tasks = "build"
-            workingDir = "client"
-        }
     }
 })
 
