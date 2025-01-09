@@ -53,7 +53,6 @@ project {
     vcsRoot(VCSGradleSample)
     vcsRoot(VCSMavenSample)
     vcsRoot(VCSHttpApiSample)
-    vcsRoot(VCSWebSocketsChatSample)
     vcsRoot(VCSWebsiteSample)
 
     // DO NOT REMOVE
