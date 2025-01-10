@@ -3,8 +3,6 @@ package subprojects.release.space
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
-import subprojects.build.*
-import subprojects.build.core.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 
@@ -80,10 +78,6 @@ object PublishWindowsNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
-        script {
-            name = "Obtain Library Dependencies"
-            scriptContent = windowsSoftware
-        }
         releaseToSpace(
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,

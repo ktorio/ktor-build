@@ -3,8 +3,6 @@ package subprojects.eap
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
-import subprojects.build.*
-import subprojects.build.core.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 
@@ -80,10 +78,6 @@ object PublishWindowsNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        script {
-            name = "Obtain Library Dependencies"
-            scriptContent = windowsSoftware
-        }
         releaseToSpace(WINDOWS_PUBLISH_TASK)
     }
     params {
@@ -126,10 +120,6 @@ object PublishMacOSNativeToSpace : BuildType({
         root(VCSCoreEAP)
     }
     steps {
-        script {
-            name = "Obtain Library Dependencies"
-            scriptContent = macSoftware
-        }
         releaseToSpace(DARWIN_PUBLISH_TASK)
     }
     params {
