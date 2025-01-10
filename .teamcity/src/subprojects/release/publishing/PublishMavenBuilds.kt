@@ -3,7 +3,6 @@ package subprojects.release.publishing
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
-import subprojects.build.core.*
 import subprojects.release.*
 
 const val releaseVersion = "%releaseVersion%"
@@ -36,7 +35,6 @@ object PublishCustomTaskToMaven : BuildType({
             scriptContent = "%prepublish_script%"
             conditions { doesNotEqual("prepublish_script", "") }
         }
-        prepareEnvironment()
         createSonatypeRepository("%repo_name%")
         publish("%tasks%", "%gpg_args%", os = "Auto", parallel = false)
     }
@@ -89,7 +87,6 @@ object PublishWindowsNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        prepareEnvironment()
         publish(
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
@@ -128,10 +125,6 @@ object PublishMacOSNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        script {
-            name = "Obtain Library Dependencies"
-            scriptContent = macSoftware
-        }
         createSonatypeRepository("Mac Native")
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }

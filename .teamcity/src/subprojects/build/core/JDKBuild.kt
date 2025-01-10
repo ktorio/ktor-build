@@ -21,26 +21,8 @@ class JDKBuild(
 
     cancelPreviousBuilds()
     steps {
-        when (osJdkEntry.os) {
-            OS.Windows -> {
-                script {
-                    name = "Obtain Library Dependencies"
-                    scriptContent = windowsSoftware
-                }
-                defineTCPPortRange()
-            }
-            OS.Linux -> {
-                script {
-                    name = "Obtain Library Dependencies"
-                    scriptContent = linuxSoftware
-                }
-            }
-            OS.MacOS -> {
-                script {
-                    name = "Obtain Library Dependencies"
-                    scriptContent = macSoftware
-                }
-            }
+        if (osJdkEntry.os == OS.Windows) {
+            defineTCPPortRange()
         }
 
         gradle {
