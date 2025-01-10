@@ -46,6 +46,7 @@ object CodeStyleVerify : BuildType({
             units = BuildFailureOnMetric.MetricUnit.DEFAULT_UNIT
             comparison = BuildFailureOnMetric.MetricComparison.MORE
             compareTo = value()
+            threshold = 0
         }
     }
 
