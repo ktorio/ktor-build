@@ -57,7 +57,7 @@ fun Project.publishKotlinxHtmlToSpace(): Project = subProject {
             builds.mapNotNull { it.id }.forEach { id ->
                 snapshot(id) {
                     reuseBuilds = ReuseBuilds.NO
-                    onDependencyFailure = FailureAction.FAIL_TO_START
+                    onDependencyFailure = FailureAction.ADD_PROBLEM
                 }
             }
         }
