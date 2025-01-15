@@ -35,9 +35,11 @@ fun Project.publishKotlinxHtmlToSpace(): Project = subProject {
     val builds = listOf(
         publishKotlinxHtmlJvmToSpace(),
         publishKotlinxHtmlJsToSpace(),
+        publishKotlinxHtmlWasmWasiToSpace(),
         publishKotlinxHtmlMacOsToSpace(),
         publishKotlinxHtmlLinuxToSpace(),
         publishKotlinxHtmlMingwToSpace(),
+        publishKotlinxHtmlAndroidNativeToSpace(),
     )
 
     buildType {
@@ -85,6 +87,14 @@ fun Project.publishKotlinxHtmlJsToSpace() = buildType {
     )
 }
 
+fun Project.publishKotlinxHtmlWasmWasiToSpace() = buildType {
+    releaseToSpace(
+        "WasmWasi",
+        Agents.OS.Linux,
+        "publishWasmWasiPublicationToMavenRepository",
+    )
+}
+
 fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
     releaseToSpace(
         "NativeMacos",
@@ -108,6 +118,19 @@ fun Project.publishKotlinxHtmlMingwToSpace() = buildType {
         Agents.OS.Windows,
         "publishMingwX64PublicationToMavenRepository",
         GPG_WINDOWS_GRADLE_ARGS,
+    )
+}
+
+fun Project.publishKotlinxHtmlAndroidNativeToSpace() = buildType {
+    releaseToSpace(
+        "AndroidNative",
+        Agents.OS.Linux,
+        listOf(
+            "publishAndroidNativeArm32PublicationToMavenRepository",
+            "publishAndroidNativeArm64PublicationToMavenRepository",
+            "publishAndroidNativeX86PublicationToMavenRepository",
+            "publishAndroidNativeX64PublicationToMavenRepository",
+        ).joinToString(" "),
     )
 }
 
