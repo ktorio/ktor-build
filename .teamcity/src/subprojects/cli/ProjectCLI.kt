@@ -132,9 +132,7 @@ object ReleaseGithub: BuildType({
             scriptContent = """
 #!/usr/bin/env bash
 
-echo "Git tags: "
-git tag -l
-git status
+git fetch --tags
 
 python3 -m venv .penv
 source ./.penv/bin/activate
