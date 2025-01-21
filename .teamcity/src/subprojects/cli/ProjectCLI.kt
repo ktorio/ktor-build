@@ -130,6 +130,8 @@ object ReleaseGithub: BuildType({
         script {
             name = "Create GitHub release"
             scriptContent = """
+#!/usr/bin/env bash
+
 python3 -m venv .penv
 source ./.penv/bin/activate
 pip install requests
