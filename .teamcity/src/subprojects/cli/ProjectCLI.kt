@@ -134,6 +134,7 @@ object ReleaseGithub: BuildType({
 
 echo "Git tags: "
 git tag -l
+git status
 
 python3 -m venv .penv
 source ./.penv/bin/activate
