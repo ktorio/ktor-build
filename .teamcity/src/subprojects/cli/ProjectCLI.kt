@@ -132,6 +132,8 @@ object ReleaseGithub: BuildType({
             scriptContent = """
 #!/usr/bin/env bash
 
+git tag -l
+
 python3 -m venv .penv
 source ./.penv/bin/activate
 pip install requests
