@@ -130,9 +130,11 @@ object ReleaseGithub: BuildType({
         script {
             name = "Create GitHub release"
             scriptContent = """
-python3 -m pip install requests
+python3 -m venv .penv
+source ./.penv/bin/activate
+pip install requests
 
-python3 <<EOF
+python <<EOF
 import datetime
 import sys
 from pathlib import Path
