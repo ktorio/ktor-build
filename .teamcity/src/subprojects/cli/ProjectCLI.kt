@@ -132,6 +132,7 @@ object ReleaseGithub: BuildType({
             scriptContent = """
 #!/usr/bin/env bash
 
+echo "Git tags: "
 git tag -l
 
 python3 -m venv .penv
