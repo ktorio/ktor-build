@@ -63,6 +63,7 @@ object VCSWebsiteSample : PasswordVcsRoot({
 object VCSAPIDocs : PasswordVcsRoot({
     name = "API Docs"
     url = "https://github.com/ktorio/api.ktor.io.git"
+    branchSpec = AllBranchesAndPullRequests
 })
 
 object VCSKotlinxHtml : PasswordVcsRoot({
