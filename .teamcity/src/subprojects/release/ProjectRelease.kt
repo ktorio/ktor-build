@@ -3,6 +3,7 @@ package subprojects.release
 import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.generator.*
 import subprojects.release.apidocs.*
 import subprojects.release.generator.*
 import subprojects.release.publishing.*
@@ -16,6 +17,7 @@ object ProjectRelease : Project({
     subProject(ProjectReleaseAPIDocs)
     subProject(ProjectReleaseGeneratorWebsite)
     subProject(ProjectPublishing)
+    subProject(PublishPluginRegistry)
 
     buildType(ReleaseBuild)
 
