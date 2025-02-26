@@ -19,6 +19,8 @@ object ProjectRelease : Project({
 
     buildType(ReleaseBuild)
 
+
+
     params {
         defaultGradleParams()
         param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
