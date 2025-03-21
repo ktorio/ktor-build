@@ -59,6 +59,7 @@ object CodeStyleVerify : BuildType({
     }
 
     defaultBuildFeatures(VCSCore.id.toString())
+    gradleConfigurationCache()
 
     requirements {
         agent(Agents.OS.Linux)
