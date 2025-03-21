@@ -20,7 +20,7 @@ class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
     steps {
         gradle {
             name = "Build Wasm Js"
-            tasks = "cleanWasmJsTest wasmJsTest --no-parallel --continue --info -Penable-js-tests"
+            tasks = "cleanWasmJsTest wasmJsTest --continue --info -Penable-js-tests"
             setupDockerForJavaScriptTests(jsEntry)
         }
     }
