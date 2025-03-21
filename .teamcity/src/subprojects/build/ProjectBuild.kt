@@ -135,6 +135,8 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
 
         githubPullRequestsLoader(rootId)
         githubCommitStatusPublisher(rootId)
+        // Enable cache for <gradle_user_home>/caches/modules-2
+        gradleCache {}
     }
 
     failureConditions {
