@@ -20,4 +20,6 @@ fun BuildType.gradleConfigurationCache() {
             rules = ".gradle/configuration-cache/"
         }
     }
+
+    artifactRules += "\n../../temp/buildTmp/teamcity.build.parameters.static => teamcity.build.parameters.static"
 }
