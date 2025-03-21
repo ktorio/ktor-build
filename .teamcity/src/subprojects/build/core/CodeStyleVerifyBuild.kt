@@ -23,7 +23,7 @@ object CodeStyleVerify : BuildType({
         gradle {
             name = "Run ktlint"
             tasks = "lintKotlin"
-            gradleParams = "-PenableCodeStyle=true"
+            gradleParams = "-PenableCodeStyle=true -Dorg.gradle.configuration-cache.inputs.unsafe.ignore.file-system-checks=../../temp/buildTmp/teamcity.build.parameters.static"
             jdkHome = Env.JDK_LTS
         }
     }
@@ -59,6 +59,7 @@ object CodeStyleVerify : BuildType({
     }
 
     defaultBuildFeatures(VCSCore.id.toString())
+    gradleConfigurationCache()
 
     requirements {
         agent(Agents.OS.Linux)
