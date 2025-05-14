@@ -123,10 +123,6 @@ object ProjectBuild : Project({
 fun ParametrizedWithType.defaultGradleParams() {
     param("system.org.gradle.internal.http.connectionTimeout", "240000")
     param("system.org.gradle.internal.http.socketTimeout", "120000")
-
-    // Reduce the lifetime of Kotlin Daemons
-    // See: https://github.com/gradle/gradle/issues/29331
-    param("env.JAVA_OPTS", "-Dkotlin.daemon.options=autoshutdownIdleSeconds=30")
 }
 
 fun BuildType.defaultBuildFeatures(rootId: String) {
