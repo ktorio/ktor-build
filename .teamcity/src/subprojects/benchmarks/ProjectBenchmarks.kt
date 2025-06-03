@@ -3,6 +3,7 @@ package subprojects.benchmarks
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
+import subprojects.Agents.LARGE
 import subprojects.build.*
 
 object ProjectBenchmarks : Project({
@@ -42,7 +43,7 @@ object ProjectBenchmarks : Project({
         }
 
         requirements {
-            agent(Agents.OS.Linux)
+            agent(Agents.OS.Linux, hardwareCapacity = LARGE)
         }
 
         defaultBuildFeatures(VCSCore.id.toString())
