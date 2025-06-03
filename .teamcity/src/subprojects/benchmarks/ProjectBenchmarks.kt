@@ -30,8 +30,7 @@ object ProjectBenchmarks : Project({
 
         steps {
             gradle {
-                tasks =
-                    "publishJvmPublicationToMavenLocal publishKotlinMultiplatformPublicationToMavenLocal -PreleaseVersion=1.0.0-BENCHMARKS"
+                tasks = "publishJvmAndCommonPublications -Prepository=MavenLocal -PreleaseVersion=1.0.0-BENCHMARKS"
                 workingDir = "ktor"
                 jdkHome = Env.JDK_LTS
             }
@@ -44,6 +43,10 @@ object ProjectBenchmarks : Project({
 
         requirements {
             agent(Agents.OS.Linux, hardwareCapacity = LARGE)
+        }
+
+        params {
+            param("system.teamcity.default.properties", "ktor/teamcity.default.properties")
         }
 
         defaultBuildFeatures(VCSCore.id.toString())
