@@ -15,7 +15,6 @@ object PublishCustomTaskToMaven : BuildType({
     params {
         configureReleaseVersion()
         text("tasks", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
-        text("repo_name", "Custom Task", display = ParameterDisplay.PROMPT, allowEmpty = false)
         text("prepublish_script", "", display = ParameterDisplay.PROMPT, allowEmpty = true)
         select(
             name = "gpg_args",
@@ -35,7 +34,6 @@ object PublishCustomTaskToMaven : BuildType({
             scriptContent = "%prepublish_script%"
             conditions { doesNotEqual("prepublish_script", "") }
         }
-        createSonatypeRepository("%repo_name%")
         publish("%tasks%", "%gpg_args%", os = "Auto", parallel = false)
     }
     requirements {
@@ -53,7 +51,6 @@ object PublishJvmToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        createSonatypeRepository("Jvm")
         publish(JVM_AND_COMMON_PUBLISH_TASK)
     }
     requirements {
@@ -70,7 +67,6 @@ object PublishJSToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        createSonatypeRepository("Js")
         publish(JS_PUBLISH_TASK)
     }
     requirements {
@@ -108,7 +104,6 @@ object PublishLinuxNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        createSonatypeRepository("Linux")
         publish(LINUX_PUBLISH_TASK)
     }
     requirements {
@@ -125,7 +120,6 @@ object PublishMacOSNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        createSonatypeRepository("Mac Native")
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
     requirements {
@@ -145,7 +139,6 @@ object PublishAndroidNativeToMaven : BuildType({
         configureReleaseVersion()
     }
     steps {
-        createSonatypeRepository("Android Native")
         publish(ANDROID_NATIVE_PUBLISH_TASK)
     }
     requirements {
