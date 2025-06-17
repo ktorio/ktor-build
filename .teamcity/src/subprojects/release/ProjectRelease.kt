@@ -27,9 +27,8 @@ object ProjectRelease : Project({
         // So we set this in the parent project and read from there. That way, we don't need to make our project editable.
         password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
         password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
-        password("env.PUBLISHING_USER", value = "%sonatype.username%")
-        password("env.PUBLISHING_PASSWORD", value = "%sonatype.password%")
-        param("env.PUBLISHING_URL", value = "%sonatype.url%")
+        password("env.ORG_GRADLE_PROJECT_mavenCentralUsername", value = "%centralPortal.username%")
+        password("env.ORG_GRADLE_PROJECT_mavenCentralPassword", value = "%centralPortal.password%")
         param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
         param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
     }
