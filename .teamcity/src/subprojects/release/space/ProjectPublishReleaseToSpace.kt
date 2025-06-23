@@ -19,6 +19,7 @@ object ProjectPublishReleaseToSpace : Project({
         param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
         param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
         param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
+        param("env.REPOSITORY_NAME", value = "space")
         param("env.PUBLISHING_URL", value = "%space.packages.release.url%")
 
         password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
