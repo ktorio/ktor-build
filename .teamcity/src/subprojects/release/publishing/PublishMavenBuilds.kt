@@ -54,7 +54,7 @@ object PublishJvmToMaven : BuildType({
         publish(JVM_AND_COMMON_PUBLISH_TASK)
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -70,7 +70,7 @@ object PublishJSToMaven : BuildType({
         publish(JS_PUBLISH_TASK)
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -91,7 +91,7 @@ object PublishWindowsNativeToMaven : BuildType({
         )
     }
     requirements {
-        agent(Agents.OS.Windows)
+        agent(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -107,7 +107,7 @@ object PublishLinuxNativeToMaven : BuildType({
         publish(LINUX_PUBLISH_TASK)
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -142,7 +142,7 @@ object PublishAndroidNativeToMaven : BuildType({
         publish(ANDROID_NATIVE_PUBLISH_TASK)
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 

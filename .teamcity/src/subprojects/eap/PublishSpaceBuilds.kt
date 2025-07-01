@@ -47,7 +47,7 @@ object PublishJvmToSpace : BuildType({
         }
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -68,7 +68,7 @@ object PublishJSToSpace : BuildType({
         }
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -89,7 +89,7 @@ object PublishWindowsNativeToSpace : BuildType({
         }
     }
     requirements {
-        agent(Agents.OS.Windows)
+        agent(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -110,7 +110,7 @@ object PublishLinuxNativeToSpace : BuildType({
         }
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -152,7 +152,7 @@ object PublishAndroidNativeToSpace : BuildType({
         }
     }
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
