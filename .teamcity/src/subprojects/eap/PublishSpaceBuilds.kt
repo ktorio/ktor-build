@@ -164,7 +164,7 @@ private fun BuildSteps.releaseToSpace(
     gradle {
         name = "Publish"
         tasks =
-            "$gradleTasks --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
+            "$gradleTasks $EXCLUDE_DOKA_GENERATION --i -PeapVersion=%eapVersion% $gradleParams --stacktrace --parallel -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = Env.JDK_LTS
         if (optional)
             executionMode = BuildStep.ExecutionMode.ALWAYS

@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.release.publishing.*
 
 object ProjectBenchmarks : Project({
     id("ProjectKtorBenchmarks")
@@ -29,7 +30,7 @@ object ProjectBenchmarks : Project({
 
         steps {
             gradle {
-                tasks = "publishJvmAndCommonPublications -Prepository=MavenLocal -PreleaseVersion=1.0.0-BENCHMARKS"
+                tasks = "$JVM_AND_COMMON_PUBLISH_TASK $EXCLUDE_DOKA_GENERATION -PreleaseVersion=1.0.0-BENCHMARKS"
                 workingDir = "ktor"
                 jdkHome = Env.JDK_LTS
             }

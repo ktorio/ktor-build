@@ -7,6 +7,8 @@ internal const val WINDOWS_PUBLISH_TASK = "publishWindowsPublications"
 internal const val DARWIN_PUBLISH_TASK = "publishDarwinPublications"
 internal const val ANDROID_NATIVE_PUBLISH_TASK = "publishAndroidNativePublications"
 
+internal const val EXCLUDE_DOKA_GENERATION = "-x dokkaGeneratePublicationHtml"
+
 internal val MACOS_PUBLISH_TASKS = listOf(
     "publishIosArm64PublicationToMavenRepository",
     "publishIosX64PublicationToMavenRepository",
