@@ -34,7 +34,7 @@ object PublishCustomTaskToMaven : BuildType({
             scriptContent = "%prepublish_script%"
             conditions { doesNotEqual("prepublish_script", "") }
         }
-        publish("%tasks%", "%gpg_args%", os = "Auto", parallel = false)
+        publish("%tasks%", "%gpg_args%", os = "Auto")
     }
     requirements {
         // Allow selection of any OS and arch
@@ -87,7 +87,6 @@ object PublishWindowsNativeToMaven : BuildType({
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
             os = "Windows",
-            parallel = false,
         )
     }
     requirements {
@@ -150,22 +149,20 @@ fun BuildSteps.publish(
     gradleTasks: List<String>,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
     os: String = "",
-    parallel: Boolean = true,
 ) {
-    publish(gradleTasks.joinToString(" "), gradleParams, os, parallel)
+    publish(gradleTasks.joinToString(" "), gradleParams, os)
 }
 
 fun BuildSteps.publish(
     gradleTasks: String,
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
     os: String = "",
-    parallel: Boolean = true,
 ) {
     prepareKeyFile(os)
     gradle {
         name = "Publish"
         tasks = "$gradleTasks -PreleaseVersion=$releaseVersion $gradleParams " +
-            "${if (parallel) "--parallel" else "--no-parallel"} " +
+            "--no-configuration-cache " +
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = Env.JDK_LTS
     }
