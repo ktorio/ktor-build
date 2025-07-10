@@ -23,6 +23,11 @@ object ProjectGenerator : Project({
     buildType(TestGeneratorBackEnd)
 
     /**
+     * Tests frontend when modified. Runs on every change to either the main or master or PR for ktor-generator-website
+     */
+    buildType(TestGeneratorFrontEnd)
+
+    /**
      * Runs on every PR for ktor-generator-website.
      */
     buildType(BuildGeneratorWebsite)
