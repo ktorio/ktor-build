@@ -44,7 +44,7 @@ object TestGeneratorFrontEnd : BuildType({
             branchFilter = """
                 +:refs/heads/main
                 +:refs/heads/master
-                +:refs/pull/*
+                +:refs/pull/**
             """.trimIndent()
         }
     }
