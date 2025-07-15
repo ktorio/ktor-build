@@ -40,12 +40,6 @@ object TestGeneratorFrontEnd : BuildType({
     defaultBuildFeatures(VCSKtorGeneratorWebsite.id.toString())
 
     triggers {
-        vcs {
-            branchFilter = """
-                +:refs/heads/main
-                +:refs/heads/master
-                +:refs/pull/**
-            """.trimIndent()
-        }
+        vcs {}
     }
 })
