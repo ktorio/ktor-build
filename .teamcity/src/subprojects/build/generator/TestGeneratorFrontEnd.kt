@@ -27,7 +27,7 @@ object TestGeneratorFrontEnd : BuildType({
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
             -d '{
-                "ref": "main", 
+                "ref": "master", 
                 "inputs": {
                     "registry_username": "%env.SPACE_USERNAME%", 
                     "registry_password": "%env.SPACE_PASSWORD%"
