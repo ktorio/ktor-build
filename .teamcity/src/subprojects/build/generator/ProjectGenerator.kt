@@ -23,6 +23,12 @@ object ProjectGenerator : Project({
     buildType(TestGeneratorBackEnd)
 
     /**
+     * Tests frontend when modified. Runs on every change to either the main or master branch or PR for ktor-generator-website.
+     * Triggers GitHub Actions workflow for running Playwright tests.
+     */
+    buildType(TestGeneratorFrontEnd)
+
+    /**
      * Runs on every PR for ktor-generator-website.
      */
     buildType(BuildGeneratorWebsite)
