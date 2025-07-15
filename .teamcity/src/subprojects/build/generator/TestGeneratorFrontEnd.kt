@@ -41,8 +41,11 @@ object TestGeneratorFrontEnd : BuildType({
 
     triggers {
         vcs {
-            branchFilter = "+:refs/heads/(main|master)" +
-                "+:refs/pull/*"
+            branchFilter = """
+                +:refs/heads/main
+                +:refs/heads/master
+                +:refs/pull/*
+            """.trimIndent()
         }
     }
 })
