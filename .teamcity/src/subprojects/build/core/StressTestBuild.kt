@@ -12,17 +12,17 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
-    triggers {
-        schedule {
-            schedulingPolicy = daily {
-                hour = 8
-                timezone = "Europe/Moscow"
-            }
-            branchFilter = BranchFilter.DefaultBranch
-            triggerBuild = always()
-            param("revisionRuleBuildBranch", "<default>")
-        }
-    }
+//    triggers {
+//        schedule {
+//            schedulingPolicy = daily {
+//                hour = 8
+//                timezone = "Europe/Moscow"
+//            }
+//            branchFilter = BranchFilter.DefaultBranch
+//            triggerBuild = always()
+//            param("revisionRuleBuildBranch", "<default>")
+//        }
+//    }
     steps {
         gradle {
             name = "Run stress tests"
