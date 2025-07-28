@@ -77,7 +77,6 @@ object ProjectGradlePlugin : Project({
 
         vcs {
             root(VCSKtorBuildPlugins)
-            branchFilter = BranchFilter.DefaultBranch
         }
 
         triggers {
@@ -87,7 +86,7 @@ object ProjectGradlePlugin : Project({
         steps {
             gradle {
                 name = "Publish to Space Packages"
-                tasks = ":plugin:publish"
+                tasks = ":plugin:publishPlugins"
                 gradleParams = "-Pspace -PversionSuffix=eap-%build.counter%"
                 jdkHome = Env.JDK_LTS
             }
