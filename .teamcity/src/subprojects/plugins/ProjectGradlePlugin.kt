@@ -86,7 +86,7 @@ object ProjectGradlePlugin : Project({
         steps {
             gradle {
                 name = "Publish to Space Packages"
-                tasks = ":plugin:publishPlugins"
+                tasks = ":plugin:publish"
                 gradleParams = "-Pspace -PversionSuffix=eap-%build.counter%"
                 jdkHome = Env.JDK_LTS
             }
