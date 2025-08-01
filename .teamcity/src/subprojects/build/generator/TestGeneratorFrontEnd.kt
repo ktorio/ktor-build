@@ -29,9 +29,9 @@ object TestGeneratorFrontEnd : BuildType({
         export BRANCH_NAME="%teamcity.build.branch%"
         echo "Original branch name: ${'$'}BRANCH_NAME"
         
-        if [[ "${'$'}BRANCH_NAME" == *"pull/"* ]]; then
-            # Extract the PR branch name
-            PR_NUMBER=`echo ${'$'}BRANCH_NAME | sed -n 's|pull/\([0-9]*\)|\1|p'`
+        # Check explicitly for pull request format
+        if [[ "${'$'}BRANCH_NAME" =~ pull/([0-9]+) ]]; then
+            PR_NUMBER=${'$'}{BASH_REMATCH[1]}
             echo "Detected pull request #${'$'}PR_NUMBER"
             
             BRANCH_NAME="refs/pull/${'$'}PR_NUMBER/head"
@@ -47,9 +47,12 @@ object TestGeneratorFrontEnd : BuildType({
         
         echo "Final branch name for GitHub API: ${'$'}BRANCH_NAME"
         
+        echo "Running curl with ref: ${'$'}BRANCH_NAME"
+        
         curl -X POST \
         -H "Authorization: token %github.token%" \
         -H "Accept: application/vnd.github.v3+json" \
+        -H "Content-Type: application/json" \
         https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
         -d "{ \"ref\": \"${'$'}BRANCH_NAME\", \"inputs\": { \"registry_username\": \"%env.SPACE_USERNAME%\", \"registry_password\": \"%env.SPACE_PASSWORD%\" } }"
         """
