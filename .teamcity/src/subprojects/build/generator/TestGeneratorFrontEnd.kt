@@ -42,13 +42,23 @@ object TestGeneratorFrontEnd : BuildType({
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/ktorio/ktor-generator-website/pulls/${'$'}PR_NUMBER)
             
-            PR_HEAD=$(echo "${'$'}PR_DATA" | grep -o '"head":.*"ref":"[^"]*"' | grep -o '"ref":"[^"]*"' | cut -d'"' -f4)
+            PR_HEAD=$(echo "${'$'}PR_DATA" | grep -o '\"head\":{[^}]*}' | grep -o '\"ref\":\"[^\"]*\"' | cut -d'"' -f4)
             
             if [ -n "${'$'}PR_HEAD" ]; then
                 echo "Using PR source branch: ${'$'}PR_HEAD"
                 TARGET_BRANCH="${'$'}PR_HEAD"
             else
-                echo "WARNING: Could not determine PR source branch, falling back to default branch"
+                if command -v jq &> /dev/null; then
+                    PR_HEAD=$(echo "${'$'}PR_DATA" | jq -r '.head.ref // empty')
+                    if [ -n "${'$'}PR_HEAD" ]; then
+                        echo "Using PR source branch (jq): ${'$'}PR_HEAD"
+                        TARGET_BRANCH="${'$'}PR_HEAD"
+                    else
+                        echo "WARNING: Could not determine PR source branch, falling back to default branch"
+                    fi
+                else
+                    echo "WARNING: Could not determine PR source branch, falling back to default branch"
+                fi
             fi
         else
             if [ -n "${'$'}BRANCH_NAME" ] && [ "${'$'}BRANCH_NAME" != "<default>" ]; then
@@ -58,6 +68,19 @@ object TestGeneratorFrontEnd : BuildType({
             fi
     
             echo "Using branch: ${'$'}TARGET_BRANCH"
+        fi
+        
+        echo "DEBUG: PR Data (first 500 chars):"
+        echo "${'$'}PR_DATA" | head -c 500
+        
+        BRANCH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: token %github.token%" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/ktorio/ktor-generator-website/branches/${'$'}TARGET_BRANCH)
+          
+        if [ "${'$'}BRANCH_CHECK" != "200" ]; then
+            echo "Branch ${'$'}TARGET_BRANCH does not exist. Falling back to master branch."
+            TARGET_BRANCH="master"
         fi
         
         PAYLOAD=$(cat <<EOF
