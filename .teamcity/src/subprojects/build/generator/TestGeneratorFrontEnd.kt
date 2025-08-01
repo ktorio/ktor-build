@@ -30,7 +30,7 @@ object TestGeneratorFrontEnd : BuildType({
         export BRANCH_NAME="%teamcity.build.branch%"
         echo "Original branch name: ${'$'}BRANCH_NAME"
         
-        TARGET_BRANCH="main"
+        TARGET_BRANCH="master"
         
         if [[ "${'$'}BRANCH_NAME" =~ pull/([0-9]+) ]]; then
             PR_NUMBER=${'$'}{BASH_REMATCH[1]}
