@@ -61,15 +61,15 @@ object TestGeneratorFrontEnd : BuildType({
         fi
         
         PAYLOAD=$(cat <<EOF
-        {
-          "ref": "${'$'}TARGET_BRANCH",
-          "inputs": {
-            "registry_username": "%env.SPACE_USERNAME%",
-            "registry_password": "%env.SPACE_PASSWORD%"
-          }
-        }
-        EOF
-        )
+{
+  "ref": "${'$'}TARGET_BRANCH",
+  "inputs": {
+    "registry_username": "%env.SPACE_USERNAME%",
+    "registry_password": "%env.SPACE_PASSWORD%"
+  }
+}
+EOF
+)
         
         echo "Triggering workflow with payload:"
         echo "${'$'}PAYLOAD" | jq . 2>/dev/null || echo "${'$'}PAYLOAD"
