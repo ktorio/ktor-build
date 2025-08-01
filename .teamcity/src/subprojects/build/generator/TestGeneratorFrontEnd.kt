@@ -27,14 +27,15 @@ object TestGeneratorFrontEnd : BuildType({
         #!/bin/bash
         
         export BRANCH_NAME="%teamcity.build.branch%"
+        echo "Original branch name: ${'$'}BRANCH_NAME"
         
-        if [[ "${'$'}BRANCH_NAME" == *"refs/pull/"* ]]; then
+        if [[ "${'$'}BRANCH_NAME" == *"pull/"* ]]; then
             # Extract the PR branch name
-            PR_NUMBER=`echo ${'$'}BRANCH_NAME | sed -n 's|refs/pull/\([0-9]*\)/.*|\1|p'`
+            PR_NUMBER=`echo ${'$'}BRANCH_NAME | sed -n 's|pull/\([0-9]*\)|\1|p'`
             echo "Detected pull request #${'$'}PR_NUMBER"
-           
-            BRANCH_NAME=`echo ${'$'}BRANCH_NAME | sed 's|refs/pull/[0-9]*/\(.*\)|\1|'`
-            echo "Using PR branch: ${'$'}BRANCH_NAME"
+            
+            BRANCH_NAME="refs/pull/${'$'}PR_NUMBER/head"
+            echo "Converted to GitHub API format: ${'$'}BRANCH_NAME"
         else
             BRANCH_NAME=`echo ${'$'}BRANCH_NAME | sed 's|^refs/heads/||'`
             
@@ -43,6 +44,8 @@ object TestGeneratorFrontEnd : BuildType({
             fi
             echo "Using branch: ${'$'}BRANCH_NAME"
         fi
+        
+        echo "Final branch name for GitHub API: ${'$'}BRANCH_NAME"
         
         curl -X POST \
         -H "Authorization: token %github.token%" \
