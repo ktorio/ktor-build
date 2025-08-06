@@ -46,6 +46,7 @@ project {
     vcsRoot(VCSKtorGeneratorWebsite)
     vcsRoot(VCSKtorCLI)
     vcsRoot(VCSKtorBuildPlugins)
+    vcsRoot(VCSKtorBuildPluginsEAP)
     vcsRoot(VCSPluginRegistry)
     vcsRoot(VCSKtorGeneratorBackend)
 

@@ -16,6 +16,7 @@ object ProjectGradlePlugin : Project({
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.secret%")
         param("env.PUBLISHING_URL", value = "%space.packages.url%")
         param("env.BUILD_NUMBER", value = "%build.counter%")
+        param("env.GIT_BRANCH", value = "%teamcity.build.branch%")
     }
 
     buildType {
@@ -76,7 +77,7 @@ object ProjectGradlePlugin : Project({
         name = "Build and publish Ktor Gradle EAP Plugin to Space Packages"
 
         vcs {
-            root(VCSKtorBuildPlugins)
+            root(VCSKtorBuildPluginsEAP)
         }
 
         triggers {
@@ -86,7 +87,7 @@ object ProjectGradlePlugin : Project({
         steps {
             gradle {
                 name = "Publish to Space Packages"
-                tasks = ":plugin:publish"
+                tasks = ":plugin:publish :compiler-plugin:publish"
                 gradleParams = "-Pspace -PversionSuffix=eap-%build.counter%"
                 jdkHome = Env.JDK_LTS
             }
