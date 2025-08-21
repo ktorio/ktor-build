@@ -32,6 +32,19 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
             }
             defineTCPPortRange()
         }
+
+        if (entry.os == OS.Windows) {
+            powerShell {
+                name = "Install Rust (rustup)"
+                scriptFile("install_rust_windows.ps1")
+            }
+        } else {
+            script {
+                name = "Install Rust (rustup)"
+                scriptFile("install_rust_unix.sh")
+            }
+        }
+
         gradle {
             name = "Build and Run Tests"
             tasks = "${entry.testTasks} --info --continue"
