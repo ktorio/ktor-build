@@ -18,6 +18,11 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
     }
 
     cancelPreviousBuilds()
+
+    params {
+        param("env.KTOR_RUST_COMPILATION", "true")
+    }
+
     steps {
         if (entry.os == OS.Windows) {
             powerShell {

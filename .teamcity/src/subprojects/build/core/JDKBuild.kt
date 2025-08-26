@@ -20,6 +20,11 @@ class JDKBuild(
     }
 
     cancelPreviousBuilds()
+
+    params {
+        param("env.KTOR_RUST_COMPILATION", "true")
+    }
+
     steps {
         if (osJdkEntry.os == OS.Windows) {
             defineTCPPortRange()

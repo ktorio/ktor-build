@@ -16,6 +16,11 @@ object APICheckBuild : BuildType({
     }
 
     cancelPreviousBuilds()
+
+    params {
+        param("env.KTOR_RUST_COMPILATION", "true")
+    }
+
     steps {
         gradle {
             name = "API Check"
