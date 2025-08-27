@@ -24,101 +24,18 @@ object TestGeneratorFrontEnd : BuildType({
         script {
             name = "Trigger GitHub Actions Workflow"
             scriptContent = """
-        #!/bin/bash
-        set -e
-        
-        export BRANCH_NAME="%teamcity.build.branch%"
-        echo "Original branch name: ${'$'}BRANCH_NAME"
-        
-        TARGET_BRANCH="master"
-        
-        if [[ "${'$'}BRANCH_NAME" =~ pull/([0-9]+) ]]; then
-            PR_NUMBER=${'$'}{BASH_REMATCH[1]}
-            echo "Detected pull request #${'$'}PR_NUMBER"
-            
-            echo "Getting PR source branch..."
-            PR_DATA=$(curl -s \
-              -H "Authorization: token %github.token%" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/ktorio/ktor-generator-website/pulls/${'$'}PR_NUMBER)
-            
-            PR_HEAD=$(echo "${'$'}PR_DATA" | grep -o '\"head\":{[^}]*}' | grep -o '\"ref\":\"[^\"]*\"' | cut -d'"' -f4)
-            
-            if [ -n "${'$'}PR_HEAD" ]; then
-                echo "Using PR source branch: ${'$'}PR_HEAD"
-                TARGET_BRANCH="${'$'}PR_HEAD"
-            else
-                if command -v jq &> /dev/null; then
-                    PR_HEAD=$(echo "${'$'}PR_DATA" | jq -r '.head.ref // empty')
-                    if [ -n "${'$'}PR_HEAD" ]; then
-                        echo "Using PR source branch (jq): ${'$'}PR_HEAD"
-                        TARGET_BRANCH="${'$'}PR_HEAD"
-                    else
-                        echo "WARNING: Could not determine PR source branch, falling back to default branch"
-                    fi
-                else
-                    echo "WARNING: Could not determine PR source branch, falling back to default branch"
-                fi
-            fi
-        else
-            if [ -n "${'$'}BRANCH_NAME" ] && [ "${'$'}BRANCH_NAME" != "<default>" ]; then
-                # Strip refs/heads/ prefix if present
-                BRANCH_NAME=$(echo "${'$'}BRANCH_NAME" | sed 's|^refs/heads/||')
-                TARGET_BRANCH="${'$'}BRANCH_NAME"
-            fi
-    
-            echo "Using branch: ${'$'}TARGET_BRANCH"
-        fi
-        
-        echo "DEBUG: PR Data (first 500 chars):"
-        echo "${'$'}PR_DATA" | head -c 500
-        
-        BRANCH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
-          -H "Authorization: token %github.token%" \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/ktorio/ktor-generator-website/branches/${'$'}TARGET_BRANCH)
-          
-        if [ "${'$'}BRANCH_CHECK" != "200" ]; then
-            echo "Branch ${'$'}TARGET_BRANCH does not exist. Falling back to master branch."
-            TARGET_BRANCH="master"
-        fi
-        
-        PAYLOAD=$(cat <<EOF
-{
-  "ref": "${'$'}TARGET_BRANCH",
-  "inputs": {
-    "registry_username": "%env.SPACE_USERNAME%",
-    "registry_password": "%env.SPACE_PASSWORD%"
-  }
-}
-EOF
-)
-        
-        echo "Triggering workflow with payload:"
-        echo "${'$'}PAYLOAD" | jq . 2>/dev/null || echo "${'$'}PAYLOAD"
-        
-        HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-        -H "Authorization: token %github.token%" \
-        -H "Accept: application/vnd.github.v3+json" \
-        -H "Content-Type: application/json" \
-        https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
-        -d "${'$'}PAYLOAD")
-        
-        if [ "${'$'}HTTP_STATUS" = "204" ]; then
-            echo "Successfully triggered GitHub Actions workflow on branch: ${'$'}TARGET_BRANCH"
-        else
-            echo "Failed to trigger workflow. HTTP status: ${'$'}HTTP_STATUS"
-            echo "Error details:"
-            curl -v -X POST \
-            -H "Authorization: token %github.token%" \
-            -H "Accept: application/vnd.github.v3+json" \
-            -H "Content-Type: application/json" \
-            https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
-            -d "${'$'}PAYLOAD"
-            
-            exit 1
-        fi
-        """
+                #!/bin/bash
+                set -e
+                
+                source ${triggerGitHubWorkflowScript()}
+                
+                triggerAndMonitorWorkflow "ktorio/ktor-generator-website" \
+                                        "playwright-tests.yml" \
+                                        "%teamcity.build.branch%" \
+                                        "%github.token%" \
+                                        "%env.SPACE_USERNAME%" \
+                                        "%env.SPACE_PASSWORD%"
+            """
         }
     }
 
@@ -128,3 +45,8 @@ EOF
         onChangeDefaultOrPullRequest()
     }
 })
+
+private fun triggerGitHubWorkflowScript(): String {
+    return "scripts/trigger_github_workflow.sh"
+}
+
