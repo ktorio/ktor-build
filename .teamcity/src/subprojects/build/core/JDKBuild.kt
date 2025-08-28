@@ -21,9 +21,7 @@ class JDKBuild(
 
     cancelPreviousBuilds()
 
-    params {
-        param("env.KTOR_RUST_COMPILATION", "true")
-    }
+    enableRustCompilation(osJdkEntry.os)
 
     steps {
         if (osJdkEntry.os == OS.Windows) {

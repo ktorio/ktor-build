@@ -17,11 +17,11 @@ object APICheckBuild : BuildType({
 
     cancelPreviousBuilds()
 
-    params {
-        param("env.KTOR_RUST_COMPILATION", "true")
-    }
+    enableRustCompilation(os = Agents.OS.Linux)
 
     steps {
+        setupRustAarch64CrossCompilation(os = Agents.OS.Linux)
+
         gradle {
             name = "API Check"
             tasks = "apiCheck"

@@ -19,9 +19,7 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
 
     cancelPreviousBuilds()
 
-    params {
-        param("env.KTOR_RUST_COMPILATION", "true")
-    }
+    enableRustCompilation(entry.os)
 
     steps {
         if (entry.os == OS.Windows) {
@@ -38,17 +36,7 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
             defineTCPPortRange()
         }
 
-        if (entry.os == OS.Windows) {
-            powerShell {
-                name = "Install Rust (rustup)"
-                scriptFile("install_rust_windows.ps1")
-            }
-        } else {
-            script {
-                name = "Install Rust (rustup)"
-                scriptFile("install_rust_unix.sh")
-            }
-        }
+        installRust(entry.os)
 
         gradle {
             name = "Build and Run Tests"
