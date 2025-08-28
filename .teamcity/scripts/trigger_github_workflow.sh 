@@ -125,10 +125,8 @@ EOF
 
     if [ "$HTTP_STATUS" != "204" ]; then
         echo "Failed to trigger workflow. HTTP status: $HTTP_STATUS"
-        echo "Error details (without credentials):"
-        cat response.txt | sed 's/"registry_username":"[^"]*"/"registry_username":"***"/g' | sed 's/"registry_password":"[^"]*"/"registry_password":"***"/g'
-        rm -f response.txt
-        return 1
+                rm -f response.txt
+                return 1
     fi
 
     rm -f response.txt
