@@ -1,21 +1,38 @@
 #!/bin/bash
+
 getBranchName() {
     local BRANCH_NAME="$1"
     local GITHUB_TOKEN="$2"
     local REPO="$3"
-    local TARGET_BRANCH="master"
+    local DEFAULT_BRANCH=""
 
     echo "Original branch name: $BRANCH_NAME"
+
+    echo "Retrieving default branch for repository..."
+    REPO_DATA="$(curl -s \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/"$REPO")"
+
+    if command -v jq &> /dev/null; then
+        DEFAULT_BRANCH=$(echo "$REPO_DATA" | jq -r '.default_branch // "main"')
+    else
+        DEFAULT_BRANCH=$(echo "$REPO_DATA" | grep -o '"default_branch":"[^"]*"' | cut -d'"' -f4)
+        if [ -z "$DEFAULT_BRANCH" ]; then
+            DEFAULT_BRANCH="master"
+        fi
+    fi
+    echo "Repository default branch: $DEFAULT_BRANCH"
 
     if [[ "$BRANCH_NAME" =~ pull/([0-9]+) ]]; then
         PR_NUMBER=${BASH_REMATCH[1]}
         echo "Detected pull request #$PR_NUMBER"
 
         echo "Getting PR source branch..."
-        PR_DATA=$(curl -s \
+        PR_DATA="$(curl -s \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/$REPO/pulls/$PR_NUMBER)
+          https://api.github.com/repos/"$REPO"/pulls/"$PR_NUMBER")"
 
         if command -v jq &> /dev/null; then
             PR_HEAD=$(echo "$PR_DATA" | jq -r '.head.ref // empty')
@@ -24,6 +41,7 @@ getBranchName() {
                 TARGET_BRANCH="$PR_HEAD"
             else
                 echo "WARNING: Could not determine PR source branch, falling back to default branch"
+                TARGET_BRANCH="$DEFAULT_BRANCH"
             fi
         else
             PR_HEAD=$(echo "$PR_DATA" | grep -o '"head":{[^}]*}' | grep -o '"ref":"[^"]*"' | cut -d'"' -f4)
@@ -33,25 +51,30 @@ getBranchName() {
                 TARGET_BRANCH="$PR_HEAD"
             else
                 echo "WARNING: Could not determine PR source branch, falling back to default branch"
+                TARGET_BRANCH="$DEFAULT_BRANCH"
             fi
         fi
     else
         if [ -n "$BRANCH_NAME" ] && [ "$BRANCH_NAME" != "<default>" ]; then
-            BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's|^refs/heads/||')
+            BRANCH_NAME="${BRANCH_NAME#refs/heads/}"
             TARGET_BRANCH="$BRANCH_NAME"
+        else
+            TARGET_BRANCH="$DEFAULT_BRANCH"
         fi
 
         echo "Using branch: $TARGET_BRANCH"
     fi
 
+    ENCODED_BRANCH=$(printf "%s" "$TARGET_BRANCH" | jq -s -R -r @uri)
+
     BRANCH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
       -H "Authorization: token $GITHUB_TOKEN" \
       -H "Accept: application/vnd.github.v3+json" \
-      https://api.github.com/repos/$REPO/branches/$TARGET_BRANCH)
+      "https://api.github.com/repos/$REPO/branches/$ENCODED_BRANCH")
 
     if [ "$BRANCH_CHECK" != "200" ]; then
-        echo "Branch $TARGET_BRANCH does not exist. Falling back to master branch."
-        TARGET_BRANCH="master"
+        echo "Branch $TARGET_BRANCH does not exist. Falling back to default branch."
+        TARGET_BRANCH="$DEFAULT_BRANCH"
     fi
 
     echo "$TARGET_BRANCH"
@@ -62,10 +85,11 @@ triggerWorkflow() {
     local WORKFLOW_FILE="$2"
     local TARGET_BRANCH="$3"
     local GITHUB_TOKEN="$4"
-    local REGISTRY_USERNAME="$5"
-    local REGISTRY_PASSWORD="$6"
 
     echo "Triggering workflow on branch: $TARGET_BRANCH"
+
+    REGISTRY_USERNAME="${REGISTRY_USERNAME:-}"
+    REGISTRY_PASSWORD="${REGISTRY_PASSWORD:-}"
 
     PAYLOAD=$(cat <<EOF
 {
@@ -78,30 +102,35 @@ triggerWorkflow() {
 EOF
 )
 
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+    HTTP_STATUS="$(curl -s -o response.txt -w "%{http_code}" -X POST \
     -H "Authorization: token $GITHUB_TOKEN" \
     -H "Accept: application/vnd.github.v3+json" \
     -H "Content-Type: application/json" \
-    https://api.github.com/repos/$REPO/actions/workflows/$WORKFLOW_FILE/dispatches \
-    -d "$PAYLOAD")
+    https://api.github.com/repos/"$REPO"/actions/workflows/"$WORKFLOW_FILE"/dispatches \
+    -d "$PAYLOAD")"
 
     if [ "$HTTP_STATUS" != "204" ]; then
         echo "Failed to trigger workflow. HTTP status: $HTTP_STATUS"
         echo "Error details (without credentials):"
-        echo "HTTP Status Code: $HTTP_STATUS"
+        cmd < response.txt | sed 's/"registry_username":"[^"]*"/"registry_username":"***"/g' | sed 's/"registry_password":"[^"]*"/"registry_password":"***"/g'
+        rm -f response.txt
         return 1
     fi
 
+    rm -f response.txt
     echo "Successfully triggered GitHub Actions workflow on branch: $TARGET_BRANCH"
     return 0
 }
 
-findWorkflowRun() {
+findLatestWorkflowByName() {
     local REPO="$1"
     local TARGET_BRANCH="$2"
     local GITHUB_TOKEN="$3"
+    local WORKFLOW_NAME="End-to-End Tests with Docker"
+    local START_TIME
+    START_TIME="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-    echo "Waiting for workflow to appear in the list of runs..."
+    echo "Looking for the latest '$WORKFLOW_NAME' workflow run that started after $START_TIME..."
 
     WORKFLOW_ID=""
     MAX_ATTEMPTS=30
@@ -112,25 +141,23 @@ findWorkflowRun() {
         ATTEMPT=$((ATTEMPT+1))
         echo "Checking for workflow run (attempt $ATTEMPT/$MAX_ATTEMPTS)..."
 
+        RUNS_URL="https://api.github.com/repos/$REPO/actions/runs?branch=$TARGET_BRANCH&per_page=10"
+
         WORKFLOWS=$(curl -s \
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Accept: application/vnd.github.v3+json" \
-          "https://api.github.com/repos/$REPO/actions/runs?branch=$TARGET_BRANCH&per_page=5")
+          "$RUNS_URL")
 
         if command -v jq &> /dev/null; then
-            WORKFLOW_ID=$(echo "$WORKFLOWS" | jq -r '.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "pending" or (.status == "completed" and .conclusion == null)) | .id' | head -n 1)
+            WORKFLOW_ID=$(echo "$WORKFLOWS" | jq -r --arg time "$START_TIME" --arg name "$WORKFLOW_NAME" \
+                '.workflow_runs[] | select(.created_at >= $time) | select(.name == $name) | .id' | head -n 1)
         else
-            WORKFLOW_STATUS=$(echo "$WORKFLOWS" | grep -o '"status":"[^"]*"' | head -n 1 | cut -d'"' -f4)
-            WORKFLOW_ID=$(echo "$WORKFLOWS" | grep -o '"id":[0-9]*' | head -n 1 | cut -d':' -f2)
+            WORKFLOW_JSON=$(echo "$WORKFLOWS" | grep -o '{[^}]*"name":"'"$WORKFLOW_NAME"'"[^}]*}' | head -n 1)
+            if [ -n "$WORKFLOW_JSON" ]; then
+                WORKFLOW_CREATED=$(echo "$WORKFLOW_JSON" | grep -o '"created_at":"[^"]*"' | cut -d'"' -f4)
 
-            if [[ "$WORKFLOW_STATUS" != "completed" ]]; then
-                :
-            else
-                WORKFLOW_CONCLUSION=$(echo "$WORKFLOWS" | grep -o '"conclusion":"[^"]*"' | head -n 1 | cut -d'"' -f4)
-                if [[ -z "$WORKFLOW_CONCLUSION" ]]; then
-                    :
-                else
-                    WORKFLOW_ID=""
+                if [[ "$WORKFLOW_CREATED" > "$START_TIME" ]]; then
+                    WORKFLOW_ID=$(echo "$WORKFLOW_JSON" | grep -o '"id":[0-9]*' | cut -d':' -f2)
                 fi
             fi
         fi
@@ -145,7 +172,7 @@ findWorkflowRun() {
     done
 
     if [ -z "$WORKFLOW_ID" ]; then
-        echo "Could not find the triggered workflow run after $MAX_ATTEMPTS attempts."
+        echo "Could not find a '$WORKFLOW_NAME' workflow run after $MAX_ATTEMPTS attempts."
         return 1
     fi
 
@@ -174,12 +201,15 @@ monitorWorkflow() {
         if command -v jq &> /dev/null; then
             WORKFLOW_STATUS=$(echo "$WORKFLOW_DATA" | jq -r '.status')
             WORKFLOW_CONCLUSION=$(echo "$WORKFLOW_DATA" | jq -r '.conclusion')
+            WORKFLOW_URL=$(echo "$WORKFLOW_DATA" | jq -r '.html_url')
         else
             WORKFLOW_STATUS=$(echo "$WORKFLOW_DATA" | grep -o '"status":"[^"]*"' | head -n 1 | cut -d'"' -f4)
             WORKFLOW_CONCLUSION=$(echo "$WORKFLOW_DATA" | grep -o '"conclusion":"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "")
+            WORKFLOW_URL=$(echo "$WORKFLOW_DATA" | grep -o '"html_url":"[^"]*"' | head -n 1 | cut -d'"' -f4)
         fi
 
         echo "Workflow status: $WORKFLOW_STATUS, conclusion: $WORKFLOW_CONCLUSION (check $MONITOR_ATTEMPT/$MAX_MONITOR_ATTEMPTS)"
+        echo "Workflow URL: $WORKFLOW_URL"
 
         if [ "$WORKFLOW_STATUS" = "completed" ]; then
             echo "Workflow run completed with conclusion: $WORKFLOW_CONCLUSION"
@@ -197,7 +227,7 @@ monitorWorkflow() {
         sleep $MONITOR_SLEEP_SECONDS
     done
 
-    echo "Timed out waiting for workflow to complete after $(($MAX_MONITOR_ATTEMPTS * $MONITOR_SLEEP_SECONDS)) seconds."
+    echo "Timed out waiting for workflow to complete after $((MAX_MONITOR_ATTEMPTS * MONITOR_SLEEP_SECONDS)) seconds."
     return 1
 }
 
@@ -206,23 +236,25 @@ triggerAndMonitorWorkflow() {
     local WORKFLOW_FILE="$2"
     local BRANCH_NAME="$3"
     local GITHUB_TOKEN="$4"
-    local REGISTRY_USERNAME="$5"
-    local REGISTRY_PASSWORD="$6"
+
+    if [ -z "${REGISTRY_USERNAME}" ] || [ -z "${REGISTRY_PASSWORD}" ]; then
+            echo "Registry credentials must be set as environment variables REGISTRY_USERNAME and REGISTRY_PASSWORD"
+    fi
 
     TARGET_BRANCH=$(getBranchName "$BRANCH_NAME" "$GITHUB_TOKEN" "$REPO")
 
-    triggerWorkflow "$REPO" "$WORKFLOW_FILE" "$TARGET_BRANCH" "$GITHUB_TOKEN" "$REGISTRY_USERNAME" "$REGISTRY_PASSWORD"
-    if [ $? -ne 0 ]; then
+    if ! triggerWorkflow "$REPO" "$WORKFLOW_FILE" "$TARGET_BRANCH" "$GITHUB_TOKEN"
+    then
         exit 1
     fi
 
-    WORKFLOW_ID=$(findWorkflowRun "$REPO" "$TARGET_BRANCH" "$GITHUB_TOKEN")
-    if [ $? -ne 0 ]; then
+    if ! WORKFLOW_ID=$(findLatestWorkflowByName "$REPO" "$TARGET_BRANCH" "$GITHUB_TOKEN")
+    then
         exit 1
     fi
 
-    monitorWorkflow "$REPO" "$WORKFLOW_ID" "$GITHUB_TOKEN"
-    if [ $? -ne 0 ]; then
+    if ! monitorWorkflow "$REPO" "$WORKFLOW_ID" "$GITHUB_TOKEN"
+    then
         exit 1
     fi
 

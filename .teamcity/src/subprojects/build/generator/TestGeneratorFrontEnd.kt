@@ -29,6 +29,10 @@ object TestGeneratorFrontEnd : BuildType({
                 
                 source ${triggerGitHubWorkflowScript()}
                 
+                export REGISTRY_USERNAME="%env.SPACE_USERNAME%"
+                export REGISTRY_PASSWORD="%env.SPACE_PASSWORD%"
+                
+
                 triggerAndMonitorWorkflow "ktorio/ktor-generator-website" \
                                         "playwright-tests.yml" \
                                         "%teamcity.build.branch%" \
@@ -47,6 +51,6 @@ object TestGeneratorFrontEnd : BuildType({
 })
 
 private fun triggerGitHubWorkflowScript(): String {
-    return "scripts/trigger_github_workflow.sh"
+    return "%teamcity.build.checkoutDir%/.teamcity/scripts/trigger_github_workflow.sh"
 }
 
