@@ -14,11 +14,15 @@ getBranchName() {
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/"$REPO")"
 
+    echo "$REPO_DATA" > repo_data.json
+
     if command -v jq &> /dev/null; then
-        DEFAULT_BRANCH=$(echo "$REPO_DATA" | jq -r '.default_branch // "main"')
+        DEFAULT_BRANCH=$(echo "$REPO_DATA" | jq -r '.default_branch // "master"')
     else
-        DEFAULT_BRANCH=$(echo "$REPO_DATA" | grep -o '"default_branch":"[^"]*"' | cut -d'"' -f4)
+        echo "jq not found, using grep fallback for parsing JSON"
+        DEFAULT_BRANCH=$(grep -o '"default_branch"\s*:\s*"[^"]*"' repo_data.json | grep -o '"[^"]*"$' | tr -d '"')
         if [ -z "$DEFAULT_BRANCH" ]; then
+            echo "WARNING: Could not parse default branch from API response, using 'master' as fallback"
             DEFAULT_BRANCH="master"
         fi
     fi
@@ -34,6 +38,8 @@ getBranchName() {
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/"$REPO"/pulls/"$PR_NUMBER")"
 
+        echo "$PR_DATA" > pr_data.json
+
         if command -v jq &> /dev/null; then
             PR_HEAD=$(echo "$PR_DATA" | jq -r '.head.ref // empty')
             if [ -n "$PR_HEAD" ]; then
@@ -44,7 +50,7 @@ getBranchName() {
                 TARGET_BRANCH="$DEFAULT_BRANCH"
             fi
         else
-            PR_HEAD=$(echo "$PR_DATA" | grep -o '"head":{[^}]*}' | grep -o '"ref":"[^"]*"' | cut -d'"' -f4)
+            PR_HEAD=$(grep -o '"head":\s*{[^}]*"ref":\s*"[^"]*"' pr_data.json | grep -o '"ref":\s*"[^"]*"' | grep -o '"[^"]*"$' | tr -d '"')
 
             if [ -n "$PR_HEAD" ]; then
                 echo "Using PR source branch: $PR_HEAD"
@@ -54,6 +60,8 @@ getBranchName() {
                 TARGET_BRANCH="$DEFAULT_BRANCH"
             fi
         fi
+
+        rm -f pr_data.json
     else
         if [ -n "$BRANCH_NAME" ] && [ "$BRANCH_NAME" != "<default>" ]; then
             BRANCH_NAME="${BRANCH_NAME#refs/heads/}"
@@ -65,7 +73,13 @@ getBranchName() {
         echo "Using branch: $TARGET_BRANCH"
     fi
 
-    ENCODED_BRANCH=$(printf "%s" "$TARGET_BRANCH" | jq -s -R -r @uri)
+    rm -f repo_data.json
+
+    if command -v jq &> /dev/null; then
+        ENCODED_BRANCH=$(printf "%s" "$TARGET_BRANCH" | jq -s -R -r @uri)
+    else
+        ENCODED_BRANCH=$(printf "%s" "$TARGET_BRANCH" | perl -MURI::Escape -ne 'print uri_escape($_)' 2>/dev/null || echo "$TARGET_BRANCH")
+    fi
 
     BRANCH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
       -H "Authorization: token $GITHUB_TOKEN" \
@@ -112,7 +126,7 @@ EOF
     if [ "$HTTP_STATUS" != "204" ]; then
         echo "Failed to trigger workflow. HTTP status: $HTTP_STATUS"
         echo "Error details (without credentials):"
-        cmd < response.txt | sed 's/"registry_username":"[^"]*"/"registry_username":"***"/g' | sed 's/"registry_password":"[^"]*"/"registry_password":"***"/g'
+        cat response.txt | sed 's/"registry_username":"[^"]*"/"registry_username":"***"/g' | sed 's/"registry_password":"[^"]*"/"registry_password":"***"/g'
         rm -f response.txt
         return 1
     fi
@@ -148,25 +162,32 @@ findLatestWorkflowByName() {
           -H "Accept: application/vnd.github.v3+json" \
           "$RUNS_URL")
 
+        echo "$WORKFLOWS" > workflows_data.json
+
         if command -v jq &> /dev/null; then
             WORKFLOW_ID=$(echo "$WORKFLOWS" | jq -r --arg time "$START_TIME" --arg name "$WORKFLOW_NAME" \
                 '.workflow_runs[] | select(.created_at >= $time) | select(.name == $name) | .id' | head -n 1)
         else
-            WORKFLOW_JSON=$(echo "$WORKFLOWS" | grep -o '{[^}]*"name":"'"$WORKFLOW_NAME"'"[^}]*}' | head -n 1)
-            if [ -n "$WORKFLOW_JSON" ]; then
-                WORKFLOW_CREATED=$(echo "$WORKFLOW_JSON" | grep -o '"created_at":"[^"]*"' | cut -d'"' -f4)
+            FOUND_WORKFLOWS=$(grep -o '{[^}]*"name"[^}]*"'"$WORKFLOW_NAME"'"[^}]*}' workflows_data.json)
+
+            if [ -n "$FOUND_WORKFLOWS" ]; then
+                echo "$FOUND_WORKFLOWS" > found_workflows.json
+                WORKFLOW_CREATED=$(grep -o '"created_at"\s*:\s*"[^"]*"' found_workflows.json | head -n1 | grep -o '"[^"]*"$' | tr -d '"')
 
                 if [[ "$WORKFLOW_CREATED" > "$START_TIME" ]]; then
-                    WORKFLOW_ID=$(echo "$WORKFLOW_JSON" | grep -o '"id":[0-9]*' | cut -d':' -f2)
+                    WORKFLOW_ID=$(grep -o '"id"\s*:\s*[0-9]*' found_workflows.json | head -n1 | grep -o '[0-9]*$')
                 fi
+                rm -f found_workflows.json
             fi
         fi
 
         if [ -n "$WORKFLOW_ID" ]; then
             echo "Found workflow run with ID: $WORKFLOW_ID"
+            rm -f workflows_data.json
             break
         fi
 
+        rm -f workflows_data.json
         echo "Waiting $SLEEP_SECONDS seconds before checking again..."
         sleep $SLEEP_SECONDS
     done
@@ -198,15 +219,19 @@ monitorWorkflow() {
           -H "Accept: application/vnd.github.v3+json" \
           "https://api.github.com/repos/$REPO/actions/runs/$WORKFLOW_ID")
 
+        echo "$WORKFLOW_DATA" > workflow_status.json
+
         if command -v jq &> /dev/null; then
             WORKFLOW_STATUS=$(echo "$WORKFLOW_DATA" | jq -r '.status')
             WORKFLOW_CONCLUSION=$(echo "$WORKFLOW_DATA" | jq -r '.conclusion')
             WORKFLOW_URL=$(echo "$WORKFLOW_DATA" | jq -r '.html_url')
         else
-            WORKFLOW_STATUS=$(echo "$WORKFLOW_DATA" | grep -o '"status":"[^"]*"' | head -n 1 | cut -d'"' -f4)
-            WORKFLOW_CONCLUSION=$(echo "$WORKFLOW_DATA" | grep -o '"conclusion":"[^"]*"' | head -n 1 | cut -d'"' -f4 || echo "")
-            WORKFLOW_URL=$(echo "$WORKFLOW_DATA" | grep -o '"html_url":"[^"]*"' | head -n 1 | cut -d'"' -f4)
+            WORKFLOW_STATUS=$(grep -o '"status"\s*:\s*"[^"]*"' workflow_status.json | head -n 1 | grep -o '"[^"]*"$' | tr -d '"')
+            WORKFLOW_CONCLUSION=$(grep -o '"conclusion"\s*:\s*"[^"]*"' workflow_status.json | head -n 1 | grep -o '"[^"]*"$' | tr -d '"' || echo "")
+            WORKFLOW_URL=$(grep -o '"html_url"\s*:\s*"[^"]*"' workflow_status.json | head -n 1 | grep -o '"[^"]*"$' | tr -d '"')
         fi
+
+        rm -f workflow_status.json
 
         echo "Workflow status: $WORKFLOW_STATUS, conclusion: $WORKFLOW_CONCLUSION (check $MONITOR_ATTEMPT/$MAX_MONITOR_ATTEMPTS)"
         echo "Workflow URL: $WORKFLOW_URL"
