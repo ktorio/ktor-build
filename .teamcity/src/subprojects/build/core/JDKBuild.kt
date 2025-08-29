@@ -20,6 +20,9 @@ class JDKBuild(
     }
 
     cancelPreviousBuilds()
+
+    enableRustCompilation(osJdkEntry.os)
+
     steps {
         if (osJdkEntry.os == OS.Windows) {
             defineTCPPortRange()

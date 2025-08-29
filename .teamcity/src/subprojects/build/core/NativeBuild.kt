@@ -18,6 +18,9 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
     }
 
     cancelPreviousBuilds()
+
+    enableRustCompilation(entry.os)
+
     steps {
         if (entry.os == OS.Windows) {
             powerShell {
@@ -32,6 +35,9 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
             }
             defineTCPPortRange()
         }
+
+        installRust(entry.os)
+
         gradle {
             name = "Build and Run Tests"
             tasks = "${entry.testTasks} --info --continue"

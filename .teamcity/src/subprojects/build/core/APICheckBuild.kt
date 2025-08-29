@@ -16,7 +16,12 @@ object APICheckBuild : BuildType({
     }
 
     cancelPreviousBuilds()
+
+    enableRustCompilation(os = Agents.OS.Linux)
+
     steps {
+        setupRustAarch64CrossCompilation(os = Agents.OS.Linux)
+
         gradle {
             name = "API Check"
             tasks = "apiCheck"
