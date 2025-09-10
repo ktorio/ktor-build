@@ -19,7 +19,7 @@ fun BuildSteps.installRust(os: OS) {
     }
 }
 
-fun BuildType.enableRustForRelevantChanges() {
+fun BuildType.enableRustForRelevantChanges(os: OS) {
     steps {
         script {
             name = "Check for Rust module changes"
@@ -27,7 +27,7 @@ fun BuildType.enableRustForRelevantChanges() {
                 #!/bin/bash
                 
                 CHANGED_FILES="%system.teamcity.build.changedFiles.file%"
-                OPERATING_SYSTEM="%system.teamcity.agent.os.family%"
+                OPERATING_SYSTEM="${os.name}"
                
                 # Check if any files match your path pattern
                 if echo "${'$'}CHANGED_FILES" | grep -q "-rs"; then

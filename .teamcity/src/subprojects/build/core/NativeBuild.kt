@@ -18,7 +18,7 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
     }
 
     cancelPreviousBuilds()
-    enableRustForRelevantChanges()
+    enableRustForRelevantChanges(entry.os)
 
     steps {
 

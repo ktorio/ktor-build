@@ -16,7 +16,7 @@ object APICheckBuild : BuildType({
     }
 
     cancelPreviousBuilds()
-    enableRustForRelevantChanges()
+    enableRustForRelevantChanges(Agents.OS.Linux)
 
     steps {
         setupRustAarch64CrossCompilation(os = Agents.OS.Linux)
