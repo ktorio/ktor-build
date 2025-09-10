@@ -28,8 +28,8 @@ fun BuildSteps.enableRustForRelevantChanges() {
         scriptContent = """
             #!/bin/bash
             
-            CHANGED_FILES="%teamcity.build.changedFiles.file%"
-            OPERATING_SYSTEM="%teamcity.agent.os.family%"
+            CHANGED_FILES="%system.teamcity.build.changedFiles.file%"
+            OPERATING_SYSTEM="%system.teamcity.agent.os.family%"
            
             # Check if any files match your path pattern
             if echo "${'$'}CHANGED_FILES" | grep -q "-rs"; then
