@@ -1,6 +1,7 @@
 package subprojects.build.core
 
 import dsl.scriptFile
+import jetbrains.buildServer.configs.kotlin.BuildStep
 import jetbrains.buildServer.configs.kotlin.BuildSteps
 import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
 import jetbrains.buildServer.configs.kotlin.buildSteps.powerShell
@@ -21,15 +22,30 @@ fun BuildSteps.installRust(os: OS) {
     }
 }
 
-fun BuildTypeSettings.enableRustCompilation(os: OS) {
-    params {
-        param("env.KTOR_RUST_COMPILATION", "true")
-        if (os == OS.Linux) {
-            param(
-                "env.KTOR_OVERRIDE_KONAN_PROPERTIES",
-                "targetSysRoot.linux_x64=/;libGcc.linux_x64=/usr/lib/gcc/x86_64-linux-gnu/13;linker.linux_x64=/usr/bin/ld.bfd;crtFilesLocation.linux_x64=/usr/lib/x86_64-linux-gnu/"
-            )
-        }
+fun BuildSteps.enableRustForRelevantChanges() {
+    script {
+        name = "Check for Rust module changes"
+        scriptContent = """
+            #!/bin/bash
+            
+            CHANGED_FILES="%teamcity.build.changedFiles.file%"
+            OPERATING_SYSTEM="%teamcity.agent.os.family%"
+           
+            # Check if any files match your path pattern
+            if echo "${'$'}CHANGED_FILES" | grep -q "-rs"; then
+                echo "Changes detected for files with '-rs' in their path"
+                export KTOR_RUST_COMPILATION="true"
+                echo "##teamcity[setParameter name='env.KTOR_RUST_COMPILATION' value='${'$'}KTOR_RUST_COMPILATION']"
+            fi 
+            
+            # Set platform-specific Konan properties for Linux
+            if [ "${'$'}OPERATING_SYSTEM" = "Linux" ] && [ "${'$'}KTOR_RUST_COMPILATION" = "true" ]; then
+                echo "Setting Linux-specific Konan properties"
+                export KONAN_PROPERTIES="targetSysRoot.linux_x64=/;libGcc.linux_x64=/usr/lib/gcc/x86_64-linux-gnu/13;linker.linux_x64=/usr/bin/ld.bfd;crtFilesLocation.linux_x64=/usr/lib/x86_64-linux-gnu/"
+                echo "##teamcity[setParameter name='env.KTOR_OVERRIDE_KONAN_PROPERTIES' value='${'$'}KONAN_PROPERTIES']"
+            fi
+        """
+        executionMode = BuildStep.ExecutionMode.ALWAYS
     }
 }
 

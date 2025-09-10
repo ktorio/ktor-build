@@ -19,9 +19,9 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
 
     cancelPreviousBuilds()
 
-    enableRustCompilation(entry.os)
-
     steps {
+        enableRustForRelevantChanges()
+
         if (entry.os == OS.Windows) {
             powerShell {
                 name = "Remove git from PATH"
