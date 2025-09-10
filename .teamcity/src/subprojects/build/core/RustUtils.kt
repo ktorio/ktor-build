@@ -1,10 +1,8 @@
 package subprojects.build.core
 
-import dsl.scriptFile
-import jetbrains.buildServer.configs.kotlin.BuildSteps
-import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
-import jetbrains.buildServer.configs.kotlin.buildSteps.powerShell
-import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import dsl.*
+import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.Agents.OS
 
 fun BuildSteps.installRust(os: OS) {
@@ -21,14 +19,14 @@ fun BuildSteps.installRust(os: OS) {
     }
 }
 
-fun BuildTypeSettings.enableRustCompilation(os: OS) {
+fun BuildType.enableRustForRelevantChanges(os: OS) {
     params {
-        param("env.KTOR_RUST_COMPILATION", "true")
-        if (os == OS.Linux) {
-            param(
-                "env.KTOR_OVERRIDE_KONAN_PROPERTIES",
-                "targetSysRoot.linux_x64=/;libGcc.linux_x64=/usr/lib/gcc/x86_64-linux-gnu/13;linker.linux_x64=/usr/bin/ld.bfd;crtFilesLocation.linux_x64=/usr/lib/x86_64-linux-gnu/"
-            )
+        param("env.OPERATING_SYSTEM", os.name)
+    }
+    steps {
+        script {
+            name = "Check for Rust module changes"
+            scriptFile("check_modified_rust_modules.sh")
         }
     }
 }
