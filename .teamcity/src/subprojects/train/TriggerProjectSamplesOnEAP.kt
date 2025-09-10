@@ -7,98 +7,126 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.core.TriggerType
 import subprojects.build.core.createCompositeBuild
-import subprojects.build.samples.BuildPluginSampleProject
-import subprojects.build.samples.BuildPluginSampleSettings
-import subprojects.build.samples.buildPluginSamples
+import subprojects.build.samples.*
 import subprojects.eap.ProjectPublishEAPToSpace
 import subprojects.release.*
-
-object TriggerProjectSamplesOnEAPBuild : BuildType({
-    id("KtorSamplesEAPCompositeBuild")
-    name = "Samples EAP Composite Build"
-    description = "Run all samples against the EAP version of Ktor"
-    type = BuildTypeSettings.Type.COMPOSITE
-
-
-    vcs {
-        root(VCSSamples)
-        root(VCSCoreEAP)
-        root(VCSKtorBuildPluginsEAP)
-
-    }
-
-    params {
-        defaultGradleParams()
-        param("env.GIT_BRANCH", "%teamcity.build.branch%")
-        param("env.VERSION_SUFFIX", "%dep.${ProjectPublishEAPToSpace.id}_PublishEAPToSpace.build.number%")
-    }
-
-    triggers {
-        finishBuildTrigger {
-            buildType = "${ProjectPublishEAPToSpace.id}_PublishEAPToSpace"
-            successfulOnly = true
-            branchFilter = """
-                +:*-eap
-                +:eap/*
-            """.trimIndent()
-        }
-    }
-
-    dependencies {
-        snapshot(samplesBuild?.id!!) {
-            runOnSameAgent = false
-            onDependencyCancel = FailureAction.CANCEL
-            onDependencyFailure = FailureAction.FAIL_TO_START
-        }
-        snapshot(docSamplesBuild?.id!!) {
-            runOnSameAgent = false
-            onDependencyCancel = FailureAction.CANCEL
-            onDependencyFailure = FailureAction.FAIL_TO_START
-        }
-        snapshot(publishAllEAPBuild?.id!!) {
-            runOnSameAgent = false
-            onDependencyFailure = FailureAction.FAIL_TO_START
-        }
-    }
-
-    features {
-        notifications {
-            notifierSettings = slackNotifier {
-                connection = "PROJECT_EXT_5"
-                sendTo = "#ktor-projects-on-eap"
-                messageFormat = verboseMessageFormat {
-                    addStatusText = true
-                }
-            }
-            buildFailedToStart = true
-            buildFailed = true
-            buildFinishedSuccessfully = true
-        }
-    }
-})
 
 object TriggerProjectSamplesOnEAP : Project({
     id("TriggerProjectSamplesOnEAP")
     name = "EAP Validation"
     description = "Validate samples against EAP versions of Ktor"
-    val buildPluginProjects = buildPluginSamples.map { sample ->
-        BuildPluginSampleProject(
-            BuildPluginSampleSettings(
-                sample.projectName,
-                VCSKtorBuildPluginsEAP,
-                sample.standalone
-            )
+
+    val eapVersionParam = "%dep.${ProjectPublishEAPToSpace.id}_PublishEAPToSpace.build.number%"
+
+    fun createBuildPluginEAPSample(sample: BuildPluginSampleSettings): BuildType {
+        val eapSample = BuildPluginSampleSettings(
+            sample.projectName,
+            VCSKtorBuildPluginsEAP,
+            sample.standalone
         )
+
+        return BuildPluginSampleProject(eapSample).apply {
+            id("EAP_KtorBuildPluginSamplesValidate_${sample.projectName.replace('-', '_')}")
+            name = "EAP Validate ${sample.projectName} sample"
+            params {
+                param("env.KTOR_VERSION", eapVersionParam)
+            }
+        }
     }
-    buildPluginProjects.forEach(::buildType)
+
+    fun createRegularEAPSample(sample: SampleProjectSettings): BuildType {
+        val eapSample = SampleProjectSettings(
+            sample.projectName,
+            VCSSamples,
+            sample.buildSystem,
+            sample.standalone,
+            sample.withAndroidSdk
+        )
+
+        return SampleProject(eapSample).apply {
+            id("EAP_KtorSamplesValidate_${sample.projectName.replace('-', '_')}")
+            name = "EAP Validate ${sample.projectName} sample"
+            params {
+                param("env.KTOR_VERSION", eapVersionParam)
+            }
+        }
+    }
+
+    val buildPluginEAPProjects = buildPluginSamples.map(::createBuildPluginEAPSample)
+    val sampleEAPProjects = sampleProjects.map(::createRegularEAPSample)
+
+    buildPluginEAPProjects.forEach(::buildType)
+    sampleEAPProjects.forEach(::buildType)
+
     buildType {
         createCompositeBuild(
-            buildId = "KtorBuildPluginSamplesEAPValidate_All",
-            buildName = "Validate all build plugin samples with EAP",
-            vcsRoot = VCSKtorBuildPluginsEAP,
-            builds = buildPluginProjects,
+            "EAP_KtorBuildPluginSamplesValidate_All",
+            "EAP Validate all build plugin samples",
+            VCSKtorBuildPluginsEAP,
+            buildPluginEAPProjects,
             withTrigger = TriggerType.NONE
         )
     }
-    buildType(TriggerProjectSamplesOnEAPBuild)
+
+    buildType {
+        createCompositeBuild(
+            "EAP_KtorSamplesValidate_All",
+            "EAP Validate all samples",
+            VCSSamples,
+            sampleEAPProjects,
+            withTrigger = TriggerType.NONE
+        )
+    }
+
+    buildType {
+        id("KtorEAPSamplesCompositeBuild")
+        name = "Validate All Samples with EAP"
+        description = "Run all samples against the EAP version of Ktor"
+        type = BuildTypeSettings.Type.COMPOSITE
+
+        vcs {
+            root(VCSCoreEAP)
+        }
+
+        params {
+            defaultGradleParams()
+            param("env.GIT_BRANCH", "%teamcity.build.branch%")
+            param("env.VERSION_SUFFIX", eapVersionParam)
+        }
+
+        triggers {
+            finishBuildTrigger {
+                buildType = "${ProjectPublishEAPToSpace.id}_PublishEAPToSpace"
+                successfulOnly = true
+                branchFilter = """
+                    +:*-eap
+                    +:eap/*
+                """.trimIndent()
+            }
+        }
+
+        dependencies {
+            dependency(publishAllEAPBuild?.id!!) {
+                snapshot {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                    onDependencyCancel = FailureAction.CANCEL
+                }
+            }
+        }
+
+        features {
+            notifications {
+                notifierSettings = slackNotifier {
+                    connection = "PROJECT_EXT_5"
+                    sendTo = "#ktor-projects-on-eap"
+                    messageFormat = verboseMessageFormat {
+                        addStatusText = true
+                    }
+                }
+                buildFailedToStart = true
+                buildFailed = true
+                buildFinishedSuccessfully = true
+            }
+        }
+    }
 })
