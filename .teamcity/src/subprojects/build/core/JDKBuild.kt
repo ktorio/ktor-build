@@ -20,13 +20,12 @@ class JDKBuild(
     }
 
     cancelPreviousBuilds()
+    enableRustForRelevantChanges()
 
     steps {
         if (osJdkEntry.os == OS.Windows) {
             defineTCPPortRange()
         }
-
-        enableRustForRelevantChanges()
 
         gradle {
             name = "Build and Run Tests"

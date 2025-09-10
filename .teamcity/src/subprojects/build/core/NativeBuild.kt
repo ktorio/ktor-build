@@ -18,9 +18,9 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
     }
 
     cancelPreviousBuilds()
+    enableRustForRelevantChanges()
 
     steps {
-        enableRustForRelevantChanges()
 
         if (entry.os == OS.Windows) {
             powerShell {

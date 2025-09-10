@@ -16,10 +16,9 @@ object APICheckBuild : BuildType({
     }
 
     cancelPreviousBuilds()
+    enableRustForRelevantChanges()
 
     steps {
-        enableRustForRelevantChanges()
-
         setupRustAarch64CrossCompilation(os = Agents.OS.Linux)
 
         gradle {
