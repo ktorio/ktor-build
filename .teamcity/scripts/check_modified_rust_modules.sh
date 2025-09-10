@@ -6,6 +6,8 @@ if echo "$CHANGED_FILES" | grep -q "\-rs"; then
     echo "Changes detected for files with '-rs' in their path"
     export KTOR_RUST_COMPILATION="true"
     echo "##teamcity[setParameter name='env.KTOR_RUST_COMPILATION' value='${'$'}KTOR_RUST_COMPILATION']"
+else
+    export KTOR_RUST_COMPILATION="false"
 fi
 
 # Set platform-specific Konan properties for Linux
