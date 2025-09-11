@@ -13,7 +13,7 @@ object PublishCustomTaskToMaven : BuildType({
         root(VCSCore)
     }
     params {
-        configureReleaseVersion()
+        publishingParams()
         text("tasks", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
         text("prepublish_script", "", display = ParameterDisplay.PROMPT, allowEmpty = true)
         select(
@@ -48,7 +48,7 @@ object PublishJvmToMaven : BuildType({
         root(VCSCore)
     }
     params {
-        configureReleaseVersion()
+        publishingParams()
     }
     steps {
         publish(JVM_AND_COMMON_PUBLISH_TASK)
@@ -64,7 +64,7 @@ object PublishJSToMaven : BuildType({
         root(VCSCore)
     }
     params {
-        configureReleaseVersion()
+        publishingParams()
     }
     steps {
         publish(JS_PUBLISH_TASK)
@@ -80,7 +80,7 @@ object PublishWindowsNativeToMaven : BuildType({
         root(VCSCore)
     }
     params {
-        configureReleaseVersion()
+        publishingParams()
     }
     steps {
         publish(
@@ -100,7 +100,7 @@ object PublishLinuxNativeToMaven : BuildType({
         root(VCSCore)
     }
     params {
-        configureReleaseVersion()
+        publishingParams()
     }
     steps {
         publish(LINUX_PUBLISH_TASK)
@@ -116,7 +116,7 @@ object PublishMacOSNativeToMaven : BuildType({
         root(VCSCore)
     }
     params {
-        configureReleaseVersion()
+        publishingParams()
     }
     steps {
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
@@ -135,7 +135,7 @@ object PublishAndroidNativeToMaven : BuildType({
         root(VCSCore)
     }
     params {
-        configureReleaseVersion()
+        publishingParams()
     }
     steps {
         publish(ANDROID_NATIVE_PUBLISH_TASK)
@@ -144,6 +144,18 @@ object PublishAndroidNativeToMaven : BuildType({
         agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
+
+private fun ParametrizedWithType.publishingParams() {
+    configureReleaseVersion()
+    text(
+        name = "gradle_params",
+        label = "Gradle Parameters",
+        description = "Additional Gradle parameters to pass to the build",
+        value = "",
+        display = ParameterDisplay.NORMAL,
+        allowEmpty = true
+    )
+}
 
 fun BuildSteps.publish(
     gradleTasks: List<String>,
@@ -161,7 +173,7 @@ fun BuildSteps.publish(
     prepareKeyFile(os)
     gradle {
         name = "Publish"
-        tasks = "$gradleTasks -PreleaseVersion=$releaseVersion $gradleParams " +
+        tasks = "$gradleTasks -PreleaseVersion=$releaseVersion %gradle_params% $gradleParams " +
             "--no-configuration-cache " +
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = Env.JDK_LTS
