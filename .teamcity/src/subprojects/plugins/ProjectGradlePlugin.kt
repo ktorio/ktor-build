@@ -3,7 +3,14 @@ package subprojects.plugins
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
+import subprojects.Agents.OS
 import subprojects.build.*
+import subprojects.release.*
+import subprojects.release.publishing.*
+
+private const val PublishCompilerPlugin = ":ktor-compiler-plugin:publish"
+private const val PublishPluginsToPluginPortal = ":plugin:publishPlugins $PublishCompilerPlugin"
+private const val PublishPluginsToSpace = ":plugin:publish $PublishCompilerPlugin"
 
 object ProjectGradlePlugin : Project({
     id("ProjectKtorGradlePlugin")
@@ -19,58 +26,22 @@ object ProjectGradlePlugin : Project({
         param("env.GIT_BRANCH", value = "%teamcity.build.branch%")
     }
 
-    buildType {
-        id("PublishGradlePlugin")
-        name = "Build and publish Ktor Gradle Plugin EAP to Gradle Plugin Portal"
+    publishToPluginPortal(
+        id = "PublishGradlePlugin",
+        name = "Build and publish Ktor Gradle Plugin EAP to Gradle Plugin Portal",
+        gradleParams = "-PversionSuffix=eap-%build.counter%",
+    )
 
-        vcs {
-            root(VCSKtorBuildPlugins)
-        }
+    publishToPluginPortal(
+        id = "PublishGradlePluginRelease",
+        name = "Build and publish Ktor Gradle Plugin Release to Gradle Plugin Portal",
+    )
 
-        steps {
-            gradle {
-                name = "Publish"
-                tasks = ":plugin:publishPlugins"
-                gradleParams = "-PversionSuffix=eap-%build.counter%"
-                jdkHome = Env.JDK_LTS
-            }
-        }
-    }
-
-    buildType {
-        id("PublishGradlePluginRelease")
-        name = "Build and publish Ktor Gradle Plugin Release to Gradle Plugin Portal"
-
-        vcs {
-            root(VCSKtorBuildPlugins)
-        }
-
-        steps {
-            gradle {
-                name = "Publish"
-                tasks = ":plugin:publishPlugins"
-                jdkHome = Env.JDK_LTS
-            }
-        }
-    }
-
-    buildType {
-        id("PublishGradlePluginBeta")
-        name = "Build and publish Ktor Gradle Plugin Beta to Gradle Plugin Portal"
-
-        vcs {
-            root(VCSKtorBuildPlugins)
-        }
-
-        steps {
-            gradle {
-                name = "Publish"
-                tasks = ":plugin:publishPlugins"
-                gradleParams = "-PversionSuffix=beta-%build.counter%"
-                jdkHome = Env.JDK_LTS
-            }
-        }
-    }
+    publishToPluginPortal(
+        id = "PublishGradlePluginBeta",
+        name = "Build and publish Ktor Gradle Plugin Beta to Gradle Plugin Portal",
+        gradleParams = "-PversionSuffix=beta-%build.counter%",
+    )
 
     buildType {
         id("PublishGradleEAPPlugin")
@@ -87,7 +58,7 @@ object ProjectGradlePlugin : Project({
         steps {
             gradle {
                 name = "Publish to Space Packages"
-                tasks = ":plugin:publish :compiler-plugin:publish"
+                tasks = PublishPluginsToSpace
                 gradleParams = "-Pspace -PversionSuffix=eap-%build.counter%"
                 jdkHome = Env.JDK_LTS
             }
@@ -119,3 +90,41 @@ object ProjectGradlePlugin : Project({
         }
     }
 })
+
+private fun Project.publishToPluginPortal(
+    id: String,
+    name: String,
+    gradleParams: String? = null,
+): BuildType = buildType {
+    id(id)
+    this.name = name
+
+    vcs {
+        root(VCSKtorBuildPlugins)
+    }
+
+    requirements {
+        agent(OS.Linux, hardwareCapacity = Agents.ANY)
+    }
+
+    params {
+        publishingCredentials()
+    }
+
+    steps {
+        prepareKeyFile(OS.Linux.name)
+        gradle {
+            this.name = "Publish"
+            tasks = PublishPluginsToPluginPortal
+            this.gradleParams = listOfNotNull(
+                gradleParams,
+                GPG_DEFAULT_GRADLE_ARGS,
+                "--no-configuration-cache",
+                "--info",
+                "--stacktrace",
+            ).joinToString(" ")
+            jdkHome = Env.JDK_LTS
+        }
+        cleanupKeyFile(OS.Linux.name)
+    }
+}
