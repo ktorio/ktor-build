@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.release.*
+import subprojects.build.core.extraGradleParams
 
 const val releaseVersion = "%releaseVersion%"
 
@@ -147,14 +148,7 @@ object PublishAndroidNativeToMaven : BuildType({
 
 private fun ParametrizedWithType.publishingParams() {
     configureReleaseVersion()
-    text(
-        name = "gradle_params",
-        label = "Gradle Parameters",
-        description = "Additional Gradle parameters to pass to the build",
-        value = "",
-        display = ParameterDisplay.NORMAL,
-        allowEmpty = true
-    )
+    extraGradleParams()
 }
 
 fun BuildSteps.publish(
