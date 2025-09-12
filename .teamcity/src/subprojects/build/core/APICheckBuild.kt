@@ -15,6 +15,10 @@ object APICheckBuild : BuildType({
         root(VCSCore)
     }
 
+    params {
+        extraGradleParams()
+    }
+
     cancelPreviousBuilds()
     enableRustForRelevantChanges(Agents.OS.Linux)
 
@@ -23,7 +27,7 @@ object APICheckBuild : BuildType({
 
         gradle {
             name = "API Check"
-            tasks = "apiCheck"
+            tasks = "apiCheck %gradle_params%"
             jdkHome = Env.JDK_LTS
         }
     }
