@@ -3,12 +3,14 @@ import jetbrains.buildServer.configs.kotlin.projectFeatures.*
 import subprojects.*
 import subprojects.benchmarks.*
 import subprojects.build.*
+import subprojects.build.samples.ProjectBuildPluginSamples
 import subprojects.cli.*
 import subprojects.eap.*
 import subprojects.kotlinx.html.*
 import subprojects.plugins.*
 import subprojects.release.*
 import subprojects.release.space.*
+import subprojects.train.TriggerProjectSamplesOnEAP
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -76,6 +78,8 @@ project {
     subProject(ProjectBenchmarks)
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
+    subProject(ProjectBuildPluginSamples)
+    subProject(TriggerProjectSamplesOnEAP)
     subProject(ProjectPublishReleaseToSpace)
     subProject(PublishKotlinxHtml)
     subProject(ProjectCLI)
