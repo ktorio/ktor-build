@@ -106,10 +106,28 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(publishAllEAPBuild?.id!!) {
+            publishAllEAPBuild?.id?.let { publishAllId ->
+                dependency(publishAllId) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.FAIL_TO_START
+                        onDependencyCancel = FailureAction.CANCEL
+                    }
+                }
+            }
+
+            dependency(RelativeId("EAP_KtorBuildPluginSamplesValidate_All")) {
                 snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
+                    onDependencyFailure = FailureAction.ADD_PROBLEM
                     onDependencyCancel = FailureAction.CANCEL
+                    reuseBuilds = ReuseBuilds.SUCCESSFUL
+                }
+            }
+
+            dependency(RelativeId("EAP_KtorSamplesValidate_All")) {
+                snapshot {
+                    onDependencyFailure = FailureAction.ADD_PROBLEM
+                    onDependencyCancel = FailureAction.CANCEL
+                    reuseBuilds = ReuseBuilds.SUCCESSFUL
                 }
             }
         }
