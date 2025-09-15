@@ -111,6 +111,7 @@ object TriggerProjectSamplesOnEAP : Project({
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.CANCEL
+                        reuseBuilds = ReuseBuilds.SUCCESSFUL
                     }
                 }
             }
