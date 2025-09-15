@@ -9,14 +9,13 @@ import subprojects.build.core.TriggerType
 import subprojects.build.core.createCompositeBuild
 import subprojects.build.samples.*
 import subprojects.eap.ProjectPublishEAPToSpace
-import subprojects.release.*
 
 object TriggerProjectSamplesOnEAP : Project({
     id("TriggerProjectSamplesOnEAP")
     name = "EAP Validation"
     description = "Validate samples against EAP versions of Ktor"
 
-    val eapVersionParam = "%dep.${ProjectPublishEAPToSpace.id}_PublishEAPToSpace.build.number%"
+    val eapVersionParam = "%lastSuccessful.${ProjectPublishEAPToSpace.id}_PublishEAPToSpace.build.number%"
 
     fun createBuildPluginEAPSample(sample: BuildPluginSampleSettings): BuildType {
         val eapSample = BuildPluginSampleSettings(
@@ -106,21 +105,10 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            publishAllEAPBuild?.id?.let { publishAllId ->
-                dependency(publishAllId) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.CANCEL
-                        reuseBuilds = ReuseBuilds.SUCCESSFUL
-                    }
-                }
-            }
-
             dependency(RelativeId("EAP_KtorBuildPluginSamplesValidate_All")) {
                 snapshot {
                     onDependencyFailure = FailureAction.ADD_PROBLEM
                     onDependencyCancel = FailureAction.CANCEL
-                    reuseBuilds = ReuseBuilds.SUCCESSFUL
                 }
             }
 
@@ -128,7 +116,6 @@ object TriggerProjectSamplesOnEAP : Project({
                 snapshot {
                     onDependencyFailure = FailureAction.ADD_PROBLEM
                     onDependencyCancel = FailureAction.CANCEL
-                    reuseBuilds = ReuseBuilds.SUCCESSFUL
                 }
             }
         }
