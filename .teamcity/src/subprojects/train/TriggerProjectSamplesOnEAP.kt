@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -9,7 +10,6 @@ import subprojects.build.core.TriggerType
 import subprojects.build.core.createCompositeBuild
 import subprojects.build.samples.*
 import subprojects.eap.ProjectPublishEAPToSpace
-import subprojects.release.*
 
 object TriggerProjectSamplesOnEAP : Project({
     id("TriggerProjectSamplesOnEAP")
@@ -17,6 +17,23 @@ object TriggerProjectSamplesOnEAP : Project({
     description = "Validate samples against EAP versions of Ktor"
 
     val eapVersionParam = "%dep.${ProjectPublishEAPToSpace.id}_PublishEAPToSpace.build.number%"
+    val publishEAPId = "${ProjectPublishEAPToSpace.id}_PublishEAPToSpace"
+
+    fun BuildType.configureForEap() {
+        artifactRules = "lib/** => ."
+        params {
+            param("env.KTOR_VERSION", eapVersionParam)
+        }
+
+        dependencies {
+            dependency(RelativeId(publishEAPId)) {
+                snapshot {}
+                artifacts {
+                    artifactRules = "ktor-*.jar => lib/"
+                }
+            }
+        }
+    }
 
     fun createBuildPluginEAPSample(sample: BuildPluginSampleSettings): BuildType {
         val eapSample = BuildPluginSampleSettings(
@@ -28,9 +45,7 @@ object TriggerProjectSamplesOnEAP : Project({
         return BuildPluginSampleProject(eapSample).apply {
             id("EAP_KtorBuildPluginSamplesValidate_${sample.projectName.replace('-', '_')}")
             name = "EAP Validate ${sample.projectName} sample"
-            params {
-                param("env.KTOR_VERSION", eapVersionParam)
-            }
+            configureForEap()
         }
     }
 
@@ -46,9 +61,7 @@ object TriggerProjectSamplesOnEAP : Project({
         return SampleProject(eapSample).apply {
             id("EAP_KtorSamplesValidate_${sample.projectName.replace('-', '_')}")
             name = "EAP Validate ${sample.projectName} sample"
-            params {
-                param("env.KTOR_VERSION", eapVersionParam)
-            }
+            configureForEap()
         }
     }
 
@@ -66,6 +79,7 @@ object TriggerProjectSamplesOnEAP : Project({
             buildPluginEAPProjects,
             withTrigger = TriggerType.NONE
         )
+        configureForEap()
     }
 
     buildType {
@@ -76,6 +90,7 @@ object TriggerProjectSamplesOnEAP : Project({
             sampleEAPProjects,
             withTrigger = TriggerType.NONE
         )
+        configureForEap()
     }
 
     buildType {
@@ -96,7 +111,7 @@ object TriggerProjectSamplesOnEAP : Project({
 
         triggers {
             finishBuildTrigger {
-                buildType = "${ProjectPublishEAPToSpace.id}_PublishEAPToSpace"
+                buildType = publishEAPId
                 successfulOnly = true
                 branchFilter = """
                     +:*-eap
@@ -106,30 +121,19 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            publishAllEAPBuild?.id?.let { publishAllId ->
-                dependency(publishAllId) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.CANCEL
-                        reuseBuilds = ReuseBuilds.SUCCESSFUL
-                    }
+            dependency(RelativeId(publishEAPId)) {
+                snapshot {}
+                artifacts {
+                    artifactRules = "ktor-*.jar => lib/"
                 }
             }
 
             dependency(RelativeId("EAP_KtorBuildPluginSamplesValidate_All")) {
-                snapshot {
-                    onDependencyFailure = FailureAction.ADD_PROBLEM
-                    onDependencyCancel = FailureAction.CANCEL
-                    reuseBuilds = ReuseBuilds.SUCCESSFUL
-                }
+                snapshot {}
             }
 
             dependency(RelativeId("EAP_KtorSamplesValidate_All")) {
-                snapshot {
-                    onDependencyFailure = FailureAction.ADD_PROBLEM
-                    onDependencyCancel = FailureAction.CANCEL
-                    reuseBuilds = ReuseBuilds.SUCCESSFUL
-                }
+                snapshot {}
             }
         }
 
