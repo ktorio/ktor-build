@@ -16,8 +16,8 @@ object TriggerProjectSamplesOnEAP : Project({
     name = "EAP Validation"
     description = "Validate samples against EAP versions of Ktor"
 
-    val eapVersionParam = "%dep.${ProjectPublishEAPToSpace.id}_PublishEAPToSpace.build.number%"
     val publishEAPId = "${ProjectPublishEAPToSpace.id}_PublishEAPToSpace"
+    val eapVersionParam = "%dep.${publishEAPId}.build.number%"
 
     fun BuildType.configureForEap() {
         artifactRules = "lib/** => ."
@@ -119,6 +119,8 @@ object TriggerProjectSamplesOnEAP : Project({
                 """.trimIndent()
             }
         }
+
+        artifactRules = "lib/** => ."
 
         dependencies {
             dependency(RelativeId(publishEAPId)) {
