@@ -120,8 +120,6 @@ object TriggerProjectSamplesOnEAP : Project({
             }
         }
 
-        artifactRules = "lib/** => ."
-
         dependencies {
             dependency(RelativeId(publishEAPId)) {
                 snapshot {}
