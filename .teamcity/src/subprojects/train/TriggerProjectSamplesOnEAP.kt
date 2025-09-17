@@ -232,25 +232,7 @@ object TriggerProjectSamplesOnEAP : Project({
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
         }
 
-        steps {
-            script {
-                name = "Create Version Resolver Script"
-                scriptContent = createVersionResolverScript()
-            }
-
-            gradle {
-                name = "Resolve Latest EAP Version"
-                tasks = "printLatestVersion"
-                buildFile = "version-resolver.gradle.kts"
-                gradleParams = "-Dorg.gradle.internal.repository.max.tentatives=10 -Dorg.gradle.internal.repository.initial.backoff=1000"
-                jdkHome = "%env.JDK_17%"
-            }
-
-            script {
-                name = "Set EAP Version Environment Variable"
-                scriptContent = createVersionEnvironmentScript()
-            }
-        }
+        addEapVersionResolutionSteps()
 
         triggers {
             finishBuildTrigger {
