@@ -14,9 +14,9 @@ import jetbrains.buildServer.configs.kotlin.triggers.*
 object BranchFilter {
     const val AllBranches = "+:*"
     const val DefaultBranch = "+:<default>"
-    const val ReleaseBranch = "+:release"
+    const val ReleaseBranches = "+:release/*"
     const val PullRequest = "+:pull/*"
-    const val DefaultOrPullRequest = "$DefaultBranch\n$ReleaseBranch\n$PullRequest"
+    const val DefaultOrPullRequest = "$DefaultBranch\n$ReleaseBranches\n$PullRequest"
 }
 
 /**
