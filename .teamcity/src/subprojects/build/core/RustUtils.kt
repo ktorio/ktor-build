@@ -24,9 +24,12 @@ fun BuildType.enableRustForRelevantChanges(os: OS) {
         param("env.OPERATING_SYSTEM", os.name)
     }
     steps {
-        script {
-            name = "Check for Rust module changes"
-            scriptFile("check_modified_rust_modules.sh")
+        // TODO: Add a script for Windows to
+        if (os != OS.Windows) {
+            script {
+                name = "Check for Rust module changes"
+                scriptFile("check_modified_rust_modules.sh")
+            }
         }
     }
 }
