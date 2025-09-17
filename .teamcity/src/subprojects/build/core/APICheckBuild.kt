@@ -8,7 +8,7 @@ import subprojects.build.*
 
 object APICheckBuild : BuildType({
     id("KtorMatrixCore_APICheck".toId())
-    name = "Check API"
+    name = "Check ABI"
     artifactRules = formatArtifacts(memoryReportArtifact)
 
     vcs {
@@ -27,7 +27,7 @@ object APICheckBuild : BuildType({
 
         gradle {
             name = "API Check"
-            tasks = "apiCheck %gradle_params%"
+            tasks = "checkLegacyAbi %gradle_params%"
             jdkHome = Env.JDK_LTS
         }
     }

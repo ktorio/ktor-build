@@ -6,8 +6,9 @@ const val VCSUsername = "hhariri"
 const val VCSToken = "%github.token%"
 
 private const val defaultBranch = "refs/heads/(main)"
+private const val releaseBranches = "refs/heads/(release/*)"
 private const val defaultBranchRef = "refs/heads/main" // Reference without braces around logical name
-private const val DefaultAndPullRequests = "+:$defaultBranch\n+:refs/(pull/*)/head"
+private const val DefaultAndPullRequests = "+:$defaultBranch\n+:$releaseBranches\n+:refs/(pull/*)/head"
 private const val AllBranchesAndPullRequests = "+:refs/heads/*\n+:refs/(pull/*)/head"
 
 object VCSCore : PasswordVcsRoot({
