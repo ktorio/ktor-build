@@ -72,7 +72,7 @@ object TriggerProjectSamplesOnEAP : Project({
             name = "EAP Validate $projectName sample"
 
             params {
-                param("env.KTOR_VERSION", "%system.ktor.eap.version%")
+                param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
             }
 
             dependencies {
@@ -128,8 +128,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         params {
-            param("env.KTOR_VERSION", "%system.ktor.eap.version%")
-            param("env.VERSION_SUFFIX", "%system.ktor.eap.version%")
+            param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
         }
 
         dependencies {
@@ -161,8 +160,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         params {
-            param("env.KTOR_VERSION", "%system.ktor.eap.version%")
-            param("env.VERSION_SUFFIX", "%system.ktor.eap.version%")
+            param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
         }
 
         dependencies {
@@ -197,8 +195,7 @@ object TriggerProjectSamplesOnEAP : Project({
         params {
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
-            param("env.KTOR_VERSION", "%system.ktor.eap.version%")
-            param("env.VERSION_SUFFIX", "%system.ktor.eap.version%")
+            param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
         }
 
         dependencies {
