@@ -29,10 +29,6 @@ object TriggerProjectSamplesOnEAP : Project({
             root(VCSCoreEAP)
         }
 
-        requirements {
-            agent(Agents.OS.Linux)
-        }
-
         params {
             defaultGradleParams()
             param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
@@ -72,7 +68,7 @@ object TriggerProjectSamplesOnEAP : Project({
             name = "EAP Validate $projectName sample"
 
             params {
-                param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
+                param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
             }
 
             dependencies {
@@ -123,12 +119,8 @@ object TriggerProjectSamplesOnEAP : Project({
         name = "EAP Validate all build plugin samples"
         type = BuildTypeSettings.Type.COMPOSITE
 
-        vcs {
-            root(VCSKtorBuildPluginsEAP)
-        }
-
         params {
-            param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
+            param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
         }
 
         dependencies {
@@ -155,12 +147,8 @@ object TriggerProjectSamplesOnEAP : Project({
         name = "EAP Validate all samples"
         type = BuildTypeSettings.Type.COMPOSITE
 
-        vcs {
-            root(VCSSamples)
-        }
-
         params {
-            param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
+            param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
         }
 
         dependencies {
@@ -188,14 +176,10 @@ object TriggerProjectSamplesOnEAP : Project({
         description = "Run all samples against the EAP version of Ktor"
         type = BuildTypeSettings.Type.COMPOSITE
 
-        vcs {
-            root(VCSCoreEAP)
-        }
-
         params {
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
-            param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
+            param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
         }
 
         dependencies {
