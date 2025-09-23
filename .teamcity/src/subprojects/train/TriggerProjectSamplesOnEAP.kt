@@ -29,6 +29,10 @@ object TriggerProjectSamplesOnEAP : Project({
             root(VCSCoreEAP)
         }
 
+        requirements {
+            agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
+        }
+
         params {
             defaultGradleParams()
             param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
@@ -123,6 +127,10 @@ object TriggerProjectSamplesOnEAP : Project({
             param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
         }
 
+        requirements {
+            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+        }
+
         dependencies {
             dependency(RelativeId("KtorEAPVersionResolver")) {
                 snapshot {
@@ -149,6 +157,11 @@ object TriggerProjectSamplesOnEAP : Project({
 
         params {
             param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+        }
+
+        requirements {
+            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+            equals("env.ANDROID_HOME", "%android-sdk.location%")
         }
 
         dependencies {
