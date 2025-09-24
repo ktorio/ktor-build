@@ -92,7 +92,7 @@ fun BuildSteps.buildGradleSample(relativeDir: String, standalone: Boolean) {
             mkdir -p %system.teamcity.build.tempDir%
             
             # Create a flag file to indicate if KTOR_VERSION is set
-            if [ -n "%env.KTOR_VERSION%" ] && [ "%env.KTOR_VERSION%" != "%%env.KTOR_VERSION%%" ]; then
+            if [ -n "%env.KTOR_VERSION%" ]
                 echo "KTOR_VERSION is set to %env.KTOR_VERSION%"
                 touch %system.teamcity.build.tempDir%/ktor_version_set
             else
@@ -157,35 +157,41 @@ fun BuildSteps.buildMavenSample(relativeDir: String) {
         name = "Prepare Maven settings"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            # Only create settings.xml if KTOR_VERSION is set
-            if [ -n "%env.KTOR_VERSION:-%" ] && [ "%env.KTOR_VERSION:-%" != "%" ]; then
-                mkdir -p %system.teamcity.build.tempDir%/.m2
-                cat > %system.teamcity.build.tempDir%/.m2/settings.xml << EOF
-                <settings>
-                  <profiles>
-                    <profile>
+        mkdir -p %system.teamcity.build.tempDir%/.m2
+        
+        # Check if KTOR_VERSION is defined
+        if [ -n "%env.KTOR_VERSION%" ]; then
+            echo "Creating Maven settings with EAP repository and Ktor version %env.KTOR_VERSION%"
+            cat > %system.teamcity.build.tempDir%/.m2/settings.xml << EOF
+            <settings>
+              <profiles>
+                <profile>
+                  <id>ktor-eap</id>
+                  <repositories>
+                    <repository>
                       <id>ktor-eap</id>
-                      <repositories>
-                        <repository>
-                          <id>ktor-eap</id>
-                          <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
-                        </repository>
-                      </repositories>
-                      <properties>
-                        <ktor.version>%env.KTOR_VERSION:-%</ktor.version>
-                      </properties>
-                    </profile>
-                  </profiles>
-                  <activeProfiles>
-                    <activeProfile>ktor-eap</activeProfile>
-                  </activeProfiles>
-                </settings>
-                EOF
-                echo "Created Maven settings with EAP repository and Ktor version %env.KTOR_VERSION:-%"
-            else
-                echo "KTOR_VERSION not set, using default Maven settings"
-            fi
-        """.trimIndent()
+                      <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    </repository>
+                  </repositories>
+                  <properties>
+                    <ktor.version>%env.KTOR_VERSION%</ktor.version>
+                  </properties>
+                </profile>
+              </profiles>
+              <activeProfiles>
+                <activeProfile>ktor-eap</activeProfile>
+              </activeProfiles>
+            </settings>
+            EOF
+        else
+            echo "KTOR_VERSION not set, creating default Maven settings"
+            cat > %system.teamcity.build.tempDir%/.m2/settings.xml << EOF
+            <settings>
+              <!-- Default settings -->
+            </settings>
+            EOF
+        fi
+    """.trimIndent()
     }
 
     maven {
@@ -196,7 +202,7 @@ fun BuildSteps.buildMavenSample(relativeDir: String) {
 
         userSettingsPath = "%system.teamcity.build.tempDir%/.m2/settings.xml"
 
-        runnerArgs = "-Dktor.version=%env.KTOR_VERSION:-%"
+        runnerArgs = "%env.KTOR_VERSION% ? '-Dktor.version=%env.KTOR_VERSION%' : ''"
     }
 }
 
