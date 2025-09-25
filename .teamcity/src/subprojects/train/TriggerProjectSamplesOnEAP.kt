@@ -2,13 +2,15 @@ package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
+import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
+import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.samples.*
 
 object EapConstants {
-    const val PUBLISH_EAP_BUILD_TYPE_ID = "Ktor_KtorPublish_AllEAP"
+    const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
     val EAP_BRANCH_FILTER = """
         +:*-eap
         +:eap/*
@@ -35,7 +37,7 @@ object TriggerProjectSamplesOnEAP : Project({
 
         params {
             defaultGradleParams()
-            param("env.KTOR_VERSION", "%dep.Ktor_KtorPublish_AllEAP.build.number%")
+            param("env.KTOR_VERSION", "%dep.KtorPublish_AllEAP.build.number%")
         }
 
         dependencies {
@@ -53,6 +55,17 @@ object TriggerProjectSamplesOnEAP : Project({
                 successfulOnly = true
                 branchFilter = EapConstants.EAP_BRANCH_FILTER
             }
+        }
+
+        failureConditions {
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "[ERROR]"
+                failureMessage = "Error detected in build log"
+                stopBuildOnFailure = true
+            }
+
+            executionTimeoutMin = 15
         }
     }
 
