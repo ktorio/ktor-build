@@ -4,17 +4,12 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
-import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.samples.*
 
 object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
-    val EAP_BRANCH_FILTER = """
-        +:*-eap
-        +:eap/*
-    """.trimIndent()
 }
 
 object TriggerProjectSamplesOnEAP : Project({
@@ -38,22 +33,13 @@ object TriggerProjectSamplesOnEAP : Project({
         params {
             defaultGradleParams()
             param("env.KTOR_VERSION", "%dep.KtorPublish_AllEAP.build.number%")
+            param("teamcity.build.skipDependencyBuilds", "true")
         }
 
         dependencies {
-            dependency(RelativeId(EapConstants.PUBLISH_EAP_BUILD_TYPE_ID)) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.FAIL_TO_START
-                }
-            }
-        }
-
-        triggers {
-            finishBuildTrigger {
-                buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
-                successfulOnly = true
-                branchFilter = EapConstants.EAP_BRANCH_FILTER
+            artifacts(RelativeId(EapConstants.PUBLISH_EAP_BUILD_TYPE_ID)) {
+                artifactRules = ""
+                buildRule = lastSuccessful()
             }
         }
 
