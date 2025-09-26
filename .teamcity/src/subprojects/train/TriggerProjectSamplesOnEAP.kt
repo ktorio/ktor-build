@@ -34,6 +34,7 @@ object TriggerProjectSamplesOnEAP : Project({
             defaultGradleParams()
             param("env.KTOR_VERSION", "%dep.KtorPublish_AllEAP.build.number%")
             param("teamcity.build.skipDependencyBuilds", "true")
+            param("teamcity.runAsFirstBuild", "true")
         }
 
         dependencies {
@@ -72,6 +73,7 @@ object TriggerProjectSamplesOnEAP : Project({
 
             params {
                 param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+                param("teamcity.build.skipDependencyBuilds", "true")
             }
 
             dependencies {
@@ -79,6 +81,7 @@ object TriggerProjectSamplesOnEAP : Project({
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.FAIL_TO_START
+                        reuseBuilds = ReuseBuilds.SUCCESSFUL
                     }
                 }
             }
@@ -192,6 +195,7 @@ object TriggerProjectSamplesOnEAP : Project({
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
             param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+            param("teamcity.build.skipDependencyBuilds", "true")
         }
 
         dependencies {
