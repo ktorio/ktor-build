@@ -2,14 +2,17 @@ package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
 import subprojects.build.*
 import subprojects.build.samples.*
 
 object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
+    const val PUBLISH_BUILD_PLUGIN_TYPE_ID = "KtorGradleBuildPlugin_Publish"
 }
 
 object TriggerProjectSamplesOnEAP : Project({
@@ -32,14 +35,46 @@ object TriggerProjectSamplesOnEAP : Project({
 
         params {
             defaultGradleParams()
-            param("env.KTOR_VERSION", "%dep.KtorPublish_AllEAP.build.number%")
             param("teamcity.build.skipDependencyBuilds", "true")
+            param("teamcity.runAsFirstBuild", "true")
         }
 
-        dependencies {
-            artifacts(RelativeId(EapConstants.PUBLISH_EAP_BUILD_TYPE_ID)) {
-                artifactRules = ""
-                buildRule = lastSuccessful()
+        steps {
+            script {
+                name = "Get latest EAP version from Maven metadata"
+                scriptContent = """
+                #!/bin/bash
+                set -e
+                
+                # Fetch the latest EAP version from the Ktor BOM metadata
+                METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+                echo "Fetching metadata from ${'$'}METADATA_URL"
+                
+                # Create a temporary file for the metadata
+                TEMP_FILE=$(mktemp)
+                
+                # Download the metadata file
+                if ! curl -s "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
+                    echo "Failed to download metadata from ${'$'}METADATA_URL"
+                    rm -f "${'$'}TEMP_FILE"
+                    exit 1
+                fi
+                
+                # Extract the latest version using grep and sed
+                # This pattern looks for a <latest>version</latest> tag
+                LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/')
+                
+                # Clean up temp file
+                rm -f "${'$'}TEMP_FILE"
+                
+                if [ -z "${'$'}LATEST_VERSION" ]; then
+                    echo "Failed to extract latest version from metadata"
+                    exit 1
+                fi
+                
+                echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
+                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
+                """.trimIndent()
             }
         }
 
@@ -72,6 +107,7 @@ object TriggerProjectSamplesOnEAP : Project({
 
             params {
                 param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+                param("teamcity.build.skipDependencyBuilds", "true")
             }
 
             dependencies {
@@ -79,6 +115,7 @@ object TriggerProjectSamplesOnEAP : Project({
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.FAIL_TO_START
+                        reuseBuilds = ReuseBuilds.SUCCESSFUL
                     }
                 }
             }
@@ -124,10 +161,20 @@ object TriggerProjectSamplesOnEAP : Project({
 
         params {
             param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+            param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
+
         }
 
         requirements {
             agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+        }
+
+        triggers {
+            finishBuildTrigger {
+                buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
+                successfulOnly = true
+                branchFilter = "+:*"
+            }
         }
 
         dependencies {
@@ -163,6 +210,14 @@ object TriggerProjectSamplesOnEAP : Project({
             equals("env.ANDROID_HOME", "%android-sdk.location%")
         }
 
+        triggers {
+            finishBuildTrigger {
+                buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
+                successfulOnly = true
+                branchFilter = "+:*"
+            }
+        }
+
         dependencies {
             dependency(RelativeId("KtorEAPVersionResolver")) {
                 snapshot {
@@ -192,6 +247,7 @@ object TriggerProjectSamplesOnEAP : Project({
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
             param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+            param("teamcity.build.skipDependencyBuilds", "true")
         }
 
         dependencies {
