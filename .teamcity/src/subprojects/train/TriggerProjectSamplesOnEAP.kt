@@ -74,8 +74,13 @@ object TriggerProjectSamplesOnEAP : Project({
                 
                 echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
                 echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
+                echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
                 """.trimIndent()
             }
+        }
+
+        params {
+            param("teamcity.build.publishedAs.env.KTOR_VERSION", "KTOR_VERSION")
         }
 
         failureConditions {
@@ -85,7 +90,6 @@ object TriggerProjectSamplesOnEAP : Project({
                 failureMessage = "Error detected in build log"
                 stopBuildOnFailure = true
             }
-
             executionTimeoutMin = 15
         }
     }
@@ -111,11 +115,11 @@ object TriggerProjectSamplesOnEAP : Project({
             }
 
             dependencies {
-                dependency(RelativeId("KtorEAPVersionResolver")) {
+                dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.FAIL_TO_START
-                        reuseBuilds = ReuseBuilds.SUCCESSFUL
+                        reuseBuilds = ReuseBuilds.NO
                     }
                 }
             }
@@ -162,7 +166,6 @@ object TriggerProjectSamplesOnEAP : Project({
         params {
             param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
             param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
-
         }
 
         requirements {
@@ -178,10 +181,11 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("KtorEAPVersionResolver")) {
+            dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
                 snapshot {
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
+                    reuseBuilds = ReuseBuilds.NO
                 }
             }
 
@@ -219,10 +223,11 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("KtorEAPVersionResolver")) {
+            dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
                 snapshot {
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
+                    reuseBuilds = ReuseBuilds.NO
                 }
             }
 
@@ -251,10 +256,11 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("KtorEAPVersionResolver")) {
+            dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
                 snapshot {
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
+                    reuseBuilds = ReuseBuilds.NO
                 }
             }
 
