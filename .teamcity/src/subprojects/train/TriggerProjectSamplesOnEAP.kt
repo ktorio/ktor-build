@@ -80,7 +80,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         params {
-            param("teamcity.build.publishedAs.env.KTOR_VERSION", "KTOR_VERSION")
+            param("env.KTOR_VERSION", "KTOR_VERSION")
         }
 
         failureConditions {
