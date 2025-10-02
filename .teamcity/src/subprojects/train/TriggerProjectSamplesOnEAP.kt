@@ -109,6 +109,20 @@ object TriggerProjectSamplesOnEAP : Project({
             id("EAP_${prefix}_${projectName.replace('-', '_')}")
             name = "EAP Validate $projectName sample"
 
+            requirements {
+                when (sample) {
+                    is SampleProjectSettings -> {
+                        if (sample.withAndroidSdk) {
+                            equals("env.ANDROID_HOME", "%android-sdk.location%")
+                        }
+                        agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+                    }
+                    is BuildPluginSampleSettings -> {
+                        agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+                    }
+                }
+            }
+
             params {
                 param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
                 param("teamcity.build.skipDependencyBuilds", "true")
