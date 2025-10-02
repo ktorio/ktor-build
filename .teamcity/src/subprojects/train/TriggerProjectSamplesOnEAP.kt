@@ -80,7 +80,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         params {
-            param("teamcity.build.publishedAs.env.KTOR_VERSION", "KTOR_VERSION")
+            param("env.KTOR_VERSION", "KTOR_VERSION")
         }
 
         failureConditions {
@@ -115,7 +115,7 @@ object TriggerProjectSamplesOnEAP : Project({
             }
 
             dependencies {
-                dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
+                dependency(RelativeId("KtorEAPVersionResolver")) {
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.FAIL_TO_START
@@ -181,7 +181,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
+            dependency(RelativeId("KtorEAPVersionResolver")) {
                 snapshot {
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
@@ -223,7 +223,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
+            dependency(RelativeId("KtorEAPVersionResolver")) {
                 snapshot {
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
@@ -256,7 +256,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("TriggerProjectSamplesOnEAP_KtorEAPVersionResolver")) {
+            dependency(RelativeId("KtorEAPVersionResolver")) {
                 snapshot {
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
