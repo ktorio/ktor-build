@@ -192,7 +192,7 @@ object TriggerProjectSamplesOnEAP : Project({
             buildPluginEAPProjects.forEach { project ->
                 project.id?.let { id ->
                     snapshot(id) {
-                        onDependencyFailure = FailureAction.ADD_PROBLEM
+                        onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.CANCEL
                     }
                 }
@@ -234,7 +234,7 @@ object TriggerProjectSamplesOnEAP : Project({
             sampleEAPProjects.forEach { project ->
                 project.id?.let { id ->
                     snapshot(id) {
-                        onDependencyFailure = FailureAction.ADD_PROBLEM
+                        onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.CANCEL
                     }
                 }
