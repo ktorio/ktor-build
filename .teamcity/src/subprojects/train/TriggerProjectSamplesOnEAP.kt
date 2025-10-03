@@ -20,6 +20,10 @@ object TriggerProjectSamplesOnEAP : Project({
     name = "EAP Validation"
     description = "Validate samples against EAP versions of Ktor"
 
+    params {
+        param("ktor.eap.version", "KTOR_VERSION")
+    }
+
     buildType {
         id("KtorEAPVersionResolver")
         name = "Set EAP Version for Tests"
@@ -73,14 +77,12 @@ object TriggerProjectSamplesOnEAP : Project({
                 fi
                 
                 echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
-                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
+                
+                # Set the project-level parameter instead of build-level parameter
+                echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION' level='project']"
                 echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
                 """.trimIndent()
             }
-        }
-
-        params {
-            param("env.KTOR_VERSION", "KTOR_VERSION")
         }
 
         failureConditions {
@@ -124,7 +126,7 @@ object TriggerProjectSamplesOnEAP : Project({
             }
 
             params {
-                param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+                param("env.KTOR_VERSION", "%ktor.eap.version%")
                 param("teamcity.build.skipDependencyBuilds", "true")
             }
 
@@ -178,7 +180,7 @@ object TriggerProjectSamplesOnEAP : Project({
         type = BuildTypeSettings.Type.COMPOSITE
 
         params {
-            param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+            param("env.KTOR_VERSION", "%ktor.eap.version%")
             param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
         }
 
@@ -220,7 +222,7 @@ object TriggerProjectSamplesOnEAP : Project({
         type = BuildTypeSettings.Type.COMPOSITE
 
         params {
-            param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+            param("env.KTOR_VERSION", "%ktor.eap.version%")
         }
 
         requirements {
@@ -265,7 +267,7 @@ object TriggerProjectSamplesOnEAP : Project({
         params {
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
-            param("env.KTOR_VERSION", "%dep.KtorEAPVersionResolver.env.KTOR_VERSION%")
+            param("env.KTOR_VERSION", "%ktor.eap.version%")
             param("teamcity.build.skipDependencyBuilds", "true")
         }
 
