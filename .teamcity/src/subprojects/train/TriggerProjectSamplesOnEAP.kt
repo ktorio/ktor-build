@@ -116,6 +116,22 @@ object TriggerProjectSamplesOnEAP : Project({
             id("EAP_${prefix}_${projectName.replace('-', '_')}")
             name = "EAP Validate $projectName sample"
 
+            requirements {
+                when (sample) {
+                    is SampleProjectSettings -> {
+                        contains("teamcity.agent.jvm.os.name", "Linux")
+
+                        if (sample.withAndroidSdk) {
+                            exists("env.ANDROID_HOME")
+                            equals("env.ANDROID_HOME", "%android-sdk.location%")
+                        }
+                    }
+                    is BuildPluginSampleSettings -> {
+                        contains("teamcity.agent.jvm.os.name", "Linux")
+                    }
+                }
+            }
+
             params {
                 param("teamcity.build.skipDependencyBuilds", "true")
             }
@@ -176,7 +192,8 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         requirements {
-            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+            contains("teamcity.agent.jvm.os.name", "Linux")
+            noLessThan("teamcity.agent.hardware.cpuCount", "2")
         }
 
         triggers {
@@ -214,7 +231,9 @@ object TriggerProjectSamplesOnEAP : Project({
         type = BuildTypeSettings.Type.COMPOSITE
 
         requirements {
-            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+            contains("teamcity.agent.jvm.os.name", "Linux")
+            noLessThan("teamcity.agent.hardware.cpuCount", "2")
+            exists("env.ANDROID_HOME")
             equals("env.ANDROID_HOME", "%android-sdk.location%")
         }
 
