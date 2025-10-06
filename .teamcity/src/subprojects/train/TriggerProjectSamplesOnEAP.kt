@@ -193,7 +193,6 @@ object TriggerProjectSamplesOnEAP : Project({
 
         requirements {
             contains("teamcity.agent.jvm.os.name", "Linux")
-            noLessThan("teamcity.agent.hardware.cpuCount", "2")
         }
 
         triggers {
@@ -229,13 +228,6 @@ object TriggerProjectSamplesOnEAP : Project({
         id("EAP_KtorSamplesValidate_All")
         name = "EAP Validate all samples"
         type = BuildTypeSettings.Type.COMPOSITE
-
-        requirements {
-            contains("teamcity.agent.jvm.os.name", "Linux")
-            noLessThan("teamcity.agent.hardware.cpuCount", "2")
-            exists("env.ANDROID_HOME")
-            equals("env.ANDROID_HOME", "%android-sdk.location%")
-        }
 
         triggers {
             finishBuildTrigger {
