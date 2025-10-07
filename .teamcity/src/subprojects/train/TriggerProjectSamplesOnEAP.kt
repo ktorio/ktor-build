@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -35,7 +36,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         requirements {
-            agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
+            contains("teamcity.agent.jvm.os.name", "Linux")
         }
 
         params {
@@ -118,13 +119,14 @@ object TriggerProjectSamplesOnEAP : Project({
             requirements {
                 when (sample) {
                     is SampleProjectSettings -> {
+                        contains("teamcity.agent.jvm.os.name", "Linux")
+
                         if (sample.withAndroidSdk) {
                             equals("env.ANDROID_HOME", "%android-sdk.location%")
                         }
-                        agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
                     }
                     is BuildPluginSampleSettings -> {
-                        agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+                        contains("teamcity.agent.jvm.os.name", "Linux")
                     }
                 }
             }
@@ -188,10 +190,6 @@ object TriggerProjectSamplesOnEAP : Project({
             param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
         }
 
-        requirements {
-            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
-        }
-
         triggers {
             finishBuildTrigger {
                 buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
@@ -225,11 +223,6 @@ object TriggerProjectSamplesOnEAP : Project({
         id("EAP_KtorSamplesValidate_All")
         name = "EAP Validate all samples"
         type = BuildTypeSettings.Type.COMPOSITE
-
-        requirements {
-            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
-            equals("env.ANDROID_HOME", "%android-sdk.location%")
-        }
 
         triggers {
             finishBuildTrigger {
