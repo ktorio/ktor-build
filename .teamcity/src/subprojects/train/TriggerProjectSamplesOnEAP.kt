@@ -36,7 +36,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         requirements {
-            agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
+            contains("teamcity.agent.jvm.os.name", "Linux")
         }
 
         params {
@@ -122,7 +122,6 @@ object TriggerProjectSamplesOnEAP : Project({
                         contains("teamcity.agent.jvm.os.name", "Linux")
 
                         if (sample.withAndroidSdk) {
-                            exists("env.ANDROID_HOME")
                             equals("env.ANDROID_HOME", "%android-sdk.location%")
                         }
                     }
@@ -189,10 +188,6 @@ object TriggerProjectSamplesOnEAP : Project({
 
         params {
             param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
-        }
-
-        requirements {
-            contains("teamcity.agent.jvm.os.name", "Linux")
         }
 
         triggers {
