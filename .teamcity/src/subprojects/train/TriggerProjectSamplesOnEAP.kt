@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -25,7 +24,6 @@ object TriggerProjectSamplesOnEAP : Project({
         param("ktor.eap.version", "KTOR_VERSION")
     }
 
-
     buildType {
         id("KtorEAPVersionResolver")
         name = "Set EAP Version for Tests"
@@ -36,7 +34,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         requirements {
-            contains("teamcity.agent.jvm.os.name", "Linux")
+            agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
         }
 
         params {
@@ -49,44 +47,41 @@ object TriggerProjectSamplesOnEAP : Project({
             script {
                 name = "Get latest EAP version from Maven metadata"
                 scriptContent = """
-            #!/bin/bash
-            set -e
-            
-            # Fetch the latest EAP version from the Ktor BOM metadata
-            METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
-            echo "Fetching metadata from ${'$'}METADATA_URL"
-            
-            # Create a temporary file for the metadata
-            TEMP_FILE=$(mktemp)
-            
-            # Download the metadata file
-            if ! curl -s "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
-                echo "Failed to download metadata from ${'$'}METADATA_URL"
+                #!/bin/bash
+                set -e
+                
+                # Fetch the latest EAP version from the Ktor BOM metadata
+                METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+                echo "Fetching metadata from ${'$'}METADATA_URL"
+                
+                # Create a temporary file for the metadata
+                TEMP_FILE=$(mktemp)
+                
+                # Download the metadata file
+                if ! curl -s "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
+                    echo "Failed to download metadata from ${'$'}METADATA_URL"
+                    rm -f "${'$'}TEMP_FILE"
+                    exit 1
+                fi
+                
+                # Extract the latest version using grep and sed
+                # This pattern looks for a <latest>version</latest> tag
+                LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/')
+                
+                # Clean up temp file
                 rm -f "${'$'}TEMP_FILE"
-                exit 1
-            fi
-            
-            # Extract the latest version using grep and sed
-            # This pattern looks for a <latest>version</latest> tag
-            LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/')
-            
-            # Clean up temp file
-            rm -f "${'$'}TEMP_FILE"
-            
-            if [ -z "${'$'}LATEST_VERSION" ]; then
-                echo "Failed to extract latest version from metadata"
-                exit 1
-            fi
-            
-            echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
-            
-            # Set build parameter directly (will be propagated to dependent builds)
-            echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
-            
-            # Also set project-level parameter for reference
-            echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION' level='project']"
-            echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
-            """.trimIndent()
+                
+                if [ -z "${'$'}LATEST_VERSION" ]; then
+                    echo "Failed to extract latest version from metadata"
+                    exit 1
+                fi
+                
+                echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
+                
+                # Set the project-level parameter instead of build-level parameter
+                echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION' level='project']"
+                echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
+                """.trimIndent()
             }
         }
 
@@ -119,19 +114,19 @@ object TriggerProjectSamplesOnEAP : Project({
             requirements {
                 when (sample) {
                     is SampleProjectSettings -> {
-                        contains("teamcity.agent.jvm.os.name", "Linux")
-
                         if (sample.withAndroidSdk) {
                             equals("env.ANDROID_HOME", "%android-sdk.location%")
                         }
+                        agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
                     }
                     is BuildPluginSampleSettings -> {
-                        contains("teamcity.agent.jvm.os.name", "Linux")
+                        agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
                     }
                 }
             }
 
             params {
+                param("env.KTOR_VERSION", "%ktor.eap.version%")
                 param("teamcity.build.skipDependencyBuilds", "true")
             }
 
@@ -141,8 +136,6 @@ object TriggerProjectSamplesOnEAP : Project({
                         onDependencyFailure = FailureAction.FAIL_TO_START
                         onDependencyCancel = FailureAction.FAIL_TO_START
                         reuseBuilds = ReuseBuilds.NO
-                        runOnSameAgent = false
-                        synchronizeRevisions = true
                     }
                 }
             }
@@ -187,7 +180,12 @@ object TriggerProjectSamplesOnEAP : Project({
         type = BuildTypeSettings.Type.COMPOSITE
 
         params {
+            param("env.KTOR_VERSION", "%ktor.eap.version%")
             param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
+        }
+
+        requirements {
+            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
         }
 
         triggers {
@@ -204,7 +202,6 @@ object TriggerProjectSamplesOnEAP : Project({
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
                     reuseBuilds = ReuseBuilds.NO
-                    synchronizeRevisions = true
                 }
             }
 
@@ -224,6 +221,15 @@ object TriggerProjectSamplesOnEAP : Project({
         name = "EAP Validate all samples"
         type = BuildTypeSettings.Type.COMPOSITE
 
+        params {
+            param("env.KTOR_VERSION", "%ktor.eap.version%")
+        }
+
+        requirements {
+            agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+            equals("env.ANDROID_HOME", "%android-sdk.location%")
+        }
+
         triggers {
             finishBuildTrigger {
                 buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
@@ -238,7 +244,6 @@ object TriggerProjectSamplesOnEAP : Project({
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
                     reuseBuilds = ReuseBuilds.NO
-                    synchronizeRevisions = true
                 }
             }
 
@@ -262,6 +267,7 @@ object TriggerProjectSamplesOnEAP : Project({
         params {
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
+            param("env.KTOR_VERSION", "%ktor.eap.version%")
             param("teamcity.build.skipDependencyBuilds", "true")
         }
 
@@ -271,7 +277,6 @@ object TriggerProjectSamplesOnEAP : Project({
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.FAIL_TO_START
                     reuseBuilds = ReuseBuilds.NO
-                    synchronizeRevisions = true
                 }
             }
 

@@ -92,7 +92,7 @@ fun BuildSteps.buildGradleSample(relativeDir: String, standalone: Boolean) {
             mkdir -p %system.teamcity.build.tempDir%
             
             # Create a flag file to indicate if KTOR_VERSION is set
-            if [ -n "%env.KTOR_VERSION%" ]; then
+            if [ -n "%env.KTOR_VERSION%" ]
                 echo "KTOR_VERSION is set to %env.KTOR_VERSION%"
                 touch %system.teamcity.build.tempDir%/ktor_version_set
             else
