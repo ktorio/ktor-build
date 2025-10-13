@@ -9,7 +9,10 @@ import subprojects.build.*
 class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     id("KtorMatrixJavaScript_${jsEntry.name}".toId())
     name = "JavaScript on ${jsEntry.name}"
-    val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
+    val artifactsToPublish = formatArtifacts(
+        "+:**/build/**/*.jar",
+        "**/build/*/package-lock.json",
+    )
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
     vcs {
