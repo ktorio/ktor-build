@@ -27,6 +27,11 @@ class JDKBuild(
             defineTCPPortRange()
         }
 
+        script {
+            name = "Install pulseaudio"
+            scriptFile("install_pulseaudio.sh")
+        }
+
         gradle {
             name = "Build and Run Tests"
             tasks = "cleanJvmTest jvmTest --continue -Ptest.jdk=${osJdkEntry.jdkEntry.version}"
