@@ -216,3 +216,4 @@ fun BuildSteps.acceptAndroidSDKLicense() = script {
     name = "Accept Android SDK license"
     scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
 }
+

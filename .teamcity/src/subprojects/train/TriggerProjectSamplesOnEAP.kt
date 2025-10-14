@@ -190,6 +190,10 @@ object TriggerProjectSamplesOnEAP : Project({
             param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
         }
 
+        requirements {
+            contains("teamcity.agent.jvm.os.name", "Linux")
+        }
+
         triggers {
             finishBuildTrigger {
                 buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
