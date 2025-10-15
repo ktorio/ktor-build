@@ -1,5 +1,5 @@
 #!/bin/bash
 set -euo pipefail
 
-apt-get update
-apt-get install --yes --no-install-recommends pulseaudio
+sudo apt-get update
+sudo apt-get install --yes --no-install-recommends pulseaudio
