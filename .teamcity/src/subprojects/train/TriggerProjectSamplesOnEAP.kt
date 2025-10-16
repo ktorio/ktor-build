@@ -3,7 +3,7 @@ package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
-import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
@@ -16,6 +16,212 @@ object EapConstants {
     const val PUBLISH_BUILD_PLUGIN_TYPE_ID = "KtorGradleBuildPlugin_Publish"
 }
 
+interface EAPSampleConfig {
+    val projectName: String
+    fun createEAPBuildType(): BuildType
+}
+
+fun BuildSteps.createEAPGradleInitScript() {
+    script {
+        name = "Create EAP Gradle init script"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            mkdir -p %system.teamcity.build.tempDir%
+            
+            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
+            gradle.allprojects {
+                repositories {
+                    maven { 
+                        name = "KtorEAP"
+                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") 
+                    }
+                }
+                
+                configurations.all {
+                    resolutionStrategy.eachDependency {
+                        if (requested.group == "io.ktor") {
+                            useVersion(System.getenv("KTOR_VERSION"))
+                        }
+                    }
+                }
+                
+                afterEvaluate {
+                    logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+                }
+            }
+            EOL
+        """.trimIndent()
+    }
+}
+
+fun BuildSteps.buildEAPGradleProject(
+    projectName: String,
+    standalone: Boolean,
+    isPluginSample: Boolean = false
+) {
+    createEAPGradleInitScript()
+
+    script {
+        name = "Build EAP ${if (isPluginSample) "Build Plugin " else ""}Sample"
+        workingDir = when {
+            standalone -> ""
+            isPluginSample -> ""
+            else -> projectName
+        }
+        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+        scriptContent = buildString {
+            if (isPluginSample && !standalone) {
+                appendLine("cd samples/$projectName")
+            }
+            appendLine("echo \"Building ${if (isPluginSample) "build plugin " else ""}sample with Ktor EAP version %env.KTOR_VERSION%\"")
+            appendLine("./gradlew build --init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts")
+        }.trimEnd()
+    }
+}
+
+fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
+    buildEAPGradleProject(relativeDir, standalone, isPluginSample = false)
+}
+
+fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
+    buildEAPGradleProject(relativeDir, standalone, isPluginSample = true)
+}
+
+fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
+    script {
+        name = "Create EAP Maven settings"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            mkdir -p %system.teamcity.build.tempDir%/.m2
+            
+            cat > %system.teamcity.build.tempDir%/.m2/settings.xml << EOF
+            <settings>
+              <profiles>
+                <profile>
+                  <id>ktor-eap</id>
+                  <repositories>
+                    <repository>
+                      <id>ktor-eap</id>
+                      <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    </repository>
+                  </repositories>
+                  <properties>
+                    <ktor.version>%env.KTOR_VERSION%</ktor.version>
+                  </properties>
+                </profile>
+              </profiles>
+              <activeProfiles>
+                <activeProfile>ktor-eap</activeProfile>
+              </activeProfiles>
+            </settings>
+            EOF
+        """.trimIndent()
+    }
+
+    maven {
+        name = "Test EAP Maven Sample"
+        goals = "test"
+        workingDir = relativeDir
+        pomLocation = "$relativeDir/pom.xml"
+        userSettingsPath = "%system.teamcity.build.tempDir%/.m2/settings.xml"
+        runnerArgs = "-Dktor.version=%env.KTOR_VERSION%"
+    }
+}
+
+fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
+    override val projectName: String = this@asEAPSampleConfig.projectName
+    override fun createEAPBuildType(): BuildType {
+        return BuildType {
+            id("EAP_KtorBuildPluginSamplesValidate_${projectName.replace('-', '_')}")
+            name = "EAP Validate $projectName sample"
+
+            vcs {
+                root(VCSKtorBuildPluginsEAP)
+            }
+
+            requirements {
+                contains("teamcity.agent.jvm.os.name", "Linux")
+            }
+
+            params {
+                param("teamcity.build.skipDependencyBuilds", "true")
+            }
+
+            dependencies {
+                dependency(versionResolver) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.FAIL_TO_START
+                    }
+                }
+            }
+
+            steps {
+                buildEAPGradlePluginSample(this@asEAPSampleConfig.projectName, this@asEAPSampleConfig.standalone)
+            }
+
+            defaultBuildFeatures(VCSKtorBuildPluginsEAP.id.toString())
+        }
+    }
+}
+
+fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
+    override val projectName: String = this@asEAPSampleConfig.projectName
+    override fun createEAPBuildType(): BuildType {
+        return BuildType {
+            id("EAP_KtorSamplesValidate_${projectName.replace('-', '_')}")
+            name = "EAP Validate $projectName sample"
+
+            vcs {
+                root(VCSSamples)
+            }
+
+            requirements {
+                contains("teamcity.agent.jvm.os.name", "Linux")
+                if (this@asEAPSampleConfig.withAndroidSdk) {
+                    equals("env.ANDROID_HOME", "%android-sdk.location%")
+                }
+            }
+
+            params {
+                param("teamcity.build.skipDependencyBuilds", "true")
+            }
+
+            if (this@asEAPSampleConfig.withAndroidSdk) {
+                params {
+                    param("env.ANDROID_HOME", "%android-sdk.location%")
+                }
+            }
+
+            dependencies {
+                dependency(versionResolver) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.FAIL_TO_START
+                    }
+                }
+            }
+
+            steps {
+                if (this@asEAPSampleConfig.withAndroidSdk) {
+                    script {
+                        name = "Accept Android SDK license"
+                        scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
+                    }
+                }
+
+                when (this@asEAPSampleConfig.buildSystem) {
+                    BuildSystem.MAVEN -> buildEAPMavenSample(this@asEAPSampleConfig.projectName)
+                    BuildSystem.GRADLE -> buildEAPGradleSample(
+                        this@asEAPSampleConfig.projectName,
+                        this@asEAPSampleConfig.standalone
+                    )
+                }
+            }
+
+            defaultBuildFeatures(VCSSamples.id.toString())
+        }
+    }
+}
+
 object TriggerProjectSamplesOnEAP : Project({
     id("TriggerProjectSamplesOnEAP")
     name = "EAP Validation"
@@ -25,8 +231,7 @@ object TriggerProjectSamplesOnEAP : Project({
         param("ktor.eap.version", "KTOR_VERSION")
     }
 
-
-    buildType {
+    val versionResolver = buildType {
         id("KtorEAPVersionResolver")
         name = "Set EAP Version for Tests"
         description = "Determines the EAP version to use for sample validation"
@@ -101,87 +306,30 @@ object TriggerProjectSamplesOnEAP : Project({
         }
     }
 
-    fun <T> createEAPSample(
-        sample: T,
-        prefix: String,
-        createProject: (T) -> BuildType
-    ): BuildType {
-        return createProject(sample).apply {
-            val projectName = when (sample) {
-                is BuildPluginSampleSettings -> sample.projectName
-                is SampleProjectSettings -> sample.projectName
-                else -> throw IllegalArgumentException("Unsupported sample type")
-            }
+    val allEAPSamples: List<EAPSampleConfig> = buildPluginSamples.map { it.asEAPSampleConfig(versionResolver) } +
+        sampleProjects.map { it.asEAPSampleConfig(versionResolver) }
 
-            id("EAP_${prefix}_${projectName.replace('-', '_')}")
-            name = "EAP Validate $projectName sample"
+    val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
 
-            requirements {
-                when (sample) {
-                    is SampleProjectSettings -> {
-                        contains("teamcity.agent.jvm.os.name", "Linux")
+    allSampleBuilds.forEach(::buildType)
 
-                        if (sample.withAndroidSdk) {
-                            equals("env.ANDROID_HOME", "%android-sdk.location%")
-                        }
-                    }
-                    is BuildPluginSampleSettings -> {
-                        contains("teamcity.agent.jvm.os.name", "Linux")
-                    }
-                }
-            }
+    val buildPluginSampleNames = buildPluginSamples.map { it.projectName }.toSet()
 
-            params {
-                param("teamcity.build.skipDependencyBuilds", "true")
-            }
-
-            dependencies {
-                dependency(RelativeId("KtorEAPVersionResolver")) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.FAIL_TO_START
-                        reuseBuilds = ReuseBuilds.NO
-                        runOnSameAgent = false
-                        synchronizeRevisions = true
-                    }
-                }
-            }
-        }
+    val buildPluginSampleBuilds = allSampleBuilds.filter { sampleBuild ->
+        val projectName = allEAPSamples.find { config ->
+            config.createEAPBuildType().id == sampleBuild.id
+        }?.projectName
+        projectName in buildPluginSampleNames
     }
 
-    fun createBuildPluginEAPSample(sample: BuildPluginSampleSettings): BuildType {
-        val eapSample = BuildPluginSampleSettings(
-            sample.projectName,
-            VCSKtorBuildPluginsEAP,
-            sample.standalone
-        )
-
-        return createEAPSample(eapSample, "KtorBuildPluginSamplesValidate") {
-            BuildPluginSampleProject(it)
-        }
+    val regularSampleBuilds = allSampleBuilds.filter { sampleBuild ->
+        val projectName = allEAPSamples.find { config ->
+            config.createEAPBuildType().id == sampleBuild.id
+        }?.projectName
+        projectName !in buildPluginSampleNames
     }
 
-    fun createRegularEAPSample(sample: SampleProjectSettings): BuildType {
-        val eapSample = SampleProjectSettings(
-            sample.projectName,
-            VCSSamples,
-            sample.buildSystem,
-            sample.standalone,
-            sample.withAndroidSdk
-        )
-
-        return createEAPSample(eapSample, "KtorSamplesValidate") {
-            SampleProject(it)
-        }
-    }
-
-    val buildPluginEAPProjects = buildPluginSamples.map(::createBuildPluginEAPSample)
-    val sampleEAPProjects = sampleProjects.map(::createRegularEAPSample)
-
-    buildPluginEAPProjects.forEach(::buildType)
-    sampleEAPProjects.forEach(::buildType)
-
-    buildType {
+    val buildPluginComposite = buildType {
         id("EAP_KtorBuildPluginSamplesValidate_All")
         name = "EAP Validate all build plugin samples"
         type = BuildTypeSettings.Type.COMPOSITE
@@ -203,27 +351,17 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("KtorEAPVersionResolver")) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.FAIL_TO_START
-                    reuseBuilds = ReuseBuilds.NO
-                    synchronizeRevisions = true
-                }
-            }
-
-            buildPluginEAPProjects.forEach { project ->
-                project.id?.let { id ->
-                    snapshot(id) {
+            buildPluginSampleBuilds.forEach { sampleBuild ->
+                dependency(sampleBuild) {
+                    snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.CANCEL
                     }
                 }
             }
         }
     }
 
-    buildType {
+    val samplesComposite = buildType {
         id("EAP_KtorSamplesValidate_All")
         name = "EAP Validate all samples"
         type = BuildTypeSettings.Type.COMPOSITE
@@ -237,27 +375,17 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         dependencies {
-            dependency(RelativeId("KtorEAPVersionResolver")) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.FAIL_TO_START
-                    reuseBuilds = ReuseBuilds.NO
-                    synchronizeRevisions = true
-                }
-            }
-
-            sampleEAPProjects.forEach { project ->
-                project.id?.let { id ->
-                    snapshot(id) {
+            regularSampleBuilds.forEach { sampleBuild ->
+                dependency(sampleBuild) {
+                    snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.CANCEL
                     }
                 }
             }
         }
     }
 
-    buildType {
+    val masterComposite = buildType {
         id("KtorEAPSamplesCompositeBuild")
         name = "Validate All Samples with EAP"
         description = "Run all samples against the EAP version of Ktor"
@@ -267,29 +395,6 @@ object TriggerProjectSamplesOnEAP : Project({
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
             param("teamcity.build.skipDependencyBuilds", "true")
-        }
-
-        dependencies {
-            dependency(RelativeId("KtorEAPVersionResolver")) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.FAIL_TO_START
-                    reuseBuilds = ReuseBuilds.NO
-                    synchronizeRevisions = true
-                }
-            }
-
-            dependency(RelativeId("EAP_KtorBuildPluginSamplesValidate_All")) {
-                snapshot {
-                    onDependencyFailure = FailureAction.ADD_PROBLEM
-                }
-            }
-
-            dependency(RelativeId("EAP_KtorSamplesValidate_All")) {
-                snapshot {
-                    onDependencyFailure = FailureAction.ADD_PROBLEM
-                }
-            }
         }
 
         features {
@@ -306,5 +411,23 @@ object TriggerProjectSamplesOnEAP : Project({
                 buildFinishedSuccessfully = true
             }
         }
+
+        dependencies {
+            dependency(buildPluginComposite) {
+                snapshot {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
+            dependency(samplesComposite) {
+                snapshot {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                }
+            }
+        }
     }
+
+    buildType(versionResolver)
+    buildType(buildPluginComposite)
+    buildType(samplesComposite)
+    buildType(masterComposite)
 })
