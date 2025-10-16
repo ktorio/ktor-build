@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -128,41 +127,42 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
     }
 }
 
-fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
-    override val projectName: String = this@asEAPSampleConfig.projectName
-    override fun createEAPBuildType(): BuildType {
-        return BuildType {
-            id("EAP_KtorBuildPluginSamplesValidate_${projectName.replace('-', '_')}")
-            name = "EAP Validate $projectName sample"
+fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig =
+    object : EAPSampleConfig {
+        override val projectName: String = this@asEAPSampleConfig.projectName
+        override fun createEAPBuildType(): BuildType {
+            return BuildType {
+                id("EAP_KtorBuildPluginSamplesValidate_${projectName.replace('-', '_')}")
+                name = "EAP Validate $projectName sample"
 
-            vcs {
-                root(VCSKtorBuildPluginsEAP)
-            }
+                vcs {
+                    root(VCSKtorBuildPluginsEAP)
+                }
 
-            requirements {
-                contains("teamcity.agent.jvm.os.name", "Linux")
-            }
+                requirements {
+                    contains("teamcity.agent.jvm.os.name", "Linux")
+                }
 
-            params {
-                param("teamcity.build.skipDependencyBuilds", "true")
-            }
+                params {
+                    param("teamcity.build.skipDependencyBuilds", "true")
+                }
 
-            dependencies {
-                dependency(versionResolver) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
+                dependencies {
+                    dependency(versionResolver) {
+                        snapshot {
+                            onDependencyFailure = FailureAction.FAIL_TO_START
+                        }
                     }
                 }
-            }
 
-            steps {
-                buildEAPGradlePluginSample(this@asEAPSampleConfig.projectName, this@asEAPSampleConfig.standalone)
-            }
+                steps {
+                    buildEAPGradlePluginSample(this@asEAPSampleConfig.projectName, this@asEAPSampleConfig.standalone)
+                }
 
-            defaultBuildFeatures(VCSKtorBuildPluginsEAP.id.toString())
+                defaultBuildFeatures(VCSKtorBuildPluginsEAP.id.toString())
+            }
         }
     }
-}
 
 fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
     override val projectName: String = this@asEAPSampleConfig.projectName
@@ -385,7 +385,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
     }
 
-    val masterComposite = buildType {
+    buildType {
         id("KtorEAPSamplesCompositeBuild")
         name = "Validate All Samples with EAP"
         description = "Run all samples against the EAP version of Ktor"
@@ -425,9 +425,4 @@ object TriggerProjectSamplesOnEAP : Project({
             }
         }
     }
-
-    buildType(versionResolver)
-    buildType(buildPluginComposite)
-    buildType(samplesComposite)
-    buildType(masterComposite)
 })
