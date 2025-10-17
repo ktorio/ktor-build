@@ -1,4 +1,3 @@
-
 package subprojects.build.samples
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -86,15 +85,16 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
 })
 
 fun BuildSteps.buildGradleSample(relativeDir: String, standalone: Boolean) {
-    script {
-        name = "Build Sample"
-        workingDir = if (standalone) "" else relativeDir
-        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
-        scriptContent = """
-            ./gradlew build
-        """.trimIndent()
+    gradle {
+        name = "Build"
+        tasks = "build"
+
+        if (!standalone) {
+            workingDir = relativeDir
+        }
     }
 }
+
 
 fun BuildSteps.buildMavenSample(relativeDir: String) {
     maven {

@@ -20,8 +20,7 @@ class JDKBuild(
     }
 
     cancelPreviousBuilds()
-
-    enableRustCompilation(osJdkEntry.os)
+    enableRustForRelevantChanges(osJdkEntry.os)
 
     steps {
         if (osJdkEntry.os == OS.Windows) {

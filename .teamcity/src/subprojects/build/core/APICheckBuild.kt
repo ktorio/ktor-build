@@ -8,23 +8,26 @@ import subprojects.build.*
 
 object APICheckBuild : BuildType({
     id("KtorMatrixCore_APICheck".toId())
-    name = "Check API"
+    name = "Check ABI"
     artifactRules = formatArtifacts(memoryReportArtifact)
 
     vcs {
         root(VCSCore)
     }
 
-    cancelPreviousBuilds()
+    params {
+        extraGradleParams()
+    }
 
-    enableRustCompilation(os = Agents.OS.Linux)
+    cancelPreviousBuilds()
+    enableRustForRelevantChanges(Agents.OS.Linux)
 
     steps {
         setupRustAarch64CrossCompilation(os = Agents.OS.Linux)
 
         gradle {
             name = "API Check"
-            tasks = "apiCheck"
+            tasks = "checkLegacyAbi %gradle_params%"
             jdkHome = Env.JDK_LTS
         }
     }
