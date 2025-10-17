@@ -145,6 +145,7 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
 
                 params {
                     param("teamcity.build.skipDependencyBuilds", "true")
+                    param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
                 }
 
                 dependencies {
@@ -184,6 +185,7 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
 
             params {
                 param("teamcity.build.skipDependencyBuilds", "true")
+                param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             }
 
             if (this@asEAPSampleConfig.withAndroidSdk) {
