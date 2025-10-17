@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -312,24 +313,19 @@ object TriggerProjectSamplesOnEAP : Project({
         sampleProjects.map { it.asEAPSampleConfig(versionResolver) }
 
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
-
     allSampleBuilds.forEach(::buildType)
+
+    val samplePairs = allEAPSamples.zip(allSampleBuilds)
 
     val buildPluginSampleNames = buildPluginSamples.map { it.projectName }.toSet()
 
-    val buildPluginSampleBuilds = allSampleBuilds.filter { sampleBuild ->
-        val projectName = allEAPSamples.find { config ->
-            config.createEAPBuildType().id == sampleBuild.id
-        }?.projectName
-        projectName in buildPluginSampleNames
-    }
+    val buildPluginSampleBuilds = samplePairs
+        .filter { (config, _) -> config.projectName in buildPluginSampleNames }
+        .map { (_, build) -> build }
 
-    val regularSampleBuilds = allSampleBuilds.filter { sampleBuild ->
-        val projectName = allEAPSamples.find { config ->
-            config.createEAPBuildType().id == sampleBuild.id
-        }?.projectName
-        projectName !in buildPluginSampleNames
-    }
+    val regularSampleBuilds = samplePairs
+        .filter { (config, _) -> config.projectName !in buildPluginSampleNames }
+        .map { (_, build) -> build }
 
     val buildPluginComposite = buildType {
         id("EAP_KtorBuildPluginSamplesValidate_All")
