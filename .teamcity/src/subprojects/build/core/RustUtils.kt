@@ -19,7 +19,7 @@ fun BuildSteps.installRust(os: OS) {
     }
 }
 
-fun BuildType.enableRustForRelevantChanges(os: OS) {
+fun BuildType.enableRustForRelevantChanges(os: OS): Boolean {
     params {
         param("env.OPERATING_SYSTEM", os.name)
     }
@@ -32,6 +32,7 @@ fun BuildType.enableRustForRelevantChanges(os: OS) {
             }
         }
     }
+    return params.params.find { it.name == "env.KTOR_RUST_COMPILATION" }?.value == "true"
 }
 
 fun BuildSteps.setupRustAarch64CrossCompilation(os: OS) {

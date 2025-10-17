@@ -18,7 +18,7 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
     }
 
     cancelPreviousBuilds()
-    enableRustForRelevantChanges(entry.os)
+    val rustEnabled = enableRustForRelevantChanges(entry.os)
 
     steps {
 
@@ -36,7 +36,9 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
             defineTCPPortRange()
         }
 
-        installRust(entry.os)
+        if (rustEnabled) {
+            installRust(entry.os)
+        }
 
         gradle {
             name = "Build and Run Tests"
