@@ -28,7 +28,7 @@ class JDKBuild(
         }
 
         script {
-            name = "Install pulseaudio"
+            name = "Install pulseaudio for WebRTC tests"
             scriptFile("install_pulseaudio.sh")
         }
 
