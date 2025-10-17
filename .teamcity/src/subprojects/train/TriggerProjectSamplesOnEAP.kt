@@ -61,21 +61,18 @@ fun BuildSteps.buildEAPGradleProject(
 ) {
     createEAPGradleInitScript()
 
-    script {
+    gradle {
         name = "Build EAP ${if (isPluginSample) "Build Plugin " else ""}Sample"
+        tasks = "build"
         workingDir = when {
             standalone -> ""
-            isPluginSample -> ""
-            else -> projectName
+            isPluginSample && !standalone -> "samples/$projectName"
+            !standalone -> projectName
+            else -> ""
         }
+        gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
+        useGradleWrapper = false
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
-        scriptContent = buildString {
-            if (isPluginSample && !standalone) {
-                appendLine("cd samples/$projectName")
-            }
-            appendLine("echo \"Building ${if (isPluginSample) "build plugin " else ""}sample with Ktor EAP version %env.KTOR_VERSION%\"")
-            appendLine("./gradlew build --init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts")
-        }.trimEnd()
     }
 }
 
