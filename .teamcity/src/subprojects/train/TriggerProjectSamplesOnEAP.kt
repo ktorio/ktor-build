@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -158,6 +157,23 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                     buildEAPGradlePluginSample(this@asEAPSampleConfig.projectName, this@asEAPSampleConfig.standalone)
                 }
 
+                failureConditions {
+                    failOnText {
+                        conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                        pattern = "No agents available to run"
+                        failureMessage =
+                            "No compatible agents found for ${this@asEAPSampleConfig.projectName} build plugin sample"
+                        stopBuildOnFailure = true
+                    }
+                    failOnText {
+                        conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                        pattern = "Build queue timeout"
+                        failureMessage = "Build timed out waiting for compatible agent"
+                        stopBuildOnFailure = true
+                    }
+                    executionTimeoutMin = 10
+                }
+
                 defaultBuildFeatures(VCSKtorBuildPluginsEAP.id.toString())
             }
         }
@@ -177,7 +193,7 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
             requirements {
                 contains("teamcity.agent.jvm.os.name", "Linux")
                 if (this@asEAPSampleConfig.withAndroidSdk) {
-                    equals("env.ANDROID_HOME", "%android-sdk.location%")
+                    exists("env.ANDROID_HOME")
                 }
             }
 
@@ -215,6 +231,28 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                         this@asEAPSampleConfig.standalone
                     )
                 }
+            }
+
+            failureConditions {
+                failOnText {
+                    conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                    pattern = "No agents available to run"
+                    failureMessage = "No compatible agents found for ${this@asEAPSampleConfig.projectName} sample"
+                    stopBuildOnFailure = true
+                }
+                failOnText {
+                    conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                    pattern = "Build queue timeout"
+                    failureMessage = "Build timed out waiting for compatible agent"
+                    stopBuildOnFailure = true
+                }
+                failOnText {
+                    conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                    pattern = "No suitable agents"
+                    failureMessage = "No suitable agents available for ${this@asEAPSampleConfig.projectName} sample"
+                    stopBuildOnFailure = true
+                }
+                executionTimeoutMin = 10
             }
 
             defaultBuildFeatures(VCSSamples.id.toString())
@@ -302,7 +340,13 @@ object TriggerProjectSamplesOnEAP : Project({
                 failureMessage = "Error detected in build log"
                 stopBuildOnFailure = true
             }
-            executionTimeoutMin = 15
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "No agents available to run"
+                failureMessage = "No compatible agents found for EAP version resolver"
+                stopBuildOnFailure = true
+            }
+            executionTimeoutMin = 10
         }
     }
 
@@ -354,6 +398,16 @@ object TriggerProjectSamplesOnEAP : Project({
                 }
             }
         }
+
+        failureConditions {
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "No agents available to run"
+                failureMessage = "No compatible agents found for build plugin samples composite"
+                stopBuildOnFailure = true
+            }
+            executionTimeoutMin = 30
+        }
     }
 
     val samplesComposite = buildType {
@@ -377,6 +431,16 @@ object TriggerProjectSamplesOnEAP : Project({
                     }
                 }
             }
+        }
+
+        failureConditions {
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "No agents available to run"
+                failureMessage = "No compatible agents found for samples composite"
+                stopBuildOnFailure = true
+            }
+            executionTimeoutMin = 30
         }
     }
 
@@ -418,6 +482,22 @@ object TriggerProjectSamplesOnEAP : Project({
                     onDependencyFailure = FailureAction.FAIL_TO_START
                 }
             }
+        }
+
+        failureConditions {
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "No agents available to run"
+                failureMessage = "No compatible agents found for main EAP samples composite"
+                stopBuildOnFailure = true
+            }
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "Build queue timeout"
+                failureMessage = "EAP samples build timed out waiting for compatible agents"
+                stopBuildOnFailure = true
+            }
+            executionTimeoutMin = 60
         }
     }
 })
