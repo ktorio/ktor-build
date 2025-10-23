@@ -70,7 +70,8 @@ fun BuildSteps.buildEAPGradleProject(
             else -> ""
         }
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
-        useGradleWrapper = false
+        useGradleWrapper = true
+        jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
 }
