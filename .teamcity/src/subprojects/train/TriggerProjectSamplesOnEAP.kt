@@ -70,7 +70,10 @@ fun BuildSteps.buildEAPGradleProject(
             else -> ""
         }
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
-        useGradleWrapper = true
+        if (isPluginSample) {
+            useGradleWrapper = true
+            jdkHome = Env.JDK_LTS
+        }
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
