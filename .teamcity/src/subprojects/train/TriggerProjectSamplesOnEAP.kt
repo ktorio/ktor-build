@@ -22,6 +22,7 @@ interface EAPSampleConfig {
 }
 
 
+
 fun BuildSteps.createEAPGradleInitScript() {
     script {
         name = "Create EAP Gradle init script"
@@ -48,14 +49,17 @@ fun BuildSteps.createEAPGradleInitScript() {
                     
                     if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
                         echo "Latest Ktor Gradle Plugin version: ${'$'}LATEST_PLUGIN_VERSION"
-                        export KTOR_GRADLE_PLUGIN_VERSION="${'$'}LATEST_PLUGIN_VERSION"
+                        # Set TeamCity parameter so subsequent steps can access it
+                        echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}LATEST_PLUGIN_VERSION']"
                     else
                         echo "Failed to extract plugin version from Gradle Plugin Portal, using default behavior"
-                        unset KTOR_GRADLE_PLUGIN_VERSION
+                        # Unset the parameter if it was set previously
+                        echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
                     fi
                 else
                     echo "Failed to fetch plugin version from Gradle Plugin Portal, using default behavior"
-                    unset KTOR_GRADLE_PLUGIN_VERSION
+                    # Unset the parameter if it was set previously
+                    echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
                 fi
                 
                 rm -f "${'$'}TEMP_PLUGIN_FILE"
@@ -232,6 +236,7 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                     dependency(versionResolver) {
                         snapshot {
                             onDependencyFailure = FailureAction.FAIL_TO_START
+                            onDependencyCancel = FailureAction.CANCEL
                         }
                     }
                 }
@@ -301,6 +306,7 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                 dependency(versionResolver) {
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
+                        onDependencyCancel = FailureAction.CANCEL
                     }
                 }
             }
@@ -491,6 +497,7 @@ object TriggerProjectSamplesOnEAP : Project({
                 dependency(sampleBuild) {
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
+                        onDependencyCancel = FailureAction.CANCEL
                     }
                 }
             }
