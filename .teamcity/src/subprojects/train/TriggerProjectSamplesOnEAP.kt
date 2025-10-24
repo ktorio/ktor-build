@@ -36,7 +36,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                 PLUGIN_API_URL="https://plugins.gradle.org/api/gradle/io.ktor.plugin"
                 TEMP_PLUGIN_FILE=$(mktemp)
                 
-                if curl -s "${'$'}PLUGIN_API_URL" -o "${'$'}TEMP_PLUGIN_FILE"; then
+                if curl -fsSL --connect-timeout 5 --max-time 15 --retry 2 --retry-delay 2 "${'$'}PLUGIN_API_URL" -o "${'$'}TEMP_PLUGIN_FILE"; then
                     # The API returns JSON with version info
                     # Look for the first "version" field which should be the latest
                     if command -v jq &> /dev/null; then
@@ -461,7 +461,6 @@ object TriggerProjectSamplesOnEAP : Project({
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
             param("teamcity.build.skipDependencyBuilds", "true")
-            param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
         }
 
         features {
@@ -516,7 +515,7 @@ object TriggerProjectSamplesOnEAP : Project({
                 failureMessage = "EAP samples build timed out waiting for compatible agents"
                 stopBuildOnFailure = true
             }
-            executionTimeoutMin = 10
+            executionTimeoutMin = 30
         }
     }
 })
