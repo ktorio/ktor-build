@@ -21,8 +21,6 @@ interface EAPSampleConfig {
     fun createEAPBuildType(): BuildType
 }
 
-
-
 fun BuildSteps.createEAPGradleInitScript() {
     script {
         name = "Create EAP Gradle init script"
@@ -33,18 +31,18 @@ fun BuildSteps.createEAPGradleInitScript() {
             # Fetch latest Ktor Gradle Plugin version if needed
             if [ "${'$'}{USE_LATEST_KTOR_GRADLE_PLUGIN}" = "true" ]; then
                 echo "Fetching latest Ktor Gradle Plugin version from Gradle Plugin Portal..."
-                PLUGIN_API_URL="https://plugins.gradle.org/api/gradle/io.ktor.plugin"
+                PLUGIN_API_URL="https://plugins.gradle.org/api/plugins/io.ktor.plugin"
                 TEMP_PLUGIN_FILE=$(mktemp)
                 
                 if curl -fsSL --connect-timeout 5 --max-time 15 --retry 2 --retry-delay 2 "${'$'}PLUGIN_API_URL" -o "${'$'}TEMP_PLUGIN_FILE"; then
-                    # The API returns JSON with version info
-                    # Look for the first "version" field which should be the latest
+                    # The API returns JSON with versions array: { "versions": [{ "version": "X.Y.Z" }] }
+                    # The first item in the versions array is the latest version
                     if command -v jq &> /dev/null; then
-                        # Use jq if available for proper JSON parsing
-                        LATEST_PLUGIN_VERSION=$(jq -r '.version // empty' "${'$'}TEMP_PLUGIN_FILE")
+                        # Use jq if available for proper JSON parsing - get first version from versions array
+                        LATEST_PLUGIN_VERSION=$(jq -r '.versions[0].version // empty' "${'$'}TEMP_PLUGIN_FILE")
                     else
-                        # Fallback to grep/sed if jq is not available
-                        LATEST_PLUGIN_VERSION=$(grep -o '"version":"[^"]*"' "${'$'}TEMP_PLUGIN_FILE" | head -n 1 | sed 's/"version":"\([^"]*\)"/\1/')
+                        # Fallback to grep/sed if jq is not available - find first version in versions array
+                        LATEST_PLUGIN_VERSION=$(grep -o '"versions":\s*\[\s*{[^}]*"version":"[^"]*"' "${'$'}TEMP_PLUGIN_FILE" | head -n 1 | grep -o '"version":"[^"]*"' | sed 's/"version":"\([^"]*\)"/\1/')
                     fi
                     
                     if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
