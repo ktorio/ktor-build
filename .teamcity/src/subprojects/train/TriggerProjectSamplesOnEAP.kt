@@ -21,6 +21,7 @@ interface EAPSampleConfig {
     fun createEAPBuildType(): BuildType
 }
 
+
 fun BuildSteps.createEAPGradleInitScript() {
     script {
         name = "Create EAP Gradle init script"
@@ -28,7 +29,65 @@ fun BuildSteps.createEAPGradleInitScript() {
         scriptContent = """
             mkdir -p %system.teamcity.build.tempDir%
             
+            # Fetch latest Ktor Gradle Plugin version if needed
+            if [ "${'$'}{USE_LATEST_KTOR_GRADLE_PLUGIN}" = "true" ]; then
+                echo "Fetching latest Ktor Gradle Plugin version from Gradle Plugin Portal..."
+                PLUGIN_API_URL="https://plugins.gradle.org/api/gradle/io.ktor.plugin"
+                TEMP_PLUGIN_FILE=$(mktemp)
+                
+                if curl -s "${'$'}PLUGIN_API_URL" -o "${'$'}TEMP_PLUGIN_FILE"; then
+                    # The API returns JSON with version info
+                    # Look for the first "version" field which should be the latest
+                    if command -v jq &> /dev/null; then
+                        # Use jq if available for proper JSON parsing
+                        LATEST_PLUGIN_VERSION=$(jq -r '.version // empty' "${'$'}TEMP_PLUGIN_FILE")
+                    else
+                        # Fallback to grep/sed if jq is not available
+                        LATEST_PLUGIN_VERSION=$(grep -o '"version":"[^"]*"' "${'$'}TEMP_PLUGIN_FILE" | head -n 1 | sed 's/"version":"\([^"]*\)"/\1/')
+                    fi
+                    
+                    if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
+                        echo "Latest Ktor Gradle Plugin version: ${'$'}LATEST_PLUGIN_VERSION"
+                        export KTOR_GRADLE_PLUGIN_VERSION="${'$'}LATEST_PLUGIN_VERSION"
+                    else
+                        echo "Failed to extract plugin version from Gradle Plugin Portal, using default behavior"
+                        unset KTOR_GRADLE_PLUGIN_VERSION
+                    fi
+                else
+                    echo "Failed to fetch plugin version from Gradle Plugin Portal, using default behavior"
+                    unset KTOR_GRADLE_PLUGIN_VERSION
+                fi
+                
+                rm -f "${'$'}TEMP_PLUGIN_FILE"
+            fi
+            
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
+            gradle.settingsEvaluated {
+                pluginManagement {
+                    repositories {
+                        gradlePluginPortal()
+                        maven { 
+                            name = "KtorEAP"
+                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") 
+                        }
+                    }
+                    
+                    resolutionStrategy {
+                        eachPlugin {
+                            if (requested.id.id == "io.ktor.plugin") {
+                                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                                    useVersion(pluginVersion)
+                                    logger.lifecycle("Using latest Ktor Gradle plugin version from Plugin Portal: " + pluginVersion)
+                                } else {
+                                    logger.lifecycle("Using requested Ktor Gradle plugin version: " + requested.version)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             gradle.allprojects {
                 repositories {
                     maven { 
@@ -47,6 +106,10 @@ fun BuildSteps.createEAPGradleInitScript() {
                 
                 afterEvaluate {
                     logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+                    val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                    if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                        logger.lifecycle("Project " + project.name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
+                    }
                 }
             }
             EOL
