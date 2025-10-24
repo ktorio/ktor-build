@@ -42,7 +42,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                         LATEST_PLUGIN_VERSION=$(jq -r '.versions[0].version // empty' "${'$'}TEMP_PLUGIN_FILE")
                     else
                         # Fallback to grep/sed if jq is not available - find first version in versions array
-                        LATEST_PLUGIN_VERSION=$(grep -o '"versions":\s*\[\s*{[^}]*"version":"[^"]*"' "${'$'}TEMP_PLUGIN_FILE" | head -n 1 | grep -o '"version":"[^"]*"' | sed 's/"version":"\([^"]*\)"/\1/')
+                        LATEST_PLUGIN_VERSION=${'$'}(grep -oP '"version"\s*:\s*"\K[^"]+' "${'$'}TEMP_PLUGIN_FILE" | head -n 1)
                     fi
                     
                     if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
