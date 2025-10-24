@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -81,7 +82,24 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
-    buildEAPGradleProject(relativeDir, standalone, isPluginSample = true)
+    createEAPGradleInitScript()
+
+    gradle {
+        name = "Build Gradle Plugin"
+        tasks = "build"
+        gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
+        jdkHome = Env.JDK_LTS
+        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+    }
+
+    gradle {
+        name = "Build EAP Build Plugin Sample"
+        tasks = "build"
+        workingDir = if (!standalone) "samples/$relativeDir" else ""
+        gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
+        jdkHome = Env.JDK_LTS
+        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+    }
 }
 
 fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
@@ -364,94 +382,6 @@ object TriggerProjectSamplesOnEAP : Project({
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
     allSampleBuilds.forEach(::buildType)
 
-    val samplePairs = allEAPSamples.zip(allSampleBuilds)
-
-    val buildPluginSampleNames = buildPluginSamples.map { it.projectName }.toSet()
-
-    val buildPluginSampleBuilds = samplePairs
-        .filter { (config, _) -> config.projectName in buildPluginSampleNames }
-        .map { (_, build) -> build }
-
-    val regularSampleBuilds = samplePairs
-        .filter { (config, _) -> config.projectName !in buildPluginSampleNames }
-        .map { (_, build) -> build }
-
-    val buildPluginComposite = buildType {
-        id("EAP_KtorBuildPluginSamplesValidate_All")
-        name = "EAP Validate all build plugin samples"
-        type = BuildTypeSettings.Type.COMPOSITE
-
-        params {
-            param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
-        }
-
-        requirements {
-            contains("teamcity.agent.jvm.os.name", "Linux")
-        }
-
-        triggers {
-            finishBuildTrigger {
-                buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
-                successfulOnly = true
-                branchFilter = "+:*"
-            }
-        }
-
-        dependencies {
-            buildPluginSampleBuilds.forEach { sampleBuild ->
-                dependency(sampleBuild) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                    }
-                }
-            }
-        }
-
-        failureConditions {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "No agents available to run"
-                failureMessage = "No compatible agents found for build plugin samples composite"
-                stopBuildOnFailure = true
-            }
-            executionTimeoutMin = 30
-        }
-    }
-
-    val samplesComposite = buildType {
-        id("EAP_KtorSamplesValidate_All")
-        name = "EAP Validate all samples"
-        type = BuildTypeSettings.Type.COMPOSITE
-
-        triggers {
-            finishBuildTrigger {
-                buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
-                successfulOnly = true
-                branchFilter = "+:*"
-            }
-        }
-
-        dependencies {
-            regularSampleBuilds.forEach { sampleBuild ->
-                dependency(sampleBuild) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                    }
-                }
-            }
-        }
-
-        failureConditions {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "No agents available to run"
-                failureMessage = "No compatible agents found for samples composite"
-                stopBuildOnFailure = true
-            }
-            executionTimeoutMin = 30
-        }
-    }
-
     buildType {
         id("KtorEAPSamplesCompositeBuild")
         name = "Validate All Samples with EAP"
@@ -462,6 +392,7 @@ object TriggerProjectSamplesOnEAP : Project({
             defaultGradleParams()
             param("env.GIT_BRANCH", "%teamcity.build.branch%")
             param("teamcity.build.skipDependencyBuilds", "true")
+            param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
         }
 
         features {
@@ -479,15 +410,25 @@ object TriggerProjectSamplesOnEAP : Project({
             }
         }
 
-        dependencies {
-            dependency(buildPluginComposite) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                }
+        triggers {
+            finishBuildTrigger {
+                buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
+                successfulOnly = true
+                branchFilter = "+:*"
             }
-            dependency(samplesComposite) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
+            finishBuildTrigger {
+                buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
+                successfulOnly = true
+                branchFilter = "+:*"
+            }
+        }
+
+        dependencies {
+            allSampleBuilds.forEach { sampleBuild ->
+                dependency(sampleBuild) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.FAIL_TO_START
+                    }
                 }
             }
         }
@@ -505,7 +446,7 @@ object TriggerProjectSamplesOnEAP : Project({
                 failureMessage = "EAP samples build timed out waiting for compatible agents"
                 stopBuildOnFailure = true
             }
-            executionTimeoutMin = 60
+            executionTimeoutMin = 10
         }
     }
 })
