@@ -72,9 +72,8 @@ fun BuildSteps.buildEAPGradleProject(
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
         if (isPluginSample) {
             useGradleWrapper = true
-            jdkHome = Env.JDK_LTS
         }
-        jdkHome = Env.JDK_LTS
+        jdkHome = if (isPluginSample) Env.JDK_LTS else "%env.JDK_17_0%"
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
 }
@@ -147,6 +146,7 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                 params {
                     param("teamcity.build.skipDependencyBuilds", "true")
                     param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
+                    param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
                 }
 
                 dependencies {
@@ -192,6 +192,12 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
 
             vcs {
                 root(VCSSamples)
+            }
+
+            if (this@asEAPSampleConfig.withAndroidSdk) {
+                params {
+                    param("env.ANDROID_HOME", "%android-sdk.location%")
+                }
             }
 
             requirements {
