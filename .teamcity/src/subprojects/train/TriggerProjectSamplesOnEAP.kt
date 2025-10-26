@@ -42,7 +42,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                         LATEST_PLUGIN_VERSION=$(jq -r '.versions[0].version // empty' "${'$'}TEMP_PLUGIN_FILE")
                     else
                         # Fallback to grep/sed if jq is not available - find first version in versions array
-                        LATEST_PLUGIN_VERSION=${'$'}(grep -oP '"version"\s*:\s*"\K[^"]+' "${'$'}TEMP_PLUGIN_FILE" | head -n 1)
+                        LATEST_PLUGIN_VERSION=${'$'}(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${'$'}TEMP_PLUGIN_FILE" | head -n 1)
                     fi
                     
                     if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
@@ -107,10 +107,12 @@ fun BuildSteps.createEAPGradleInitScript() {
                 }
                 
                 afterEvaluate {
-                    logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
-                    val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-                    if (pluginVersion != null && pluginVersion.isNotEmpty()) {
-                        logger.lifecycle("Project " + project.name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
+                    if (project == rootProject) {
+                        logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+                        val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                        if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                            logger.lifecycle("Project " + project.name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
+                        }
                     }
                 }
             }
