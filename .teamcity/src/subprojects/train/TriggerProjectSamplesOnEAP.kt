@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -27,7 +28,68 @@ fun BuildSteps.createEAPGradleInitScript() {
         scriptContent = """
             mkdir -p %system.teamcity.build.tempDir%
             
+            # Fetch latest Ktor Gradle Plugin version if needed
+            if [ "${'$'}{USE_LATEST_KTOR_GRADLE_PLUGIN}" = "true" ]; then
+                echo "Fetching latest Ktor Gradle Plugin version from Gradle Plugin Portal..."
+                PLUGIN_API_URL="https://plugins.gradle.org/api/plugins/io.ktor.plugin"
+                TEMP_PLUGIN_FILE=$(mktemp)
+                
+                if curl -fsSL --connect-timeout 5 --max-time 15 --retry 2 --retry-delay 2 "${'$'}PLUGIN_API_URL" -o "${'$'}TEMP_PLUGIN_FILE"; then
+                    # The API returns JSON with versions array: { "versions": [{ "version": "X.Y.Z" }] }
+                    # The first item in the versions array is the latest version
+                    if command -v jq &> /dev/null; then
+                        # Use jq if available for proper JSON parsing - get first version from versions array
+                        LATEST_PLUGIN_VERSION=$(jq -r '.versions[0].version // empty' "${'$'}TEMP_PLUGIN_FILE")
+                    else
+                        # Fallback to grep/sed if jq is not available - find first version in versions array
+                        LATEST_PLUGIN_VERSION=${'$'}(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${'$'}TEMP_PLUGIN_FILE" | head -n 1)
+                    fi
+                    
+                    if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
+                        echo "Latest Ktor Gradle Plugin version: ${'$'}LATEST_PLUGIN_VERSION"
+                        # Set TeamCity parameter so subsequent steps can access it
+                        echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}LATEST_PLUGIN_VERSION']"
+                    else
+                        echo "Failed to extract plugin version from Gradle Plugin Portal, using default behavior"
+                        # Unset the parameter if it was set previously
+                        echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
+                    fi
+                else
+                    echo "Failed to fetch plugin version from Gradle Plugin Portal, using default behavior"
+                    # Unset the parameter if it was set previously
+                    echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
+                fi
+                
+                rm -f "${'$'}TEMP_PLUGIN_FILE"
+            fi
+            
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
+            gradle.settingsEvaluated {
+                pluginManagement {
+                    repositories {
+                        gradlePluginPortal()
+                        maven { 
+                            name = "KtorEAP"
+                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") 
+                        }
+                    }
+                    
+                    resolutionStrategy {
+                        eachPlugin {
+                            if (requested.id.id == "io.ktor.plugin") {
+                                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                                    useVersion(pluginVersion)
+                                    logger.lifecycle("Using latest Ktor Gradle plugin version from Plugin Portal: " + pluginVersion)
+                                } else {
+                                    logger.lifecycle("Using requested Ktor Gradle plugin version: " + requested.version)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             gradle.allprojects {
                 repositories {
                     maven { 
@@ -45,7 +107,13 @@ fun BuildSteps.createEAPGradleInitScript() {
                 }
                 
                 afterEvaluate {
-                    logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+                    if (project == rootProject) {
+                        logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+                        val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                        if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                            logger.lifecycle("Project " + project.name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
+                        }
+                    }
                 }
             }
             EOL
@@ -81,7 +149,24 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
-    buildEAPGradleProject(relativeDir, standalone, isPluginSample = true)
+    createEAPGradleInitScript()
+
+    gradle {
+        name = "Build Gradle Plugin"
+        tasks = "build"
+        gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
+        jdkHome = Env.JDK_LTS
+        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+    }
+
+    gradle {
+        name = "Build EAP Build Plugin Sample"
+        tasks = "build"
+        workingDir = if (!standalone) "samples/$relativeDir" else ""
+        gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
+        jdkHome = Env.JDK_LTS
+        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+    }
 }
 
 fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
@@ -151,6 +236,7 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                     dependency(versionResolver) {
                         snapshot {
                             onDependencyFailure = FailureAction.FAIL_TO_START
+                            onDependencyCancel = FailureAction.CANCEL
                         }
                     }
                 }
@@ -220,6 +306,7 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                 dependency(versionResolver) {
                     snapshot {
                         onDependencyFailure = FailureAction.FAIL_TO_START
+                        onDependencyCancel = FailureAction.CANCEL
                     }
                 }
             }
@@ -364,94 +451,6 @@ object TriggerProjectSamplesOnEAP : Project({
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
     allSampleBuilds.forEach(::buildType)
 
-    val samplePairs = allEAPSamples.zip(allSampleBuilds)
-
-    val buildPluginSampleNames = buildPluginSamples.map { it.projectName }.toSet()
-
-    val buildPluginSampleBuilds = samplePairs
-        .filter { (config, _) -> config.projectName in buildPluginSampleNames }
-        .map { (_, build) -> build }
-
-    val regularSampleBuilds = samplePairs
-        .filter { (config, _) -> config.projectName !in buildPluginSampleNames }
-        .map { (_, build) -> build }
-
-    val buildPluginComposite = buildType {
-        id("EAP_KtorBuildPluginSamplesValidate_All")
-        name = "EAP Validate all build plugin samples"
-        type = BuildTypeSettings.Type.COMPOSITE
-
-        params {
-            param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
-        }
-
-        requirements {
-            contains("teamcity.agent.jvm.os.name", "Linux")
-        }
-
-        triggers {
-            finishBuildTrigger {
-                buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
-                successfulOnly = true
-                branchFilter = "+:*"
-            }
-        }
-
-        dependencies {
-            buildPluginSampleBuilds.forEach { sampleBuild ->
-                dependency(sampleBuild) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                    }
-                }
-            }
-        }
-
-        failureConditions {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "No agents available to run"
-                failureMessage = "No compatible agents found for build plugin samples composite"
-                stopBuildOnFailure = true
-            }
-            executionTimeoutMin = 30
-        }
-    }
-
-    val samplesComposite = buildType {
-        id("EAP_KtorSamplesValidate_All")
-        name = "EAP Validate all samples"
-        type = BuildTypeSettings.Type.COMPOSITE
-
-        triggers {
-            finishBuildTrigger {
-                buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
-                successfulOnly = true
-                branchFilter = "+:*"
-            }
-        }
-
-        dependencies {
-            regularSampleBuilds.forEach { sampleBuild ->
-                dependency(sampleBuild) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                    }
-                }
-            }
-        }
-
-        failureConditions {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "No agents available to run"
-                failureMessage = "No compatible agents found for samples composite"
-                stopBuildOnFailure = true
-            }
-            executionTimeoutMin = 30
-        }
-    }
-
     buildType {
         id("KtorEAPSamplesCompositeBuild")
         name = "Validate All Samples with EAP"
@@ -479,15 +478,26 @@ object TriggerProjectSamplesOnEAP : Project({
             }
         }
 
-        dependencies {
-            dependency(buildPluginComposite) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                }
+        triggers {
+            finishBuildTrigger {
+                buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
+                successfulOnly = true
+                branchFilter = "+:*"
             }
-            dependency(samplesComposite) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
+            finishBuildTrigger {
+                buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
+                successfulOnly = true
+                branchFilter = "+:*"
+            }
+        }
+
+        dependencies {
+            allSampleBuilds.forEach { sampleBuild ->
+                dependency(sampleBuild) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.FAIL_TO_START
+                        onDependencyCancel = FailureAction.CANCEL
+                    }
                 }
             }
         }
@@ -505,7 +515,7 @@ object TriggerProjectSamplesOnEAP : Project({
                 failureMessage = "EAP samples build timed out waiting for compatible agents"
                 stopBuildOnFailure = true
             }
-            executionTimeoutMin = 60
+            executionTimeoutMin = 30
         }
     }
 })
