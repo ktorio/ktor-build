@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -150,16 +151,10 @@ fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boole
                 echo "Backed up existing settings file"
             fi
             
-            # Create settings that work with init scripts
+            # Create minimal settings that won't conflict with init script
             cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
-dependencyResolutionManagement {
-    repositories {
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
 EOF
-    
+            
             echo "Plugin sample settings created successfully"
         """.trimIndent()
     }
@@ -193,6 +188,7 @@ fun BuildSteps.restorePluginSampleSettings(relativeDir: String, standalone: Bool
         """.trimIndent()
     }
 }
+
 fun BuildSteps.buildEAPGradleProject(
     projectName: String,
     standalone: Boolean,
