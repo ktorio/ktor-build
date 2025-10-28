@@ -34,28 +34,21 @@ fun BuildSteps.createEAPGradleInitScript() {
                 TEMP_PLUGIN_FILE=$(mktemp)
                 
                 if curl -fsSL --connect-timeout 5 --max-time 15 --retry 2 --retry-delay 2 "${'$'}PLUGIN_API_URL" -o "${'$'}TEMP_PLUGIN_FILE"; then
-                    # The API returns JSON with versions array: { "versions": [{ "version": "X.Y.Z" }] }
-                    # The first item in the versions array is the latest version
                     if command -v jq &> /dev/null; then
-                        # Use jq if available for proper JSON parsing - get first version from versions array
                         LATEST_PLUGIN_VERSION=$(jq -r '.versions[0].version // empty' "${'$'}TEMP_PLUGIN_FILE")
                     else
-                        # Fallback to grep/sed if jq is not available - find first version in versions array
                         LATEST_PLUGIN_VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${'$'}TEMP_PLUGIN_FILE" | head -n 1)
                     fi
                     
                     if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
                         echo "Latest Ktor Gradle Plugin version: ${'$'}LATEST_PLUGIN_VERSION"
-                        # Set TeamCity parameter so subsequent steps can access it
                         echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}LATEST_PLUGIN_VERSION']"
                     else
                         echo "Failed to extract plugin version from Gradle Plugin Portal, using default behavior"
-                        # Unset the parameter if it was set previously
                         echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
                     fi
                 else
                     echo "Failed to fetch plugin version from Gradle Plugin Portal, using default behavior"
-                    # Unset the parameter if it was set previously
                     echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
                 fi
                 
@@ -90,27 +83,42 @@ fun BuildSteps.createEAPGradleInitScript() {
                 
                 dependencyResolutionManagement {
                     repositories {
-                        mavenCentral()
                         maven { 
                             name = "KtorEAP"
-                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") 
+                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
                         }
+                        mavenCentral()
                     }
                 }
             }
             
             gradle.allprojects {
+                repositories {
+                    clear()
+                    maven { 
+                        name = "KtorEAP"
+                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                    }
+                    mavenCentral()
+                }
+                
                 configurations.all {
-                    resolutionStrategy.eachDependency {
-                        if (requested.group == "io.ktor") {
-                            useVersion(System.getenv("KTOR_VERSION"))
+                    resolutionStrategy {
+                        eachDependency {
+                            if (requested.group == "io.ktor") {
+                                useVersion(System.getenv("KTOR_VERSION"))
+                                logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + System.getenv("KTOR_VERSION"))
+                            }
                         }
+                        cacheDynamicVersionsFor(0, "seconds")
+                        cacheChangingModulesFor(0, "seconds")
                     }
                 }
                 
                 afterEvaluate {
                     if (project == rootProject) {
                         logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+                        logger.lifecycle("Project " + project.name + ": EAP repository: https://maven.pkg.jetbrains.space/public/p/ktor/eap")
                         val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
                         if (pluginVersion != null && pluginVersion.isNotEmpty()) {
                             logger.lifecycle("Project " + project.name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
@@ -129,6 +137,42 @@ fun BuildSteps.buildEAPGradleProject(
     isPluginSample: Boolean = false
 ) {
     createEAPGradleInitScript()
+
+    script {
+        name = "Verify Ktor BOM availability"
+        scriptContent = """
+            #!/bin/bash
+            set -e
+            
+            KTOR_VERSION="%env.KTOR_VERSION%"
+            BOM_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/${'$'}KTOR_VERSION/ktor-bom-${'$'}KTOR_VERSION.pom"
+            
+            echo "Checking BOM availability for Gradle build..."
+            echo "BOM URL: ${'$'}BOM_URL"
+            
+            # Check if BOM is available with retries
+            MAX_RETRIES=5
+            RETRY_COUNT=0
+            
+            while [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; do
+                if curl -s --head "${'$'}BOM_URL" | head -n 1 | grep -q "200 OK"; then
+                    echo "BOM verified for version ${'$'}KTOR_VERSION"
+                    break
+                else
+                    RETRY_COUNT=$((RETRY_COUNT + 1))
+                    if [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; then
+                        echo "BOM not available yet, retry ${'$'}RETRY_COUNT/${'$'}MAX_RETRIES in 30 seconds..."
+                        sleep 30
+                    else
+                        echo "BOM not available after ${'$'}MAX_RETRIES retries"
+                        echo "Available versions:"
+                        curl -s "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml" | grep -o '<version>[^<]*</version>' | tail -10
+                        exit 1
+                    fi
+                fi
+            done
+        """.trimIndent()
+    }
 
     gradle {
         name = "Build EAP ${if (isPluginSample) "Build Plugin " else ""}Sample"
