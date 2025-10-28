@@ -106,14 +106,19 @@ fun BuildSteps.createEAPGradleInitScript() {
                     resolutionStrategy {
                         eachDependency {
                             if (requested.group == "io.ktor") {
-                                useVersion(System.getenv("KTOR_VERSION"))
-                                logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + System.getenv("KTOR_VERSION"))
+                                val ktorVersion = System.getenv("KTOR_VERSION")
+                                if (ktorVersion.isNullOrBlank()) {
+                                    throw GradleException("KTOR_VERSION environment variable is not set or is blank. Cannot resolve Ktor EAP dependencies.")
+                                }
+                                useVersion(ktorVersion)
+                                logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
                             }
                         }
                         cacheDynamicVersionsFor(0, "seconds")
                         cacheChangingModulesFor(0, "seconds")
-                    }
+                     }
                 }
+
                 
                 afterEvaluate {
                     if (project == rootProject) {
