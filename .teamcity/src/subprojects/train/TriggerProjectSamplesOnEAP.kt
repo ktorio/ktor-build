@@ -477,10 +477,61 @@ object TriggerProjectSamplesOnEAP : Project({
         # This pattern looks for a <latest>version</latest> tag
         LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/' || echo "")
         
-        # If no latest tag found, try to get the most recent version from the versions list
+        # If no latest tag found, try to get EAP version from the versions list first
         if [ -z "${'$'}LATEST_VERSION" ]; then
-            echo "No <latest> tag found, trying to extract from versions list..."
-            LATEST_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | tail -1 || echo "")
+            echo "No <latest> tag found, searching for EAP versions in versions list..."
+            
+            # First, try to find versions containing "eap" (case-insensitive) and pick the newest
+            EAP_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | grep -i eap | tail -1 || echo "")
+            
+            if [ -n "${'$'}EAP_VERSION" ]; then
+                LATEST_VERSION="${'$'}EAP_VERSION"
+                echo "Selected EAP version: ${'$'}LATEST_VERSION"
+            else
+                echo "No EAP versions found in metadata"
+                
+                # Check if non-EAP fallback is allowed via environment flag
+                if [ "${'$'}{ALLOW_NON_EAP:-false}" = "true" ]; then
+                    echo "ALLOW_NON_EAP flag is set, falling back to most recent version"
+                    LATEST_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | tail -1 || echo "")
+                    if [ -n "${'$'}LATEST_VERSION" ]; then
+                        echo "Selected non-EAP fallback version: ${'$'}LATEST_VERSION"
+                    fi
+                else
+                    echo "ALLOW_NON_EAP flag not set (default: deny non-EAP fallback)"
+                    echo "No EAP versions available and non-EAP fallback is disabled"
+                    rm -f "${'$'}TEMP_FILE"
+                    exit 1
+                fi
+            fi
+        else
+            # Check if the latest version contains "eap"
+            if echo "${'$'}LATEST_VERSION" | grep -qi eap; then
+                echo "Latest version is EAP: ${'$'}LATEST_VERSION"
+            else
+                echo "Latest version is not EAP: ${'$'}LATEST_VERSION"
+                echo "Searching for EAP versions in versions list..."
+                
+                # Try to find EAP versions and pick the newest
+                EAP_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | grep -i eap | tail -1 || echo "")
+                
+                if [ -n "${'$'}EAP_VERSION" ]; then
+                    LATEST_VERSION="${'$'}EAP_VERSION"
+                    echo "Selected EAP version instead: ${'$'}LATEST_VERSION"
+                else
+                    echo "No EAP versions found in metadata"
+                    
+                    # Check if non-EAP fallback is allowed
+                    if [ "${'$'}{ALLOW_NON_EAP:-false}" = "true" ]; then
+                        echo "ALLOW_NON_EAP flag is set, using latest non-EAP version: ${'$'}LATEST_VERSION"
+                    else
+                        echo "ALLOW_NON_EAP flag not set (default: deny non-EAP fallback)"
+                        echo "No EAP versions available and non-EAP fallback is disabled"
+                        rm -f "${'$'}TEMP_FILE"
+                        exit 1
+                    fi
+                fi
+            fi
         fi
         
         # Clean up temp file
@@ -491,10 +542,10 @@ object TriggerProjectSamplesOnEAP : Project({
             exit 1
         fi
         
-        echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
+        echo "Final selected Ktor version: ${'$'}LATEST_VERSION"
         
         # Validate the version format (should contain "eap" or be a valid semantic version)
-        if echo "${'$'}LATEST_VERSION" | grep -qE "(eap|SNAPSHOT|alpha|beta|rc)"; then
+        if echo "${'$'}LATEST_VERSION" | grep -qiE "(eap|snapshot|alpha|beta|rc)"; then
             echo "Version validation passed: ${'$'}LATEST_VERSION appears to be a pre-release version"
         else
             echo "Warning: Version ${'$'}LATEST_VERSION might not be an EAP version"
@@ -503,8 +554,8 @@ object TriggerProjectSamplesOnEAP : Project({
         # Set build parameter directly (will be propagated to dependent builds)
         echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
         
-        # Also set project-level parameter for reference
-        echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION' level='project']"
+        # Also set configuration parameter for reference
+        echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION']"
         echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
     """.trimIndent()
             }
