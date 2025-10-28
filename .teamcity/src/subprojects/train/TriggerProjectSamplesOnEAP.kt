@@ -453,44 +453,60 @@ object TriggerProjectSamplesOnEAP : Project({
             script {
                 name = "Get latest EAP version from Maven metadata"
                 scriptContent = """
-            #!/bin/bash
-            set -e
-            
-            # Fetch the latest EAP version from the Ktor BOM metadata
-            METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
-            echo "Fetching metadata from ${'$'}METADATA_URL"
-            
-            # Create a temporary file for the metadata
-            TEMP_FILE=$(mktemp)
-            
-            # Download the metadata file
-            if ! curl -s "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
-                echo "Failed to download metadata from ${'$'}METADATA_URL"
-                rm -f "${'$'}TEMP_FILE"
-                exit 1
-            fi
-            
-            # Extract the latest version using grep and sed
-            # This pattern looks for a <latest>version</latest> tag
-            LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/')
-            
-            # Clean up temp file
+        #!/bin/bash
+        set -e
+        
+        # Fetch the latest EAP version from the Ktor BOM metadata
+        METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+        echo "Fetching metadata from ${'$'}METADATA_URL"
+        
+        # Create a temporary file for the metadata
+        TEMP_FILE=$(mktemp)
+        
+        # Download the metadata file with proper timeouts and redirect handling
+        if ! curl -s --connect-timeout 10 --max-time 30 --location "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
+            echo "Failed to download metadata from ${'$'}METADATA_URL"
             rm -f "${'$'}TEMP_FILE"
-            
-            if [ -z "${'$'}LATEST_VERSION" ]; then
-                echo "Failed to extract latest version from metadata"
-                exit 1
-            fi
-            
-            echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
-            
-            # Set build parameter directly (will be propagated to dependent builds)
-            echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
-            
-            # Also set project-level parameter for reference
-            echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION' level='project']"
-            echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
-            """.trimIndent()
+            exit 1
+        fi
+        
+        echo "Metadata content preview:"
+        head -20 "${'$'}TEMP_FILE" || echo "Could not preview metadata file"
+        
+        # Extract the latest version using grep and sed
+        # This pattern looks for a <latest>version</latest> tag
+        LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/' || echo "")
+        
+        # If no latest tag found, try to get the most recent version from the versions list
+        if [ -z "${'$'}LATEST_VERSION" ]; then
+            echo "No <latest> tag found, trying to extract from versions list..."
+            LATEST_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | tail -1 || echo "")
+        fi
+        
+        # Clean up temp file
+        rm -f "${'$'}TEMP_FILE"
+        
+        if [ -z "${'$'}LATEST_VERSION" ]; then
+            echo "Failed to extract any version from metadata"
+            exit 1
+        fi
+        
+        echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
+        
+        # Validate the version format (should contain "eap" or be a valid semantic version)
+        if echo "${'$'}LATEST_VERSION" | grep -qE "(eap|SNAPSHOT|alpha|beta|rc)"; then
+            echo "Version validation passed: ${'$'}LATEST_VERSION appears to be a pre-release version"
+        else
+            echo "Warning: Version ${'$'}LATEST_VERSION might not be an EAP version"
+        fi
+        
+        # Set build parameter directly (will be propagated to dependent builds)
+        echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
+        
+        # Also set project-level parameter for reference
+        echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION' level='project']"
+        echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
+    """.trimIndent()
             }
         }
 
