@@ -143,54 +143,6 @@ fun BuildSteps.buildEAPGradleProject(
 ) {
     createEAPGradleInitScript()
 
-    script {
-        name = "Verify Ktor BOM availability"
-        scriptContent = """
-        #!/bin/bash
-        set -e
-        
-        KTOR_VERSION="%env.KTOR_VERSION%"
-        BOM_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/${'$'}KTOR_VERSION/ktor-bom-${'$'}KTOR_VERSION.pom"
-        
-        echo "Checking BOM availability for Gradle build..."
-        echo "BOM URL: ${'$'}BOM_URL"
-        
-        # Check if BOM is available with retries
-        MAX_RETRIES=5
-        RETRY_COUNT=0
-        
-        while [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; do
-            echo "Attempt $((RETRY_COUNT + 1))/${'$'}MAX_RETRIES: Checking BOM availability..."
-            
-            # Use reliable HTTP status check with proper timeouts
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-                --connect-timeout 10 \
-                --max-time 30 \
-                "${'$'}BOM_URL")
-            
-            echo "HTTP Status: ${'$'}HTTP_STATUS"
-            
-            if [ "${'$'}HTTP_STATUS" = "200" ]; then
-                echo "BOM verified for version ${'$'}KTOR_VERSION"
-                break
-            else
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                if [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; then
-                    echo "BOM not available (HTTP ${'$'}HTTP_STATUS), retry ${'$'}RETRY_COUNT/${'$'}MAX_RETRIES in 30 seconds..."
-                    sleep 30
-                else
-                    echo "BOM not available after ${'$'}MAX_RETRIES retries (final status: ${'$'}HTTP_STATUS)"
-                    echo "Available versions:"
-                    curl -s --connect-timeout 10 --max-time 30 \
-                        "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml" \
-                        | grep -o '<version>[^<]*</version>' | tail -10 || echo "Failed to fetch version list"
-                    exit 1
-                fi
-            fi
-        done
-    """.trimIndent()
-    }
-
     gradle {
         name = "Build EAP ${if (isPluginSample) "Build Plugin " else ""}Sample"
         tasks = "build"
@@ -453,122 +405,44 @@ object TriggerProjectSamplesOnEAP : Project({
             script {
                 name = "Get latest EAP version from Maven metadata"
                 scriptContent = """
-        #!/bin/bash
-        set -e
-        
-        # Function to search for EAP versions and handle fallback logic
-        find_eap_version_or_fallback() {
-            local temp_file="$1"
-            local context_message="$2"
+            #!/bin/bash
+            set -e
             
-            echo "${'$'}{context_message}"
+            # Fetch the latest EAP version from the Ktor BOM metadata
+            METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+            echo "Fetching metadata from ${'$'}METADATA_URL"
             
-            # Try to find EAP versions and pick the newest
-            local eap_version=$(grep -o '<version>[^<]*</version>' "${'$'}{temp_file}" | sed 's/<version>\(.*\)<\/version>/\1/' | grep -i eap | tail -1 || echo "")
+            # Create a temporary file for the metadata
+            TEMP_FILE=$(mktemp)
             
-            if [ -n "${'$'}{eap_version}" ]; then
-                echo "${'$'}{eap_version}"
-                return 0
-            else
-                echo "No EAP versions found in metadata" >&2
-                
-                # Check if non-EAP fallback is allowed via environment flag
-                if [ "${'$'}{ALLOW_NON_EAP:-false}" = "true" ]; then
-                    echo "ALLOW_NON_EAP flag is set, falling back to most recent version" >&2
-                    local fallback_version=$(grep -o '<version>[^<]*</version>' "${'$'}{temp_file}" | sed 's/<version>\(.*\)<\/version>/\1/' | tail -1 || echo "")
-                    if [ -n "${'$'}{fallback_version}" ]; then
-                        echo "Selected non-EAP fallback version: ${'$'}{fallback_version}" >&2
-                        echo "${'$'}{fallback_version}"
-                        return 0
-                    fi
-                else
-                    echo "ALLOW_NON_EAP flag not set (default: deny non-EAP fallback)" >&2
-                    echo "No EAP versions available and non-EAP fallback is disabled" >&2
-                    return 1
-                fi
-            fi
-            
-            echo "Failed to find any suitable version" >&2
-            return 1
-        }
-        
-        # Fetch the latest EAP version from the Ktor BOM metadata
-        METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
-        echo "Fetching metadata from ${'$'}METADATA_URL"
-        
-        # Create a temporary file for the metadata
-        TEMP_FILE=$(mktemp)
-        
-        # Download the metadata file with proper timeouts and redirect handling
-        if ! curl -s --connect-timeout 10 --max-time 30 --location "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
-            echo "Failed to download metadata from ${'$'}METADATA_URL"
-            rm -f "${'$'}TEMP_FILE"
-            exit 1
-        fi
-        
-        echo "Metadata content preview:"
-        head -20 "${'$'}TEMP_FILE" || echo "Could not preview metadata file"
-        
-        # Extract the latest version using grep and sed
-        # This pattern looks for a <latest>version</latest> tag
-        LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/' || echo "")
-        
-        # If no latest tag found, try to get EAP version from the versions list first
-        if [ -z "${'$'}LATEST_VERSION" ]; then
-            echo "No <latest> tag found, searching for EAP versions in versions list..."
-            LATEST_VERSION=$(find_eap_version_or_fallback "${'$'}TEMP_FILE" "Searching for EAP versions...")
-            if [ $? -ne 0 ]; then
+            # Download the metadata file
+            if ! curl -s "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
+                echo "Failed to download metadata from ${'$'}METADATA_URL"
                 rm -f "${'$'}TEMP_FILE"
                 exit 1
             fi
-        else
-            # Check if the latest version contains "eap"
-            if echo "${'$'}LATEST_VERSION" | grep -qi eap; then
-                echo "Latest version is EAP: ${'$'}LATEST_VERSION"
-            else
-                echo "Latest version is not EAP: ${'$'}LATEST_VERSION"
-                NEW_VERSION=$(find_eap_version_or_fallback "${'$'}TEMP_FILE" "Searching for EAP versions in versions list...")
-                if [ $? -eq 0 ]; then
-                    LATEST_VERSION="${'$'}NEW_VERSION"
-                    echo "Selected EAP version instead: ${'$'}LATEST_VERSION"
-                else
-                    # Check if non-EAP fallback is allowed for the latest version we already found
-                    if [ "${'$'}{ALLOW_NON_EAP:-false}" = "true" ]; then
-                        echo "ALLOW_NON_EAP flag is set, using latest non-EAP version: ${'$'}LATEST_VERSION"
-                    else
-                        echo "ALLOW_NON_EAP flag not set (default: deny non-EAP fallback)"
-                        echo "No EAP versions available and non-EAP fallback is disabled"
-                        rm -f "${'$'}TEMP_FILE"
-                        exit 1
-                    fi
-                fi
+            
+            # Extract the latest version using grep and sed
+            # This pattern looks for a <latest>version</latest> tag
+            LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/')
+            
+            # Clean up temp file
+            rm -f "${'$'}TEMP_FILE"
+            
+            if [ -z "${'$'}LATEST_VERSION" ]; then
+                echo "Failed to extract latest version from metadata"
+                exit 1
             fi
-        fi
-        
-        # Clean up temp file
-        rm -f "${'$'}TEMP_FILE"
-        
-        if [ -z "${'$'}LATEST_VERSION" ]; then
-            echo "Failed to extract any version from metadata"
-            exit 1
-        fi
-        
-        echo "Final selected Ktor version: ${'$'}LATEST_VERSION"
-        
-        # Validate the version format (should contain "eap" or be a valid semantic version)
-        if echo "${'$'}LATEST_VERSION" | grep -qiE "(eap|snapshot|alpha|beta|rc)"; then
-            echo "Version validation passed: ${'$'}LATEST_VERSION appears to be a pre-release version"
-        else
-            echo "Warning: Version ${'$'}LATEST_VERSION might not be an EAP version"
-        fi
-        
-        # Set build parameter directly (will be propagated to dependent builds)
-        echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
-        
-        # Also set configuration parameter for reference
-        echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION']"
-        echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
-    """.trimIndent()
+            
+            echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
+            
+            # Set build parameter directly (will be propagated to dependent builds)
+            echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
+            
+            # Also set project-level parameter for reference
+            echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION']"
+            echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
+            """.trimIndent()
             }
         }
 
