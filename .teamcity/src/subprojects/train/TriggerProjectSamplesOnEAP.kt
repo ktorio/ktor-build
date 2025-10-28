@@ -456,6 +456,42 @@ object TriggerProjectSamplesOnEAP : Project({
         #!/bin/bash
         set -e
         
+        # Function to search for EAP versions and handle fallback logic
+        find_eap_version_or_fallback() {
+            local temp_file="$1"
+            local context_message="$2"
+            
+            echo "${'$'}{context_message}"
+            
+            # Try to find EAP versions and pick the newest
+            local eap_version=$(grep -o '<version>[^<]*</version>' "${'$'}{temp_file}" | sed 's/<version>\(.*\)<\/version>/\1/' | grep -i eap | tail -1 || echo "")
+            
+            if [ -n "${'$'}{eap_version}" ]; then
+                echo "${'$'}{eap_version}"
+                return 0
+            else
+                echo "No EAP versions found in metadata" >&2
+                
+                # Check if non-EAP fallback is allowed via environment flag
+                if [ "${'$'}{ALLOW_NON_EAP:-false}" = "true" ]; then
+                    echo "ALLOW_NON_EAP flag is set, falling back to most recent version" >&2
+                    local fallback_version=$(grep -o '<version>[^<]*</version>' "${'$'}{temp_file}" | sed 's/<version>\(.*\)<\/version>/\1/' | tail -1 || echo "")
+                    if [ -n "${'$'}{fallback_version}" ]; then
+                        echo "Selected non-EAP fallback version: ${'$'}{fallback_version}" >&2
+                        echo "${'$'}{fallback_version}"
+                        return 0
+                    fi
+                else
+                    echo "ALLOW_NON_EAP flag not set (default: deny non-EAP fallback)" >&2
+                    echo "No EAP versions available and non-EAP fallback is disabled" >&2
+                    return 1
+                fi
+            fi
+            
+            echo "Failed to find any suitable version" >&2
+            return 1
+        }
+        
         # Fetch the latest EAP version from the Ktor BOM metadata
         METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
         echo "Fetching metadata from ${'$'}METADATA_URL"
@@ -480,29 +516,10 @@ object TriggerProjectSamplesOnEAP : Project({
         # If no latest tag found, try to get EAP version from the versions list first
         if [ -z "${'$'}LATEST_VERSION" ]; then
             echo "No <latest> tag found, searching for EAP versions in versions list..."
-            
-            # First, try to find versions containing "eap" (case-insensitive) and pick the newest
-            EAP_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | grep -i eap | tail -1 || echo "")
-            
-            if [ -n "${'$'}EAP_VERSION" ]; then
-                LATEST_VERSION="${'$'}EAP_VERSION"
-                echo "Selected EAP version: ${'$'}LATEST_VERSION"
-            else
-                echo "No EAP versions found in metadata"
-                
-                # Check if non-EAP fallback is allowed via environment flag
-                if [ "${'$'}{ALLOW_NON_EAP:-false}" = "true" ]; then
-                    echo "ALLOW_NON_EAP flag is set, falling back to most recent version"
-                    LATEST_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | tail -1 || echo "")
-                    if [ -n "${'$'}LATEST_VERSION" ]; then
-                        echo "Selected non-EAP fallback version: ${'$'}LATEST_VERSION"
-                    fi
-                else
-                    echo "ALLOW_NON_EAP flag not set (default: deny non-EAP fallback)"
-                    echo "No EAP versions available and non-EAP fallback is disabled"
-                    rm -f "${'$'}TEMP_FILE"
-                    exit 1
-                fi
+            LATEST_VERSION=$(find_eap_version_or_fallback "${'$'}TEMP_FILE" "Searching for EAP versions...")
+            if [ $? -ne 0 ]; then
+                rm -f "${'$'}TEMP_FILE"
+                exit 1
             fi
         else
             # Check if the latest version contains "eap"
@@ -510,18 +527,12 @@ object TriggerProjectSamplesOnEAP : Project({
                 echo "Latest version is EAP: ${'$'}LATEST_VERSION"
             else
                 echo "Latest version is not EAP: ${'$'}LATEST_VERSION"
-                echo "Searching for EAP versions in versions list..."
-                
-                # Try to find EAP versions and pick the newest
-                EAP_VERSION=$(grep -o '<version>[^<]*</version>' "${'$'}TEMP_FILE" | sed 's/<version>\(.*\)<\/version>/\1/' | grep -i eap | tail -1 || echo "")
-                
-                if [ -n "${'$'}EAP_VERSION" ]; then
-                    LATEST_VERSION="${'$'}EAP_VERSION"
+                NEW_VERSION=$(find_eap_version_or_fallback "${'$'}TEMP_FILE" "Searching for EAP versions in versions list...")
+                if [ $? -eq 0 ]; then
+                    LATEST_VERSION="${'$'}NEW_VERSION"
                     echo "Selected EAP version instead: ${'$'}LATEST_VERSION"
                 else
-                    echo "No EAP versions found in metadata"
-                    
-                    # Check if non-EAP fallback is allowed
+                    # Check if non-EAP fallback is allowed for the latest version we already found
                     if [ "${'$'}{ALLOW_NON_EAP:-false}" = "true" ]; then
                         echo "ALLOW_NON_EAP flag is set, using latest non-EAP version: ${'$'}LATEST_VERSION"
                     else
