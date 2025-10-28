@@ -146,37 +146,49 @@ fun BuildSteps.buildEAPGradleProject(
     script {
         name = "Verify Ktor BOM availability"
         scriptContent = """
-            #!/bin/bash
-            set -e
+        #!/bin/bash
+        set -e
+        
+        KTOR_VERSION="%env.KTOR_VERSION%"
+        BOM_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/${'$'}KTOR_VERSION/ktor-bom-${'$'}KTOR_VERSION.pom"
+        
+        echo "Checking BOM availability for Gradle build..."
+        echo "BOM URL: ${'$'}BOM_URL"
+        
+        # Check if BOM is available with retries
+        MAX_RETRIES=5
+        RETRY_COUNT=0
+        
+        while [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; do
+            echo "Attempt $((RETRY_COUNT + 1))/${'$'}MAX_RETRIES: Checking BOM availability..."
             
-            KTOR_VERSION="%env.KTOR_VERSION%"
-            BOM_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/${'$'}KTOR_VERSION/ktor-bom-${'$'}KTOR_VERSION.pom"
+            # Use reliable HTTP status check with proper timeouts
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                --connect-timeout 10 \
+                --max-time 30 \
+                "${'$'}BOM_URL")
             
-            echo "Checking BOM availability for Gradle build..."
-            echo "BOM URL: ${'$'}BOM_URL"
+            echo "HTTP Status: ${'$'}HTTP_STATUS"
             
-            # Check if BOM is available with retries
-            MAX_RETRIES=5
-            RETRY_COUNT=0
-            
-            while [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; do
-                if curl -s --head "${'$'}BOM_URL" | head -n 1 | grep -q "200 OK"; then
-                    echo "BOM verified for version ${'$'}KTOR_VERSION"
-                    break
+            if [ "${'$'}HTTP_STATUS" = "200" ]; then
+                echo "BOM verified for version ${'$'}KTOR_VERSION"
+                break
+            else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; then
+                    echo "BOM not available (HTTP ${'$'}HTTP_STATUS), retry ${'$'}RETRY_COUNT/${'$'}MAX_RETRIES in 30 seconds..."
+                    sleep 30
                 else
-                    RETRY_COUNT=$((RETRY_COUNT + 1))
-                    if [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ]; then
-                        echo "BOM not available yet, retry ${'$'}RETRY_COUNT/${'$'}MAX_RETRIES in 30 seconds..."
-                        sleep 30
-                    else
-                        echo "BOM not available after ${'$'}MAX_RETRIES retries"
-                        echo "Available versions:"
-                        curl -s "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml" | grep -o '<version>[^<]*</version>' | tail -10
-                        exit 1
-                    fi
+                    echo "BOM not available after ${'$'}MAX_RETRIES retries (final status: ${'$'}HTTP_STATUS)"
+                    echo "Available versions:"
+                    curl -s --connect-timeout 10 --max-time 30 \
+                        "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml" \
+                        | grep -o '<version>[^<]*</version>' | tail -10 || echo "Failed to fetch version list"
+                    exit 1
                 fi
-            done
-        """.trimIndent()
+            fi
+        done
+    """.trimIndent()
     }
 
     gradle {
