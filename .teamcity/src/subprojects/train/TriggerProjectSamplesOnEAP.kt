@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -42,7 +41,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                         LATEST_PLUGIN_VERSION=$(jq -r '.versions[0].version // empty' "${'$'}TEMP_PLUGIN_FILE")
                     else
                         # Fallback to grep/sed if jq is not available - find first version in versions array
-                        LATEST_PLUGIN_VERSION=${'$'}(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${'$'}TEMP_PLUGIN_FILE" | head -n 1)
+                        LATEST_PLUGIN_VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${'$'}TEMP_PLUGIN_FILE" | head -n 1)
                     fi
                     
                     if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
@@ -88,16 +87,19 @@ fun BuildSteps.createEAPGradleInitScript() {
                         }
                     }
                 }
+                
+                dependencyResolutionManagement {
+                    repositories {
+                        mavenCentral()
+                        maven { 
+                            name = "KtorEAP"
+                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") 
+                        }
+                    }
+                }
             }
             
             gradle.allprojects {
-                repositories {
-                    maven { 
-                        name = "KtorEAP"
-                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") 
-                    }
-                }
-                
                 configurations.all {
                     resolutionStrategy.eachDependency {
                         if (requested.group == "io.ktor") {
@@ -210,6 +212,22 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
     }
 }
 
+fun BuildType.inheritSampleAgentRequirements(sampleSettings: SampleProjectSettings) {
+    requirements {
+        agent(Agents.OS.Linux, Agents.Arch.X64, Agents.MEDIUM)
+
+        if (sampleSettings.withAndroidSdk) {
+            exists("env.ANDROID_HOME")
+        }
+    }
+}
+
+fun BuildType.inheritGradlePluginSampleAgentRequirements(pluginSettings: BuildPluginSampleSettings) {
+    requirements {
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
+    }
+}
+
 fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig =
     object : EAPSampleConfig {
         override val projectName: String = this@asEAPSampleConfig.projectName
@@ -222,9 +240,7 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                     root(VCSKtorBuildPluginsEAP)
                 }
 
-                requirements {
-                    contains("teamcity.agent.jvm.os.name", "Linux")
-                }
+                inheritGradlePluginSampleAgentRequirements(this@asEAPSampleConfig)
 
                 params {
                     param("teamcity.build.skipDependencyBuilds", "true")
@@ -278,28 +294,17 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                 root(VCSSamples)
             }
 
+            inheritSampleAgentRequirements(this@asEAPSampleConfig)
+
             if (this@asEAPSampleConfig.withAndroidSdk) {
                 params {
                     param("env.ANDROID_HOME", "%android-sdk.location%")
-                }
-            }
-
-            requirements {
-                contains("teamcity.agent.jvm.os.name", "Linux")
-                if (this@asEAPSampleConfig.withAndroidSdk) {
-                    exists("env.ANDROID_HOME")
                 }
             }
 
             params {
                 param("teamcity.build.skipDependencyBuilds", "true")
                 param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
-            }
-
-            if (this@asEAPSampleConfig.withAndroidSdk) {
-                params {
-                    param("env.ANDROID_HOME", "%android-sdk.location%")
-                }
             }
 
             dependencies {
@@ -374,7 +379,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         requirements {
-            contains("teamcity.agent.jvm.os.name", "Linux")
+            agent(Agents.OS.Linux, Agents.Arch.X64, Agents.MEDIUM)
         }
 
         params {
