@@ -136,6 +136,74 @@ fun BuildSteps.createEAPGradleInitScript() {
     }
 }
 
+
+fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boolean) {
+    script {
+        name = "Create Plugin Sample Settings"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            # Determine the settings file path
+            SETTINGS_DIR="${if (!standalone) "samples/$relativeDir" else ""}"
+            
+            if [ -n "${'$'}{SETTINGS_DIR}" ]; then
+                mkdir -p "${'$'}{SETTINGS_DIR}"
+                SETTINGS_FILE="${'$'}{SETTINGS_DIR}/settings.gradle.kts"
+            else
+                SETTINGS_FILE="settings.gradle.kts"
+            fi
+            
+            echo "Creating plugin sample settings at: ${'$'}{SETTINGS_FILE}"
+            
+            # Backup existing settings if present
+            if [ -f "${'$'}{SETTINGS_FILE}" ]; then
+                cp "${'$'}{SETTINGS_FILE}" "${'$'}{SETTINGS_FILE}.backup"
+                echo "Backed up existing settings file"
+            fi
+            
+            # Create settings that allow project repositories for init script compatibility
+            cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT) // Allow init script repositories
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+EOF
+            
+            echo "Plugin sample settings created successfully"
+        """.trimIndent()
+    }
+}
+
+fun BuildSteps.restorePluginSampleSettings(relativeDir: String, standalone: Boolean) {
+    script {
+        name = "Restore Plugin Sample Settings"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            # Determine the settings file path
+            SETTINGS_DIR="${if (!standalone) "samples/$relativeDir" else ""}"
+            
+            if [ -n "${'$'}{SETTINGS_DIR}" ]; then
+                SETTINGS_FILE="${'$'}{SETTINGS_DIR}/settings.gradle.kts"
+            else
+                SETTINGS_FILE="settings.gradle.kts"
+            fi
+            
+            echo "Restoring plugin sample settings at: ${'$'}{SETTINGS_FILE}"
+            
+            # Restore backup if it exists
+            if [ -f "${'$'}{SETTINGS_FILE}.backup" ]; then
+                mv "${'$'}{SETTINGS_FILE}.backup" "${'$'}{SETTINGS_FILE}"
+                echo "Restored original settings file from backup"
+            else
+                # Remove the temporary settings file if no backup existed
+                rm -f "${'$'}{SETTINGS_FILE}"
+                echo "Removed temporary settings file"
+            fi
+        """.trimIndent()
+    }
+}
 fun BuildSteps.buildEAPGradleProject(
     projectName: String,
     standalone: Boolean,
@@ -166,6 +234,8 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
 
+    createPluginSampleSettings(relativeDir, standalone)
+
     gradle {
         name = "Build Gradle Plugin"
         tasks = "build"
@@ -182,6 +252,8 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
+
+    restorePluginSampleSettings(relativeDir, standalone)
 }
 
 fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
