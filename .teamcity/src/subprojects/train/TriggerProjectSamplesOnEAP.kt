@@ -93,15 +93,6 @@ fun BuildSteps.createEAPGradleInitScript() {
             }
             
             gradle.allprojects {
-                repositories {
-                    clear()
-                    maven { 
-                        name = "KtorEAP"
-                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-                    }
-                    mavenCentral()
-                }
-                
                 configurations.all {
                     resolutionStrategy {
                         eachDependency {
@@ -136,7 +127,6 @@ fun BuildSteps.createEAPGradleInitScript() {
     }
 }
 
-
 fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boolean) {
     script {
         name = "Create Plugin Sample Settings"
@@ -160,17 +150,16 @@ fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boole
                 echo "Backed up existing settings file"
             fi
             
-            # Create settings that allow project repositories for init script compatibility
+            # Create settings that work with init scripts
             cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT) // Allow init script repositories
     repositories {
         mavenCentral()
         gradlePluginPortal()
     }
 }
 EOF
-            
+    
             echo "Plugin sample settings created successfully"
         """.trimIndent()
     }
