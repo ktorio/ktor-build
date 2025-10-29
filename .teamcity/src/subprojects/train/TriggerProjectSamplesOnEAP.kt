@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -94,6 +93,16 @@ fun BuildSteps.createEAPGradleInitScript() {
             }
             
             gradle.allprojects {
+                repositories {
+                    clear()
+                    maven { 
+                        name = "KtorEAP"
+                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                    }
+                    gradlePluginPortal()
+                    mavenCentral()
+                }
+                
                 configurations.all {
                     resolutionStrategy {
                         eachDependency {
