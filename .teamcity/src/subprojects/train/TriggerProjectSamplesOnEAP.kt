@@ -83,7 +83,6 @@ fun BuildSteps.createEAPGradleInitScript() {
             }
             
             gradle.allprojects { project ->
-                project.repositories.clear()
                 project.repositories {
                     maven { 
                         name = "KtorEAP"
@@ -92,7 +91,6 @@ fun BuildSteps.createEAPGradleInitScript() {
                             includeGroup("io.ktor")
                         }
                     }
-                    mavenCentral()
                 }
                 
                 project.configurations.all { configuration ->
