@@ -94,7 +94,7 @@ fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boole
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
             # Determine the settings file path
-            SETTINGS_DIR="${if (!standalone) "samples/$relativeDir" else ""}"
+            SETTINGS_DIR="${if (!standalone) relativeDir else ""}"
             
             if [ -n "${'$'}{SETTINGS_DIR}" ]; then
                 mkdir -p "${'$'}{SETTINGS_DIR}"
@@ -158,7 +158,7 @@ fun BuildSteps.restorePluginSampleSettings(relativeDir: String, standalone: Bool
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
             # Determine the settings file path
-            SETTINGS_DIR="${if (!standalone) "samples/$relativeDir" else ""}"
+            SETTINGS_DIR="${if (!standalone) relativeDir else ""}"
             
             if [ -n "${'$'}{SETTINGS_DIR}" ]; then
                 SETTINGS_FILE="${'$'}{SETTINGS_DIR}/settings.gradle.kts"
@@ -200,14 +200,6 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
     createPluginSampleSettings(relativeDir, standalone)
-
-    gradle {
-        name = "Build Gradle Plugin"
-        tasks = "build"
-        gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
-        jdkHome = Env.JDK_LTS
-        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
-    }
 
     gradle {
         name = "Build EAP Build Plugin Sample"
