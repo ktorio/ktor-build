@@ -87,9 +87,6 @@ fun BuildSteps.createEAPGradleInitScript() {
                     maven { 
                         name = "KtorEAP"
                         url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-                        mavenContent {
-                            includeGroup("io.ktor")
-                        }
                     }
                 }
                 
@@ -105,9 +102,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                                 logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
                             }
                         }
-                        cacheDynamicVersionsFor(0, "seconds")
-                        cacheChangingModulesFor(0, "seconds")
-                     }
+                    }
                 }
 
                 afterEvaluate {
