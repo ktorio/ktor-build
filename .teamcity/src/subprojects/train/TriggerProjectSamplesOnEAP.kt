@@ -56,6 +56,43 @@ fun BuildSteps.createEAPGradleInitScript() {
             fi
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
+            gradle.settingsEvaluated {
+                dependencyResolutionManagement {
+                    repositories {
+                        maven {
+                            name = "KtorEAP"
+                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                        }
+                        mavenCentral()
+                        gradlePluginPortal()
+                    }
+                }
+                
+                pluginManagement {
+                    repositories {
+                        maven {
+                            name = "KtorEAP"
+                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                        }
+                        gradlePluginPortal()
+                    }
+                    
+                    resolutionStrategy {
+                        eachPlugin {
+                            if (requested.id.id == "io.ktor.plugin") {
+                                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                                    useVersion(pluginVersion)
+                                    logger.lifecycle("Using latest Ktor Gradle plugin version from Plugin Portal: " + pluginVersion)
+                                } else {
+                                    logger.lifecycle("Using requested Ktor Gradle plugin version: " + requested.version)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             gradle.allprojects {
                 configurations.all {
                     resolutionStrategy {
@@ -128,7 +165,7 @@ dependencyResolutionManagement {
 pluginManagement {
     repositories {
         maven {
-            name = "KtorEAP"  
+            name = "KtorEAP"
             url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
         }
         gradlePluginPortal()
