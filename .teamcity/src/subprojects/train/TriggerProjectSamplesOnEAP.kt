@@ -56,40 +56,7 @@ fun BuildSteps.createEAPGradleInitScript() {
             fi
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
-            gradle.settingsEvaluated {
-                pluginManagement {
-                    repositories {
-                        gradlePluginPortal()
-                        maven { 
-                            name = "KtorEAP"
-                            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") 
-                        }
-                    }
-                    
-                    resolutionStrategy {
-                        eachPlugin {
-                            if (requested.id.id == "io.ktor.plugin") {
-                                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-                                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
-                                    useVersion(pluginVersion)
-                                    logger.lifecycle("Using latest Ktor Gradle plugin version from Plugin Portal: " + pluginVersion)
-                                } else {
-                                    logger.lifecycle("Using requested Ktor Gradle plugin version: " + requested.version)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
             gradle.allprojects {
-                repositories {
-                    maven { 
-                        name = "KtorEAP"
-                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-                    }
-                }
-                
                 configurations.all {
                     resolutionStrategy {
                         eachDependency {
@@ -108,7 +75,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                 afterEvaluate {
                     if (this == rootProject) {
                         logger.lifecycle("Project " + name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
-                        logger.lifecycle("Project " + name + ": EAP repository: https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                        logger.lifecycle("Project " + name + ": EAP repository configured in settings.gradle.kts")
                         val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
                         if (pluginVersion != null && pluginVersion.isNotEmpty()) {
                             logger.lifecycle("Project " + name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
@@ -144,8 +111,40 @@ fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boole
                 echo "Backed up existing settings file"
             fi
             
-            # Create minimal settings that won't conflict with init script
+            # Create settings that includes EAP repository configuration
             cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        maven {
+            name = "KtorEAP"
+            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+pluginManagement {
+    repositories {
+        maven {
+            name = "KtorEAP"  
+            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+        }
+        gradlePluginPortal()
+    }
+    
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "io.ktor.plugin") {
+                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                    useVersion(pluginVersion)
+                }
+            }
+        }
+    }
+}
 EOF
             
             echo "Plugin sample settings created successfully"
@@ -182,36 +181,24 @@ fun BuildSteps.restorePluginSampleSettings(relativeDir: String, standalone: Bool
     }
 }
 
-fun BuildSteps.buildEAPGradleProject(
-    projectName: String,
-    standalone: Boolean,
-    isPluginSample: Boolean = false
-) {
+fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
+    createPluginSampleSettings(relativeDir, standalone)
 
     gradle {
-        name = "Build EAP ${if (isPluginSample) "Build Plugin " else ""}Sample"
+        name = "Build EAP Sample"
         tasks = "build"
-        workingDir = when {
-            standalone -> ""
-            isPluginSample && !standalone -> "samples/$projectName"
-            !standalone -> projectName
-            else -> ""
-        }
+        workingDir = if (!standalone) "samples/$relativeDir" else ""
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
-
-        jdkHome = if (isPluginSample) Env.JDK_LTS else "%env.JDK_17_0%"
+        jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
-}
 
-fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
-    buildEAPGradleProject(relativeDir, standalone, isPluginSample = false)
+    restorePluginSampleSettings(relativeDir, standalone)
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
-
     createPluginSampleSettings(relativeDir, standalone)
 
     gradle {
