@@ -82,8 +82,8 @@ fun BuildSteps.createEAPGradleInitScript() {
                 }
             }
             
-            gradle.allprojects { project ->
-                project.repositories {
+            gradle.allprojects {
+                repositories {
                     maven { 
                         name = "KtorEAP"
                         url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
@@ -93,16 +93,16 @@ fun BuildSteps.createEAPGradleInitScript() {
                     }
                 }
                 
-                project.configurations.all { configuration ->
-                    configuration.resolutionStrategy {
-                        eachDependency { details ->
-                            if (details.requested.group == "io.ktor") {
+                configurations.all {
+                    resolutionStrategy {
+                        eachDependency {
+                            if (requested.group == "io.ktor") {
                                 val ktorVersion = System.getenv("KTOR_VERSION")
                                 if (ktorVersion.isNullOrBlank()) {
                                     throw GradleException("KTOR_VERSION environment variable is not set or is blank. Cannot resolve Ktor EAP dependencies.")
                                 }
-                                details.useVersion(ktorVersion)
-                                logger.lifecycle("Forcing Ktor dependency " + details.requested.name + " to use EAP version: " + ktorVersion)
+                                useVersion(ktorVersion)
+                                logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
                             }
                         }
                         cacheDynamicVersionsFor(0, "seconds")
@@ -110,13 +110,13 @@ fun BuildSteps.createEAPGradleInitScript() {
                      }
                 }
 
-                project.afterEvaluate {
-                    if (project == project.rootProject) {
-                        logger.lifecycle("Project " + project.name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
-                        logger.lifecycle("Project " + project.name + ": EAP repository: https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                afterEvaluate {
+                    if (this == rootProject) {
+                        logger.lifecycle("Project " + name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+                        logger.lifecycle("Project " + name + ": EAP repository: https://maven.pkg.jetbrains.space/public/p/ktor/eap")
                         val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
                         if (pluginVersion != null && pluginVersion.isNotEmpty()) {
-                            logger.lifecycle("Project " + project.name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
+                            logger.lifecycle("Project " + name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
                         }
                     }
                 }
