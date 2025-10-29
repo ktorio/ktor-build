@@ -223,6 +223,15 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
     createPluginSampleSettings(relativeDir, standalone)
 
     gradle {
+        name = "Generate Gradle Wrapper"
+        tasks = "wrapper"
+        workingDir = if (!standalone) "samples/$relativeDir" else ""
+        useGradleWrapper = false
+        jdkHome = Env.JDK_LTS
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+    }
+
+    gradle {
         name = "Build EAP Build Plugin Sample"
         tasks = "build"
         workingDir = if (!standalone) "samples/$relativeDir" else ""
