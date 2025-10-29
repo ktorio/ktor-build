@@ -57,6 +57,16 @@ fun BuildSteps.createEAPGradleInitScript() {
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
             gradle.allprojects {
+                repositories {
+                    google()
+                    mavenCentral()
+                    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+                    maven {
+                        name = "KtorEAP"
+                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                    }
+                }
+                
                 configurations.all {
                     resolutionStrategy {
                         eachDependency {
@@ -114,14 +124,18 @@ fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boole
             # Create settings that includes EAP repository configuration
             cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
         maven {
             name = "KtorEAP"
             url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+            content {
+                includeGroup("io.ktor")
+            }
         }
+        google()
         mavenCentral()
-        gradlePluginPortal()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
 
@@ -130,8 +144,13 @@ pluginManagement {
         maven {
             name = "KtorEAP"  
             url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+            content {
+                includeGroup("io.ktor")
+            }
         }
         gradlePluginPortal()
+        mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
     
     resolutionStrategy {
