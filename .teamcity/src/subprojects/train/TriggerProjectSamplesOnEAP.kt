@@ -127,7 +127,6 @@ fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boole
             # Create settings that includes EAP repository configuration
             cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
         maven {
             name = "KtorEAP"
