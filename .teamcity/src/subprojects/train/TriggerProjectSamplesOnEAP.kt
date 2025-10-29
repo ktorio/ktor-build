@@ -64,6 +64,9 @@ fun BuildSteps.createEAPGradleInitScript() {
                     maven {
                         name = "KtorEAP"
                         url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+                        content {
+                            includeGroup("io.ktor")
+                        }
                     }
                 }
                 
