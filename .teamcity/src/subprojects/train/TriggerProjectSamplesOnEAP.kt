@@ -64,7 +64,7 @@ pluginManagement {
     repositories {
         ${generateGradlePluginRepositories()}
     }${if (isPluginSample) """
-    
+
     resolutionStrategy {
         eachPlugin {
             if (requested.id.id == "io.ktor.plugin") {
