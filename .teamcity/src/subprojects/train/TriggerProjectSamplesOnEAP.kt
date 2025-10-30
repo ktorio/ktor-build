@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -14,6 +13,73 @@ import subprojects.build.samples.*
 object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
     const val PUBLISH_BUILD_PLUGIN_TYPE_ID = "KtorGradleBuildPlugin_Publish"
+}
+
+object EapRepositoryConfig {
+    const val KTOR_EAP_URL = "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
+    const val COMPOSE_DEV_URL = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
+
+    fun generateGradleRepositories(): String = """
+        google()
+        mavenCentral()
+        maven("$COMPOSE_DEV_URL")
+        maven {
+            name = "KtorEAP"
+            url = uri("$KTOR_EAP_URL")
+            content {
+                includeGroup("io.ktor")
+            }
+        }
+    """.trimIndent()
+
+    fun generateGradlePluginRepositories(): String = """
+        maven {
+            name = "KtorEAP"  
+            url = uri("$KTOR_EAP_URL")
+            content {
+                includeGroup("io.ktor")
+            }
+        }
+        gradlePluginPortal()
+        mavenCentral()
+        maven("$COMPOSE_DEV_URL")
+    """.trimIndent()
+
+    fun generateMavenRepository(): String = """
+        <repository>
+            <id>ktor-eap</id>
+            <url>$KTOR_EAP_URL</url>
+        </repository>
+    """.trimIndent()
+
+    fun generateSettingsContent(isPluginSample: Boolean): String {
+        val baseSettings = """
+dependencyResolutionManagement {
+    repositories {
+        ${generateGradleRepositories()}
+    }
+}
+
+pluginManagement {
+    repositories {
+        ${generateGradlePluginRepositories()}
+    }${if (isPluginSample) """
+    
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "io.ktor.plugin") {
+                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                    useVersion(pluginVersion)
+                }
+            }
+        }
+    }""" else ""}
+}
+        """.trimIndent()
+
+        return baseSettings
+    }
 }
 
 interface EAPSampleConfig {
@@ -59,16 +125,7 @@ fun BuildSteps.createEAPGradleInitScript() {
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
             gradle.allprojects {
                 repositories {
-                    google()
-                    mavenCentral()
-                    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-                    maven {
-                        name = "KtorEAP"
-                        url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-                        content {
-                            includeGroup("io.ktor")
-                        }
-                    }
+                    ${EapRepositoryConfig.generateGradleRepositories()}
                 }
                 
                 configurations.all {
@@ -85,7 +142,6 @@ fun BuildSteps.createEAPGradleInitScript() {
                         }
                     }
                 }
-
                 afterEvaluate {
                     if (this == rootProject) {
                         logger.lifecycle("Project " + name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
@@ -109,96 +165,41 @@ fun BuildSteps.createEAPSampleSettings(samplePath: String, isPluginSample: Boole
         scriptContent = """
             SAMPLE_DIR="$samplePath"
             SETTINGS_FILE="${'$'}{SAMPLE_DIR}/settings.gradle.kts"
+            TEMP_SETTINGS="${'$'}{SETTINGS_FILE}.tmp.$$"
+            BACKUP_FILE="${'$'}{SETTINGS_FILE}.backup.$$"
             
             echo "Creating EAP sample settings at: ${'$'}{SETTINGS_FILE}"
             
-            # Backup existing settings if present
+            # Use process ID to make temp files unique
+            trap 'rm -f "${'$'}TEMP_SETTINGS" "${'$'}BACKUP_FILE"' EXIT
+            
+            # Atomically backup existing settings if present
             if [ -f "${'$'}{SETTINGS_FILE}" ]; then
-                cp "${'$'}{SETTINGS_FILE}" "${'$'}{SETTINGS_FILE}.backup"
-                echo "Backed up existing settings file"
+                if cp "${'$'}{SETTINGS_FILE}" "${'$'}BACKUP_FILE"; then
+                    echo "Backed up existing settings file to ${'$'}BACKUP_FILE"
+                else
+                    echo "Failed to backup existing settings file" >&2
+                    exit 1
+                fi
             fi
             
-            # Create settings based on sample type
-            if [ "$isPluginSample" = "true" ]; then
-                # Plugin samples need build-logic and plugin includes
-                cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
-dependencyResolutionManagement {
-    repositories {
-        maven {
-            name = "KtorEAP"
-            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-            content {
-                includeGroup("io.ktor")
-            }
-        }
-        google()
-        mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    }
-}
-
-pluginManagement {
-    repositories {
-        maven {
-            name = "KtorEAP"  
-            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-            content {
-                includeGroup("io.ktor")
-            }
-        }
-        gradlePluginPortal()
-        mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    }
-    
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "io.ktor.plugin") {
-                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
-                    useVersion(pluginVersion)
-                }
-            }
-        }
-    }
-}
+            # Create new settings in temporary file
+            cat > "${'$'}TEMP_SETTINGS" << 'EOF'
+${EapRepositoryConfig.generateSettingsContent(isPluginSample)}
 EOF
+            
+            # Atomically move temp file to final location
+            if mv "${'$'}TEMP_SETTINGS" "${'$'}{SETTINGS_FILE}"; then
+                echo "EAP sample settings created successfully"
             else
-                # Regular samples - simpler setup
-                cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
-dependencyResolutionManagement {
-    repositories {
-        maven {
-            name = "KtorEAP"
-            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-            content {
-                includeGroup("io.ktor")
-            }
-        }
-        google()
-        mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    }
-}
-
-pluginManagement {
-    repositories {
-        maven {
-            name = "KtorEAP"  
-            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-            content {
-                includeGroup("io.ktor")
-            }
-        }
-        gradlePluginPortal()
-        mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    }
-}
-EOF
+                echo "Failed to create settings file" >&2
+                # Restore backup if atomic move failed
+                if [ -f "${'$'}BACKUP_FILE" ]; then
+                    mv "${'$'}BACKUP_FILE" "${'$'}{SETTINGS_FILE}"
+                    echo "Restored original settings file"
+                fi
+                exit 1
             fi
-            
-            echo "EAP sample settings created successfully"
         """.trimIndent()
     }
 }
@@ -210,17 +211,29 @@ fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
         scriptContent = """
             SAMPLE_DIR="$samplePath"
             SETTINGS_FILE="${'$'}{SAMPLE_DIR}/settings.gradle.kts"
+            BACKUP_FILE="${'$'}{SETTINGS_FILE}.backup.$$"
             
             echo "Restoring sample settings at: ${'$'}{SETTINGS_FILE}"
             
-            # Restore backup if it exists
-            if [ -f "${'$'}{SETTINGS_FILE}.backup" ]; then
-                mv "${'$'}{SETTINGS_FILE}.backup" "${'$'}{SETTINGS_FILE}"
-                echo "Restored original settings file from backup"
+            # Look for backup file with current process ID first, then fallback to generic backup
+            if [ -f "${'$'}BACKUP_FILE" ]; then
+                if mv "${'$'}BACKUP_FILE" "${'$'}{SETTINGS_FILE}"; then
+                    echo "Restored original settings file from backup"
+                else
+                    echo "Failed to restore from backup" >&2
+                    exit 1
+                fi
+            elif [ -f "${'$'}{SETTINGS_FILE}.backup" ]; then
+                if mv "${'$'}{SETTINGS_FILE}.backup" "${'$'}{SETTINGS_FILE}"; then
+                    echo "Restored original settings file from generic backup"
+                else
+                    echo "Failed to restore from generic backup" >&2
+                    exit 1
+                fi
             else
                 # Remove the temporary settings file if no backup existed
                 rm -f "${'$'}{SETTINGS_FILE}"
-                echo "Removed temporary settings file"
+                echo "Removed temporary settings file (no original existed)"
             fi
         """.trimIndent()
     }
@@ -228,14 +241,11 @@ fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
 
 fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
-
     val samplePath = if (!standalone) relativeDir else ""
     val wrapperPath = if (!standalone) ".." else ""
-
     if (!standalone) {
         createEAPSampleSettings(samplePath, false)
     }
-
     gradle {
         name = "Build EAP Sample"
         tasks = "build"
@@ -246,7 +256,6 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
-
     if (!standalone) {
         restoreEAPSampleSettings(samplePath)
     }
@@ -254,14 +263,11 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
-
     val samplePath = if (!standalone) "samples/$relativeDir" else ""
     val wrapperPath = if (!standalone) "../.." else ""
-
     if (!standalone) {
         createEAPSampleSettings(samplePath, true)
     }
-
     gradle {
         name = "Build EAP Build Plugin Sample"
         tasks = "build"
@@ -272,7 +278,6 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
-
     if (!standalone) {
         restoreEAPSampleSettings(samplePath)
     }
@@ -291,10 +296,7 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
                 <profile>
                   <id>ktor-eap</id>
                   <repositories>
-                    <repository>
-                      <id>ktor-eap</id>
-                      <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
-                    </repository>
+                    ${EapRepositoryConfig.generateMavenRepository()}
                   </repositories>
                   <properties>
                     <ktor.version>%env.KTOR_VERSION%</ktor.version>
@@ -308,7 +310,6 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
             EOF
         """.trimIndent()
     }
-
     maven {
         name = "Test EAP Maven Sample"
         goals = "test"
@@ -322,7 +323,6 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
 fun BuildType.inheritSampleAgentRequirements(sampleSettings: SampleProjectSettings) {
     requirements {
         agent(Agents.OS.Linux, Agents.Arch.X64, Agents.MEDIUM)
-
         if (sampleSettings.withAndroidSdk) {
             exists("env.ANDROID_HOME")
         }
@@ -342,19 +342,15 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
             return BuildType {
                 id("EAP_KtorBuildPluginSamplesValidate_${projectName.replace('-', '_')}")
                 name = "EAP Validate $projectName sample"
-
                 vcs {
                     root(VCSKtorBuildPluginsEAP)
                 }
-
                 inheritGradlePluginSampleAgentRequirements(this@asEAPSampleConfig)
-
                 params {
                     param("teamcity.build.skipDependencyBuilds", "true")
                     param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
                     param("env.USE_LATEST_KTOR_GRADLE_PLUGIN", "true")
                 }
-
                 dependencies {
                     dependency(versionResolver) {
                         snapshot {
@@ -363,11 +359,9 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                         }
                     }
                 }
-
                 steps {
                     buildEAPGradlePluginSample(this@asEAPSampleConfig.projectName, this@asEAPSampleConfig.standalone)
                 }
-
                 failureConditions {
                     failOnText {
                         conditionType = BuildFailureOnText.ConditionType.CONTAINS
@@ -384,7 +378,6 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                     }
                     executionTimeoutMin = 10
                 }
-
                 defaultBuildFeatures(VCSKtorBuildPluginsEAP.id.toString())
             }
         }
@@ -396,24 +389,19 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
         return BuildType {
             id("EAP_KtorSamplesValidate_${projectName.replace('-', '_')}")
             name = "EAP Validate $projectName sample"
-
             vcs {
                 root(VCSSamples)
             }
-
             inheritSampleAgentRequirements(this@asEAPSampleConfig)
-
             if (this@asEAPSampleConfig.withAndroidSdk) {
                 params {
                     param("env.ANDROID_HOME", "%android-sdk.location%")
                 }
             }
-
             params {
                 param("teamcity.build.skipDependencyBuilds", "true")
                 param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             }
-
             dependencies {
                 dependency(versionResolver) {
                     snapshot {
@@ -422,7 +410,6 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                     }
                 }
             }
-
             steps {
                 if (this@asEAPSampleConfig.withAndroidSdk) {
                     script {
@@ -430,7 +417,6 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                         scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
                     }
                 }
-
                 when (this@asEAPSampleConfig.buildSystem) {
                     BuildSystem.MAVEN -> buildEAPMavenSample(this@asEAPSampleConfig.projectName)
                     BuildSystem.GRADLE -> buildEAPGradleSample(
@@ -439,7 +425,6 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                     )
                 }
             }
-
             failureConditions {
                 failOnText {
                     conditionType = BuildFailureOnText.ConditionType.CONTAINS
@@ -461,7 +446,6 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                 }
                 executionTimeoutMin = 10
             }
-
             defaultBuildFeatures(VCSSamples.id.toString())
         }
     }
@@ -471,7 +455,6 @@ object TriggerProjectSamplesOnEAP : Project({
     id("TriggerProjectSamplesOnEAP")
     name = "EAP Validation"
     description = "Validate samples against EAP versions of Ktor"
-
     params {
         param("ktor.eap.version", "KTOR_VERSION")
     }
