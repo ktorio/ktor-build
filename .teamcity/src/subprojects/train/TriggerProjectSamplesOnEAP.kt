@@ -135,12 +135,6 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
-    
-    versionCatalogs {
-        libs {
-            from(files("../../gradle/libs.versions.toml"))
-        }
-    }
 }
 
 pluginManagement {
