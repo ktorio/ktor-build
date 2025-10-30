@@ -63,18 +63,24 @@ dependencyResolutionManagement {
 pluginManagement {
     repositories {
         ${generateGradlePluginRepositories()}
-    }${if (isPluginSample) """
-
+    }
+    
     resolutionStrategy {
         eachPlugin {
             if (requested.id.id == "io.ktor.plugin") {
                 val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-                if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                    ?: System.getProperty("ktor.gradle.plugin.version")
+                    ?: System.getenv("KTOR_VERSION")
+                if (!pluginVersion.isNullOrEmpty()) {
                     useVersion(pluginVersion)
+                    println("Using Ktor Gradle Plugin version: " + pluginVersion)
+                } else {
+                    useVersion("3.0.0")
+                    println("Using fallback Ktor Gradle Plugin version: 3.0.0")
                 }
             }
         }
-    }""" else ""}
+    }
 }
         """.trimIndent()
 
@@ -111,12 +117,12 @@ fun BuildSteps.createEAPGradleInitScript() {
                         echo "Latest Ktor Gradle Plugin version: ${'$'}LATEST_PLUGIN_VERSION"
                         echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}LATEST_PLUGIN_VERSION']"
                     else
-                        echo "Failed to extract plugin version from Gradle Plugin Portal, using default behavior"
-                        echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
+                        echo "Failed to extract plugin version from Gradle Plugin Portal, using Ktor version as fallback"
+                        echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='%env.KTOR_VERSION%']"
                     fi
                 else
-                    echo "Failed to fetch plugin version from Gradle Plugin Portal, using default behavior"
-                    echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='']"
+                    echo "Failed to fetch plugin version from Gradle Plugin Portal, using Ktor version as fallback"
+                    echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='%env.KTOR_VERSION%']"
                 fi
                 
                 rm -f "${'$'}TEMP_PLUGIN_FILE"
@@ -175,14 +181,16 @@ gradle.allprojects {
             }
         }
     }
+    
     afterEvaluate {
         if (this == rootProject) {
-            logger.lifecycle("Project " + name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
-            logger.lifecycle("Project " + name + ": EAP repository configured in settings.gradle.kts")
             val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-            if (pluginVersion != null && pluginVersion.isNotEmpty()) {
-                logger.lifecycle("Project " + name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
-            }
+                ?: System.getenv("KTOR_VERSION")
+                ?: "3.0.0"
+            System.setProperty("ktor.gradle.plugin.version", pluginVersion)
+            logger.lifecycle("Project " + name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+            logger.lifecycle("Project " + name + ": Using Ktor Gradle plugin version " + pluginVersion)
+            logger.lifecycle("Project " + name + ": EAP repository configured in settings.gradle.kts")
         }
     }
 }
@@ -314,7 +322,6 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     }
 }
 
-
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
 
@@ -350,13 +357,14 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
 
 fun BuildSteps.modifyRootSettingsForEAP() {
     script {
-        name = "Modify Root Settings for EAP"
+        name = "Create EAP Settings Override"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
             SETTINGS_FILE="settings.gradle.kts"
             BACKUP_FILE="settings.gradle.kts.eap.backup"
+            EAP_SETTINGS_FILE="eap-settings.gradle.kts"
             
-            echo "Modifying root settings.gradle.kts for EAP"
+            echo "Creating EAP settings override"
             
             # Backup original settings
             if [ -f "${'$'}SETTINGS_FILE" ]; then
@@ -364,59 +372,24 @@ fun BuildSteps.modifyRootSettingsForEAP() {
                 echo "Backed up original settings.gradle.kts"
             fi
             
-            # Add EAP repository configuration to existing settings
-            cat >> "${'$'}SETTINGS_FILE" << 'EOF'
-
-// EAP Configuration - Added by TeamCity
-pluginManagement {
-    repositories {
-        maven {
-            name = "KtorEAP"  
-            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-            content {
-                includeGroup("io.ktor")
-            }
-        }
-        gradlePluginPortal()
-        mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-    }
-    
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "io.ktor.plugin") {
-                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-                    ?: System.getProperty("ktor.gradle.plugin.version")
-                    ?: System.getenv("KTOR_VERSION")
-                if (!pluginVersion.isNullOrEmpty()) {
-                    useVersion(pluginVersion)
-                    println("Using Ktor Gradle Plugin version: " + pluginVersion)
-                } else {
-                    useVersion("3.0.0")
-                    println("Using fallback Ktor Gradle Plugin version: 3.0.0")
-                }
-            }
-        }
-    }
-}
-
-dependencyResolutionManagement {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-        maven {
-            name = "KtorEAP"
-            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-            content {
-                includeGroup("io.ktor")
-            }
-        }
-    }
-}
+            # Create EAP-specific settings file using the existing function
+            cat > "${'$'}EAP_SETTINGS_FILE" << 'EOF'
+${EapRepositoryConfig.generateSettingsContent(true)}
 EOF
             
-            echo "Modified settings.gradle.kts for EAP validation"
+            # Add apply from to the existing settings.gradle.kts
+            if [ -f "${'$'}SETTINGS_FILE" ]; then
+                # Add the apply from at the beginning of the file
+                echo "apply(from = \"eap-settings.gradle.kts\")" > "${'$'}SETTINGS_FILE.tmp"
+                echo "" >> "${'$'}SETTINGS_FILE.tmp"
+                cat "${'$'}SETTINGS_FILE" >> "${'$'}SETTINGS_FILE.tmp"
+                mv "${'$'}SETTINGS_FILE.tmp" "${'$'}SETTINGS_FILE"
+                echo "Applied EAP settings to existing settings.gradle.kts"
+            else
+                # If no settings file exists, create one with just the apply
+                echo "apply(from = \"eap-settings.gradle.kts\")" > "${'$'}SETTINGS_FILE"
+                echo "Created new settings.gradle.kts with EAP configuration"
+            fi
         """.trimIndent()
     }
 }
@@ -428,9 +401,17 @@ fun BuildSteps.restoreRootSettings() {
         scriptContent = """
             SETTINGS_FILE="settings.gradle.kts"
             BACKUP_FILE="settings.gradle.kts.eap.backup"
+            EAP_SETTINGS_FILE="eap-settings.gradle.kts"
             
-            echo "Restoring original settings.gradle.kts"
+            echo "Restoring original settings and cleaning up EAP files"
             
+            # Remove EAP settings file
+            if [ -f "${'$'}EAP_SETTINGS_FILE" ]; then
+                rm -f "${'$'}EAP_SETTINGS_FILE"
+                echo "Removed EAP settings file"
+            fi
+            
+            # Restore original settings
             if [ -f "${'$'}BACKUP_FILE" ]; then
                 if mv "${'$'}BACKUP_FILE" "${'$'}SETTINGS_FILE"; then
                     echo "Successfully restored original settings.gradle.kts"
@@ -465,9 +446,9 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
                   </properties>
                 </profile>
               </profiles>
-              <activeProjects>
+              <activeProfiles>
                 <activeProfile>ktor-eap</activeProfile>
-              </activeProjects>
+              </activeProfiles>
             </settings>
             EOF
         """.trimIndent()
