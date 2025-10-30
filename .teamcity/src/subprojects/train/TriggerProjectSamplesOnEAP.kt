@@ -227,6 +227,7 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
         tasks = "build"
         workingDir = if (!standalone) "samples/$relativeDir" else ""
         useGradleWrapper = true
+        gradleWrapperPath = "gradlew"
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
