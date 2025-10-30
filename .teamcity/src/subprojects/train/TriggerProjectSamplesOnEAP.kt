@@ -162,9 +162,6 @@ pluginManagement {
         }
     }
 }
-
-includeBuild("../../build-logic")
-includeBuild("../../plugin")
 EOF
             else
                 # Regular samples - simpler setup
