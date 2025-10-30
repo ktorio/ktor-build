@@ -309,6 +309,7 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
     if (!standalone) {
+        restoreGradlePluginSampleBuildFiles()
         restoreEAPSampleSettings(samplePath)
     }
 }
@@ -358,7 +359,7 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
               </profiles>
               <activeProjects>
                 <activeProfile>ktor-eap</activeProfile>
-              </activeProfiles>
+              </activeProjects>
             </settings>
             EOF
         """.trimIndent()
