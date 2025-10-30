@@ -122,6 +122,39 @@ fun BuildSteps.createEAPGradleInitScript() {
                 rm -f "${'$'}TEMP_PLUGIN_FILE"
             fi
             
+            # Fix build.gradle.kts files in Gradle plugin samples to replace version catalog aliases
+            echo "Fixing build.gradle.kts files in gradle plugin samples..."
+            find samples -name "build.gradle.kts" -type f 2>/dev/null | while read build_file; do
+                if [ -f "${'$'}build_file" ]; then
+                    echo "Processing ${'$'}build_file"
+                    
+                    # Create backup
+                    cp "${'$'}build_file" "${'$'}build_file.backup"
+                    
+                    # Check if file contains version catalog aliases
+                    if grep -q "alias(libs\.plugins\." "${'$'}build_file"; then
+                        echo "Found version catalog aliases in ${'$'}build_file, replacing..."
+                        
+                        # Replace version catalog aliases with direct plugin IDs
+                        sed -i.tmp \
+                            -e 's/alias(libs\.plugins\.ktor)/id("io.ktor.plugin")/g' \
+                            -e 's/alias(libs\.plugins\.kotlin\.jvm)/id("org.jetbrains.kotlin.jvm")/g' \
+                            -e 's/alias(libs\.plugins\.kotlin\.plugin\.serialization)/id("org.jetbrains.kotlin.plugin.serialization")/g' \
+                            -e 's/alias(libs\.plugins\.shadow)/id("com.github.johnrengelman.shadow")/g' \
+                            "${'$'}build_file"
+                        
+                        # Remove the temporary file created by sed -i
+                        rm -f "${'$'}build_file.tmp"
+                        
+                        echo "Successfully fixed version catalog aliases in ${'$'}build_file"
+                    else
+                        echo "No version catalog aliases found in ${'$'}build_file, skipping"
+                        # Remove backup since no changes were made
+                        rm -f "${'$'}build_file.backup"
+                    fi
+                fi
+            done
+            
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
 gradle.allprojects {
     repositories {
@@ -154,6 +187,27 @@ gradle.allprojects {
     }
 }
 EOF
+        """.trimIndent()
+    }
+}
+
+fun BuildSteps.restoreGradlePluginSampleBuildFiles() {
+    script {
+        name = "Restore Gradle Plugin Sample Build Files"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            echo "Restoring original build.gradle.kts files..."
+            find samples -name "build.gradle.kts.backup" -type f 2>/dev/null | while read backup_file; do
+                original_file="${'$'}{backup_file%.backup}"
+                if [ -f "${'$'}backup_file" ]; then
+                    echo "Restoring ${'$'}original_file from backup"
+                    if mv "${'$'}backup_file" "${'$'}original_file"; then
+                        echo "Successfully restored ${'$'}original_file"
+                    else
+                        echo "Failed to restore ${'$'}original_file" >&2
+                    fi
+                fi
+            done
         """.trimIndent()
     }
 }
@@ -277,6 +331,7 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
     if (!standalone) {
+        restoreGradlePluginSampleBuildFiles()
         restoreEAPSampleSettings(samplePath)
     }
 }
@@ -301,7 +356,7 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
                   </properties>
                 </profile>
               </profiles>
-              <activeProfiles>
+              <activeProjects>
                 <activeProfile>ktor-eap</activeProfile>
               </activeProfiles>
             </settings>
