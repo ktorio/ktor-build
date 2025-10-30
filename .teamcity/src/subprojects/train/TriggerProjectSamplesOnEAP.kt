@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -101,22 +102,15 @@ fun BuildSteps.createEAPGradleInitScript() {
     }
 }
 
-fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boolean) {
+fun BuildSteps.createEAPSampleSettings(samplePath: String, isPluginSample: Boolean) {
     script {
-        name = "Create Plugin Sample Settings"
+        name = "Create EAP Sample Settings"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            # Determine the settings file path
-            SETTINGS_DIR="${if (!standalone) relativeDir else ""}"
+            SAMPLE_DIR="$samplePath"
+            SETTINGS_FILE="${'$'}{SAMPLE_DIR}/settings.gradle.kts"
             
-            if [ -n "${'$'}{SETTINGS_DIR}" ]; then
-                mkdir -p "${'$'}{SETTINGS_DIR}"
-                SETTINGS_FILE="${'$'}{SETTINGS_DIR}/settings.gradle.kts"
-            else
-                SETTINGS_FILE="settings.gradle.kts"
-            fi
-            
-            echo "Creating plugin sample settings at: ${'$'}{SETTINGS_FILE}"
+            echo "Creating EAP sample settings at: ${'$'}{SETTINGS_FILE}"
             
             # Backup existing settings if present
             if [ -f "${'$'}{SETTINGS_FILE}" ]; then
@@ -124,8 +118,10 @@ fun BuildSteps.createPluginSampleSettings(relativeDir: String, standalone: Boole
                 echo "Backed up existing settings file"
             fi
             
-            # Create settings that includes EAP repository configuration
-            cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
+            # Create settings based on sample type
+            if [ "$isPluginSample" = "true" ]; then
+                # Plugin samples need build-logic and plugin includes
+                cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
 dependencyResolutionManagement {
     repositories {
         maven {
@@ -138,6 +134,12 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    }
+    
+    versionCatalogs {
+        libs {
+            from(files("../../gradle/libs.versions.toml"))
+        }
     }
 }
 
@@ -166,28 +168,59 @@ pluginManagement {
         }
     }
 }
+
+includeBuild("../../build-logic")
+includeBuild("../../plugin")
 EOF
+            else
+                # Regular samples - simpler setup
+                cat > "${'$'}{SETTINGS_FILE}" << 'EOF'
+dependencyResolutionManagement {
+    repositories {
+        maven {
+            name = "KtorEAP"
+            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+            content {
+                includeGroup("io.ktor")
+            }
+        }
+        google()
+        mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    }
+}
+
+pluginManagement {
+    repositories {
+        maven {
+            name = "KtorEAP"  
+            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+            content {
+                includeGroup("io.ktor")
+            }
+        }
+        gradlePluginPortal()
+        mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    }
+}
+EOF
+            fi
             
-            echo "Plugin sample settings created successfully"
+            echo "EAP sample settings created successfully"
         """.trimIndent()
     }
 }
 
-fun BuildSteps.restorePluginSampleSettings(relativeDir: String, standalone: Boolean) {
+fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
     script {
-        name = "Restore Plugin Sample Settings"
+        name = "Restore EAP Sample Settings"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            # Determine the settings file path
-            SETTINGS_DIR="${if (!standalone) relativeDir else ""}"
+            SAMPLE_DIR="$samplePath"
+            SETTINGS_FILE="${'$'}{SAMPLE_DIR}/settings.gradle.kts"
             
-            if [ -n "${'$'}{SETTINGS_DIR}" ]; then
-                SETTINGS_FILE="${'$'}{SETTINGS_DIR}/settings.gradle.kts"
-            else
-                SETTINGS_FILE="settings.gradle.kts"
-            fi
-            
-            echo "Restoring plugin sample settings at: ${'$'}{SETTINGS_FILE}"
+            echo "Restoring sample settings at: ${'$'}{SETTINGS_FILE}"
             
             # Restore backup if it exists
             if [ -f "${'$'}{SETTINGS_FILE}.backup" ]; then
@@ -204,36 +237,54 @@ fun BuildSteps.restorePluginSampleSettings(relativeDir: String, standalone: Bool
 
 fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
-    createPluginSampleSettings(relativeDir, standalone)
+
+    val samplePath = if (!standalone) relativeDir else ""
+    val wrapperPath = if (!standalone) ".." else ""
+
+    if (!standalone) {
+        createEAPSampleSettings(samplePath, false)
+    }
 
     gradle {
         name = "Build EAP Sample"
         tasks = "build"
-        workingDir = if (!standalone) relativeDir else ""
+        workingDir = samplePath
+        useGradleWrapper = true
+        gradleWrapperPath = wrapperPath
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
 
-    restorePluginSampleSettings(relativeDir, standalone)
+    if (!standalone) {
+        restoreEAPSampleSettings(samplePath)
+    }
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
-    createPluginSampleSettings(relativeDir, standalone)
+
+    val samplePath = if (!standalone) "samples/$relativeDir" else ""
+    val wrapperPath = if (!standalone) "../.." else ""
+
+    if (!standalone) {
+        createEAPSampleSettings(samplePath, true)
+    }
 
     gradle {
         name = "Build EAP Build Plugin Sample"
         tasks = "build"
-        workingDir = if (!standalone) "samples/$relativeDir" else ""
+        workingDir = samplePath
         useGradleWrapper = true
-        gradleWrapperPath = if (!standalone) "../.." else ""
+        gradleWrapperPath = wrapperPath
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
     }
 
-    restorePluginSampleSettings(relativeDir, standalone)
+    if (!standalone) {
+        restoreEAPSampleSettings(samplePath)
+    }
 }
 
 fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
