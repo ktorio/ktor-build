@@ -122,7 +122,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                 rm -f "${'$'}TEMP_PLUGIN_FILE"
             fi
             
-            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOL'
+            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << '${'E'}OL'
             gradle.allprojects {
                 repositories {
                     ${EapRepositoryConfig.generateGradleRepositories()}
