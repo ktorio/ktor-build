@@ -222,6 +222,19 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
     createEAPGradleInitScript()
     createPluginSampleSettings(relativeDir, standalone)
 
+    script {
+        name = "Clear Gradle Cache"
+        scriptContent = """
+            echo "Clearing Gradle caches to avoid version conflicts..."
+            rm -rf /home/teamcity/.gradle/caches/7.5.1
+            rm -rf /home/teamcity/.gradle/caches/*/scripts
+            echo "Gradle cache cleared"
+            
+            # Show what Gradle version we'll actually use
+            gradle --version
+        """.trimIndent()
+    }
+
     gradle {
         name = "Generate Gradle Wrapper"
         tasks = "wrapper"
