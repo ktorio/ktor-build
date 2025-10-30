@@ -222,33 +222,11 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boole
     createEAPGradleInitScript()
     createPluginSampleSettings(relativeDir, standalone)
 
-    script {
-        name = "Clear Gradle Cache"
-        scriptContent = """
-            echo "Clearing Gradle caches to avoid version conflicts..."
-            rm -rf /home/teamcity/.gradle/caches/7.5.1
-            rm -rf /home/teamcity/.gradle/caches/*/scripts
-            echo "Gradle cache cleared"
-            
-            # Show what Gradle version we'll actually use
-            gradle --version
-        """.trimIndent()
-    }
-
-    gradle {
-        name = "Generate Gradle Wrapper"
-        tasks = "wrapper"
-        workingDir = if (!standalone) "samples/$relativeDir" else ""
-        useGradleWrapper = false
-        jdkHome = Env.JDK_LTS
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-    }
-
     gradle {
         name = "Build EAP Build Plugin Sample"
         tasks = "build"
         workingDir = if (!standalone) "samples/$relativeDir" else ""
-        useGradleWrapper = false
+        useGradleWrapper = true
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
