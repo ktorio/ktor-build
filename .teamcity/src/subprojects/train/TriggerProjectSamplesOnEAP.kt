@@ -153,7 +153,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                     }
                 }
             }
-            EOL
+            ${'E'}OL
         """.trimIndent()
     }
 }
@@ -242,7 +242,6 @@ fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
 fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
     val samplePath = if (!standalone) relativeDir else ""
-    val wrapperPath = if (!standalone) ".." else ""
     if (!standalone) {
         createEAPSampleSettings(samplePath, false)
     }
@@ -251,7 +250,6 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
         tasks = "build"
         workingDir = samplePath
         useGradleWrapper = true
-        gradleWrapperPath = wrapperPath
         gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
         jdkHome = Env.JDK_LTS
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
