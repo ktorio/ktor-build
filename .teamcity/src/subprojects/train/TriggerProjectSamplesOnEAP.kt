@@ -122,38 +122,38 @@ fun BuildSteps.createEAPGradleInitScript() {
                 rm -f "${'$'}TEMP_PLUGIN_FILE"
             fi
             
-            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << '${'E'}OL'
-            gradle.allprojects {
-                repositories {
-                    ${EapRepositoryConfig.generateGradleRepositories()}
-                }
-                
-                configurations.all {
-                    resolutionStrategy {
-                        eachDependency {
-                            if (requested.group == "io.ktor") {
-                                val ktorVersion = System.getenv("KTOR_VERSION")
-                                if (ktorVersion.isNullOrBlank()) {
-                                    throw GradleException("KTOR_VERSION environment variable is not set or is blank. Cannot resolve Ktor EAP dependencies.")
-                                }
-                                useVersion(ktorVersion)
-                                logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
-                            }
-                        }
+            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
+gradle.allprojects {
+    repositories {
+        ${EapRepositoryConfig.generateGradleRepositories()}
+    }
+    
+    configurations.all {
+        resolutionStrategy {
+            eachDependency {
+                if (requested.group == "io.ktor") {
+                    val ktorVersion = System.getenv("KTOR_VERSION")
+                    if (ktorVersion.isNullOrBlank()) {
+                        throw GradleException("KTOR_VERSION environment variable is not set or is blank. Cannot resolve Ktor EAP dependencies.")
                     }
-                }
-                afterEvaluate {
-                    if (this == rootProject) {
-                        logger.lifecycle("Project " + name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
-                        logger.lifecycle("Project " + name + ": EAP repository configured in settings.gradle.kts")
-                        val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-                        if (pluginVersion != null && pluginVersion.isNotEmpty()) {
-                            logger.lifecycle("Project " + name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
-                        }
-                    }
+                    useVersion(ktorVersion)
+                    logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
                 }
             }
-            ${'E'}OL
+        }
+    }
+    afterEvaluate {
+        if (this == rootProject) {
+            logger.lifecycle("Project " + name + ": Using Ktor EAP version " + System.getenv("KTOR_VERSION"))
+            logger.lifecycle("Project " + name + ": EAP repository configured in settings.gradle.kts")
+            val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+            if (pluginVersion != null && pluginVersion.isNotEmpty()) {
+                logger.lifecycle("Project " + name + ": Using latest Ktor Gradle plugin version " + pluginVersion)
+            }
+        }
+    }
+}
+EOF
         """.trimIndent()
     }
 }
