@@ -314,26 +314,134 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     }
 }
 
+
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
-    val samplePath = if (!standalone) "samples/$relativeDir" else ""
-    val wrapperPath = if (!standalone) "../.." else ""
+
     if (!standalone) {
-        createEAPSampleSettings(samplePath, true)
-    }
-    gradle {
-        name = "Build EAP Build Plugin Sample"
-        tasks = "build"
-        workingDir = samplePath
-        useGradleWrapper = true
-        gradleWrapperPath = wrapperPath
-        gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
-        jdkHome = Env.JDK_LTS
-        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
-    }
-    if (!standalone) {
+        modifyRootSettingsForEAP()
+
+        gradle {
+            name = "Build EAP Build Plugin Sample"
+            tasks = ":samples:$relativeDir:build"
+            workingDir = ""
+            useGradleWrapper = true
+            gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
+            jdkHome = Env.JDK_LTS
+            executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+        }
+
         restoreGradlePluginSampleBuildFiles()
-        restoreEAPSampleSettings(samplePath)
+        restoreRootSettings()
+    } else {
+        createEAPSampleSettings("", true)
+        gradle {
+            name = "Build EAP Build Plugin Sample"
+            tasks = "build"
+            useGradleWrapper = true
+            gradleParams = "--init-script=%system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts"
+            jdkHome = Env.JDK_LTS
+            executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+        }
+        restoreGradlePluginSampleBuildFiles()
+        restoreEAPSampleSettings("")
+    }
+}
+
+fun BuildSteps.modifyRootSettingsForEAP() {
+    script {
+        name = "Modify Root Settings for EAP"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            SETTINGS_FILE="settings.gradle.kts"
+            BACKUP_FILE="settings.gradle.kts.eap.backup"
+            
+            echo "Modifying root settings.gradle.kts for EAP"
+            
+            # Backup original settings
+            if [ -f "${'$'}SETTINGS_FILE" ]; then
+                cp "${'$'}SETTINGS_FILE" "${'$'}BACKUP_FILE"
+                echo "Backed up original settings.gradle.kts"
+            fi
+            
+            # Add EAP repository configuration to existing settings
+            cat >> "${'$'}SETTINGS_FILE" << 'EOF'
+
+// EAP Configuration - Added by TeamCity
+pluginManagement {
+    repositories {
+        maven {
+            name = "KtorEAP"  
+            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+            content {
+                includeGroup("io.ktor")
+            }
+        }
+        gradlePluginPortal()
+        mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+    }
+    
+    resolutionStrategy {
+        eachPlugin {
+            if (requested.id.id == "io.ktor.plugin") {
+                val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
+                    ?: System.getProperty("ktor.gradle.plugin.version")
+                    ?: System.getenv("KTOR_VERSION")
+                if (!pluginVersion.isNullOrEmpty()) {
+                    useVersion(pluginVersion)
+                    println("Using Ktor Gradle Plugin version: " + pluginVersion)
+                } else {
+                    useVersion("3.0.0")
+                    println("Using fallback Ktor Gradle Plugin version: 3.0.0")
+                }
+            }
+        }
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        maven {
+            name = "KtorEAP"
+            url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
+            content {
+                includeGroup("io.ktor")
+            }
+        }
+    }
+}
+EOF
+            
+            echo "Modified settings.gradle.kts for EAP validation"
+        """.trimIndent()
+    }
+}
+
+fun BuildSteps.restoreRootSettings() {
+    script {
+        name = "Restore Root Settings"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            SETTINGS_FILE="settings.gradle.kts"
+            BACKUP_FILE="settings.gradle.kts.eap.backup"
+            
+            echo "Restoring original settings.gradle.kts"
+            
+            if [ -f "${'$'}BACKUP_FILE" ]; then
+                if mv "${'$'}BACKUP_FILE" "${'$'}SETTINGS_FILE"; then
+                    echo "Successfully restored original settings.gradle.kts"
+                else
+                    echo "Failed to restore original settings.gradle.kts" >&2
+                    exit 1
+                fi
+            else
+                echo "No backup file found, settings.gradle.kts may not have been modified"
+            fi
+        """.trimIndent()
     }
 }
 
