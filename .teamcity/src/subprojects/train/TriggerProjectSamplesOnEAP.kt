@@ -118,7 +118,7 @@ fun BuildSteps.createEAPGradleInitScript() {
             # Try to find matching Ktor Gradle Plugin EAP version
             echo "Checking if Ktor Gradle Plugin EAP version exists for %env.KTOR_VERSION%..."
             
-            PLUGIN_METADATA_URL="${EapRepositoryConfig.KTOR_EAP_URL}/io/ktor/plugin/plugin/maven-metadata.xml"
+            PLUGIN_METADATA_URL="${EapRepositoryConfig.KTOR_EAP_URL}/io/ktor/plugin/io.ktor.plugin.gradle.plugin/maven-metadata.xml"
             TEMP_METADATA=$(mktemp)
             
             if curl -fsSL --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 "${'$'}PLUGIN_METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
