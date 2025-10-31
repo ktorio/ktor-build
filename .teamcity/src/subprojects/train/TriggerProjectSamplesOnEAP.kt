@@ -20,8 +20,8 @@ object EapRepositoryConfig {
     const val COMPOSE_DEV_URL = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
 
     fun generateGradleRepositories(): String = """
-        google()
         mavenCentral()
+        google()
         maven("$COMPOSE_DEV_URL")
         maven {
             name = "KtorEAP"
@@ -49,6 +49,7 @@ object EapRepositoryConfig {
         }
         gradlePluginPortal()
         mavenCentral()
+        google()
         maven("$COMPOSE_DEV_URL")
     """.trimIndent()
 
@@ -62,6 +63,7 @@ object EapRepositoryConfig {
     fun generateSettingsContent(isPluginSample: Boolean): String {
         val baseSettings = """
 dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         ${generateGradleRepositories()}
     }
@@ -116,11 +118,21 @@ fun BuildSteps.createEAPGradleInitScript() {
             echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-gradle.allprojects {
-    repositories {
-        ${EapRepositoryConfig.generateGradleRepositories()}
+gradle.beforeSettings { settings ->
+    settings.pluginManagement {
+        repositories {
+            ${EapRepositoryConfig.generateGradlePluginRepositories()}
+        }
     }
     
+    settings.dependencyResolutionManagement {
+        repositories {
+            ${EapRepositoryConfig.generateGradleRepositories()}
+        }
+    }
+}
+
+gradle.allprojects {
     configurations.all {
         resolutionStrategy {
             eachDependency {
@@ -270,11 +282,21 @@ fun BuildSteps.createEAPGradlePluginInitScript() {
             done
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-gradle.allprojects {
-    repositories {
-        ${EapRepositoryConfig.generateGradleRepositories()}
+gradle.beforeSettings { settings ->
+    settings.pluginManagement {
+        repositories {
+            ${EapRepositoryConfig.generateGradlePluginRepositories()}
+        }
     }
     
+    settings.dependencyResolutionManagement {
+        repositories {
+            ${EapRepositoryConfig.generateGradleRepositories()}
+        }
+    }
+}
+
+gradle.allprojects {
     configurations.all {
         resolutionStrategy {
             eachDependency {
@@ -575,21 +597,6 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
     }
 }
 
-fun BuildType.inheritSampleAgentRequirements(sampleSettings: SampleProjectSettings) {
-    requirements {
-        agent(Agents.OS.Linux, Agents.Arch.X64, Agents.MEDIUM)
-        if (sampleSettings.withAndroidSdk) {
-            exists("env.ANDROID_HOME")
-        }
-    }
-}
-
-fun BuildType.inheritGradlePluginSampleAgentRequirements(pluginSettings: BuildPluginSampleSettings) {
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
-    }
-}
-
 fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig =
     object : EAPSampleConfig {
         override val projectName: String = this@asEAPSampleConfig.projectName
@@ -600,7 +607,11 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                 vcs {
                     root(VCSKtorBuildPluginsEAP)
                 }
-                inheritGradlePluginSampleAgentRequirements(this@asEAPSampleConfig)
+
+                requirements {
+                    agent(Agents.OS.Linux)
+                }
+
                 params {
                     param("teamcity.build.skipDependencyBuilds", "true")
                     param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
@@ -647,12 +658,9 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
             vcs {
                 root(VCSSamples)
             }
-            inheritSampleAgentRequirements(this@asEAPSampleConfig)
-            if (this@asEAPSampleConfig.withAndroidSdk) {
-                params {
-                    param("env.ANDROID_HOME", "%android-sdk.location%")
-                }
-            }
+
+            if (this@asEAPSampleConfig.withAndroidSdk) configureAndroidHome()
+
             params {
                 param("teamcity.build.skipDependencyBuilds", "true")
                 param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
@@ -666,12 +674,8 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                 }
             }
             steps {
-                if (this@asEAPSampleConfig.withAndroidSdk) {
-                    script {
-                        name = "Accept Android SDK license"
-                        scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
-                    }
-                }
+                if (this@asEAPSampleConfig.withAndroidSdk) acceptAndroidSDKLicense()
+
                 when (this@asEAPSampleConfig.buildSystem) {
                     BuildSystem.MAVEN -> buildEAPMavenSample(this@asEAPSampleConfig.projectName)
                     BuildSystem.GRADLE -> buildEAPGradleSample(
