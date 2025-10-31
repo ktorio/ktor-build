@@ -17,6 +17,7 @@ fun BuildType.createDeploymentBuild(id: String, name: String, description: Strin
     this.description = description
     type = BuildTypeSettings.Type.DEPLOYMENT
     buildNumberPattern = versionPattern
+    maxRunningBuilds = 1
     features {
         perfmon { }
     }
