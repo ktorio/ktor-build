@@ -1,11 +1,12 @@
 package subprojects.release.publishing
 
-internal const val JVM_AND_COMMON_PUBLISH_TASK = "publishJvmAndCommonPublications"
-internal const val JS_PUBLISH_TASK = "publishJsPublications"
-internal const val LINUX_PUBLISH_TASK = "publishLinuxPublications"
-internal const val WINDOWS_PUBLISH_TASK = "publishWindowsPublications"
-internal const val DARWIN_PUBLISH_TASK = "publishDarwinPublications"
-internal const val ANDROID_NATIVE_PUBLISH_TASK = "publishAndroidNativePublications"
+private const val VALIDATE_PUBLISHED_ARTIFACTS = "validatePublishedArtifacts"
+internal const val JVM_AND_COMMON_PUBLISH_TASK = "$VALIDATE_PUBLISHED_ARTIFACTS publishJvmAndCommonPublications"
+internal const val JS_PUBLISH_TASK = "$VALIDATE_PUBLISHED_ARTIFACTS publishJsPublications"
+internal const val LINUX_PUBLISH_TASK = "$VALIDATE_PUBLISHED_ARTIFACTS publishLinuxPublications"
+internal const val WINDOWS_PUBLISH_TASK = "$VALIDATE_PUBLISHED_ARTIFACTS publishWindowsPublications"
+internal const val DARWIN_PUBLISH_TASK = "$VALIDATE_PUBLISHED_ARTIFACTS publishDarwinPublications"
+internal const val ANDROID_NATIVE_PUBLISH_TASK = "$VALIDATE_PUBLISHED_ARTIFACTS publishAndroidNativePublications"
 
 internal const val EXCLUDE_DOKA_GENERATION = "-x dokkaGeneratePublicationHtml"
 
