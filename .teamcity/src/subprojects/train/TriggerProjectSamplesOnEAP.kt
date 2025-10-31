@@ -176,6 +176,8 @@ fun BuildSteps.createEAPGradlePluginInitScript() {
                 
                 if curl -fsSL --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 "${'$'}PLUGIN_METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
                     echo "Successfully fetched plugin metadata"
+                    echo "Plugin metadata content:"
+                    cat "${'$'}TEMP_METADATA"
                     
                     # Check if the exact framework version exists as plugin version
                     if grep -q ">%env.KTOR_VERSION%<" "${'$'}TEMP_METADATA"; then
@@ -184,19 +186,24 @@ fun BuildSteps.createEAPGradlePluginInitScript() {
                     else
                         echo "Exact plugin version %env.KTOR_VERSION% not found"
                         
-                        # Try to find latest EAP plugin version that matches major.minor
-                        FRAMEWORK_BASE_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/-eap-.*//')
-                        echo "Looking for plugin versions matching base ${'$'}FRAMEWORK_BASE_VERSION..."
+                        # Try to find latest EAP plugin version - look for the latest tag first
+                        LATEST_PLUGIN_VERSION=$(grep -o "<latest>[^<]*</latest>" "${'$'}TEMP_METADATA" | sed 's/<latest>//;s/<\/latest>//')
                         
-                        # Extract latest EAP version for the same major.minor
-                        LATEST_PLUGIN_EAP=$(grep -o ">${'$'}{FRAMEWORK_BASE_VERSION}-eap-[0-9]*<" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
-                        
-                        if [ -n "${'$'}LATEST_PLUGIN_EAP" ]; then
-                            echo "Found compatible plugin EAP version: ${'$'}LATEST_PLUGIN_EAP"
-                            echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}LATEST_PLUGIN_EAP']"
+                        if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
+                            echo "Found latest plugin version from metadata: ${'$'}LATEST_PLUGIN_VERSION"
+                            echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}LATEST_PLUGIN_VERSION']"
                         else
-                            echo "No compatible EAP plugin version found, will use framework version and let Gradle handle resolution"
-                            echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='%env.KTOR_VERSION%']"
+                            # Fallback: extract the highest version number from all versions
+                            echo "No <latest> tag found, extracting highest version from all versions"
+                            LATEST_PLUGIN_VERSION=$(grep -o ">[0-9][^<]*-eap-[0-9]*<" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
+                            
+                            if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
+                                echo "Found latest plugin EAP version: ${'$'}LATEST_PLUGIN_VERSION"
+                                echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}LATEST_PLUGIN_VERSION']"
+                            else
+                                echo "No compatible EAP plugin version found, will use framework version and let Gradle handle resolution"
+                                echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='%env.KTOR_VERSION%']"
+                            fi
                         fi
                     fi
                 else
@@ -207,7 +214,7 @@ fun BuildSteps.createEAPGradlePluginInitScript() {
                 rm -f "${'$'}TEMP_METADATA"
             fi
             
-            echo "Final plugin version to use: ${'$'}{KTOR_GRADLE_PLUGIN_VERSION:-unknown}"
+            echo "Final plugin version to use: %env.KTOR_GRADLE_PLUGIN_VERSION%"
         """.trimIndent()
     }
 
@@ -219,6 +226,13 @@ fun BuildSteps.createEAPGradlePluginInitScript() {
             
             echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
             echo "Using Ktor Gradle Plugin version: %env.KTOR_GRADLE_PLUGIN_VERSION%"
+            
+            # Validate that we have a proper plugin version
+            if [[ "%env.KTOR_GRADLE_PLUGIN_VERSION%" =~ ^-eap- ]]; then
+                echo "ERROR: Invalid plugin version detected: %env.KTOR_GRADLE_PLUGIN_VERSION%"
+                echo "Plugin version should not start with '-eap-', falling back to framework version"
+                echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='%env.KTOR_VERSION%']"
+            fi
             
             # Fix build.gradle.kts files in Gradle plugin samples to replace version catalog aliases
             echo "Fixing build.gradle.kts files in gradle plugin samples..."
@@ -732,9 +746,16 @@ object TriggerProjectSamplesOnEAP : Project({
                     
                     if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
                         echo "Successfully fetched framework metadata"
+                        echo "Framework metadata content:"
+                        cat "${'$'}TEMP_METADATA"
                         
-                        # Extract the latest EAP version
-                        LATEST_EAP_VERSION=$(grep -o ">.*-eap-[0-9]*<" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
+                        # Extract the latest EAP version - try latest tag first
+                        LATEST_EAP_VERSION=$(grep -o "<latest>[^<]*</latest>" "${'$'}TEMP_METADATA" | sed 's/<latest>//;s/<\/latest>//')
+                        
+                        if [ -z "${'$'}LATEST_EAP_VERSION" ]; then
+                            # Fallback to extracting from versions list
+                            LATEST_EAP_VERSION=$(grep -o ">[0-9][^<]*-eap-[0-9]*<" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
+                        fi
                         
                         if [ -n "${'$'}LATEST_EAP_VERSION" ]; then
                             echo "Found latest EAP framework version: ${'$'}LATEST_EAP_VERSION"
@@ -797,6 +818,8 @@ object TriggerProjectSamplesOnEAP : Project({
                         
                         if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}PLUGIN_METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
                             echo "Successfully fetched plugin metadata"
+                            echo "Plugin metadata content:"
+                            cat "${'$'}TEMP_METADATA"
                             
                             # Check if the exact framework version exists as plugin version
                             if grep -q ">${'$'}FRAMEWORK_VERSION<" "${'$'}TEMP_METADATA"; then
@@ -805,19 +828,24 @@ object TriggerProjectSamplesOnEAP : Project({
                             else
                                 echo "Exact plugin version ${'$'}FRAMEWORK_VERSION not found"
                                 
-                                # Try to find latest EAP plugin version that matches major.minor
-                                FRAMEWORK_BASE_VERSION=$(echo "${'$'}FRAMEWORK_VERSION" | sed 's/-eap-.*//')
-                                echo "Looking for plugin versions matching base ${'$'}FRAMEWORK_BASE_VERSION..."
+                                # Try to find latest EAP plugin version - look for the latest tag first
+                                LATEST_PLUGIN_VERSION=$(grep -o "<latest>[^<]*</latest>" "${'$'}TEMP_METADATA" | sed 's/<latest>//;s/<\/latest>//')
                                 
-                                # Extract latest EAP version for the same major.minor
-                                LATEST_PLUGIN_EAP=$(grep -o ">${'$'}{FRAMEWORK_BASE_VERSION}-eap-[0-9]*<" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
-                                
-                                if [ -n "${'$'}LATEST_PLUGIN_EAP" ]; then
-                                    echo "Found compatible plugin EAP version: ${'$'}LATEST_PLUGIN_EAP"
-                                    PLUGIN_VERSION="${'$'}LATEST_PLUGIN_EAP"
+                                if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
+                                    echo "Found latest plugin version from metadata: ${'$'}LATEST_PLUGIN_VERSION"
+                                    PLUGIN_VERSION="${'$'}LATEST_PLUGIN_VERSION"
                                 else
-                                    echo "No compatible EAP plugin version found, using framework version: ${'$'}FRAMEWORK_VERSION"
-                                    PLUGIN_VERSION="${'$'}FRAMEWORK_VERSION"
+                                    # Fallback: extract the highest version number from all versions
+                                    echo "No <latest> tag found, extracting highest version from all versions"
+                                    LATEST_PLUGIN_VERSION=$(grep -o ">[0-9][^<]*-eap-[0-9]*<" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
+                                    
+                                    if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
+                                        echo "Found latest plugin EAP version: ${'$'}LATEST_PLUGIN_VERSION"
+                                        PLUGIN_VERSION="${'$'}LATEST_PLUGIN_VERSION"
+                                    else
+                                        echo "No compatible EAP plugin version found, using framework version: ${'$'}FRAMEWORK_VERSION"
+                                        PLUGIN_VERSION="${'$'}FRAMEWORK_VERSION"
+                                    fi
                                 fi
                             fi
                             
