@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -102,6 +103,49 @@ interface EAPSampleConfig {
 
 fun BuildSteps.createEAPGradleInitScript() {
     script {
+        name = "Create EAP Gradle init script"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            mkdir -p %system.teamcity.build.tempDir%
+            
+            echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
+            
+            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
+gradle.allprojects {
+    repositories {
+        ${EapRepositoryConfig.generateGradleRepositories()}
+    }
+    
+    configurations.all {
+        resolutionStrategy {
+            eachDependency {
+                if (requested.group == "io.ktor") {
+                    val ktorVersion = System.getenv("KTOR_VERSION")
+                    if (ktorVersion.isNullOrBlank()) {
+                        throw GradleException("KTOR_VERSION environment variable is not set or is blank. Cannot resolve Ktor EAP dependencies.")
+                    }
+                    useVersion(ktorVersion)
+                    logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
+                }
+            }
+        }
+    }
+    
+    afterEvaluate {
+        if (this == rootProject) {
+            val frameworkVersion = System.getenv("KTOR_VERSION")
+            logger.lifecycle("Project " + name + ": Using Ktor Framework EAP version: " + frameworkVersion)
+            logger.lifecycle("Project " + name + ": EAP repository configured for framework")
+        }
+    }
+}
+EOF
+        """.trimIndent()
+    }
+}
+
+fun BuildSteps.createEAPGradlePluginInitScript() {
+    script {
         name = "Detect EAP Plugin Version"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
@@ -168,7 +212,7 @@ fun BuildSteps.createEAPGradleInitScript() {
     }
 
     script {
-        name = "Create EAP Gradle init script"
+        name = "Create EAP Gradle Plugin init script"
         executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
         scriptContent = """
             mkdir -p %system.teamcity.build.tempDir%
@@ -366,7 +410,7 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
-    createEAPGradleInitScript()
+    createEAPGradlePluginInitScript()
 
     if (!standalone) {
         modifyRootSettingsForEAP()
@@ -475,10 +519,11 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
             # Validate KTOR_VERSION is available for EAP Maven sample
-                        if [ -z "%env.KTOR_VERSION%" ]; then
-                            echo "ERROR: KTOR_VERSION is required for EAP Maven sample but not set"
-                            exit 1
-                        fi
+            if [ -z "%env.KTOR_VERSION%" ]; then
+                echo "ERROR: KTOR_VERSION is required for EAP Maven sample but not set"
+                exit 1
+            fi
+            
             mkdir -p %system.teamcity.build.tempDir%/.m2
             
             cat > %system.teamcity.build.tempDir%/.m2/settings.xml << EOF
