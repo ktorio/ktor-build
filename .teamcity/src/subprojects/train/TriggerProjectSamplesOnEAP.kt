@@ -118,21 +118,20 @@ fun BuildSteps.createEAPGradleInitScript() {
             echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-gradle.beforeSettings { settings ->
-    settings.pluginManagement {
-        repositories {
-            ${EapRepositoryConfig.generateGradlePluginRepositories()}
+allprojects {
+    repositories {
+        mavenCentral()
+        google()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        maven {
+            name = "KtorEAP"
+            url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
+            content {
+                includeGroup("io.ktor")
+            }
         }
     }
     
-    settings.dependencyResolutionManagement {
-        repositories {
-            ${EapRepositoryConfig.generateGradleRepositories()}
-        }
-    }
-}
-
-gradle.allprojects {
     configurations.all {
         resolutionStrategy {
             eachDependency {
@@ -282,21 +281,28 @@ fun BuildSteps.createEAPGradlePluginInitScript() {
             done
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-gradle.beforeSettings { settings ->
-    settings.pluginManagement {
-        repositories {
-            ${EapRepositoryConfig.generateGradlePluginRepositories()}
+allprojects {
+    repositories {
+        maven {
+            name = "KtorPluginEAP"  
+            url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
+            content {
+                includeGroup("io.ktor.plugin")
+            }
         }
+        maven {
+            name = "KtorEAP"  
+            url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
+            content {
+                includeGroup("io.ktor")
+            }
+        }
+        gradlePluginPortal()
+        mavenCentral()
+        google()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
     
-    settings.dependencyResolutionManagement {
-        repositories {
-            ${EapRepositoryConfig.generateGradleRepositories()}
-        }
-    }
-}
-
-gradle.allprojects {
     configurations.all {
         resolutionStrategy {
             eachDependency {
