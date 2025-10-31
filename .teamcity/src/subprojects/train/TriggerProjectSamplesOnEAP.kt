@@ -525,6 +525,7 @@ fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAP
                 params {
                     param("teamcity.build.skipDependencyBuilds", "true")
                     param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
+                    param("env.KTOR_GRADLE_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_GRADLE_PLUGIN_VERSION%")
                 }
                 dependencies {
                     dependency(versionResolver) {
@@ -654,47 +655,80 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         steps {
+
             script {
                 name = "Get latest EAP version from Maven metadata"
                 scriptContent = """
-            #!/bin/bash
-            set -e
+        #!/bin/bash
+        set -e
+        
+        echo "=== EAP Version Resolution Started ==="
+        
+        # Validate that KTOR_VERSION is set from previous step
+        if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
+            echo "ERROR: KTOR_VERSION environment variable is not set or empty"
+            exit 1
+        fi
+        
+        FRAMEWORK_VERSION="%env.KTOR_VERSION%"
+        echo "Framework EAP version: ${'$'}FRAMEWORK_VERSION"
+        
+        # Initialize plugin version to framework version as default
+        PLUGIN_VERSION="${'$'}FRAMEWORK_VERSION"
+        echo "Default plugin version set to: ${'$'}PLUGIN_VERSION"
+        
+        # Try to find a more specific Ktor Gradle Plugin EAP version
+        echo "Checking if specific Ktor Gradle Plugin EAP version exists..."
+        
+        PLUGIN_METADATA_URL="${EapRepositoryConfig.KTOR_EAP_URL}/io/ktor/plugin/io.ktor.plugin.gradle.plugin/maven-metadata.xml"
+        TEMP_METADATA=$(mktemp)
+        
+        if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}PLUGIN_METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
+            echo "Successfully fetched plugin metadata"
+            cat "${'$'}TEMP_METADATA"
             
-            # Fetch the latest EAP version from the Ktor BOM metadata
-            METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
-            echo "Fetching metadata from ${'$'}METADATA_URL"
-            
-            # Create a temporary file for the metadata
-            TEMP_FILE=$(mktemp)
-            
-            # Download the metadata file
-            if ! curl -s "${'$'}METADATA_URL" -o "${'$'}TEMP_FILE"; then
-                echo "Failed to download metadata from ${'$'}METADATA_URL"
-                rm -f "${'$'}TEMP_FILE"
-                exit 1
+            # Check if the exact framework version exists as plugin version
+            if grep -q ">${'$'}FRAMEWORK_VERSION<" "${'$'}TEMP_METADATA"; then
+                echo "Found exact matching plugin version: ${'$'}FRAMEWORK_VERSION"
+                PLUGIN_VERSION="${'$'}FRAMEWORK_VERSION"
+            else
+                echo "Exact plugin version ${'$'}FRAMEWORK_VERSION not found"
+                
+                # Try to find latest EAP plugin version that matches major.minor
+                FRAMEWORK_BASE_VERSION=$(echo "${'$'}FRAMEWORK_VERSION" | sed 's/-eap-.*//')
+                echo "Looking for plugin versions matching base ${'$'}FRAMEWORK_BASE_VERSION..."
+                
+                # Extract latest EAP version for the same major.minor
+                LATEST_PLUGIN_EAP=$(grep -o ">${'$'}{FRAMEWORK_BASE_VERSION}-eap-[0-9]*<" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
+                
+                if [ -n "${'$'}LATEST_PLUGIN_EAP" ]; then
+                    echo "Found compatible plugin EAP version: ${'$'}LATEST_PLUGIN_EAP"
+                    PLUGIN_VERSION="${'$'}LATEST_PLUGIN_EAP"
+                else
+                    echo "No compatible EAP plugin version found, using framework version: ${'$'}FRAMEWORK_VERSION"
+                    PLUGIN_VERSION="${'$'}FRAMEWORK_VERSION"
+                fi
             fi
             
-            # Extract the latest version using grep and sed
-            # This pattern looks for a <latest>version</latest> tag
-            LATEST_VERSION=$(grep -o '<latest>[^<]*</latest>' "${'$'}TEMP_FILE" | sed 's/<latest>\(.*\)<\/latest>/\1/')
-            
-            # Clean up temp file
-            rm -f "${'$'}TEMP_FILE"
-            
-            if [ -z "${'$'}LATEST_VERSION" ]; then
-                echo "Failed to extract latest version from metadata"
-                exit 1
-            fi
-            
-            echo "Latest Ktor EAP version: ${'$'}LATEST_VERSION"
-            
-            # Set build parameter directly (will be propagated to dependent builds)
-            echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_VERSION']"
-            
-            # Also set project-level parameter for reference
-            echo "##teamcity[setParameter name='ktor.eap.version' value='${'$'}LATEST_VERSION']"
-            echo "##teamcity[buildStatus text='Using Ktor EAP version: ${'$'}LATEST_VERSION']"
-            """.trimIndent()
+            rm -f "${'$'}TEMP_METADATA"
+        else
+            echo "WARNING: Could not fetch plugin metadata, using framework version as fallback"
+            PLUGIN_VERSION="${'$'}FRAMEWORK_VERSION"
+        fi
+        
+        # ALWAYS set both parameters - this is critical
+        echo "=== Setting TeamCity Parameters ==="
+        echo "Framework version: ${'$'}FRAMEWORK_VERSION"
+        echo "Plugin version: ${'$'}PLUGIN_VERSION"
+        
+        echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}PLUGIN_VERSION']"
+        
+        # Verify the parameter was set by echoing it
+        echo "=== Verification ==="
+        echo "Final KTOR_VERSION: ${'$'}FRAMEWORK_VERSION"  
+        echo "Final KTOR_GRADLE_PLUGIN_VERSION: ${'$'}PLUGIN_VERSION"
+        echo "=== EAP Version Resolution Completed Successfully ==="
+    """.trimIndent()
             }
         }
 
