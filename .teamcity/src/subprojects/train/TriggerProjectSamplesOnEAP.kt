@@ -474,6 +474,11 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
         name = "Create EAP Maven settings"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
+            # Validate KTOR_VERSION is available for EAP Maven sample
+                        if [ -z "%env.KTOR_VERSION%" ]; then
+                            echo "ERROR: KTOR_VERSION is required for EAP Maven sample but not set"
+                            exit 1
+                        fi
             mkdir -p %system.teamcity.build.tempDir%/.m2
             
             cat > %system.teamcity.build.tempDir%/.m2/settings.xml << EOF
@@ -662,6 +667,8 @@ object TriggerProjectSamplesOnEAP : Project({
             defaultGradleParams()
             param("teamcity.build.skipDependencyBuilds", "true")
             param("teamcity.runAsFirstBuild", "true")
+            param("env.KTOR_VERSION", "")
+            param("env.KTOR_GRADLE_PLUGIN_VERSION", "")
         }
 
         steps {
