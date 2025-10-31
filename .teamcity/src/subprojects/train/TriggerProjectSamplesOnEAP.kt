@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -35,11 +34,17 @@ object EapRepositoryConfig {
 
     fun generateGradlePluginRepositories(): String = """
         maven {
+            name = "KtorPluginEAP"  
+            url = uri("$KTOR_EAP_URL")
+            content {
+                includeGroup("io.ktor.plugin")
+            }
+        }
+        maven {
             name = "KtorEAP"  
             url = uri("$KTOR_EAP_URL")
             content {
                 includeGroup("io.ktor")
-                includeGroup("io.ktor.plugin")
             }
         }
         gradlePluginPortal()
