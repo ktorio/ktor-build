@@ -168,15 +168,28 @@ fun BuildSteps.createEAPGradleInitScript() {
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
 allprojects {
     repositories {
-        mavenCentral()
-        google()
-        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}")
-        maven {
-            name = "KtorEAP"
-            url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
-            content {
-                includeGroup("io.ktor")
+        ${EapRepositoryConfig.generateGradleRepositories()}
+    }
+    
+    pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+        extensions.findByType<org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension>()?.let { kotlin ->
+            kotlin.targets.findByName("js")?.let {
+                rootProject.extensions.findByType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>()?.let { nodeJs ->
+                    nodeJs.download = true
+                    nodeJs.downloadBaseUrl = "https://nodejs.org/dist"
+                    nodeJs.version = "18.19.0"
+                    logger.lifecycle("Configured Node.js download from official distribution")
+                }
             }
+        }
+    }
+    
+    pluginManager.withPlugin("org.jetbrains.kotlin.js") {
+        rootProject.extensions.findByType<org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension>()?.let { nodeJs ->
+            nodeJs.download = true
+            nodeJs.downloadBaseUrl = "https://nodejs.org/dist"
+            nodeJs.version = "18.19.0"
+            logger.lifecycle("Configured Node.js download for JS project")
         }
     }
     
@@ -541,42 +554,74 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
         name = "Modify Maven pom.xml for EAP"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            POM_FILE="$relativeDir/pom.xml"
-            BACKUP_FILE="$relativeDir/pom.xml.backup"
+            SAMPLE_DIR="$relativeDir"
+            POM_FILE="${'$'}{SAMPLE_DIR}/pom.xml"
+            BACKUP_FILE="${'$'}{SAMPLE_DIR}/pom.xml.backup"
+            
+            echo "Working with sample directory: ${'$'}SAMPLE_DIR"
+            echo "Looking for pom.xml at: ${'$'}POM_FILE"
+            
+            if [ ! -d "${'$'}SAMPLE_DIR" ]; then
+                echo "ERROR: Sample directory ${'$'}SAMPLE_DIR not found"
+                ls -la .
+                exit 1
+            fi
             
             if [ ! -f "${'$'}POM_FILE" ]; then
                 echo "ERROR: pom.xml not found at ${'$'}POM_FILE"
+                echo "Contents of ${'$'}SAMPLE_DIR:"
+                ls -la "${'$'}SAMPLE_DIR"
                 exit 1
             fi
             
             cp "${'$'}POM_FILE" "${'$'}BACKUP_FILE"
+            echo "Created backup at ${'$'}BACKUP_FILE"
             
-            sed -i.tmp "/<\/repositories>/ i\\
+            if grep -q "<repositories>" "${'$'}POM_FILE"; then
+                echo "Found existing <repositories> section, adding EAP repository"
+                sed -i.tmp "/<\/repositories>/ i\\
 ${EapRepositoryConfig.generateMavenRepository()}" "${'$'}POM_FILE"
+            else
+                echo "No <repositories> section found, adding repositories section with EAP repository"
+                sed -i.tmp "/<\/project>/ i\\
+    <repositories>\\
+${EapRepositoryConfig.generateMavenRepository()}\\
+    </repositories>" "${'$'}POM_FILE"
+            fi
             
             rm -f "${'$'}POM_FILE.tmp"
             echo "Added EAP repository to pom.xml"
+            
+            if grep -q "ktor-eap" "${'$'}POM_FILE"; then
+                echo "✓ EAP repository successfully added to pom.xml"
+            else
+                echo "WARNING: EAP repository might not have been added correctly"
+            fi
         """.trimIndent()
     }
 
     maven {
         name = "Build EAP Sample (Maven)"
         goals = "clean compile package"
-        runnerArgs = "-Dktor.version=%env.KTOR_VERSION%"
+        runnerArgs = "-Dktor.version=%env.KTOR_VERSION% -X"
         workingDir = relativeDir
         jdkHome = Env.JDK_LTS
+        pomLocation = "pom.xml"
     }
 
     script {
         name = "Restore Maven pom.xml"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            POM_FILE="$relativeDir/pom.xml"
-            BACKUP_FILE="$relativeDir/pom.xml.backup"
+            SAMPLE_DIR="$relativeDir"
+            POM_FILE="${'$'}{SAMPLE_DIR}/pom.xml"
+            BACKUP_FILE="${'$'}{SAMPLE_DIR}/pom.xml.backup"
             
             if [ -f "${'$'}BACKUP_FILE" ]; then
                 mv "${'$'}BACKUP_FILE" "${'$'}POM_FILE"
-                echo "Restored original pom.xml"
+                echo "Restored original pom.xml from backup"
+            else
+                echo "No backup file found at ${'$'}BACKUP_FILE"
             fi
         """.trimIndent()
     }
