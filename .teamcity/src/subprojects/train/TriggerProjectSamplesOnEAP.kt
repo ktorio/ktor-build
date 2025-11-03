@@ -166,8 +166,6 @@ fun BuildSteps.createEAPGradleInitScript() {
             echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-            import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-            import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 allprojects {
     repositories {
         mavenCentral()
@@ -202,6 +200,44 @@ allprojects {
             val frameworkVersion = System.getenv("KTOR_VERSION")
             logger.lifecycle("Project " + name + ": Using Ktor Framework EAP version: " + frameworkVersion)
             logger.lifecycle("Project " + name + ": EAP repository configured for framework")
+        }
+        plugins.withId("org.jetbrains.kotlin.multiplatform") {
+            try {
+                val kotlinExt = extensions.findByName("kotlin")
+                if (kotlinExt != null) {
+                    val kotlinExtClass = kotlinExt::class.java
+                    val targetsMethod = kotlinExtClass.getMethod("getTargets")
+                    val targets = targetsMethod.invoke(kotlinExt)
+                    val targetsClass = targets::class.java
+                    val findByNameMethod = targetsClass.getMethod("findByName", String::class.java)
+                    val jsTarget = findByNameMethod.invoke(targets, "js")
+                    
+                    if (jsTarget != null) {
+                        rootProject.extensions.findByName("kotlinNodeJs")?.let { nodeJs ->
+                            val nodeJsClass = nodeJs::class.java
+                            try {
+                                val downloadField = nodeJsClass.getDeclaredField("download")
+                                downloadField.isAccessible = true
+                                downloadField.setBoolean(nodeJs, true)
+                                
+                                val downloadBaseUrlField = nodeJsClass.getDeclaredField("downloadBaseUrl")
+                                downloadBaseUrlField.isAccessible = true
+                                downloadBaseUrlField.set(nodeJs, "https://nodejs.org/dist")
+                                
+                                val versionField = nodeJsClass.getDeclaredField("version")
+                                versionField.isAccessible = true
+                                versionField.set(nodeJs, "18.19.0")
+                                
+                                logger.lifecycle("Configured Node.js for EAP build")
+                            } catch (e: Exception) {
+                                logger.warn("Could not configure Node.js settings: " + e.message)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                logger.warn("Could not configure Kotlin Multiplatform settings: " + e.message)
+            }
         }
     }
 }
