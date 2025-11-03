@@ -166,6 +166,8 @@ fun BuildSteps.createEAPGradleInitScript() {
             echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
             
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
+            import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+            import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
 allprojects {
     repositories {
         mavenCentral()
