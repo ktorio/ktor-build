@@ -7,6 +7,9 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
+import subprojects.Agents.ANY
+import subprojects.Agents.Arch
+import subprojects.Agents.OS
 import subprojects.build.*
 import subprojects.build.samples.*
 
@@ -160,9 +163,9 @@ fun BuildSteps.createEAPGradleInitScript() {
             KTOR_VERSION_VAL="%env.KTOR_VERSION%"
             echo "Using Ktor Framework EAP version: ${'$'}KTOR_VERSION_VAL"
 
-            if [ -z "${'$'}KTOR_VERSION_VAL" ] || [ "${'$'}KTOR_VERSION_VAL" = "%env.KTOR_VERSION%" ]; then
+            if [ -z "${'$'}KTOR_VERSION_VAL" ]; then
                 echo "ERROR: KTOR_VERSION environment variable is not properly resolved"
-                echo "Raw value: %env.KTOR_VERSION%"
+                echo "Raw value from TeamCity parameter: %env.KTOR_VERSION%"
                 exit 1
             fi
 
@@ -257,8 +260,6 @@ fun BuildSteps.debugEnvironmentVariables() {
             echo "KTOR_GRADLE_PLUGIN_VERSION env var: %env.KTOR_GRADLE_PLUGIN_VERSION%"
             echo "Shell KTOR_VERSION: ${'$'}KTOR_VERSION"
             echo "Shell KTOR_GRADLE_PLUGIN_VERSION: ${'$'}KTOR_GRADLE_PLUGIN_VERSION"
-            
-            env | grep -E "(KTOR|teamcity)" | sort
             
             echo "=================================="
         """.trimIndent()
@@ -537,7 +538,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
 
         requirements {
-            agent(Agents.OS.Linux, Agents.Arch.X64, Agents.MEDIUM)
+            agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
         }
 
         params {
