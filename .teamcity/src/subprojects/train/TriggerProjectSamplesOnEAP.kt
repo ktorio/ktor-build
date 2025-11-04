@@ -12,8 +12,8 @@ import subprojects.build.samples.*
 
 object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
-    const val PUBLISH_BUILD_PLUGIN_TYPE_ID = "KtorGradleBuildPlugin_Publish"
     const val EAP_VERSION_REGEX = ">[0-9][^<]*-eap-[0-9]*<"
+    const val KTOR_EAP_METADATA_URL = "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
 }
 
 object EapRepositoryConfig {
@@ -157,11 +157,17 @@ fun BuildSteps.createEAPGradleInitScript() {
         scriptContent = """
             mkdir -p %system.teamcity.build.tempDir%
 
-            echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
+            KTOR_VERSION_VAL="%env.KTOR_VERSION%"
+            echo "Using Ktor Framework EAP version: ${'$'}KTOR_VERSION_VAL"
+
+            if [ -z "${'$'}KTOR_VERSION_VAL" ] || [ "${'$'}KTOR_VERSION_VAL" = "%env.KTOR_VERSION%" ]; then
+                echo "ERROR: KTOR_VERSION environment variable is not properly resolved"
+                echo "Raw value: %env.KTOR_VERSION%"
+                exit 1
+            fi
 
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-            import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-            import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsRootExtension
+
 allprojects {
     repositories {
         mavenCentral()
@@ -180,12 +186,8 @@ allprojects {
         resolutionStrategy {
             eachDependency {
                 if (requested.group == "io.ktor") {
-                    val ktorVersion = System.getenv("KTOR_VERSION")
-                    if (ktorVersion.isNullOrBlank()) {
-                        throw GradleException("KTOR_VERSION environment variable is not set or is blank. Cannot resolve Ktor EAP dependencies.")
-                    }
-                    useVersion(ktorVersion)
-                    logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
+                    useVersion("${'$'}KTOR_VERSION_VAL")
+                    logger.lifecycle("Forcing Ktor dependency \${'$'}{'${'$'}'}{requested.name} to use EAP version: ${'$'}KTOR_VERSION_VAL")
                 }
             }
         }
@@ -193,9 +195,8 @@ allprojects {
 
     afterEvaluate {
         if (this == rootProject) {
-            val frameworkVersion = System.getenv("KTOR_VERSION")
-            logger.lifecycle("Project " + name + ": Using Ktor Framework EAP version: " + frameworkVersion)
-            logger.lifecycle("Project " + name + ": EAP repository configured for framework")
+            logger.lifecycle("Project \${'$'}{name}: Using Ktor Framework EAP version: ${'$'}KTOR_VERSION_VAL")
+            logger.lifecycle("Project \${'$'}{name}: EAP repository configured for framework")
         }
         plugins.withId("org.jetbrains.kotlin.multiplatform") {
             try {
@@ -246,137 +247,20 @@ EOF
     }
 }
 
-fun BuildSteps.createEAPGradlePluginInitScript() {
+fun BuildSteps.debugEnvironmentVariables() {
     script {
-        name = "Validate Plugin Version"
+        name = "Debug Environment Variables"
         executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            if [ -z "%env.KTOR_VERSION%" ]; then
-                echo "ERROR: KTOR_VERSION environment variable is not set"
-                exit 1
-            fi
-
-            if [ -z "%env.KTOR_GRADLE_PLUGIN_VERSION%" ]; then
-                echo "ERROR: KTOR_GRADLE_PLUGIN_VERSION environment variable is not set"
-                echo "This should have been resolved by the version resolver build step"
-                exit 1
-            fi
-
-            echo "Framework EAP version: %env.KTOR_VERSION%"
-            echo "Plugin EAP version: %env.KTOR_GRADLE_PLUGIN_VERSION%"
-
-            if [[ "%env.KTOR_GRADLE_PLUGIN_VERSION%" =~ ^-eap- ]]; then
-                echo "ERROR: Invalid plugin version detected: %env.KTOR_GRADLE_PLUGIN_VERSION%"
-                echo "Plugin version should not start with '-eap-'"
-                exit 1
-            fi
-
-            echo "Plugin version validation passed"
-        """.trimIndent()
-    }
-
-    script {
-        name = "Create EAP Gradle Plugin init script"
-        executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
-        scriptContent = """
-            mkdir -p %system.teamcity.build.tempDir%
-
-            echo "Using Ktor Framework EAP version: %env.KTOR_VERSION%"
-            echo "Using Ktor Gradle Plugin version: %env.KTOR_GRADLE_PLUGIN_VERSION%"
-
-            echo "Fixing build.gradle.kts files in gradle plugin samples..."
-            find samples -name "build.gradle.kts" -type f 2>/dev/null | while read build_file; do
-                if [ -f "${'$'}build_file" ]; then
-                    echo "Processing ${'$'}build_file"
-
-                    cp "${'$'}build_file" "${'$'}build_file.backup"
-
-                    if grep -q "alias(libs\.plugins\." "${'$'}build_file"; then
-                        echo "Found version catalog aliases in ${'$'}build_file, replacing..."
-
-                        sed -i.tmp \
-                            -e 's/alias(libs\.plugins\.ktor)/id("io.ktor.plugin")/g' \
-                            -e 's/alias(libs\.plugins\.kotlin\.jvm)/id("org.jetbrains.kotlin.jvm")/g' \
-                            -e 's/alias(libs\.plugins\.kotlin\.plugin\.serialization)/id("org.jetbrains.kotlin.plugin.serialization")/g' \
-                            -e 's/alias(libs\.plugins\.shadow)/id("com.github.johnrengelman.shadow")/g' \
-                            "${'$'}build_file"
-
-                        rm -f "${'$'}build_file.tmp"
-                        echo "Successfully fixed version catalog aliases in ${'$'}build_file"
-                    else
-                        echo "No version catalog aliases found in ${'$'}build_file, skipping"
-                        rm -f "${'$'}build_file.backup"
-                    fi
-                fi
-            done
-
-            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-allprojects {
-    repositories {
-        maven {
-            name = "KtorEAP"  
-            url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
-            content {
-                includeGroup("io.ktor.plugin")
-                includeGroup("io.ktor")
-            }
-        }
-        gradlePluginPortal()
-        mavenCentral()
-        google()
-        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}")
-    }
-
-    configurations.all {
-        resolutionStrategy {
-            eachDependency {
-                if (requested.group == "io.ktor") {
-                    val ktorVersion = System.getenv("KTOR_VERSION")
-                    if (ktorVersion.isNullOrBlank()) {
-                        throw GradleException("KTOR_VERSION environment variable is not set or is blank. Cannot resolve Ktor EAP dependencies.")
-                    }
-                    useVersion(ktorVersion)
-                    logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
-                }
-            }
-        }
-    }
-
-    afterEvaluate {
-        if (this == rootProject) {
-            val frameworkVersion = System.getenv("KTOR_VERSION")
-            val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-            logger.lifecycle("Project " + name + ": Using Ktor Framework EAP version: " + frameworkVersion)
-            logger.lifecycle("Project " + name + ": Using Ktor Gradle Plugin version: " + pluginVersion)
-            logger.lifecycle("Project " + name + ": EAP repository configured for both framework and plugin")
-        }
-    }
-}
-EOF
-
-            echo "==== EAP Gradle Plugin Init Script Content ===="
-            cat %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts
-            echo "=============================================="
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.restoreGradlePluginSampleBuildFiles() {
-    script {
-        name = "Restore Gradle Plugin Sample Build Files"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
-            echo "Restoring build.gradle.kts files from backups..."
-
-            find samples -name "build.gradle.kts.backup" -type f 2>/dev/null | while read backup_file; do
-                if [ -f "${'$'}backup_file" ]; then
-                    original_file="${'$'}{backup_file%.backup}"
-                    echo "Restoring ${'$'}original_file from backup"
-                    mv "${'$'}backup_file" "${'$'}original_file"
-                fi
-            done
-
-            echo "Build files restoration completed"
+            echo "=== Environment Variables Debug ==="
+            echo "KTOR_VERSION env var: %env.KTOR_VERSION%"
+            echo "KTOR_GRADLE_PLUGIN_VERSION env var: %env.KTOR_GRADLE_PLUGIN_VERSION%"
+            echo "Shell KTOR_VERSION: ${'$'}KTOR_VERSION"
+            echo "Shell KTOR_GRADLE_PLUGIN_VERSION: ${'$'}KTOR_GRADLE_PLUGIN_VERSION"
+            
+            env | grep -E "(KTOR|teamcity)" | sort
+            
+            echo "=================================="
         """.trimIndent()
     }
 }
@@ -471,34 +355,6 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     }
 }
 
-fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String, standalone: Boolean) {
-    createEAPGradlePluginInitScript()
-
-    if (!standalone) {
-        createEAPSampleSettings(relativeDir, true)
-    } else {
-        modifyRootSettingsForEAP()
-    }
-
-    gradle {
-        name = "Build EAP Sample (Gradle Plugin)"
-        tasks = "build"
-
-        if (!standalone) {
-            workingDir = relativeDir
-        }
-
-        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
-        jdkHome = Env.JDK_LTS
-    }
-
-    restoreGradlePluginSampleBuildFiles()
-    if (!standalone) {
-        restoreEAPSampleSettings(relativeDir)
-    } else {
-        restoreRootSettings()
-    }
-}
 
 fun BuildSteps.modifyRootSettingsForEAP() {
     script {
@@ -618,43 +474,6 @@ ${EapRepositoryConfig.generateMavenRepository()}" "${'$'}POM_FILE"
     }
 }
 
-fun BuildPluginSampleSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
-    override val projectName = this@asEAPSampleConfig.projectName
-
-    override fun createEAPBuildType(): BuildType {
-        return BuildType {
-            id("EAP_KtorGradlePluginSamplesValidate_${projectName.replace('-', '_')}")
-            name = "EAP Validate $projectName Gradle plugin sample"
-            vcs {
-                root(VCSSamples)
-            }
-
-            params {
-                param("teamcity.build.skipDependencyBuilds", "true")
-                param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
-                param("env.KTOR_GRADLE_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_GRADLE_PLUGIN_VERSION%")
-            }
-            dependencies {
-                dependency(versionResolver) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.CANCEL
-                    }
-                }
-            }
-            steps {
-                buildEAPGradlePluginSample(
-                    this@asEAPSampleConfig.projectName,
-                    this@asEAPSampleConfig.standalone
-                )
-            }
-
-            addEAPSampleFailureConditions(this@asEAPSampleConfig.projectName)
-
-            defaultBuildFeatures(VCSSamples.id.toString())
-        }
-    }
-}
 
 fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
     override val projectName = this@asEAPSampleConfig.projectName
@@ -726,10 +545,11 @@ object TriggerProjectSamplesOnEAP : Project({
             param("teamcity.build.skipDependencyBuilds", "true")
             param("teamcity.runAsFirstBuild", "true")
             param("env.KTOR_VERSION", "")
-            param("env.KTOR_GRADLE_PLUGIN_VERSION", "")
         }
 
         steps {
+            debugEnvironmentVariables()
+
             script {
                 name = "Fetch Latest EAP Framework Version"
                 scriptContent = """
@@ -738,7 +558,7 @@ object TriggerProjectSamplesOnEAP : Project({
 
                     echo "=== Fetching Latest Ktor EAP Framework Version ==="
 
-                    METADATA_URL="${EapRepositoryConfig.KTOR_EAP_URL}/io/ktor/ktor-bom/maven-metadata.xml"
+                    METADATA_URL="${EapConstants.KTOR_EAP_METADATA_URL}"
                     TEMP_METADATA=$(mktemp)
 
                     echo "Fetching framework metadata from: ${'$'}METADATA_URL"
@@ -775,114 +595,6 @@ object TriggerProjectSamplesOnEAP : Project({
             }
 
             script {
-                name = "Resolve EAP Plugin Version"
-                scriptContent = """
-                    #!/bin/bash
-                    set -e
-
-                    echo "=== EAP Plugin Version Resolution Started ==="
-
-                    if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
-                        echo "ERROR: KTOR_VERSION environment variable is not set or empty"
-                        exit 1
-                    fi
-
-                    FRAMEWORK_VERSION="%env.KTOR_VERSION%"
-                    echo "Framework EAP version: ${'$'}FRAMEWORK_VERSION"
-
-                    EXISTING_PLUGIN_VERSION="%env.KTOR_GRADLE_PLUGIN_VERSION%"
-
-                    if [ -n "${'$'}EXISTING_PLUGIN_VERSION" ] && [ "${'$'}EXISTING_PLUGIN_VERSION" != "" ]; then
-                        echo "=== Using Pre-set Plugin Version ==="
-                        echo "KTOR_GRADLE_PLUGIN_VERSION already set to: ${'$'}EXISTING_PLUGIN_VERSION"
-                        echo "Verifying that this version exists in the repository..."
-
-                        PLUGIN_METADATA_URL="${EapRepositoryConfig.KTOR_EAP_URL}/io/ktor/plugin/io.ktor.plugin.gradle.plugin/maven-metadata.xml"
-                        TEMP_METADATA=$(mktemp)
-
-                        if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}PLUGIN_METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
-                            if grep -q ">${'$'}EXISTING_PLUGIN_VERSION<" "${'$'}TEMP_METADATA"; then
-                                echo "Verified: Plugin version ${'$'}EXISTING_PLUGIN_VERSION exists in repository"
-                                PLUGIN_VERSION="${'$'}EXISTING_PLUGIN_VERSION"
-                            else
-                                echo "WARNING: Pre-set plugin version ${'$'}EXISTING_PLUGIN_VERSION not found in repository"
-                                echo "Will fall back to detecting latest version..."
-                                EXISTING_PLUGIN_VERSION=""
-                            fi
-                        else
-                            echo "WARNING: Cannot verify pre-set plugin version, proceeding anyway"
-                            PLUGIN_VERSION="${'$'}EXISTING_PLUGIN_VERSION"
-                        fi
-
-                        rm -f "${'$'}TEMP_METADATA"
-                    fi
-
-                    if [ -z "${'$'}EXISTING_PLUGIN_VERSION" ]; then
-                        echo "=== Detecting Latest Plugin Version from Metadata ==="
-                        echo "KTOR_GRADLE_PLUGIN_VERSION not set or invalid, detecting latest available version from metadata..."
-
-                        echo "Fetching latest Ktor Gradle Plugin EAP version..."
-
-                        PLUGIN_METADATA_URL="${EapRepositoryConfig.KTOR_EAP_URL}/io/ktor/plugin/io.ktor.plugin.gradle.plugin/maven-metadata.xml"
-                        TEMP_METADATA=$(mktemp)
-
-                        if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}PLUGIN_METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
-                            echo "Successfully fetched plugin metadata"
-                            echo "Plugin metadata content:"
-                            cat "${'$'}TEMP_METADATA"
-
-                            LATEST_PLUGIN_VERSION=$(grep -o "<latest>[^<]*</latest>" "${'$'}TEMP_METADATA" | sed 's/<latest>//;s/<\/latest>//')
-
-                            if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
-                                echo "Found latest plugin version from <latest> tag: ${'$'}LATEST_PLUGIN_VERSION"
-                                PLUGIN_VERSION="${'$'}LATEST_PLUGIN_VERSION"
-                            else
-                                echo "No <latest> tag found, extracting highest version from all versions"
-                                LATEST_PLUGIN_VERSION=$(grep -o "${EapConstants.EAP_VERSION_REGEX}" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
-
-                                if [ -n "${'$'}LATEST_PLUGIN_VERSION" ]; then
-                                    echo "Found latest plugin EAP version from versions list: ${'$'}LATEST_PLUGIN_VERSION"
-                                    PLUGIN_VERSION="${'$'}LATEST_PLUGIN_VERSION"
-                                else
-                                    echo "ERROR: No EAP plugin versions found in metadata"
-                                    echo "Cannot proceed without a valid plugin version"
-                                    exit 1
-                                fi
-                            fi
-
-                            if grep -q ">${'$'}FRAMEWORK_VERSION<" "${'$'}TEMP_METADATA"; then
-                                echo "NOTE: Exact matching plugin version ${'$'}FRAMEWORK_VERSION exists but using latest: ${'$'}PLUGIN_VERSION"
-                            else
-                                echo "NOTE: Exact matching plugin version ${'$'}FRAMEWORK_VERSION does not exist, using latest: ${'$'}PLUGIN_VERSION"
-                            fi
-
-                            rm -f "${'$'}TEMP_METADATA"
-                        else
-                            echo "ERROR: Could not fetch plugin metadata from ${'$'}PLUGIN_METADATA_URL"
-                            echo "This is CRITICAL - cannot proceed without valid plugin version information"
-                            exit 1
-                        fi
-                    fi
-
-                    if [ -z "${'$'}PLUGIN_VERSION" ]; then
-                        echo "ERROR: No plugin version was determined - this is a critical failure"
-                        exit 1
-                    fi
-
-                    echo "=== Setting TeamCity Parameters ==="
-                    echo "Framework version: ${'$'}FRAMEWORK_VERSION"
-                    echo "Plugin version: ${'$'}PLUGIN_VERSION"
-
-                    echo "##teamcity[setParameter name='env.KTOR_GRADLE_PLUGIN_VERSION' value='${'$'}PLUGIN_VERSION']"
-
-                    echo "=== Verification ==="
-                    echo "Final KTOR_VERSION: ${'$'}FRAMEWORK_VERSION"  
-                    echo "Final KTOR_GRADLE_PLUGIN_VERSION: ${'$'}PLUGIN_VERSION"
-                    echo "=== EAP Plugin Version Resolution Completed Successfully ==="
-                """.trimIndent()
-            }
-
-            script {
                 name = "Final Validation"
                 scriptContent = """
                     #!/bin/bash
@@ -895,19 +607,7 @@ object TriggerProjectSamplesOnEAP : Project({
                         exit 1
                     fi
 
-                    if [ -z "%env.KTOR_GRADLE_PLUGIN_VERSION%" ] || [ "%env.KTOR_GRADLE_PLUGIN_VERSION%" = "" ]; then
-                        echo "CRITICAL ERROR: KTOR_GRADLE_PLUGIN_VERSION is not set after resolution"
-                        exit 1
-                    fi
-
-                    if [[ "%env.KTOR_GRADLE_PLUGIN_VERSION%" =~ ^-eap- ]]; then
-                        echo "CRITICAL ERROR: Malformed plugin version: %env.KTOR_GRADLE_PLUGIN_VERSION%"
-                        exit 1
-                    fi
-
                     echo "✓ Framework version validated: %env.KTOR_VERSION%"
-                    echo "✓ Plugin version validated: %env.KTOR_GRADLE_PLUGIN_VERSION%"
-                    echo "✓ All versions are properly resolved and validated"
                     echo "=== Version Resolution SUCCESSFUL ==="
                 """.trimIndent()
             }
@@ -936,8 +636,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
     }
 
-    val allEAPSamples: List<EAPSampleConfig> = buildPluginSamples.map { it.asEAPSampleConfig(versionResolver) } +
-        sampleProjects.map { it.asEAPSampleConfig(versionResolver) }
+    val allEAPSamples: List<EAPSampleConfig> = sampleProjects.map { it.asEAPSampleConfig(versionResolver) }
 
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
     allSampleBuilds.forEach(::buildType)
@@ -972,11 +671,6 @@ object TriggerProjectSamplesOnEAP : Project({
         triggers {
             finishBuildTrigger {
                 buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
-                successfulOnly = true
-                branchFilter = "+:*"
-            }
-            finishBuildTrigger {
-                buildType = EapConstants.PUBLISH_BUILD_PLUGIN_TYPE_ID
                 successfulOnly = true
                 branchFilter = "+:*"
             }
