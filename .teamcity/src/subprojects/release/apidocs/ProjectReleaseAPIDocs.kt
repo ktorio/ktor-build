@@ -29,12 +29,12 @@ object ProjectReleaseAPIDocs : Project({
             script {
                 name = "Generate static files for version and push changes to git"
                 scriptContent = """
+                    set -eu
                     ./build_doc.sh "%releaseVersion%"
                     git config user.email "deploy@jetbrains.com"
                     git config user.name "Auto deploy"
                     git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
-                    git add .
-                    git commit -m "Update for %releaseVersion%"
+                    git commit --all --message "Update for %releaseVersion%"
                     git push origin main
                 """.trimIndent()
             }
