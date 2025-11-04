@@ -36,21 +36,6 @@ object EapRepositoryConfig {
         }
     """.trimIndent()
 
-    fun generateGradlePluginRepositories(): String = """
-        maven {
-            name = "KtorEAP"  
-            url = uri("$KTOR_EAP_URL")
-            content {
-                includeGroup("io.ktor.plugin")
-                includeGroup("io.ktor")
-            }
-        }
-        gradlePluginPortal()
-        mavenCentral()
-        google()
-        maven("$COMPOSE_DEV_URL")
-    """.trimIndent()
-
     fun generateMavenRepository(): String = """
         <repository>
             <id>ktor-eap</id>
@@ -58,62 +43,12 @@ object EapRepositoryConfig {
         </repository>
     """.trimIndent()
 
-    private fun generatePluginResolutionStrategy(): String = """
-        resolutionStrategy {
-            eachPlugin {
-                if (requested.id.id == "io.ktor.plugin") {
-                    val pluginVersion = System.getenv("KTOR_GRADLE_PLUGIN_VERSION")
-
-                    if (pluginVersion.isNullOrEmpty()) {
-                        throw GradleException("KTOR_GRADLE_PLUGIN_VERSION environment variable is not set or is empty. This should have been resolved by the version resolver build step.")
-                    }
-
-                    useModule("io.ktor.plugin:plugin:${'$'}pluginVersion")
-                    println("Using Ktor Gradle Plugin version: ${'$'}pluginVersion")
-                }
-            }
-        }
-    """.trimIndent()
-
-    fun generateSettingsContent(isPluginSample: Boolean): String {
-        val baseSettings = if (isPluginSample) {
-            """
-pluginManagement {
-    repositories {
-        ${generateGradlePluginRepositories()}
-    }
-
-    ${generatePluginResolutionStrategy()}
-}
-
+    fun generateSettingsContent(): String = """
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         ${generateGradleRepositories()}
     }
-}
-            """.trimIndent()
-        } else {
-            """
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-    repositories {
-        ${generateGradleRepositories()}
-    }
-}
-            """.trimIndent()
-        }
-
-        return baseSettings
-    }
-
-    fun generateEAPPluginManagementContent(): String = """
-pluginManagement {
-    repositories {
-        ${generateGradlePluginRepositories()}
-    }
-
-    ${generatePluginResolutionStrategy()}
 }
     """.trimIndent()
 }
@@ -141,12 +76,6 @@ fun BuildType.addEAPSampleFailureConditions(sampleName: String) {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "No suitable agents"
             failureMessage = "No suitable agents available for $sampleName sample"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "KTOR_GRADLE_PLUGIN_VERSION environment variable is not set"
-            failureMessage = "Plugin version not resolved properly - build configuration error"
             stopBuildOnFailure = true
         }
         executionTimeoutMin = 10
@@ -257,16 +186,14 @@ fun BuildSteps.debugEnvironmentVariables() {
         scriptContent = """
             echo "=== Environment Variables Debug ==="
             echo "KTOR_VERSION env var: %env.KTOR_VERSION%"
-            echo "KTOR_GRADLE_PLUGIN_VERSION env var: %env.KTOR_GRADLE_PLUGIN_VERSION%"
             echo "Shell KTOR_VERSION: ${'$'}KTOR_VERSION"
-            echo "Shell KTOR_GRADLE_PLUGIN_VERSION: ${'$'}KTOR_GRADLE_PLUGIN_VERSION"
-            
+
             echo "=================================="
         """.trimIndent()
     }
 }
 
-fun BuildSteps.createEAPSampleSettings(samplePath: String, isPluginSample: Boolean) {
+fun BuildSteps.createEAPSampleSettings(samplePath: String) {
     script {
         name = "Create EAP Sample Settings"
         executionMode = BuildStep.ExecutionMode.ALWAYS
@@ -290,7 +217,7 @@ fun BuildSteps.createEAPSampleSettings(samplePath: String, isPluginSample: Boole
             fi
 
             cat > "${'$'}TEMP_SETTINGS" << 'EOF'
-${EapRepositoryConfig.generateSettingsContent(isPluginSample)}
+${EapRepositoryConfig.generateSettingsContent()}
 EOF
 
             if mv "${'$'}TEMP_SETTINGS" "${'$'}{SETTINGS_FILE}"; then
@@ -332,7 +259,7 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
     createEAPGradleInitScript()
 
     if (!standalone) {
-        createEAPSampleSettings(relativeDir, false)
+        createEAPSampleSettings(relativeDir)
     } else {
         modifyRootSettingsForEAP()
     }
@@ -374,8 +301,6 @@ fun BuildSteps.modifyRootSettingsForEAP() {
             fi
 
             cat > "${'$'}EAP_SETTINGS_FILE" << 'EOF'
-${EapRepositoryConfig.generateEAPPluginManagementContent()}
-
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
