@@ -258,7 +258,6 @@ fun BuildSteps.debugEnvironmentVariables() {
             echo "Shell KTOR_VERSION: ${'$'}KTOR_VERSION"
             echo "Shell KTOR_GRADLE_PLUGIN_VERSION: ${'$'}KTOR_GRADLE_PLUGIN_VERSION"
             
-            # Проверяем все переменные окружения TeamCity
             env | grep -E "(KTOR|teamcity)" | sort
             
             echo "=================================="
