@@ -58,9 +58,11 @@ fun BuildSteps.buildGradlePluginSample(relativeDir: String, standalone: Boolean)
     gradle {
         name = "Build"
         tasks = "build"
+        useGradleWrapper = true
 
         if (!standalone) {
             workingDir = "samples/$relativeDir"
+            gradleWrapperPath = "../../"
         }
     }
 }
