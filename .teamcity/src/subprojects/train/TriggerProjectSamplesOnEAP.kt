@@ -65,6 +65,19 @@ dependencyResolutionManagement {
                 includeModule("org.nodejs", "node")
             }
         }
+        ivy {
+            name = "Yarn"
+            url = uri("https://github.com/yarnpkg/yarn/releases/download")
+            patternLayout {
+                artifact("v[revision]/[artifact]-v[revision].tar.gz")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("com.yarnpkg", "yarn")
+            }
+        }
     }
 }
     """.trimIndent()
@@ -147,6 +160,19 @@ allprojects {
             }
             content {
                 includeModule("org.nodejs", "node")
+            }
+        }
+        ivy {
+            name = "Yarn"
+            url = uri("https://github.com/yarnpkg/yarn/releases/download")
+            patternLayout {
+                artifact("v[revision]/[artifact]-v[revision].tar.gz")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("com.yarnpkg", "yarn")
             }
         }
     }
@@ -386,6 +412,19 @@ dependencyResolutionManagement {
             }
             content {
                 includeModule("org.nodejs", "node")
+            }
+        }
+        ivy {
+            name = "Yarn"
+            url = uri("https://github.com/yarnpkg/yarn/releases/download")
+            patternLayout {
+                artifact("v[revision]/[artifact]-v[revision].tar.gz")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("com.yarnpkg", "yarn")
             }
         }
     }
