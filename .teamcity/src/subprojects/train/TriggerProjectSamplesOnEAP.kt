@@ -26,7 +26,11 @@ object EapRepositoryConfig {
     fun generateGradleRepositories(): String = """
         mavenCentral()
         google()
-        maven("$COMPOSE_DEV_URL")
+        maven("$COMPOSE_DEV_URL") {
+            content {
+                excludeGroup("org.nodejs")
+            }
+        }
         maven {
             name = "KtorEAP"
             url = uri("$KTOR_EAP_URL")
@@ -48,6 +52,19 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         ${generateGradleRepositories()}
+        ivy {
+            name = "NodeJS"
+            url = uri("https://nodejs.org/dist")
+            patternLayout {
+                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("org.nodejs", "node")
+            }
+        }
     }
 }
     """.trimIndent()
@@ -97,7 +114,7 @@ fun BuildSteps.createEAPGradleInitScript() {
                 echo "Raw value from TeamCity parameter: %env.KTOR_VERSION%"
                 exit 1
             fi
-            
+
             # Export the version as environment variable for Gradle to access
             export KTOR_VERSION="${'$'}KTOR_VERSION_VAL"
 
@@ -107,12 +124,29 @@ allprojects {
     repositories {
         mavenCentral()
         google()
-        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}")
+        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
+            content {
+                excludeGroup("org.nodejs")
+            }
+        }
         maven {
             name = "KtorEAP"
             url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
             content {
                 includeGroup("io.ktor")
+            }
+        }
+        ivy {
+            name = "Node.js"
+            url = uri("https://nodejs.org/dist")
+            patternLayout {
+                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("org.nodejs", "node")
             }
         }
     }
@@ -170,9 +204,9 @@ allprojects {
                                 versionField.isAccessible = true
                                 versionField.set(nodeJs, "18.19.0")
 
-                                logger.lifecycle("Configured Node.js for EAP build")
+                                logger.lifecycle("Configured Node.js for Kotlin Multiplatform project using reflection")
                             } catch (e: Exception) {
-                                logger.warn("Could not configure Node.js settings: " + e.message)
+                                logger.warn("Could not configure Node.js settings for Kotlin Multiplatform via reflection: " + e.message)
                             }
                         }
                     }
@@ -223,10 +257,15 @@ fun BuildSteps.createEAPSampleSettings(samplePath: String) {
             if [ -f "${'$'}{SETTINGS_FILE}" ]; then
                 if cp "${'$'}{SETTINGS_FILE}" "${'$'}BACKUP_FILE"; then
                     echo "Backed up existing settings file to ${'$'}BACKUP_FILE"
+                    echo "==== Original settings.gradle.kts Content ===="
+                    cat "${'$'}{SETTINGS_FILE}"
+                    echo "============================================="
                 else
                     echo "Failed to backup existing settings file" >&2
                     exit 1
                 fi
+            else
+                echo "No existing settings.gradle.kts file found, creating new one"
             fi
 
             cat > "${'$'}TEMP_SETTINGS" << 'EOF'
@@ -235,6 +274,9 @@ EOF
 
             if mv "${'$'}TEMP_SETTINGS" "${'$'}{SETTINGS_FILE}"; then
                 echo "EAP sample settings created successfully"
+                echo "==== Generated EAP settings.gradle.kts Content ===="
+                cat "${'$'}{SETTINGS_FILE}"
+                echo "=================================================="
             else
                 echo "Failed to create settings file" >&2
                 if [ -f "${'$'}BACKUP_FILE" ]; then
@@ -321,12 +363,29 @@ dependencyResolutionManagement {
     repositories {
         mavenCentral()
         google()
-        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}")
+        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
+            content {
+                excludeGroup("org.nodejs")
+            }
+        }
         maven {
             name = "KtorEAP"
             url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
             content {
                 includeGroup("io.ktor")
+            }
+        }
+        ivy {
+            name = "NodeJS"
+            url = uri("https://nodejs.org/dist")
+            patternLayout {
+                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+            }
+            metadataSources {
+                artifact()
+            }
+            content {
+                includeModule("org.nodejs", "node")
             }
         }
     }
@@ -397,6 +456,7 @@ ${EapRepositoryConfig.generateMavenRepository()}" "${'$'}POM_FILE"
         goals = "clean compile package"
         runnerArgs = "-Dktor.version=%env.KTOR_VERSION%"
         workingDir = relativeDir
+        pomLocation = "$relativeDir/pom.xml"
         jdkHome = Env.JDK_LTS
     }
 
