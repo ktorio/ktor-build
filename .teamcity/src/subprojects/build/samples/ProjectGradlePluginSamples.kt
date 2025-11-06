@@ -10,14 +10,13 @@ import subprojects.build.defaultBuildFeatures
 data class BuildPluginSampleSettings(
     val projectName: String,
     val vcsRoot: VcsRoot,
-    val standalone: Boolean = false
 )
 
 val buildPluginSamples = listOf(
     BuildPluginSampleSettings("ktor-docker-sample", VCSKtorBuildPlugins),
-    BuildPluginSampleSettings("ktor-ksp-sample", VCSKtorBuildPlugins),
+    BuildPluginSampleSettings("ktor-fatjar-sample", VCSKtorBuildPlugins),
     BuildPluginSampleSettings("ktor-native-image-sample", VCSKtorBuildPlugins),
-    BuildPluginSampleSettings("ktor-server-sample", VCSKtorBuildPlugins)
+    BuildPluginSampleSettings("ktor-openapi-sample", VCSKtorBuildPlugins)
 )
 
 object ProjectBuildPluginSamples : Project({
@@ -50,19 +49,15 @@ class BuildPluginSampleProject(sample: BuildPluginSampleSettings) : BuildType({
     defaultBuildFeatures(sample.vcsRoot.id.toString())
 
     steps {
-        buildGradlePluginSample(sample.projectName, sample.standalone)
+        buildGradlePluginSample(sample.projectName)
     }
 })
 
-fun BuildSteps.buildGradlePluginSample(relativeDir: String, standalone: Boolean) {
+fun BuildSteps.buildGradlePluginSample(relativeDir: String) {
     gradle {
-        name = "Build"
+        name = "Build $relativeDir sample"
         tasks = "build"
-        useGradleWrapper = true
-
-        if (!standalone) {
-            workingDir = "samples/$relativeDir"
-            gradleWrapperPath = "../../"
-        }
+        param("org.gradle.project.includeBuild", "samples/$relativeDir")
+        workingDir = "."
     }
 }
