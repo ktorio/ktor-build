@@ -12,6 +12,8 @@ import subprojects.Agents.Arch
 import subprojects.Agents.OS
 import subprojects.build.*
 import subprojects.build.samples.*
+import subprojects.build.samples.BuildPluginSampleSettings
+import subprojects.build.samples.buildPluginSamples
 
 object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
@@ -559,6 +561,62 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
     }
 }
 
+fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
+    createEAPGradleInitScript()
+
+    modifyRootSettingsForEAP()
+
+    gradle {
+        name = "Build EAP Plugin Sample"
+        tasks = "build"
+        workingDir = "."
+        param("org.gradle.project.includeBuild", "samples/$relativeDir")
+
+        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
+        jdkHome = Env.JDK_LTS
+
+        param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
+    }
+
+    restoreRootSettings()
+}
+
+fun BuildPluginSampleSettings.asBuildPluginEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
+    override val projectName = this@asBuildPluginEAPSampleConfig.projectName
+
+    override fun createEAPBuildType(): BuildType {
+        return BuildType {
+            id("EAP_KtorBuildPluginSamplesValidate_${projectName.replace('-', '_')}")
+            name = "EAP Validate $projectName sample"
+            vcs {
+                root(this@asBuildPluginEAPSampleConfig.vcsRoot)
+            }
+
+            params {
+                param("teamcity.build.skipDependencyBuilds", "true")
+                param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
+            }
+
+            dependencies {
+                dependency(versionResolver) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.FAIL_TO_START
+                        onDependencyCancel = FailureAction.CANCEL
+                    }
+                }
+            }
+
+            steps {
+                buildEAPGradlePluginSample(this@asBuildPluginEAPSampleConfig.projectName)
+            }
+
+            addEAPSampleFailureConditions(this@asBuildPluginEAPSampleConfig.projectName)
+
+            defaultBuildFeatures(this@asBuildPluginEAPSampleConfig.vcsRoot.id.toString())
+        }
+    }
+}
+
 object TriggerProjectSamplesOnEAP : Project({
     id("TriggerProjectSamplesOnEAP")
     name = "EAP Validation"
@@ -676,7 +734,8 @@ object TriggerProjectSamplesOnEAP : Project({
         }
     }
 
-    val allEAPSamples: List<EAPSampleConfig> = sampleProjects.map { it.asEAPSampleConfig(versionResolver) }
+    val allEAPSamples: List<EAPSampleConfig> = sampleProjects.map { it.asEAPSampleConfig(versionResolver) } + 
+        buildPluginSamples.map { it.asBuildPluginEAPSampleConfig(versionResolver) }
 
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
     allSampleBuilds.forEach(::buildType)
