@@ -34,7 +34,8 @@ object ProjectReleaseAPIDocs : Project({
                     git config user.email "deploy@jetbrains.com"
                     git config user.name "Auto deploy"
                     git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
-                    git commit --all --message "Update for %releaseVersion%"
+                    git add docs/
+                    git commit --message "Update for %releaseVersion%"
                     git push origin main
                 """.trimIndent()
             }
