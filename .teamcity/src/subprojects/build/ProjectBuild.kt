@@ -123,6 +123,9 @@ object ProjectBuild : Project({
 fun ParametrizedWithType.defaultGradleParams() {
     param("system.org.gradle.internal.http.connectionTimeout", "240000")
     param("system.org.gradle.internal.http.socketTimeout", "120000")
+
+    // Enforce Configuration Cache compatible launch mode
+    param("teamcity.internal.gradle.runner.launch.mode", "gradle-tooling-api")
 }
 
 fun BuildType.defaultBuildFeatures(rootId: String) {
