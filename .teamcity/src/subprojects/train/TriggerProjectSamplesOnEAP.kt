@@ -133,10 +133,8 @@ fun BuildSteps.createEAPGradleInitScript() {
             # Export the version as environment variable for Gradle to access
             export KTOR_VERSION="${'$'}KTOR_VERSION_VAL"
 
-            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle << 'EOF'
-
-settingsEvaluated {
-    settings ->
+            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
+gradle.settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
         repositories {
             mavenCentral()
@@ -190,9 +188,9 @@ allprojects {
             eachDependency {
                 if (requested.group == "io.ktor") {
                     val ktorVersion = System.getenv("KTOR_VERSION")
-                    if (ktorVersion != null && ktorVersion.isNotEmpty()) {
+                    if (!ktorVersion.isNullOrEmpty()) {
                         useVersion(ktorVersion)
-                        logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
+                        logger.lifecycle("Forcing Ktor dependency ${'$'}{requested.name} to use EAP version: ${'$'}ktorVersion")
                     } else {
                         logger.warn("KTOR_VERSION environment variable not found or empty")
                     }
@@ -204,13 +202,14 @@ allprojects {
     afterEvaluate {
         if (this == rootProject) {
             val ktorVersion = System.getenv("KTOR_VERSION")
-            if (ktorVersion != null && ktorVersion.isNotEmpty()) {
-                logger.lifecycle("Project " + name + ": Using Ktor Framework EAP version: " + ktorVersion)
-                logger.lifecycle("Project " + name + ": EAP repository configured for framework")
+            if (!ktorVersion.isNullOrEmpty()) {
+                logger.lifecycle("Project ${'$'}name: Using Ktor Framework EAP version: ${'$'}ktorVersion")
+                logger.lifecycle("Project ${'$'}name: EAP repository configured for framework")
             } else {
-                logger.warn("KTOR_VERSION environment variable not found or empty for project " + name)
+                logger.warn("KTOR_VERSION environment variable not found or empty for project ${'$'}name")
             }
         }
+        
         plugins.withId("org.jetbrains.kotlin.multiplatform") {
             try {
                 val kotlinExt = extensions.findByName("kotlin")
@@ -240,13 +239,13 @@ allprojects {
 
                                 logger.lifecycle("Configured Node.js for Kotlin Multiplatform project using reflection")
                             } catch (e: Exception) {
-                                logger.warn("Could not configure Node.js settings for Kotlin Multiplatform via reflection: " + e.message)
+                                logger.warn("Could not configure Node.js settings for Kotlin Multiplatform via reflection: ${'$'}{e.message}")
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                logger.warn("Could not configure Kotlin Multiplatform settings: " + e.message)
+                logger.warn("Could not configure Kotlin Multiplatform settings: ${'$'}{e.message}")
             }
         }
     }
@@ -254,7 +253,7 @@ allprojects {
 EOF
 
             echo "==== EAP Gradle Init Script Content ===="
-            cat %system.teamcity.build.tempDir%/ktor-eap.init.gradle
+            cat %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts
             echo "========================================"
         """.trimIndent()
     }
@@ -268,7 +267,6 @@ fun BuildSteps.debugEnvironmentVariables() {
             echo "=== Environment Variables Debug ==="
             echo "KTOR_VERSION env var: %env.KTOR_VERSION%"
             echo "Shell KTOR_VERSION: ${'$'}KTOR_VERSION"
-
             echo "=================================="
         """.trimIndent()
     }
@@ -361,7 +359,7 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
             workingDir = relativeDir
         }
 
-        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle -Dorg.gradle.daemon=false"
+        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
         jdkHome = Env.JDK_LTS
 
         param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
@@ -373,7 +371,6 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
         restoreRootSettings()
     }
 }
-
 
 fun BuildSteps.modifyRootSettingsForEAP() {
     script {
@@ -522,7 +519,6 @@ ${EapRepositoryConfig.generateMavenRepository()}" "${'$'}POM_FILE"
     }
 }
 
-
 fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
     override val projectName = this@asEAPSampleConfig.projectName
 
@@ -578,7 +574,7 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
         workingDir = "."
         param("org.gradle.project.includeBuild", "samples/$relativeDir")
 
-        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle -Dorg.gradle.daemon=false"
+        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
         jdkHome = Env.JDK_LTS
 
         param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
@@ -740,7 +736,7 @@ object TriggerProjectSamplesOnEAP : Project({
         }
     }
 
-    val allEAPSamples: List<EAPSampleConfig> = sampleProjects.map { it.asEAPSampleConfig(versionResolver) } + 
+    val allEAPSamples: List<EAPSampleConfig> = sampleProjects.map { it.asEAPSampleConfig(versionResolver) } +
         buildPluginSamples.map { it.asBuildPluginEAPSampleConfig(versionResolver) }
 
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
