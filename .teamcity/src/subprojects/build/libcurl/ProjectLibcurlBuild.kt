@@ -52,7 +52,7 @@ private fun LibcurlBuild(entry: NativeEntry) = BuildType({
     }
 
     params {
-        param("env.VCPKG_ROOT", "%system.teamcity.build.checkoutDir%/vcpkg")
+        param("env.VCPKG_ROOT", "%system.teamcity.build.checkoutDir%%teamcity.agent.jvm.file.separator%vcpkg")
     }
 
     steps {
