@@ -135,50 +135,55 @@ fun BuildSteps.createEAPGradleInitScript() {
 
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
 
-allprojects {
-    repositories {
-        mavenCentral()
-        google()
-        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
-            content {
-                excludeGroup("org.nodejs")
+gradle.settingsEvaluated {
+    settings ->
+    settings.dependencyResolutionManagement {
+        repositories {
+            mavenCentral()
+            google()
+            maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
+                content {
+                    excludeGroup("org.nodejs")
+                }
             }
-        }
-        maven {
-            name = "KtorEAP"
-            url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
-            content {
-                includeGroup("io.ktor")
+            maven {
+                name = "KtorEAP"
+                url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
+                content {
+                    includeGroup("io.ktor")
+                }
             }
-        }
-        ivy {
-            name = "Node.js"
-            url = uri("https://nodejs.org/dist")
-            patternLayout {
-                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+            ivy {
+                name = "Node.js"
+                url = uri("https://nodejs.org/dist")
+                patternLayout {
+                    artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+                }
+                metadataSources {
+                    artifact()
+                }
+                content {
+                    includeModule("org.nodejs", "node")
+                }
             }
-            metadataSources {
-                artifact()
-            }
-            content {
-                includeModule("org.nodejs", "node")
-            }
-        }
-        ivy {
-            name = "Yarn"
-            url = uri("https://github.com/yarnpkg/yarn/releases/download")
-            patternLayout {
-                artifact("v[revision]/[artifact]-v[revision].tar.gz")
-            }
-            metadataSources {
-                artifact()
-            }
-            content {
-                includeModule("com.yarnpkg", "yarn")
+            ivy {
+                name = "Yarn"
+                url = uri("https://github.com/yarnpkg/yarn/releases/download")
+                patternLayout {
+                    artifact("v[revision]/[artifact]-v[revision].tar.gz")
+                }
+                metadataSources {
+                    artifact()
+                }
+                content {
+                    includeModule("com.yarnpkg", "yarn")
+                }
             }
         }
     }
+}
 
+allprojects {
     configurations.all {
         resolutionStrategy {
             eachDependency {
