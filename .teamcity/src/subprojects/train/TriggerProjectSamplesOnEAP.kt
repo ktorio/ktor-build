@@ -133,15 +133,16 @@ fun BuildSteps.createEAPGradleInitScript() {
             # Export the version as environment variable for Gradle to access
             export KTOR_VERSION="${'$'}KTOR_VERSION_VAL"
 
-            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
+            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle << 'EOF'
 
-gradle.settingsEvaluated {
+settingsEvaluated {
     settings ->
     settings.dependencyResolutionManagement {
         repositories {
             mavenCentral()
             google()
-            maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
+            maven {
+                url = uri("${EapRepositoryConfig.COMPOSE_DEV_URL}")
                 content {
                     excludeGroup("org.nodejs")
                 }
@@ -154,7 +155,7 @@ gradle.settingsEvaluated {
                 }
             }
             ivy {
-                name = "Node.js"
+                name = "NodeJS"
                 url = uri("https://nodejs.org/dist")
                 patternLayout {
                     artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
@@ -253,7 +254,7 @@ allprojects {
 EOF
 
             echo "==== EAP Gradle Init Script Content ===="
-            cat %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts
+            cat %system.teamcity.build.tempDir%/ktor-eap.init.gradle
             echo "========================================"
         """.trimIndent()
     }
@@ -360,7 +361,7 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
             workingDir = relativeDir
         }
 
-        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
+        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle -Dorg.gradle.daemon=false"
         jdkHome = Env.JDK_LTS
 
         param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
@@ -577,7 +578,7 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
         workingDir = "."
         param("org.gradle.project.includeBuild", "samples/$relativeDir")
 
-        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
+        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle -Dorg.gradle.daemon=false"
         jdkHome = Env.JDK_LTS
 
         param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
