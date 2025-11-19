@@ -13,6 +13,10 @@ object ProjectLibcurlBuild : Project({
 
     for (build in LibcurlBuilds) buildType(build)
 
+    params {
+        defaultGradleParams()
+    }
+
     buildType {
         id("LibcurlBuild")
         name = "Build libcurl for All Platforms"
