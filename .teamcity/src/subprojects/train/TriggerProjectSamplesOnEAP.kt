@@ -192,7 +192,7 @@ allprojects {
                     val ktorVersion = System.getenv("KTOR_VERSION")
                     if (ktorVersion != null && ktorVersion.isNotEmpty()) {
                         useVersion(ktorVersion)
-                        logger.lifecycle("Forcing Ktor dependency \${'$'}{'${'$'}'}{'${'$'}'}{requested.name} to use EAP version: " + ktorVersion)
+                        logger.lifecycle("Forcing Ktor dependency " + requested.name + " to use EAP version: " + ktorVersion)
                     } else {
                         logger.warn("KTOR_VERSION environment variable not found or empty")
                     }
@@ -205,10 +205,10 @@ allprojects {
         if (this == rootProject) {
             val ktorVersion = System.getenv("KTOR_VERSION")
             if (ktorVersion != null && ktorVersion.isNotEmpty()) {
-                logger.lifecycle("Project \${'$'}{'${'$'}'}{name}: Using Ktor Framework EAP version: " + ktorVersion)
-                logger.lifecycle("Project \${'$'}{'${'$'}'}{name}: EAP repository configured for framework")
+                logger.lifecycle("Project " + name + ": Using Ktor Framework EAP version: " + ktorVersion)
+                logger.lifecycle("Project " + name + ": EAP repository configured for framework")
             } else {
-                logger.warn("KTOR_VERSION environment variable not found or empty for project \${'$'}{'${'$'}'}{name}")
+                logger.warn("KTOR_VERSION environment variable not found or empty for project " + name)
             }
         }
         plugins.withId("org.jetbrains.kotlin.multiplatform") {
