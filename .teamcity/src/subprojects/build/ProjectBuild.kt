@@ -9,6 +9,7 @@ import subprojects.Agents.OS
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
 import subprojects.build.generator.*
+import subprojects.build.libcurl.*
 import subprojects.build.plugin.*
 import subprojects.build.samples.*
 
@@ -60,6 +61,12 @@ data class NativeEntry(
         val LinuxX64 = NativeEntry(
             os = OS.Linux,
             target = "linuxX64",
+        )
+
+        val LinuxArm64 = NativeEntry(
+            os = OS.Linux,
+            arch = Agents.Arch.Arm64,
+            target = "linuxArm64",
         )
 
         val MingwX64 = NativeEntry(
@@ -116,6 +123,7 @@ object ProjectBuild : Project({
     subProject(ProjectCore)
     subProject(ProjectDocSamples)
     subProject(ProjectPlugin)
+    subProject(ProjectLibcurlBuild)
 
     cleanup {
         keepRule {
