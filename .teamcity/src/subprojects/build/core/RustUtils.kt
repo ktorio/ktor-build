@@ -6,17 +6,12 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.Agents.OS
 
 fun BuildSteps.installRust(os: OS) {
-    if (os == OS.Windows) {
-        powerShell {
-            name = "Install Rust (rustup)"
-            scriptFile("install_rust_windows.ps1")
-        }
-    } else {
-        script {
-            name = "Install Rust (rustup)"
-            scriptFile("install_rust_unix.sh")
-        }
-    }
+    platformScript(
+        name = "Install Rust (rustup)",
+        os = os,
+        unixScript = "install_rust_unix.sh",
+        windowsScript = "install_rust_windows.ps1"
+    )
 }
 
 fun BuildType.enableRustForRelevantChanges(os: OS): Boolean {
@@ -24,7 +19,7 @@ fun BuildType.enableRustForRelevantChanges(os: OS): Boolean {
         param("env.OPERATING_SYSTEM", os.name)
     }
     steps {
-        // TODO: Add a script for Windows to
+        // TODO: Add a script for Windows
         if (os != OS.Windows) {
             script {
                 name = "Check for Rust module changes"

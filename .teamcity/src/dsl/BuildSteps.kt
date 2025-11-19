@@ -2,6 +2,7 @@ package dsl
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import subprojects.*
 import kotlin.io.path.*
 
 fun BuildType.cancelPreviousBuilds(default: Boolean = true) {
@@ -23,6 +24,20 @@ fun BuildType.cancelPreviousBuilds(default: Boolean = true) {
                 isNotWindows()
                 equals("cancelPreviousBuilds", "true")
             }
+        }
+    }
+}
+
+internal fun BuildSteps.platformScript(name: String, os: Agents.OS, unixScript: String, windowsScript: String) {
+    if (os == Agents.OS.Windows) {
+        powerShell {
+            this.name = name
+            scriptFile(windowsScript)
+        }
+    } else {
+        script {
+            this.name = name
+            scriptFile(unixScript)
         }
     }
 }
