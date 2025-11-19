@@ -33,39 +33,45 @@ data class JDKEntry(
  */
 data class NativeEntry(
     override val os: OS,
-    val testTasks: String,
+    val target: String,
     override val arch: Agents.Arch = Agents.Arch.X64,
     val id: String = "${os.id}_${arch.id}",
     val name: String = "Native ${os.id}",
 ) : AgentSpec {
 
+    fun targetTask(prefix: String = "", suffix: String = ""): String {
+        check(prefix.isNotEmpty() || suffix.isNotEmpty()) { "Prefix or suffix must be provided" }
+        val target = if (prefix.isNotEmpty()) target.replaceFirstChar { it.uppercase() } else target
+        return "${prefix}${target}${suffix}"
+    }
+
     companion object {
         val MacOSX64 = NativeEntry(
             os = OS.MacOS,
-            testTasks = "cleanMacosX64Test macosX64Test",
+            target = "macosX64",
         )
 
         val MacOSArm64 = NativeEntry(
             os = OS.MacOS,
             arch = Agents.Arch.Arm64,
-            testTasks = "cleanMacosArm64Test macosArm64Test",
+            target = "macosArm64",
         )
 
-        val Linux = NativeEntry(
+        val LinuxX64 = NativeEntry(
             os = OS.Linux,
-            testTasks = "cleanLinuxX64Test linuxX64Test",
+            target = "linuxX64",
         )
 
-        val Windows = NativeEntry(
+        val MingwX64 = NativeEntry(
             os = OS.Windows,
-            testTasks = "cleanMingwX64Test mingwX64Test",
+            target = "mingwX64",
         )
 
         val All = listOf(
-            Linux,
+            LinuxX64,
             MacOSX64,
             MacOSArm64,
-            Windows,
+            MingwX64,
         )
     }
 }
