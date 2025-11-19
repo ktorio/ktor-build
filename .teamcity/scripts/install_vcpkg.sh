@@ -8,7 +8,7 @@ fi
 
 # Bootstrap vcpkg
 cd "%env.VCPKG_ROOT%"
-./bootstrap-vcpkg.sh
+./bootstrap-vcpkg.sh -disableMetrics
 
 # Add to PATH
-echo "##teamcity[setParameter name='env.PATH' value='%env.VCPKG_ROOT%:\$PATH']"
+echo "##teamcity[setParameter name='env.PATH' value='%env.VCPKG_ROOT%:%env.PATH%']"
