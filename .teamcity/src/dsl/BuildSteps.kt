@@ -2,6 +2,7 @@ package dsl
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import org.intellij.lang.annotations.*
 import subprojects.*
 import kotlin.io.path.*
 
@@ -53,3 +54,10 @@ internal fun PowerShellStep.scriptFile(fileName: String) {
 }
 
 private fun scriptContent(fileName: String) = Path("scripts/$fileName").readText()
+
+private val bashPreamble = """
+    #!/bin/bash
+    set -e
+""".trimIndent()
+
+internal fun bashScript(@Language("bash") content: String): String = "$bashPreamble\n${content.trimIndent()}"
