@@ -34,7 +34,8 @@ fun BuildSteps.setupRustAarch64CrossCompilation(os: OS) {
     require(os == OS.Linux) { "Can be used only on Linux" }
     script {
         name = "Setup Rust aarch64 cross compilation"
-        scriptContent = """
+        scriptContent = bashScript(
+            """
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross
             
@@ -43,6 +44,7 @@ fun BuildSteps.setupRustAarch64CrossCompilation(os: OS) {
             mkdir -p .cargo
             echo '[target.aarch64-unknown-linux-gnu]' > .cargo/config.toml
             echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
-        """.trimIndent()
+            """
+        )
     }
 }
