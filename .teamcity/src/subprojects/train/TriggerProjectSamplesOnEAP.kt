@@ -134,53 +134,57 @@ fun BuildSteps.createEAPGradleInitScript() {
             export KTOR_VERSION="${'$'}KTOR_VERSION_VAL"
 
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-gradle.settingsEvaluated { settings ->
-    settings.dependencyResolutionManagement {
-        repositories {
-            mavenCentral()
-            google()
-            maven {
-                url = uri("${EapRepositoryConfig.COMPOSE_DEV_URL}")
-                content {
-                    excludeGroup("org.nodejs")
+import org.gradle.api.Action
+import org.gradle.api.initialization.Settings
+
+gradle.settingsEvaluated(object : Action<Settings> {
+    override fun execute(settings: Settings) {
+        settings.dependencyResolutionManagement {
+            repositories {
+                mavenCentral()
+                google()
+                maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
+                    content {
+                        excludeGroup("org.nodejs")
+                    }
                 }
-            }
-            maven {
-                name = "KtorEAP"
-                url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
-                content {
-                    includeGroup("io.ktor")
+                maven {
+                    name = "KtorEAP"
+                    url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
+                    content {
+                        includeGroup("io.ktor")
+                    }
                 }
-            }
-            ivy {
-                name = "NodeJS"
-                url = uri("https://nodejs.org/dist")
-                patternLayout {
-                    artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+                ivy {
+                    name = "NodeJS"
+                    url = uri("https://nodejs.org/dist")
+                    patternLayout {
+                        artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+                    }
+                    metadataSources {
+                        artifact()
+                    }
+                    content {
+                        includeModule("org.nodejs", "node")
+                    }
                 }
-                metadataSources {
-                    artifact()
-                }
-                content {
-                    includeModule("org.nodejs", "node")
-                }
-            }
-            ivy {
-                name = "Yarn"
-                url = uri("https://github.com/yarnpkg/yarn/releases/download")
-                patternLayout {
-                    artifact("v[revision]/[artifact]-v[revision].tar.gz")
-                }
-                metadataSources {
-                    artifact()
-                }
-                content {
-                    includeModule("com.yarnpkg", "yarn")
+                ivy {
+                    name = "Yarn"
+                    url = uri("https://github.com/yarnpkg/yarn/releases/download")
+                    patternLayout {
+                        artifact("v[revision]/[artifact]-v[revision].tar.gz")
+                    }
+                    metadataSources {
+                        artifact()
+                    }
+                    content {
+                        includeModule("com.yarnpkg", "yarn")
+                    }
                 }
             }
         }
     }
-}
+})
 
 allprojects {
     configurations.all {
@@ -209,7 +213,7 @@ allprojects {
                 logger.warn("KTOR_VERSION environment variable not found or empty for project ${'$'}name")
             }
         }
-        
+
         plugins.withId("org.jetbrains.kotlin.multiplatform") {
             try {
                 val kotlinExt = extensions.findByName("kotlin")
