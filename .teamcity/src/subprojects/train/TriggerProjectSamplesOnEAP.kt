@@ -160,6 +160,10 @@ gradle.settingsEvaluated(object : Action<Settings> {
                         includeGroup("io.ktor")
                     }
                 }
+                maven {
+                    name = "JetBrains"
+                    url = uri("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
+                }
                 ivy {
                     name = "NodeJS"
                     url = uri("https://nodejs.org/dist")
@@ -232,6 +236,90 @@ allprojects {
                 val errorMsg = "ERROR: KTOR_VERSION environment variable not found or empty for project ${'$'}name"
                 logger.error(errorMsg)
                 throw GradleException(errorMsg)
+            }
+        }
+
+        // Add test dependencies for ktor-compiler-plugin module
+        if (name == "ktor-compiler-plugin") {
+            logger.lifecycle("Adding test dependencies for ktor-compiler-plugin module")
+
+            val depsExt = extensions.findByName("dependencies")
+            if (depsExt != null) {
+                val depsClass = depsExt::class.java
+                val addMethod = depsClass.getMethod("add", String::class.java, Any::class.java)
+
+                fun addDependencies(configuration: String, dependencies: List<Any>) {
+                    dependencies.forEach { dependency ->
+                        addMethod.invoke(depsExt, configuration, dependency)
+                    }
+                }
+
+                val testImplementationDeps = listOf(
+                    "org.junit.jupiter:junit-jupiter-api:5.8.2",
+
+                    "org.jetbrains.kotlin:kotlin-test:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-junit5:1.8.0",
+
+                    "com.jetbrains.intellij.platform:core:223.8836.41",
+                    "com.jetbrains.intellij.platform:testFramework:223.8836.41",
+
+                    "org.jetbrains.kotlin:kotlin-compiler-embeddable:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-compiler-testdata:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-util:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-common:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-annotations-common:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-util-intellij:1.8.0",
+
+                    project
+                )
+
+                val testRuntimeOnlyDeps = listOf(
+                    "org.junit.jupiter:junit-jupiter-engine:5.8.2"
+                )
+
+                addDependencies("testImplementation", testImplementationDeps)
+                addDependencies("testRuntimeOnly", testRuntimeOnlyDeps)
+
+                val tasksExt = extensions.findByName("tasks")
+                if (tasksExt != null) {
+                    val tasksClass = tasksExt::class.java
+                    val getByNameMethod = tasksClass.getMethod("getByName", String::class.java)
+                    val testTask = getByNameMethod.invoke(tasksExt, "test")
+                    if (testTask != null) {
+                        val testTaskClass = testTask::class.java
+
+                        val useJUnitPlatformMethod = testTaskClass.getMethod("useJUnitPlatform")
+                        useJUnitPlatformMethod.invoke(testTask)
+
+                        logger.lifecycle("Configured test task to use JUnit Jupiter")
+                    }
+                }
+
+                val sourceSetsExt = extensions.findByName("sourceSets")
+                if (sourceSetsExt != null) {
+                    val sourceSetsClass = sourceSetsExt::class.java
+                    val getByNameMethod = sourceSetsClass.getMethod("getByName", String::class.java)
+
+                    val testSourceSet = getByNameMethod.invoke(sourceSetsExt, "test")
+                    if (testSourceSet != null) {
+                        val testSourceSetClass = testSourceSet::class.java
+
+                        val getJavaMethod = testSourceSetClass.getMethod("getJava")
+                        val javaSourceSet = getJavaMethod.invoke(testSourceSet)
+                        if (javaSourceSet != null) {
+                            val javaSourceSetClass = javaSourceSet::class.java
+
+                            val srcDirMethod = javaSourceSetClass.getMethod("srcDir", Object::class.java)
+                            srcDirMethod.invoke(javaSourceSet, "test-gen")
+
+                            logger.lifecycle("Added test-gen directory to test source set")
+                        }
+                    }
+                }
+
+                logger.lifecycle("Successfully added test dependencies for ktor-compiler-plugin module")
+            } else {
+                logger.warn("Could not find dependencies extension for ktor-compiler-plugin module")
             }
         }
 
@@ -368,7 +456,6 @@ fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
 }
 
 fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
-    // Add a verification step to ensure environment variables are set
     script {
         name = "Verify Environment Variables"
         executionMode = BuildStep.ExecutionMode.ALWAYS
@@ -628,7 +715,6 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
-    // Add a verification step to ensure environment variables are set
     script {
         name = "Verify Environment Variables"
         executionMode = BuildStep.ExecutionMode.ALWAYS
