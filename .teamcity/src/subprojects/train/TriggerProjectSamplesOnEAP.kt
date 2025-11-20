@@ -139,6 +139,7 @@ fun BuildSteps.createEAPGradleInitScript() {
 
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
 import org.gradle.api.Action
+import org.gradle.api.GradleException
 import org.gradle.api.initialization.Settings
 
 gradle.settingsEvaluated(object : Action<Settings> {
@@ -201,7 +202,9 @@ allprojects {
                             useVersion(compilerPluginVersion)
                             logger.lifecycle("Forcing Ktor Compiler Plugin to use EAP version: ${'$'}compilerPluginVersion")
                         } else {
-                            logger.warn("KTOR_COMPILER_PLUGIN_VERSION environment variable not found or empty")
+                            val errorMsg = "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable not found or empty"
+                            logger.error(errorMsg)
+                            throw GradleException(errorMsg)
                         }
                     } else {
                         val ktorVersion = System.getenv("KTOR_VERSION")
@@ -209,7 +212,9 @@ allprojects {
                             useVersion(ktorVersion)
                             logger.lifecycle("Forcing Ktor dependency ${'$'}{requested.name} to use EAP version: ${'$'}ktorVersion")
                         } else {
-                            logger.warn("KTOR_VERSION environment variable not found or empty")
+                            val errorMsg = "ERROR: KTOR_VERSION environment variable not found or empty"
+                            logger.error(errorMsg)
+                            throw GradleException(errorMsg)
                         }
                     }
                 }
@@ -224,7 +229,9 @@ allprojects {
                 logger.lifecycle("Project ${'$'}name: Using Ktor Framework EAP version: ${'$'}ktorVersion")
                 logger.lifecycle("Project ${'$'}name: EAP repository configured for framework")
             } else {
-                logger.warn("KTOR_VERSION environment variable not found or empty for project ${'$'}name")
+                val errorMsg = "ERROR: KTOR_VERSION environment variable not found or empty for project ${'$'}name"
+                logger.error(errorMsg)
+                throw GradleException(errorMsg)
             }
         }
 
@@ -361,6 +368,32 @@ fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
 }
 
 fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
+    // Add a verification step to ensure environment variables are set
+    script {
+        name = "Verify Environment Variables"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            #!/bin/bash
+            set -e
+
+            echo "=== Verifying Environment Variables ==="
+
+            if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
+                echo "ERROR: KTOR_VERSION environment variable is not set"
+                exit 1
+            fi
+
+            if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ] || [ "%env.KTOR_COMPILER_PLUGIN_VERSION%" = "" ]; then
+                echo "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable is not set"
+                exit 1
+            fi
+
+            echo "✓ KTOR_VERSION: %env.KTOR_VERSION%"
+            echo "✓ KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+            echo "=== Environment Variables Verified ==="
+        """.trimIndent()
+    }
+
     createEAPGradleInitScript()
 
     if (!standalone) {
@@ -504,6 +537,17 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
                 exit 1
             fi
 
+            # Verify that required environment variables are set
+            if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
+                echo "ERROR: KTOR_VERSION environment variable is not set"
+                exit 1
+            fi
+
+            if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ] || [ "%env.KTOR_COMPILER_PLUGIN_VERSION%" = "" ]; then
+                echo "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable is not set"
+                exit 1
+            fi
+
             cp "${'$'}POM_FILE" "${'$'}BACKUP_FILE"
 
             sed -i.tmp "/<\/repositories>/ i\\
@@ -554,6 +598,7 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
             params {
                 param("teamcity.build.skipDependencyBuilds", "true")
                 param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
+                param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
             }
             dependencies {
                 dependency(versionResolver) {
@@ -583,6 +628,32 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
+    // Add a verification step to ensure environment variables are set
+    script {
+        name = "Verify Environment Variables"
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+        scriptContent = """
+            #!/bin/bash
+            set -e
+
+            echo "=== Verifying Environment Variables ==="
+
+            if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
+                echo "ERROR: KTOR_VERSION environment variable is not set"
+                exit 1
+            fi
+
+            if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ] || [ "%env.KTOR_COMPILER_PLUGIN_VERSION%" = "" ]; then
+                echo "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable is not set"
+                exit 1
+            fi
+
+            echo "✓ KTOR_VERSION: %env.KTOR_VERSION%"
+            echo "✓ KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+            echo "=== Environment Variables Verified ==="
+        """.trimIndent()
+    }
+
     createEAPGradleInitScript()
 
     modifyRootSettingsForEAP()
@@ -617,6 +688,7 @@ fun BuildPluginSampleSettings.asBuildPluginEAPSampleConfig(versionResolver: Buil
             params {
                 param("teamcity.build.skipDependencyBuilds", "true")
                 param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
+                param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
             }
 
             dependencies {
