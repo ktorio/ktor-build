@@ -262,19 +262,33 @@ allprojects {
 
                     "com.jetbrains.intellij.platform:core:223.8836.41",
                     "com.jetbrains.intellij.platform:testFramework:223.8836.41",
+                    "com.jetbrains.intellij.platform:test-framework:223.8836.41",
+                    "com.jetbrains.intellij.platform:ide-impl:223.8836.41",
+                    "com.jetbrains.intellij.platform:analysis:223.8836.41",
+                    "com.jetbrains.intellij.platform:analysis-impl:223.8836.41",
 
                     "org.jetbrains.kotlin:kotlin-compiler-embeddable:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-compiler:1.8.0",
                     "org.jetbrains.kotlin:kotlin-compiler-testdata:1.8.0",
                     "org.jetbrains.kotlin:kotlin-test-util:1.8.0",
                     "org.jetbrains.kotlin:kotlin-test-common:1.8.0",
                     "org.jetbrains.kotlin:kotlin-test-annotations-common:1.8.0",
                     "org.jetbrains.kotlin:kotlin-test-util-intellij:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-full:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-framework:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-test-framework-impl:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-compiler-tests-common:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-compiler-internal-test-framework:1.8.0",
+                    "org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0",
 
                     project
                 )
 
                 val testRuntimeOnlyDeps = listOf(
-                    "org.junit.jupiter:junit-jupiter-engine:5.8.2"
+                    "org.junit.jupiter:junit-jupiter-engine:5.8.2",
+                    "org.jetbrains.kotlin:kotlin-reflect:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-script-runtime:1.8.0",
+                    "org.jetbrains.kotlin:kotlin-annotations-jvm:1.8.0"
                 )
 
                 addDependencies("testImplementation", testImplementationDeps)
