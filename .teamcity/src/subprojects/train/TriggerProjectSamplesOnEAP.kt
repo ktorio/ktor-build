@@ -19,6 +19,7 @@ object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
     const val EAP_VERSION_REGEX = ">[0-9][^<]*-eap-[0-9]*<"
     const val KTOR_EAP_METADATA_URL = "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+    const val KTOR_COMPILER_PLUGIN_METADATA_URL = "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
 }
 
 object EapRepositoryConfig {
@@ -130,8 +131,11 @@ fun BuildSteps.createEAPGradleInitScript() {
                 exit 1
             fi
 
-            # Export the version as environment variable for Gradle to access
+            # Export the versions as environment variables for Gradle to access
             export KTOR_VERSION="${'$'}KTOR_VERSION_VAL"
+            export KTOR_COMPILER_PLUGIN_VERSION="%env.KTOR_COMPILER_PLUGIN_VERSION%"
+
+            echo "Using Ktor Compiler Plugin version: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
 
             cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
 import org.gradle.api.Action
@@ -191,12 +195,22 @@ allprojects {
         resolutionStrategy {
             eachDependency {
                 if (requested.group == "io.ktor") {
-                    val ktorVersion = System.getenv("KTOR_VERSION")
-                    if (!ktorVersion.isNullOrEmpty()) {
-                        useVersion(ktorVersion)
-                        logger.lifecycle("Forcing Ktor dependency ${'$'}{requested.name} to use EAP version: ${'$'}ktorVersion")
+                    if (requested.name == "ktor-compiler-plugin") {
+                        val compilerPluginVersion = System.getenv("KTOR_COMPILER_PLUGIN_VERSION")
+                        if (!compilerPluginVersion.isNullOrEmpty()) {
+                            useVersion(compilerPluginVersion)
+                            logger.lifecycle("Forcing Ktor Compiler Plugin to use EAP version: ${'$'}compilerPluginVersion")
+                        } else {
+                            logger.warn("KTOR_COMPILER_PLUGIN_VERSION environment variable not found or empty")
+                        }
                     } else {
-                        logger.warn("KTOR_VERSION environment variable not found or empty")
+                        val ktorVersion = System.getenv("KTOR_VERSION")
+                        if (!ktorVersion.isNullOrEmpty()) {
+                            useVersion(ktorVersion)
+                            logger.lifecycle("Forcing Ktor dependency ${'$'}{requested.name} to use EAP version: ${'$'}ktorVersion")
+                        } else {
+                            logger.warn("KTOR_VERSION environment variable not found or empty")
+                        }
                     }
                 }
             }
@@ -367,6 +381,7 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
         jdkHome = Env.JDK_LTS
 
         param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
+        param("env.KTOR_COMPILER_PLUGIN_VERSION", "%env.KTOR_COMPILER_PLUGIN_VERSION%")
     }
 
     if (!standalone) {
@@ -502,7 +517,7 @@ ${EapRepositoryConfig.generateMavenRepository()}" "${'$'}POM_FILE"
     maven {
         name = "Build EAP Sample (Maven)"
         goals = "clean compile package"
-        runnerArgs = "-Dktor.version=%env.KTOR_VERSION%"
+        runnerArgs = "-Dktor.version=%env.KTOR_VERSION% -Dktor.compiler.plugin.version=%env.KTOR_COMPILER_PLUGIN_VERSION%"
         workingDir = relativeDir
         pomLocation = "$relativeDir/pom.xml"
         jdkHome = Env.JDK_LTS
@@ -582,6 +597,7 @@ fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
         jdkHome = Env.JDK_LTS
 
         param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
+        param("env.KTOR_COMPILER_PLUGIN_VERSION", "%env.KTOR_COMPILER_PLUGIN_VERSION%")
     }
 
     restoreRootSettings()
@@ -649,6 +665,7 @@ object TriggerProjectSamplesOnEAP : Project({
             param("teamcity.build.skipDependencyBuilds", "true")
             param("teamcity.runAsFirstBuild", "true")
             param("env.KTOR_VERSION", "")
+            param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
         }
 
         steps {
@@ -662,6 +679,7 @@ object TriggerProjectSamplesOnEAP : Project({
 
                     echo "=== Fetching Latest Ktor EAP Framework Version ==="
 
+                    # Fetch Ktor BOM version
                     METADATA_URL="${EapConstants.KTOR_EAP_METADATA_URL}"
                     TEMP_METADATA=$(mktemp)
 
@@ -695,6 +713,43 @@ object TriggerProjectSamplesOnEAP : Project({
                     fi
 
                     echo "=== Framework Version Set Successfully ==="
+
+                    # Fetch Ktor Compiler Plugin version
+                    echo "=== Fetching Latest Ktor Compiler Plugin Version ==="
+
+                    COMPILER_METADATA_URL="${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}"
+                    TEMP_COMPILER_METADATA=$(mktemp)
+
+                    echo "Fetching compiler plugin metadata from: ${'$'}COMPILER_METADATA_URL"
+
+                    if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}COMPILER_METADATA_URL" -o "${'$'}TEMP_COMPILER_METADATA" 2>/dev/null; then
+                        echo "Successfully fetched compiler plugin metadata"
+                        echo "Compiler plugin metadata content:"
+                        cat "${'$'}TEMP_COMPILER_METADATA"
+
+                        LATEST_COMPILER_VERSION=$(grep -o "<latest>[^<]*</latest>" "${'$'}TEMP_COMPILER_METADATA" | sed 's/<latest>//;s/<\/latest>//')
+
+                        if [ -z "${'$'}LATEST_COMPILER_VERSION" ]; then
+                            LATEST_COMPILER_VERSION=$(grep -o "${EapConstants.EAP_VERSION_REGEX}" "${'$'}TEMP_COMPILER_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
+                        fi
+
+                        if [ -n "${'$'}LATEST_COMPILER_VERSION" ]; then
+                            echo "Found latest compiler plugin version: ${'$'}LATEST_COMPILER_VERSION"
+                            echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}LATEST_COMPILER_VERSION']"
+                        else
+                            echo "ERROR: No compiler plugin version found in metadata"
+                            echo "Metadata content:"
+                            cat "${'$'}TEMP_COMPILER_METADATA"
+                            exit 1
+                        fi
+
+                        rm -f "${'$'}TEMP_COMPILER_METADATA"
+                    else
+                        echo "ERROR: Failed to fetch compiler plugin metadata from ${'$'}COMPILER_METADATA_URL"
+                        exit 1
+                    fi
+
+                    echo "=== Compiler Plugin Version Set Successfully ==="
                 """.trimIndent()
             }
 
@@ -711,7 +766,13 @@ object TriggerProjectSamplesOnEAP : Project({
                         exit 1
                     fi
 
+                    if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ] || [ "%env.KTOR_COMPILER_PLUGIN_VERSION%" = "" ]; then
+                        echo "CRITICAL ERROR: KTOR_COMPILER_PLUGIN_VERSION is not set after resolution"
+                        exit 1
+                    fi
+
                     echo "✓ Framework version validated: %env.KTOR_VERSION%"
+                    echo "✓ Compiler plugin version validated: %env.KTOR_COMPILER_PLUGIN_VERSION%"
                     echo "=== Version Resolution SUCCESSFUL ==="
                 """.trimIndent()
             }
