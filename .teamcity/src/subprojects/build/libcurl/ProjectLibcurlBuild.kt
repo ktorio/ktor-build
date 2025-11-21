@@ -72,7 +72,8 @@ private fun LibcurlBuild(entry: NativeEntry) = BuildType({
 
         gradle {
             name = "Update libcurl"
-            tasks = entry.targetTask(":ktor-client-curl:libcurlUpdate")
+            tasks = ":ktor-client-curl:libcurlUpdate"
+            gradleParams = "--info"
             jdkHome = Env.JDK_LTS
         }
     }
