@@ -45,7 +45,10 @@ private fun LibcurlBuild(entry: NativeEntry) = BuildType({
     id("LibcurlBuild${entry.id}")
     name = "Libcurl ${entry.os.id} ${entry.arch}"
 
-    artifactRules = "ktor-client/ktor-client-curl/desktop/interop/lib/${entry.target} => libcurl-${entry.target}.tar.gz"
+    artifactRules = """
+        ktor-client/ktor-client-curl/desktop/interop/lib/${entry.target} => libcurl-${entry.target}.tar.gz
+        %env.VCPKG_ROOT%/**/*.log
+    """.trimIndent()
 
     vcs {
         root(VCSCore)
