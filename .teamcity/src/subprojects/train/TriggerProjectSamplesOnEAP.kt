@@ -437,7 +437,6 @@ object TriggerProjectSamplesOnEAP : Project({
         buildPluginSamples.map { it.asBuildPluginEAPSampleConfig(versionResolver) }
 
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
-    allSampleBuilds.forEach(::buildType)
 
     buildType {
         id("KtorEAPSamplesCompositeBuild")
