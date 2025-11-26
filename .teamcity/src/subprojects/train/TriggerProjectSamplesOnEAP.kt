@@ -195,6 +195,89 @@ fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
     }
 }
 
+fun BuildSteps.createEAPMavenRepositoryConfig(samplePath: String) {
+    script {
+        name = "Setup EAP Maven Repositories"
+        scriptContent = """
+            #!/bin/bash
+            set -e
+            
+            echo "=== Setting up Maven sample: $samplePath ==="
+            
+            # Debug information
+            echo "Current directory: $(pwd)"
+            echo "Listing root directory:"
+            ls -la . || echo "Cannot list root directory"
+            
+            echo "Checking if sample path exists..."
+            if [ ! -d "$samplePath" ]; then
+                echo "ERROR: Sample directory '$samplePath' does not exist"
+                echo "Available directories in samples:"
+                ls -la samples/ || echo "samples directory does not exist"
+                exit 1
+            fi
+            
+            echo "Sample directory exists, listing contents:"
+            ls -la "$samplePath"
+            
+            if [ ! -f "$samplePath/pom.xml" ]; then
+                echo "ERROR: Maven pom.xml not found at $samplePath/pom.xml"
+                echo "Contents of $samplePath:"
+                ls -la "$samplePath"
+                exit 1
+            fi
+            
+            echo "Found pom.xml, setting up EAP repositories..."
+            
+            # Backup original pom.xml
+            cp "$samplePath/pom.xml" "$samplePath/pom.xml.backup"
+            echo "Created backup of original pom.xml"
+            
+            # Check if repositories section already exists
+            if grep -q "<repositories>" "$samplePath/pom.xml"; then
+                echo "Repositories section already exists, adding EAP repositories to it"
+                # Insert EAP repositories before the closing </repositories> tag
+                sed -i '/<\/repositories>/i\
+        <repository>\
+            <id>ktor-eap</id>\
+            <url>${EapRepositoryConfig.KTOR_EAP_URL}</url>\
+        </repository>\
+        <repository>\
+            <id>compose-dev</id>\
+            <url>${EapRepositoryConfig.COMPOSE_DEV_URL}</url>\
+        </repository>' "$samplePath/pom.xml"
+            else
+                echo "No repositories section found, adding new repositories section"
+                # Add repositories section after the <project> opening tag
+                sed -i '/<project[^>]*>/a\
+${EapRepositoryConfig.generateMavenRepository()}' "$samplePath/pom.xml"
+            fi
+            
+            echo "EAP repositories added to $samplePath/pom.xml"
+            echo "Modified pom.xml content:"
+            cat "$samplePath/pom.xml"
+        """.trimIndent()
+    }
+}
+
+fun BuildSteps.restoreEAPMavenConfig(samplePath: String) {
+    script {
+        name = "Restore Original Maven Config"
+        scriptContent = """
+            #!/bin/bash
+            
+            if [ -f "$samplePath/pom.xml.backup" ]; then
+                echo "Restoring original pom.xml for $samplePath"
+                mv "$samplePath/pom.xml.backup" "$samplePath/pom.xml"
+                echo "Original pom.xml restored"
+            else
+                echo "No backup found for $samplePath/pom.xml"
+            fi
+        """.trimIndent()
+        executionMode = BuildStep.ExecutionMode.ALWAYS
+    }
+}
+
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
     gradle {
         name = "Build $relativeDir EAP sample"
@@ -220,7 +303,7 @@ fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
 
 fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
     maven {
-        name = "Build $relativeDir EAP sample"
+        name = "Build $relativeDir EAP sample (Maven)"
         goals = "clean compile test"
         workingDir = relativeDir
         pomLocation = "$relativeDir/pom.xml"
@@ -240,15 +323,20 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
 
             steps {
                 debugEnvironmentVariables()
-                createEAPGradleInitScript()
-                createEAPSampleSettings("samples/$projectName")
 
                 when (this@asEAPSampleConfig.buildSystem) {
-                    BuildSystem.GRADLE -> buildEAPGradleSample(projectName, this@asEAPSampleConfig.standalone)
-                    BuildSystem.MAVEN -> buildEAPMavenSample("samples/$projectName")
+                    BuildSystem.GRADLE -> {
+                        createEAPGradleInitScript()
+                        createEAPSampleSettings("samples/$projectName")
+                        buildEAPGradleSample(projectName, this@asEAPSampleConfig.standalone)
+                        restoreEAPSampleSettings("samples/$projectName")
+                    }
+                    BuildSystem.MAVEN -> {
+                        createEAPMavenRepositoryConfig("samples/$projectName")
+                        buildEAPMavenSample("samples/$projectName")
+                        restoreEAPMavenConfig("samples/$projectName")
+                    }
                 }
-
-                restoreEAPSampleSettings("samples/$projectName")
             }
         }
     }
