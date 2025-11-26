@@ -223,6 +223,7 @@ fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
         name = "Build $relativeDir EAP sample"
         goals = "clean compile test"
         workingDir = relativeDir
+        pomLocation = "$relativeDir/pom.xml"
         jdkHome = Env.JDK_LTS
     }
 }
