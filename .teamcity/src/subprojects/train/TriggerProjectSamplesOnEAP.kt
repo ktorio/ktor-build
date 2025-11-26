@@ -10,6 +10,7 @@ import subprojects.*
 import subprojects.Agents.ANY
 import subprojects.Agents.Arch
 import subprojects.Agents.OS
+import subprojects.benchmarks.ProjectBenchmarks.buildType
 import subprojects.build.*
 import subprojects.build.samples.*
 import subprojects.build.samples.BuildPluginSampleSettings
@@ -18,8 +19,10 @@ import subprojects.build.samples.buildPluginSamples
 object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
     const val EAP_VERSION_REGEX = ">[0-9][^<]*-eap-[0-9]*<"
-    const val KTOR_EAP_METADATA_URL = "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
-    const val KTOR_COMPILER_PLUGIN_METADATA_URL = "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
+    const val KTOR_EAP_METADATA_URL =
+        "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+    const val KTOR_COMPILER_PLUGIN_METADATA_URL =
+        "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
 }
 
 object EapRepositoryConfig {
@@ -27,62 +30,36 @@ object EapRepositoryConfig {
     const val COMPOSE_DEV_URL = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
 
     fun generateGradleRepositories(): String = """
-        mavenCentral()
-        google()
-        maven("$COMPOSE_DEV_URL") {
-            content {
-                excludeGroup("org.nodejs")
-            }
-        }
-        maven {
-            name = "KtorEAP"
-            url = uri("$KTOR_EAP_URL")
-            content {
-                includeGroup("io.ktor")
-            }
+        repositories {
+            maven("$KTOR_EAP_URL")
+            maven("$COMPOSE_DEV_URL")
+            mavenCentral()
+            gradlePluginPortal()
         }
     """.trimIndent()
 
     fun generateMavenRepository(): String = """
-        <repository>
-            <id>ktor-eap</id>
-            <url>$KTOR_EAP_URL</url>
-        </repository>
+        <repositories>
+            <repository>
+                <id>ktor-eap</id>
+                <url>$KTOR_EAP_URL</url>
+            </repository>
+            <repository>
+                <id>compose-dev</id>
+                <url>$COMPOSE_DEV_URL</url>
+            </repository>
+        </repositories>
     """.trimIndent()
 
     fun generateSettingsContent(): String = """
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-    repositories {
-        ${generateGradleRepositories()}
-        ivy {
-            name = "NodeJS"
-            url = uri("https://nodejs.org/dist")
-            patternLayout {
-                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
-            }
-            metadataSources {
-                artifact()
-            }
-            content {
-                includeModule("org.nodejs", "node")
+        pluginManagement {
+            repositories {
+                maven("$KTOR_EAP_URL")
+                maven("$COMPOSE_DEV_URL")
+                gradlePluginPortal()
+                mavenCentral()
             }
         }
-        ivy {
-            name = "Yarn"
-            url = uri("https://github.com/yarnpkg/yarn/releases/download")
-            patternLayout {
-                artifact("v[revision]/[artifact]-v[revision].tar.gz")
-            }
-            metadataSources {
-                artifact()
-            }
-            content {
-                includeModule("com.yarnpkg", "yarn")
-            }
-        }
-    }
-}
     """.trimIndent()
 }
 
@@ -95,293 +72,68 @@ fun BuildType.addEAPSampleFailureConditions(sampleName: String) {
     failureConditions {
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "No agents available to run"
-            failureMessage = "No compatible agents found for $sampleName sample"
+            pattern = "BUILD FAILED"
+            failureMessage = "Build failed for $sampleName sample"
             stopBuildOnFailure = true
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "Build queue timeout"
-            failureMessage = "Build timed out waiting for compatible agent"
+            pattern = "FAILURE:"
+            failureMessage = "Build failure detected in $sampleName sample"
             stopBuildOnFailure = true
         }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "No suitable agents"
-            failureMessage = "No suitable agents available for $sampleName sample"
-            stopBuildOnFailure = true
+        executionTimeoutMin = 20
+    }
+}
+
+fun BuildType.configureEAPSampleBuild(
+    projectName: String,
+    vcsRoot: VcsRoot,
+    versionResolver: BuildType
+) {
+    vcs {
+        root(vcsRoot)
+    }
+
+    requirements {
+        agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
+    }
+
+    params {
+        defaultGradleParams()
+        param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
+        param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
+    }
+
+    addEAPSampleFailureConditions(projectName)
+    defaultBuildFeatures(vcsRoot.id.toString())
+
+    dependencies {
+        dependency(versionResolver) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+                onDependencyCancel = FailureAction.CANCEL
+            }
         }
-        executionTimeoutMin = 10
     }
 }
 
 fun BuildSteps.createEAPGradleInitScript() {
     script {
-        name = "Create EAP Gradle init script"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
+        name = "Create EAP Gradle Init Script"
         scriptContent = """
-            mkdir -p %system.teamcity.build.tempDir%
-
-            KTOR_VERSION_VAL="%env.KTOR_VERSION%"
-            echo "Using Ktor Framework EAP version: ${'$'}KTOR_VERSION_VAL"
-
-            if [ -z "${'$'}KTOR_VERSION_VAL" ]; then
-                echo "ERROR: KTOR_VERSION environment variable is not properly resolved"
-                echo "Raw value from TeamCity parameter: %env.KTOR_VERSION%"
-                exit 1
-            fi
-
-            # Export the versions as environment variables for Gradle to access
-            export KTOR_VERSION="${'$'}KTOR_VERSION_VAL"
-            export KTOR_COMPILER_PLUGIN_VERSION="%env.KTOR_COMPILER_PLUGIN_VERSION%"
-
-            echo "Using Ktor Compiler Plugin version: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
-
-            cat > %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts << 'EOF'
-import org.gradle.api.Action
-import org.gradle.api.GradleException
-import org.gradle.api.initialization.Settings
-
-gradle.settingsEvaluated(object : Action<Settings> {
-    override fun execute(settings: Settings) {
-        settings.dependencyResolutionManagement {
-            repositories {
-                mavenCentral()
-                google()
-                maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
-                    content {
-                        excludeGroup("org.nodejs")
-                    }
-                }
-                maven {
-                    name = "KtorEAP"
-                    url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
-                    content {
-                        includeGroup("io.ktor")
-                    }
-                }
-                maven {
-                    name = "JetBrains"
-                    url = uri("https://packages.jetbrains.team/maven/p/ij/intellij-dependencies")
-                }
-                ivy {
-                    name = "NodeJS"
-                    url = uri("https://nodejs.org/dist")
-                    patternLayout {
-                        artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
-                    }
-                    metadataSources {
-                        artifact()
-                    }
-                    content {
-                        includeModule("org.nodejs", "node")
-                    }
-                }
-                ivy {
-                    name = "Yarn"
-                    url = uri("https://github.com/yarnpkg/yarn/releases/download")
-                    patternLayout {
-                        artifact("v[revision]/[artifact]-v[revision].tar.gz")
-                    }
-                    metadataSources {
-                        artifact()
-                    }
-                    content {
-                        includeModule("com.yarnpkg", "yarn")
-                    }
-                }
+            #!/bin/bash
+            set -e
+            
+            echo "Creating EAP Gradle init script..."
+            
+            cat > gradle-eap-init.gradle <<EOF
+            allprojects {
+                ${EapRepositoryConfig.generateGradleRepositories()}
             }
-        }
-    }
-})
-
-allprojects {
-    configurations.all {
-        resolutionStrategy {
-            eachDependency {
-                if (requested.group == "io.ktor") {
-                    if (requested.name == "ktor-compiler-plugin") {
-                        val compilerPluginVersion = System.getenv("KTOR_COMPILER_PLUGIN_VERSION")
-                        if (!compilerPluginVersion.isNullOrEmpty()) {
-                            useVersion(compilerPluginVersion)
-                            logger.lifecycle("Forcing Ktor Compiler Plugin to use EAP version: ${'$'}compilerPluginVersion")
-                        } else {
-                            val errorMsg = "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable not found or empty"
-                            logger.error(errorMsg)
-                            throw GradleException(errorMsg)
-                        }
-                    } else {
-                        val ktorVersion = System.getenv("KTOR_VERSION")
-                        if (!ktorVersion.isNullOrEmpty()) {
-                            useVersion(ktorVersion)
-                            logger.lifecycle("Forcing Ktor dependency ${'$'}{requested.name} to use EAP version: ${'$'}ktorVersion")
-                        } else {
-                            val errorMsg = "ERROR: KTOR_VERSION environment variable not found or empty"
-                            logger.error(errorMsg)
-                            throw GradleException(errorMsg)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    afterEvaluate {
-        if (this == rootProject) {
-            val ktorVersion = System.getenv("KTOR_VERSION")
-            if (!ktorVersion.isNullOrEmpty()) {
-                logger.lifecycle("Project ${'$'}name: Using Ktor Framework EAP version: ${'$'}ktorVersion")
-                logger.lifecycle("Project ${'$'}name: EAP repository configured for framework")
-            } else {
-                val errorMsg = "ERROR: KTOR_VERSION environment variable not found or empty for project ${'$'}name"
-                logger.error(errorMsg)
-                throw GradleException(errorMsg)
-            }
-        }
-
-        // Add test dependencies for ktor-compiler-plugin module
-        if (name == "ktor-compiler-plugin") {
-            logger.lifecycle("Adding test dependencies for ktor-compiler-plugin module")
-
-            val depsExt = extensions.findByName("dependencies")
-            if (depsExt != null) {
-                val depsClass = depsExt::class.java
-                val addMethod = depsClass.getMethod("add", String::class.java, Any::class.java)
-
-                fun addDependencies(configuration: String, dependencies: List<Any>) {
-                    dependencies.forEach { dependency ->
-                        addMethod.invoke(depsExt, configuration, dependency)
-                    }
-                }
-
-                val testImplementationDeps = listOf(
-                    "org.junit.jupiter:junit-jupiter-api:5.8.2",
-
-                    "org.jetbrains.kotlin:kotlin-test:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-junit5:1.8.0",
-
-                    "com.jetbrains.intellij.platform:core:223.8836.41",
-                    "com.jetbrains.intellij.platform:testFramework:223.8836.41",
-                    "com.jetbrains.intellij.platform:test-framework:223.8836.41",
-                    "com.jetbrains.intellij.platform:ide-impl:223.8836.41",
-                    "com.jetbrains.intellij.platform:analysis:223.8836.41",
-                    "com.jetbrains.intellij.platform:analysis-impl:223.8836.41",
-
-                    "org.jetbrains.kotlin:kotlin-compiler-embeddable:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-compiler:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-compiler-testdata:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-util:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-common:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-annotations-common:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-util-intellij:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-full:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-framework:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-test-framework-impl:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-compiler-tests-common:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-compiler-internal-test-framework:1.8.0",
-                    "org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0",
-
-                    project
-                )
-
-                val testRuntimeOnlyDeps = listOf(
-                    "org.junit.jupiter:junit-jupiter-engine:5.8.2",
-                    "org.jetbrains.kotlin:kotlin-reflect:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-script-runtime:1.8.0",
-                    "org.jetbrains.kotlin:kotlin-annotations-jvm:1.8.0"
-                )
-
-                addDependencies("testImplementation", testImplementationDeps)
-                addDependencies("testRuntimeOnly", testRuntimeOnlyDeps)
-
-                val tasksExt = extensions.findByName("tasks")
-                if (tasksExt != null) {
-                    val tasksClass = tasksExt::class.java
-                    val getByNameMethod = tasksClass.getMethod("getByName", String::class.java)
-                    val testTask = getByNameMethod.invoke(tasksExt, "test")
-                    if (testTask != null) {
-                        val testTaskClass = testTask::class.java
-
-                        val useJUnitPlatformMethod = testTaskClass.getMethod("useJUnitPlatform")
-                        useJUnitPlatformMethod.invoke(testTask)
-
-                        logger.lifecycle("Configured test task to use JUnit Jupiter")
-                    }
-                }
-
-                val sourceSetsExt = extensions.findByName("sourceSets")
-                if (sourceSetsExt != null) {
-                    val sourceSetsClass = sourceSetsExt::class.java
-                    val getByNameMethod = sourceSetsClass.getMethod("getByName", String::class.java)
-
-                    val testSourceSet = getByNameMethod.invoke(sourceSetsExt, "test")
-                    if (testSourceSet != null) {
-                        val testSourceSetClass = testSourceSet::class.java
-
-                        val getJavaMethod = testSourceSetClass.getMethod("getJava")
-                        val javaSourceSet = getJavaMethod.invoke(testSourceSet)
-                        if (javaSourceSet != null) {
-                            val javaSourceSetClass = javaSourceSet::class.java
-
-                            val srcDirMethod = javaSourceSetClass.getMethod("srcDir", Object::class.java)
-                            srcDirMethod.invoke(javaSourceSet, "test-gen")
-
-                            logger.lifecycle("Added test-gen directory to test source set")
-                        }
-                    }
-                }
-
-                logger.lifecycle("Successfully added test dependencies for ktor-compiler-plugin module")
-            } else {
-                logger.warn("Could not find dependencies extension for ktor-compiler-plugin module")
-            }
-        }
-
-        plugins.withId("org.jetbrains.kotlin.multiplatform") {
-            try {
-                val kotlinExt = extensions.findByName("kotlin")
-                if (kotlinExt != null) {
-                    val kotlinExtClass = kotlinExt::class.java
-                    val targetsMethod = kotlinExtClass.getMethod("getTargets")
-                    val targets = targetsMethod.invoke(kotlinExt)
-                    val targetsClass = targets::class.java
-                    val findByNameMethod = targetsClass.getMethod("findByName", String::class.java)
-                    val jsTarget = findByNameMethod.invoke(targets, "js")
-
-                    if (jsTarget != null) {
-                        rootProject.extensions.findByName("kotlinNodeJs")?.let { nodeJs ->
-                            val nodeJsClass = nodeJs::class.java
-                            try {
-                                val downloadField = nodeJsClass.getDeclaredField("download")
-                                downloadField.isAccessible = true
-                                downloadField.setBoolean(nodeJs, true)
-
-                                val downloadBaseUrlField = nodeJsClass.getDeclaredField("downloadBaseUrl")
-                                downloadBaseUrlField.isAccessible = true
-                                downloadBaseUrlField.set(nodeJs, "https://nodejs.org/dist")
-
-                                val versionField = nodeJsClass.getDeclaredField("version")
-                                versionField.isAccessible = true
-                                versionField.set(nodeJs, "18.19.0")
-
-                                logger.lifecycle("Configured Node.js for Kotlin Multiplatform project using reflection")
-                            } catch (e: Exception) {
-                                logger.warn("Could not configure Node.js settings for Kotlin Multiplatform via reflection: ${'$'}{e.message}")
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                logger.warn("Could not configure Kotlin Multiplatform settings: ${'$'}{e.message}")
-            }
-        }
-    }
-}
-EOF
-
-            echo "==== EAP Gradle Init Script Content ===="
-            cat %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts
-            echo "========================================"
+            EOF
+            
+            echo "EAP init script created successfully"
         """.trimIndent()
     }
 }
@@ -389,12 +141,12 @@ EOF
 fun BuildSteps.debugEnvironmentVariables() {
     script {
         name = "Debug Environment Variables"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            echo "=== Environment Variables Debug ==="
-            echo "KTOR_VERSION env var: %env.KTOR_VERSION%"
-            echo "Shell KTOR_VERSION: ${'$'}KTOR_VERSION"
-            echo "=================================="
+            #!/bin/bash
+            echo "=== Environment Variables ==="
+            echo "KTOR_VERSION: %env.KTOR_VERSION%"
+            echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+            echo "==============================="
         """.trimIndent()
     }
 }
@@ -402,47 +154,26 @@ fun BuildSteps.debugEnvironmentVariables() {
 fun BuildSteps.createEAPSampleSettings(samplePath: String) {
     script {
         name = "Create EAP Sample Settings"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
         scriptContent = """
-            SAMPLE_DIR="$samplePath"
-            SETTINGS_FILE="${'$'}{SAMPLE_DIR}/settings.gradle.kts"
-            TEMP_SETTINGS="${'$'}{SETTINGS_FILE}.tmp.$$"
-            BACKUP_FILE="${'$'}{SETTINGS_FILE}.backup.$$"
-
-            echo "Creating EAP sample settings at: ${'$'}{SETTINGS_FILE}"
-
-            trap 'rm -f "${'$'}TEMP_SETTINGS" "${'$'}BACKUP_FILE"' EXIT
-
-            if [ -f "${'$'}{SETTINGS_FILE}" ]; then
-                if cp "${'$'}{SETTINGS_FILE}" "${'$'}BACKUP_FILE"; then
-                    echo "Backed up existing settings file to ${'$'}BACKUP_FILE"
-                    echo "==== Original settings.gradle.kts Content ===="
-                    cat "${'$'}{SETTINGS_FILE}"
-                    echo "============================================="
-                else
-                    echo "Failed to backup existing settings file" >&2
-                    exit 1
+            #!/bin/bash
+            set -e
+            
+            if [ -d "$samplePath" ]; then
+                echo "Creating EAP settings for $samplePath"
+                
+                # Backup original settings if exists
+                if [ -f "$samplePath/settings.gradle.kts" ]; then
+                    cp "$samplePath/settings.gradle.kts" "$samplePath/settings.gradle.kts.backup"
                 fi
-            else
-                echo "No existing settings.gradle.kts file found, creating new one"
-            fi
-
-            cat > "${'$'}TEMP_SETTINGS" << 'EOF'
+                
+                # Create EAP settings
+                cat > "$samplePath/settings.gradle.kts" <<EOF
 ${EapRepositoryConfig.generateSettingsContent()}
-EOF
 
-            if mv "${'$'}TEMP_SETTINGS" "${'$'}{SETTINGS_FILE}"; then
-                echo "EAP sample settings created successfully"
-                echo "==== Generated EAP settings.gradle.kts Content ===="
-                cat "${'$'}{SETTINGS_FILE}"
-                echo "=================================================="
-            else
-                echo "Failed to create settings file" >&2
-                if [ -f "${'$'}BACKUP_FILE" ]; then
-                    mv "${'$'}BACKUP_FILE" "${'$'}{SETTINGS_FILE}"
-                    echo "Restored original settings file"
-                fi
-                exit 1
+rootProject.name = "$(basename $samplePath)"
+EOF
+                
+                echo "EAP settings created for $samplePath"
             fi
         """.trimIndent()
     }
@@ -450,366 +181,95 @@ EOF
 
 fun BuildSteps.restoreEAPSampleSettings(samplePath: String) {
     script {
-        name = "Restore EAP Sample Settings"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
-            SAMPLE_DIR="$samplePath"
-            SETTINGS_FILE="${'$'}{SAMPLE_DIR}/settings.gradle.kts"
-
-            for backup_file in "${'$'}{SETTINGS_FILE}.backup."*; do
-                if [ -f "${'$'}backup_file" ]; then
-                    echo "Restoring ${'$'}SETTINGS_FILE from ${'$'}backup_file"
-                    mv "${'$'}backup_file" "${'$'}SETTINGS_FILE"
-                    break
-                fi
-            done
-
-            echo "Sample settings restoration completed"
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
-    script {
-        name = "Verify Environment Variables"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
+        name = "Restore Original Sample Settings"
         scriptContent = """
             #!/bin/bash
-            set -e
-
-            echo "=== Verifying Environment Variables ==="
-
-            if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
-                echo "ERROR: KTOR_VERSION environment variable is not set"
-                exit 1
+            
+            if [ -f "$samplePath/settings.gradle.kts.backup" ]; then
+                echo "Restoring original settings for $samplePath"
+                mv "$samplePath/settings.gradle.kts.backup" "$samplePath/settings.gradle.kts"
+                echo "Original settings restored"
             fi
-
-            if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ] || [ "%env.KTOR_COMPILER_PLUGIN_VERSION%" = "" ]; then
-                echo "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable is not set"
-                exit 1
-            fi
-
-            echo "✓ KTOR_VERSION: %env.KTOR_VERSION%"
-            echo "✓ KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-            echo "=== Environment Variables Verified ==="
         """.trimIndent()
-    }
-
-    createEAPGradleInitScript()
-
-    if (!standalone) {
-        createEAPSampleSettings(relativeDir)
-    } else {
-        modifyRootSettingsForEAP()
-    }
-
-    gradle {
-        name = "Build EAP Sample (Gradle)"
-        tasks = "build"
-
-        if (!standalone) {
-            workingDir = relativeDir
-        }
-
-        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
-        jdkHome = Env.JDK_LTS
-
-        param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
-        param("env.KTOR_COMPILER_PLUGIN_VERSION", "%env.KTOR_COMPILER_PLUGIN_VERSION%")
-    }
-
-    if (!standalone) {
-        restoreEAPSampleSettings(relativeDir)
-    } else {
-        restoreRootSettings()
-    }
-}
-
-fun BuildSteps.modifyRootSettingsForEAP() {
-    script {
-        name = "Create EAP Settings Override"
         executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
-            SETTINGS_FILE="settings.gradle.kts"
-            BACKUP_FILE="settings.gradle.kts.eap.backup"
-            EAP_SETTINGS_FILE="eap-settings.gradle.kts"
-
-            echo "Creating EAP settings override"
-
-            if [ -f "${'$'}SETTINGS_FILE" ]; then
-                cp "${'$'}SETTINGS_FILE" "${'$'}BACKUP_FILE"
-                echo "Backed up original settings.gradle.kts"
-            fi
-
-            cat > "${'$'}EAP_SETTINGS_FILE" << 'EOF'
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-    repositories {
-        mavenCentral()
-        google()
-        maven("${EapRepositoryConfig.COMPOSE_DEV_URL}") {
-            content {
-                excludeGroup("org.nodejs")
-            }
-        }
-        maven {
-            name = "KtorEAP"
-            url = uri("${EapRepositoryConfig.KTOR_EAP_URL}")
-            content {
-                includeGroup("io.ktor")
-            }
-        }
-        ivy {
-            name = "NodeJS"
-            url = uri("https://nodejs.org/dist")
-            patternLayout {
-                artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
-            }
-            metadataSources {
-                artifact()
-            }
-            content {
-                includeModule("org.nodejs", "node")
-            }
-        }
-        ivy {
-            name = "Yarn"
-            url = uri("https://github.com/yarnpkg/yarn/releases/download")
-            patternLayout {
-                artifact("v[revision]/[artifact]-v[revision].tar.gz")
-            }
-            metadataSources {
-                artifact()
-            }
-            content {
-                includeModule("com.yarnpkg", "yarn")
-            }
-        }
-    }
-}
-EOF
-
-            if [ -f "${'$'}SETTINGS_FILE" ]; then
-                echo "apply(from = \"eap-settings.gradle.kts\")" > "${'$'}SETTINGS_FILE.tmp"
-                echo "" >> "${'$'}SETTINGS_FILE.tmp"
-                cat "${'$'}SETTINGS_FILE" >> "${'$'}SETTINGS_FILE.tmp"
-                mv "${'$'}SETTINGS_FILE.tmp" "${'$'}SETTINGS_FILE"
-                echo "Applied EAP settings to existing settings.gradle.kts"
-            else
-                echo "apply(from = \"eap-settings.gradle.kts\")" > "${'$'}SETTINGS_FILE"
-                echo "Created new settings.gradle.kts with EAP configuration"
-            fi
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.restoreRootSettings() {
-    script {
-        name = "Restore Root Settings"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
-            SETTINGS_FILE="settings.gradle.kts"
-            BACKUP_FILE="settings.gradle.kts.eap.backup"
-            EAP_SETTINGS_FILE="eap-settings.gradle.kts"
-
-            if [ -f "${'$'}BACKUP_FILE" ]; then
-                mv "${'$'}BACKUP_FILE" "${'$'}SETTINGS_FILE"
-                echo "Restored original settings.gradle.kts"
-            fi
-
-            if [ -f "${'$'}EAP_SETTINGS_FILE" ]; then
-                rm -f "${'$'}EAP_SETTINGS_FILE"
-                echo "Removed EAP settings file"
-            fi
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
-    script {
-        name = "Modify Maven pom.xml for EAP"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
-            POM_FILE="$relativeDir/pom.xml"
-            BACKUP_FILE="$relativeDir/pom.xml.backup"
-
-            if [ ! -f "${'$'}POM_FILE" ]; then
-                echo "ERROR: pom.xml not found at ${'$'}POM_FILE"
-                exit 1
-            fi
-
-            # Verify that required environment variables are set
-            if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
-                echo "ERROR: KTOR_VERSION environment variable is not set"
-                exit 1
-            fi
-
-            if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ] || [ "%env.KTOR_COMPILER_PLUGIN_VERSION%" = "" ]; then
-                echo "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable is not set"
-                exit 1
-            fi
-
-            cp "${'$'}POM_FILE" "${'$'}BACKUP_FILE"
-
-            sed -i.tmp "/<\/repositories>/ i\\
-${EapRepositoryConfig.generateMavenRepository()}" "${'$'}POM_FILE"
-
-            rm -f "${'$'}POM_FILE.tmp"
-            echo "Added EAP repository to pom.xml"
-        """.trimIndent()
-    }
-
-    maven {
-        name = "Build EAP Sample (Maven)"
-        goals = "clean compile package"
-        runnerArgs = "-Dktor.version=%env.KTOR_VERSION% -Dktor.compiler.plugin.version=%env.KTOR_COMPILER_PLUGIN_VERSION%"
-        workingDir = relativeDir
-        pomLocation = "$relativeDir/pom.xml"
-        jdkHome = Env.JDK_LTS
-    }
-
-    script {
-        name = "Restore Maven pom.xml"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
-            POM_FILE="$relativeDir/pom.xml"
-            BACKUP_FILE="$relativeDir/pom.xml.backup"
-
-            if [ -f "${'$'}BACKUP_FILE" ]; then
-                mv "${'$'}BACKUP_FILE" "${'$'}POM_FILE"
-                echo "Restored original pom.xml"
-            fi
-        """.trimIndent()
-    }
-}
-
-fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
-    override val projectName = this@asEAPSampleConfig.projectName
-
-    override fun createEAPBuildType(): BuildType {
-        return BuildType {
-            id("EAP_KtorSamplesValidate_${projectName.replace('-', '_')}")
-            name = "EAP Validate $projectName sample"
-            vcs {
-                root(VCSSamples)
-            }
-
-            if (this@asEAPSampleConfig.withAndroidSdk) configureAndroidHome()
-
-            params {
-                param("teamcity.build.skipDependencyBuilds", "true")
-                param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
-                param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-            }
-            dependencies {
-                dependency(versionResolver) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.CANCEL
-                    }
-                }
-            }
-            steps {
-                if (this@asEAPSampleConfig.withAndroidSdk) acceptAndroidSDKLicense()
-
-                when (this@asEAPSampleConfig.buildSystem) {
-                    BuildSystem.MAVEN -> buildEAPMavenSample(this@asEAPSampleConfig.projectName)
-                    BuildSystem.GRADLE -> buildEAPGradleSample(
-                        this@asEAPSampleConfig.projectName,
-                        this@asEAPSampleConfig.standalone
-                    )
-                }
-            }
-
-            addEAPSampleFailureConditions(this@asEAPSampleConfig.projectName)
-
-            defaultBuildFeatures(VCSSamples.id.toString())
-        }
     }
 }
 
 fun BuildSteps.buildEAPGradlePluginSample(relativeDir: String) {
-    script {
-        name = "Verify Environment Variables"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = """
-            #!/bin/bash
-            set -e
-
-            echo "=== Verifying Environment Variables ==="
-
-            if [ -z "%env.KTOR_VERSION%" ] || [ "%env.KTOR_VERSION%" = "" ]; then
-                echo "ERROR: KTOR_VERSION environment variable is not set"
-                exit 1
-            fi
-
-            if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ] || [ "%env.KTOR_COMPILER_PLUGIN_VERSION%" = "" ]; then
-                echo "ERROR: KTOR_COMPILER_PLUGIN_VERSION environment variable is not set"
-                exit 1
-            fi
-
-            echo "✓ KTOR_VERSION: %env.KTOR_VERSION%"
-            echo "✓ KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-            echo "=== Environment Variables Verified ==="
-        """.trimIndent()
-    }
-
-    createEAPGradleInitScript()
-
-    modifyRootSettingsForEAP()
-
     gradle {
-        name = "Build EAP Plugin Sample"
+        name = "Build $relativeDir EAP sample"
         tasks = "build"
-        workingDir = "."
         param("org.gradle.project.includeBuild", "samples/$relativeDir")
-
-        gradleParams = "--init-script %system.teamcity.build.tempDir%/ktor-eap.init.gradle.kts -Dorg.gradle.daemon=false"
+        workingDir = "."
         jdkHome = Env.JDK_LTS
-
-        param("env.KTOR_VERSION", "%env.KTOR_VERSION%")
-        param("env.KTOR_COMPILER_PLUGIN_VERSION", "%env.KTOR_COMPILER_PLUGIN_VERSION%")
     }
-
-    restoreRootSettings()
 }
 
-fun BuildPluginSampleSettings.asBuildPluginEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig = object : EAPSampleConfig {
-    override val projectName = this@asBuildPluginEAPSampleConfig.projectName
-
-    override fun createEAPBuildType(): BuildType {
-        return BuildType {
-            id("EAP_KtorBuildPluginSamplesValidate_${projectName.replace('-', '_')}")
-            name = "EAP Validate $projectName sample"
-            vcs {
-                root(this@asBuildPluginEAPSampleConfig.vcsRoot)
-            }
-
-            params {
-                param("teamcity.build.skipDependencyBuilds", "true")
-                param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
-                param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-            }
-
-            dependencies {
-                dependency(versionResolver) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
-                        onDependencyCancel = FailureAction.CANCEL
-                    }
-                }
-            }
-
-            steps {
-                buildEAPGradlePluginSample(this@asBuildPluginEAPSampleConfig.projectName)
-            }
-
-            addEAPSampleFailureConditions(this@asBuildPluginEAPSampleConfig.projectName)
-
-            defaultBuildFeatures(this@asBuildPluginEAPSampleConfig.vcsRoot.id.toString())
+fun BuildSteps.buildEAPGradleSample(relativeDir: String, standalone: Boolean) {
+    if (standalone) {
+        buildEAPGradlePluginSample(relativeDir)
+    } else {
+        gradle {
+            name = "Build $relativeDir EAP sample"
+            tasks = "build"
+            workingDir = relativeDir
+            jdkHome = Env.JDK_LTS
         }
     }
 }
+
+fun BuildSteps.buildEAPMavenSample(relativeDir: String) {
+    maven {
+        name = "Build $relativeDir EAP sample"
+        goals = "clean compile test"
+        workingDir = relativeDir
+        jdkHome = Env.JDK_LTS
+    }
+}
+
+fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig =
+    object : EAPSampleConfig {
+        override val projectName = this@asEAPSampleConfig.projectName
+
+        override fun createEAPBuildType(): BuildType = buildType {
+            id("KtorEAPSample_${projectName.replace('-', '_')}")
+            name = "EAP Validate $projectName sample"
+
+            configureEAPSampleBuild(projectName, this@asEAPSampleConfig.vcsRoot, versionResolver)
+
+            steps {
+                debugEnvironmentVariables()
+                createEAPGradleInitScript()
+                createEAPSampleSettings("samples/$projectName")
+
+                when (this@asEAPSampleConfig.buildSystem) {
+                    BuildSystem.GRADLE -> buildEAPGradleSample(projectName, this@asEAPSampleConfig.standalone)
+                    BuildSystem.MAVEN -> buildEAPMavenSample("samples/$projectName")
+                }
+
+                restoreEAPSampleSettings("samples/$projectName")
+            }
+        }
+    }
+
+fun BuildPluginSampleSettings.asBuildPluginEAPSampleConfig(versionResolver: BuildType): EAPSampleConfig =
+    object : EAPSampleConfig {
+        override val projectName = this@asBuildPluginEAPSampleConfig.projectName
+
+        override fun createEAPBuildType(): BuildType = buildType {
+            id("KtorEAPGradlePluginSample_${projectName.replace('-', '_')}")
+            name = "EAP Validate $projectName sample"
+
+            configureEAPSampleBuild(projectName, this@asBuildPluginEAPSampleConfig.vcsRoot, versionResolver)
+
+            steps {
+                debugEnvironmentVariables()
+                createEAPGradleInitScript()
+
+                buildEAPGradlePluginSample(projectName)
+            }
+        }
+    }
 
 object TriggerProjectSamplesOnEAP : Project({
     id("TriggerProjectSamplesOnEAP")
@@ -977,7 +437,6 @@ object TriggerProjectSamplesOnEAP : Project({
         buildPluginSamples.map { it.asBuildPluginEAPSampleConfig(versionResolver) }
 
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
-    allSampleBuilds.forEach(::buildType)
 
     buildType {
         id("KtorEAPSamplesCompositeBuild")
