@@ -212,8 +212,8 @@ fun BuildSteps.createEAPMavenRepositoryConfig(samplePath: String) {
             echo "Checking if sample path exists..."
             if [ ! -d "$samplePath" ]; then
                 echo "ERROR: Sample directory '$samplePath' does not exist"
-                echo "Available directories in samples:"
-                ls -la samples/ || echo "samples directory does not exist"
+                echo "Available directories in current directory:"
+                ls -la . | grep "^d" || echo "No directories found"
                 exit 1
             fi
             
@@ -331,10 +331,11 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
                         buildEAPGradleSample(projectName, this@asEAPSampleConfig.standalone)
                         restoreEAPSampleSettings("samples/$projectName")
                     }
+
                     BuildSystem.MAVEN -> {
-                        createEAPMavenRepositoryConfig("samples/$projectName")
-                        buildEAPMavenSample("samples/$projectName")
-                        restoreEAPMavenConfig("samples/$projectName")
+                        createEAPMavenRepositoryConfig(projectName)
+                        buildEAPMavenSample(projectName)
+                        restoreEAPMavenConfig(projectName)
                     }
                 }
             }
