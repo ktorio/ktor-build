@@ -37,31 +37,6 @@ object VCSSamples : PasswordVcsRoot({
     url = "https://github.com/ktorio/ktor-samples.git"
 })
 
-object VCSGetStartedSample : PasswordVcsRoot({
-    name = "Ktor Get Started Sample"
-    url = "https://github.com/ktorio/ktor-get-started.git"
-})
-
-object VCSGradleSample : PasswordVcsRoot({
-    name = "Ktor Gradle Sample"
-    url = "https://github.com/ktorio/ktor-gradle-sample.git"
-})
-
-object VCSMavenSample : PasswordVcsRoot({
-    name = "Ktor Maven Sample"
-    url = "https://github.com/ktorio/ktor-maven-sample.git"
-})
-
-object VCSHttpApiSample : PasswordVcsRoot({
-    name = "Ktor HTTP API Sample"
-    url = "https://github.com/ktorio/ktor-http-api-sample.git"
-})
-
-object VCSWebsiteSample : PasswordVcsRoot({
-    name = "Ktor Website Sample"
-    url = "https://github.com/ktorio/ktor-website-sample.git"
-})
-
 object VCSAPIDocs : PasswordVcsRoot({
     name = "API Docs"
     url = "https://github.com/ktorio/api.ktor.io.git"
