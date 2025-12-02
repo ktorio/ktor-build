@@ -2,7 +2,6 @@ package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.*
 
@@ -31,7 +30,7 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSCore.id.toString())
+    defaultBuildFeatures()
 
     requirements {
         agent(osJVMComboEntry)

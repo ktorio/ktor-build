@@ -220,7 +220,7 @@ fi
         }
     }
 
-    defaultBuildFeatures(VCSKtorGeneratorWebsite.id.toString())
+    defaultBuildFeatures()
 
     triggers {
         onChangeDefaultOrPullRequest()

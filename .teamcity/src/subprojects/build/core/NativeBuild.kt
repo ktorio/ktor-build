@@ -49,7 +49,7 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSCore.id.toString())
+    defaultBuildFeatures()
 
     requirements {
         agent(entry)

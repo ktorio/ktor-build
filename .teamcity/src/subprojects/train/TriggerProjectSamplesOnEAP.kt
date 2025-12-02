@@ -1,11 +1,10 @@
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
-import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
+import jetbrains.buildServer.configs.kotlin.failureConditions.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.Agents.ANY
 import subprojects.Agents.Arch
@@ -13,8 +12,6 @@ import subprojects.Agents.OS
 import subprojects.benchmarks.ProjectBenchmarks.buildType
 import subprojects.build.*
 import subprojects.build.samples.*
-import subprojects.build.samples.BuildPluginSampleSettings
-import subprojects.build.samples.buildPluginSamples
 
 object EapConstants {
     const val PUBLISH_EAP_BUILD_TYPE_ID = "KtorPublish_AllEAP"
@@ -106,7 +103,7 @@ fun BuildType.configureEAPSampleBuild(
     }
 
     addEAPSampleFailureConditions(projectName)
-    defaultBuildFeatures(vcsRoot.id.toString())
+    defaultBuildFeatures()
 
     dependencies {
         dependency(versionResolver) {

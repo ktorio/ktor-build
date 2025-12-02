@@ -351,7 +351,7 @@ object BuildCLI: BuildType({
         agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
     }
 
-    defaultBuildFeatures(VCSKtorCLI.id.toString())
+    defaultBuildFeatures()
 })
 
 private fun BuildSteps.buildFor(os: String, arch: String) {

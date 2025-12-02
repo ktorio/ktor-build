@@ -96,5 +96,5 @@ fun BuildType.createCompositeBuild(
         }
     }
 
-    defaultBuildFeatures(vcsRoot.id.toString())
+    defaultBuildFeatures()
 }

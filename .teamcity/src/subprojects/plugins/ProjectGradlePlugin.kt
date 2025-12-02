@@ -74,11 +74,11 @@ object ProjectGradlePlugin : Project({
         }
 
         triggers {
-            onChangeAllBranchesTrigger()
+            onChangeDefaultOrPullRequest()
         }
 
         features {
-            githubCommitStatusPublisher(VCSKtorBuildPlugins.id.toString())
+            githubCommitStatusPublisher()
         }
 
         steps {

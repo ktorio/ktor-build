@@ -142,12 +142,12 @@ fun ParametrizedWithType.defaultGradleParams() {
     param("teamcity.internal.gradle.runner.launch.mode", "gradle-tooling-api")
 }
 
-fun BuildType.defaultBuildFeatures(rootId: String) {
+fun BuildType.defaultBuildFeatures(vcsRootId: Id? = null) {
     features {
         perfmon {}
 
-        githubPullRequestsLoader(rootId)
-        githubCommitStatusPublisher(rootId)
+        githubPullRequestsLoader(vcsRootId)
+        githubCommitStatusPublisher(vcsRootId)
     }
 
     failureConditions {
@@ -163,14 +163,12 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
     }
 }
 
-fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
+fun BuildFeatures.githubPullRequestsLoader(vcsRootId: Id? = null) {
     pullRequests {
-        vcsRootExtId = rootId
+        vcsRootExtId = vcsRootId?.toString().orEmpty()
 
         provider = github {
-            authType = token {
-                token = VCSToken
-            }
+            authType = vcsRoot()
             filterTargetBranch = """
                 +:refs/heads/*
                 -:refs/pull/*/head
@@ -180,15 +178,13 @@ fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
     }
 }
 
-fun BuildFeatures.githubCommitStatusPublisher(vcsRootId: String = VCSCore.id.toString()) {
+fun BuildFeatures.githubCommitStatusPublisher(vcsRootId: Id? = null) {
     commitStatusPublisher {
-        vcsRootExtId = vcsRootId
+        vcsRootExtId = vcsRootId?.toString().orEmpty()
 
         publisher = github {
             githubUrl = "https://api.github.com"
-            authType = personalToken {
-                token = VCSToken
-            }
+            authType = vcsRoot()
         }
     }
 }
