@@ -2,7 +2,6 @@ package subprojects.build.generator
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.*
 
@@ -25,9 +24,9 @@ object TestGeneratorBackEnd : BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSKtorGeneratorBackend.id.toString())
+    defaultBuildFeatures()
 
     triggers {
-        vcs {}
+        onChangeDefaultOrPullRequest()
     }
 })

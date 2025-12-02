@@ -2,7 +2,6 @@ package subprojects.build.generator
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.*
 
@@ -21,9 +20,9 @@ object TestPluginRegistry : BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSPluginRegistry.id.toString())
+    defaultBuildFeatures()
 
     triggers {
-        vcs {}
+        onChangeDefaultOrPullRequest()
     }
 })

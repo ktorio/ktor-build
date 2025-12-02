@@ -38,7 +38,7 @@ object BuildGeneratorWebsite : BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSKtorGeneratorWebsite.id.toString())
+    defaultBuildFeatures()
 
     triggers {
         vcs {

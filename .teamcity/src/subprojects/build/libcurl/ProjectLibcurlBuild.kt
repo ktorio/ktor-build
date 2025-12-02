@@ -32,7 +32,7 @@ object ProjectLibcurlBuild : Project({
             for (build in LibcurlBuilds) snapshot(build) {}
         }
 
-        defaultBuildFeatures(VCSCore.id.toString())
+        defaultBuildFeatures()
     }
 })
 
@@ -102,7 +102,7 @@ private fun LibcurlBuild(entry: NativeEntry) = BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSCore.id.toString())
+    defaultBuildFeatures()
 })
 
 private object ExtractKotlinVersion : BuildType({

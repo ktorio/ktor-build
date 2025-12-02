@@ -2,10 +2,9 @@ package subprojects.build.samples
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import subprojects.VCSKtorBuildPlugins
-import subprojects.build.core.TriggerType
-import subprojects.build.core.createCompositeBuild
-import subprojects.build.defaultBuildFeatures
+import subprojects.*
+import subprojects.build.*
+import subprojects.build.core.*
 
 data class BuildPluginSampleSettings(
     val projectName: String,
@@ -46,7 +45,7 @@ class BuildPluginSampleProject(sample: BuildPluginSampleSettings) : BuildType({
         root(sample.vcsRoot)
     }
 
-    defaultBuildFeatures(sample.vcsRoot.id.toString())
+    defaultBuildFeatures()
 
     steps {
         buildGradlePluginSample(sample.projectName)

@@ -25,7 +25,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSCore.id.toString())
+    defaultBuildFeatures()
 
     requirements {
         agent(Agents.OS.Linux)
