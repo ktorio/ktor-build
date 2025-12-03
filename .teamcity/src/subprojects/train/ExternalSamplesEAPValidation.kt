@@ -7,9 +7,6 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
-import subprojects.Agents.ANY
-import subprojects.Agents.Arch
-import subprojects.Agents.OS
 import subprojects.build.*
 
 object VCSKtorArrowExample : KtorVcsRoot({
@@ -143,7 +140,7 @@ EOF
             else
                 GRADLE_CMD="gradle"
             fi
-            
+
             echo "Building with: ${'$'}GRADLE_CMD"
             ${'$'}GRADLE_CMD clean build \
                 --init-script gradle-eap-init.gradle \
@@ -158,7 +155,7 @@ EOF
                 echo "ERROR: No pom.xml found"
                 exit 1
             fi
-            
+
             if grep -q "<repositories>" pom.xml; then
                 sed -i '/<\/repositories>/i\
         <repository><id>ktor-eap</id><url>${EapRepositoryConfig.KTOR_EAP_URL}</url></repository>' pom.xml
@@ -240,12 +237,12 @@ fun BuildSteps.buildEAPExternalAmperSample() {
             set -e
             echo "=== Setting up Amper EAP Configuration ==="
             ${ExternalSampleScripts.backupConfigFiles()}
-            
+
             # Update Amper files if they exist
             if [ -f "module.yaml" ] && grep -q "ktor" module.yaml; then
-                sed -i 's/:2\.[^[:space:]]*/:%env.KTOR_VERSION%/g' module.yaml
+                sed -i 's/:[0-9]\+\.[0-9]\+\.[0-9][^[:space:]]*/:%env.KTOR_VERSION%/g' module.yaml
             fi
-            
+
             ${ExternalSampleScripts.updateGradleProperties()}
         """.trimIndent()
     }
@@ -274,71 +271,11 @@ fun BuildSteps.addCleanupStep() {
     }
 }
 
-fun BuildSteps.fetchEAPVersions() {
-    script {
-        name = "Fetch EAP Versions"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            echo "=== Fetching EAP Versions ==="
-            
-            fetch_version() {
-                local url=$1
-                local param_name=$2
-                local temp_file=$(mktemp)
-                
-                if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 "${'$'}url" -o "${'$'}temp_file"; then
-                    local version=$(grep -o "<latest>[^<]*</latest>" "${'$'}temp_file" | sed 's/<latest>//;s/<\/latest>//')
-                    if [ -z "${'$'}version" ]; then
-                        version=$(grep -o "${EapConstants.EAP_VERSION_REGEX}" "${'$'}temp_file" | sed 's/[><]//g' | sort -V | tail -n 1)
-                    fi
-                    
-                    if [ -n "${'$'}version" ]; then
-                        echo "Found ${'$'}param_name: ${'$'}version"
-                        echo "##teamcity[setParameter name='${'$'}param_name' value='${'$'}version']"
-                    else
-                        echo "ERROR: No version found for ${'$'}param_name"
-                        exit 1
-                    fi
-                else
-                    echo "ERROR: Failed to fetch ${'$'}param_name from ${'$'}url"
-                    exit 1
-                fi
-                rm -f "${'$'}temp_file"
-            }
-            
-            fetch_version "${EapConstants.KTOR_EAP_METADATA_URL}" "env.KTOR_VERSION"
-            fetch_version "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}" "env.KTOR_COMPILER_PLUGIN_VERSION"
-            
-            echo "✓ All versions resolved successfully"
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.validateVersions() {
-    script {
-        name = "Validate Versions"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            
-            if [ -z "%env.KTOR_VERSION%" ] || [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ]; then
-                echo "CRITICAL ERROR: Versions not properly resolved"
-                exit 1
-            fi
-            
-            echo "✓ Framework: %env.KTOR_VERSION%"
-            echo "✓ Plugin: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-        """.trimIndent()
-    }
-}
-
 data class ExternalSampleConfig(
     override val projectName: String,
     val vcsRoot: VcsRoot,
     val buildType: ExternalSampleBuildType = ExternalSampleBuildType.GRADLE,
-    val versionResolver: BuildType,
-    val expectedFailures: List<String> = emptyList()
+    val versionResolver: BuildType
 ) : EAPSampleConfig {
 
     override fun createEAPBuildType(): BuildType {
@@ -394,49 +331,11 @@ object ExternalSamplesEAPValidation : Project({
         param("ktor.eap.version", "KTOR_VERSION")
     }
 
-    val versionResolver = buildType {
-        id("ExternalKtorEAPVersionResolver")
-        name = "Set EAP Version for External Samples"
+    val versionResolver = EAPVersionResolver.createVersionResolver(
+        id = "ExternalKtorEAPVersionResolver",
+        name = "Set EAP Version for External Samples",
         description = "Determines the EAP version to use for external sample validation"
-
-        vcs {
-            root(VCSCoreEAP)
-        }
-
-        requirements {
-            agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
-        }
-
-        params {
-            defaultGradleParams()
-            param("teamcity.build.skipDependencyBuilds", "true")
-            param("teamcity.runAsFirstBuild", "true")
-            param("env.KTOR_VERSION", "")
-            param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
-        }
-
-        steps {
-            debugEnvironmentVariables()
-            fetchEAPVersions()
-            validateVersions()
-        }
-
-        failureConditions {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "ERROR:"
-                failureMessage = "Error detected in version resolution"
-                stopBuildOnFailure = true
-            }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "CRITICAL ERROR:"
-                failureMessage = "Critical error in version resolution"
-                stopBuildOnFailure = true
-            }
-            executionTimeoutMin = 10
-        }
-    }
+    )
 
     val externalSamples = listOf(
         ExternalSampleConfig("ktor-arrow-example", VCSKtorArrowExample, ExternalSampleBuildType.GRADLE, versionResolver),
@@ -489,6 +388,13 @@ object ExternalSamplesEAPValidation : Project({
         }
 
         dependencies {
+            dependency(versionResolver) {
+                snapshot {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                    onDependencyCancel = FailureAction.CANCEL
+                }
+            }
+
             allExternalSampleBuilds.forEach { sampleBuild ->
                 dependency(sampleBuild) {
                     snapshot {
