@@ -40,14 +40,16 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
             installRust(entry.os)
         }
 
+        val cleanTestTask = entry.targetTask(prefix = "clean", suffix = "Test")
+        val testTask = entry.targetTask(suffix = "Test")
         gradle {
             name = "Build and Run Tests"
-            tasks = "${entry.testTasks} --info --continue"
+            tasks = "$cleanTestTask $testTask --info --continue"
             jdkHome = Env.JDK_LTS
         }
     }
 
-    defaultBuildFeatures(VCSCore.id.toString())
+    defaultBuildFeatures()
 
     requirements {
         agent(entry)

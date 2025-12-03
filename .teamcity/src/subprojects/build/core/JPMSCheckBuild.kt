@@ -23,7 +23,7 @@ object JPMSCheckBuild: BuildType({
         }
     }
 
-    defaultBuildFeatures(VCSCore.id.toString())
+    defaultBuildFeatures()
 
     requirements {
         agent(Agents.OS.Linux)

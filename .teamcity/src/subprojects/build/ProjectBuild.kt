@@ -9,6 +9,7 @@ import subprojects.Agents.OS
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
 import subprojects.build.generator.*
+import subprojects.build.libcurl.*
 import subprojects.build.plugin.*
 import subprojects.build.samples.*
 
@@ -33,39 +34,51 @@ data class JDKEntry(
  */
 data class NativeEntry(
     override val os: OS,
-    val testTasks: String,
+    val target: String,
     override val arch: Agents.Arch = Agents.Arch.X64,
     val id: String = "${os.id}_${arch.id}",
     val name: String = "Native ${os.id}",
 ) : AgentSpec {
 
+    fun targetTask(prefix: String = "", suffix: String = ""): String {
+        check(prefix.isNotEmpty() || suffix.isNotEmpty()) { "Prefix or suffix must be provided" }
+        val target = if (prefix.isNotEmpty()) target.replaceFirstChar { it.uppercase() } else target
+        return "${prefix}${target}${suffix}"
+    }
+
     companion object {
         val MacOSX64 = NativeEntry(
             os = OS.MacOS,
-            testTasks = "cleanMacosX64Test macosX64Test",
+            target = "macosX64",
         )
 
         val MacOSArm64 = NativeEntry(
             os = OS.MacOS,
             arch = Agents.Arch.Arm64,
-            testTasks = "cleanMacosArm64Test macosArm64Test",
+            target = "macosArm64",
         )
 
-        val Linux = NativeEntry(
+        val LinuxX64 = NativeEntry(
             os = OS.Linux,
-            testTasks = "cleanLinuxX64Test linuxX64Test",
+            target = "linuxX64",
         )
 
-        val Windows = NativeEntry(
+        val LinuxArm64 = NativeEntry(
+            os = OS.Linux,
+            arch = Agents.Arch.Arm64,
+            target = "linuxArm64",
+        )
+
+        val MingwX64 = NativeEntry(
             os = OS.Windows,
-            testTasks = "cleanMingwX64Test mingwX64Test",
+            target = "mingwX64",
         )
 
         val All = listOf(
-            Linux,
+            LinuxX64,
             MacOSX64,
             MacOSArm64,
-            Windows,
+            MingwX64,
         )
     }
 }
@@ -110,6 +123,7 @@ object ProjectBuild : Project({
     subProject(ProjectCore)
     subProject(ProjectDocSamples)
     subProject(ProjectPlugin)
+    subProject(ProjectLibcurlBuild)
 
     cleanup {
         keepRule {
@@ -123,14 +137,17 @@ object ProjectBuild : Project({
 fun ParametrizedWithType.defaultGradleParams() {
     param("system.org.gradle.internal.http.connectionTimeout", "240000")
     param("system.org.gradle.internal.http.socketTimeout", "120000")
+
+    // Enforce Configuration Cache compatible launch mode
+    param("teamcity.internal.gradle.runner.launch.mode", "gradle-tooling-api")
 }
 
-fun BuildType.defaultBuildFeatures(rootId: String) {
+fun BuildType.defaultBuildFeatures(vcsRootId: Id? = null) {
     features {
         perfmon {}
 
-        githubPullRequestsLoader(rootId)
-        githubCommitStatusPublisher(rootId)
+        githubPullRequestsLoader(vcsRootId)
+        githubCommitStatusPublisher(vcsRootId)
     }
 
     failureConditions {
@@ -146,14 +163,12 @@ fun BuildType.defaultBuildFeatures(rootId: String) {
     }
 }
 
-fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
+fun BuildFeatures.githubPullRequestsLoader(vcsRootId: Id? = null) {
     pullRequests {
-        vcsRootExtId = rootId
+        vcsRootExtId = vcsRootId?.toString().orEmpty()
 
         provider = github {
-            authType = token {
-                token = VCSToken
-            }
+            authType = vcsRoot()
             filterTargetBranch = """
                 +:refs/heads/*
                 -:refs/pull/*/head
@@ -163,15 +178,13 @@ fun BuildFeatures.githubPullRequestsLoader(rootId: String) {
     }
 }
 
-fun BuildFeatures.githubCommitStatusPublisher(vcsRootId: String = VCSCore.id.toString()) {
+fun BuildFeatures.githubCommitStatusPublisher(vcsRootId: Id? = null) {
     commitStatusPublisher {
-        vcsRootExtId = vcsRootId
+        vcsRootExtId = vcsRootId?.toString().orEmpty()
 
         publisher = github {
             githubUrl = "https://api.github.com"
-            authType = personalToken {
-                token = VCSToken
-            }
+            authType = vcsRoot()
         }
     }
 }

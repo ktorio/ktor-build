@@ -40,7 +40,7 @@ class JDKBuild(
         }
     }
 
-    defaultBuildFeatures(VCSCore.id.toString())
+    defaultBuildFeatures()
 
     requirements {
         agent(OS.Linux)

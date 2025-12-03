@@ -1,17 +1,15 @@
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.projectFeatures.*
 import subprojects.*
 import subprojects.benchmarks.*
 import subprojects.build.*
-import subprojects.build.samples.ProjectBuildPluginSamples
+import subprojects.build.samples.*
 import subprojects.cli.*
 import subprojects.eap.*
 import subprojects.kotlinx.html.*
 import subprojects.plugins.*
 import subprojects.release.*
 import subprojects.release.space.*
-import subprojects.train.ExternalSamplesEAPValidation
-import subprojects.train.TriggerProjectSamplesOnEAP
+import subprojects.train.*
 
 /*
 The settings script is an entry point for defining a TeamCity
@@ -52,12 +50,6 @@ project {
     vcsRoot(VCSKtorBuildPluginsEAP)
     vcsRoot(VCSPluginRegistry)
     vcsRoot(VCSKtorGeneratorBackend)
-
-    vcsRoot(VCSGetStartedSample)
-    vcsRoot(VCSGradleSample)
-    vcsRoot(VCSMavenSample)
-    vcsRoot(VCSHttpApiSample)
-    vcsRoot(VCSWebsiteSample)
 
     // DO NOT REMOVE
     params {
