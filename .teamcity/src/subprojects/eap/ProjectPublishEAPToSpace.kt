@@ -39,7 +39,7 @@ object ProjectPublishEAPToSpace : Project({
         type = BuildTypeSettings.Type.COMPOSITE
         buildNumberPattern = SetBuildNumber.depParamRefs.buildNumber.ref
         vcs {
-            root(VCSCoreEAP)
+            coreEap()
         }
         triggers {
             nightlyEAPBranchesTrigger()

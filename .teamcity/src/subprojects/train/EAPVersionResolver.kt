@@ -2,8 +2,7 @@ package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import subprojects.*
 import subprojects.Agents.ANY
 import subprojects.Agents.Arch
@@ -26,7 +25,7 @@ object EAPVersionResolver {
             this.description = description
 
             vcs {
-                root(VCSCoreEAP)
+                coreEap()
             }
 
             requirements {

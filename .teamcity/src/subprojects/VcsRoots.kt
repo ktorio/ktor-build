@@ -1,5 +1,6 @@
 package subprojects
 
+import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.vcs.*
 
 private object VcsToken {
@@ -29,15 +30,15 @@ object VCSCore : TokenVcsRoot(VcsToken.KTOR, {
     branchSpec = AllBranches
 })
 
-object VCSCoreEAP : TokenVcsRoot(VcsToken.KTOR, {
-    name = "Ktor Core EAP Branches"
-    url = "https://github.com/ktorio/ktor.git"
-    branchSpec = """
+fun VcsSettings.coreEap() {
+    root(VCSCore)
+    branchFilter = """
+        -:*
         +:$eapBranches
         +:$releaseBranches
         +:$defaultBranch
     """.trimIndent()
-})
+}
 
 object VCSDocs : TokenVcsRoot(VcsToken.DOCS_AND_SAMPLES, {
     name = "Ktor documentation"

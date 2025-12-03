@@ -11,6 +11,6 @@ object SetBuildNumber : BuildType({
         agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
     }
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
 })

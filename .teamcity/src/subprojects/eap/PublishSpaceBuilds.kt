@@ -11,7 +11,7 @@ const val eapVersion = "%build.counter%"
 object PublishCustomTaskToSpace : BuildType({
     createDeploymentBuild("KtorPublishCustomToSpaceBuild", "Publish Custom to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
     steps {
         gradle {
@@ -32,7 +32,7 @@ object PublishCustomTaskToSpace : BuildType({
 object PublishJvmToSpace : BuildType({
     createDeploymentBuild("KtorPublishJvmToSpaceBuild", "Publish JVM to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
     steps {
         releaseToSpace(JVM_AND_COMMON_PUBLISH_TASK)
@@ -54,7 +54,7 @@ object PublishJvmToSpace : BuildType({
 object PublishJSToSpace : BuildType({
     createDeploymentBuild("KtorPublishJSToSpaceBuild", "Publish JS to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
     steps {
         releaseToSpace(JS_PUBLISH_TASK)
@@ -75,7 +75,7 @@ object PublishJSToSpace : BuildType({
 object PublishWindowsNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishWindowsNativeToSpaceBuild", "Publish Windows Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
     steps {
         releaseToSpace(WINDOWS_PUBLISH_TASK)
@@ -96,7 +96,7 @@ object PublishWindowsNativeToSpace : BuildType({
 object PublishLinuxNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishLinuxNativeToSpaceBuild", "Publish Linux Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
     steps {
         releaseToSpace(LINUX_PUBLISH_TASK)
@@ -117,7 +117,7 @@ object PublishLinuxNativeToSpace : BuildType({
 object PublishMacOSNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishMacOSNativeToSpaceBuild", "Publish Mac Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
     steps {
         releaseToSpace(DARWIN_PUBLISH_TASK)
@@ -138,7 +138,7 @@ object PublishMacOSNativeToSpace : BuildType({
 object PublishAndroidNativeToSpace : BuildType({
     createDeploymentBuild("KtorPublishAndroidNativeToSpaceBuild", "Publish Android Native to Space", "", SetBuildNumber.depParamRefs.buildNumber.ref)
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
     steps {
         releaseToSpace(ANDROID_NATIVE_PUBLISH_TASK)

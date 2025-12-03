@@ -40,7 +40,6 @@ project {
     vcsRoot(VCSCore)
     vcsRoot(VCSDocs)
     vcsRoot(VCSSamples)
-    vcsRoot(VCSCoreEAP)
     vcsRoot(VCSKtorGeneratorWebsite)
     vcsRoot(VCSPluginRegistry)
     vcsRoot(VCSKtorGeneratorBackend)
