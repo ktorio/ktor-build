@@ -30,12 +30,6 @@ object CodeStyleVerify : BuildType({
 
     triggers {
         vcs {
-            // we only verify *.kt, project and plugin configs
-            triggerRules = """
-                ${TriggerRules.GradleFiles}
-                +:**/*.kt
-                +:.editorconfig
-            """.trimIndent()
             branchFilter = BranchFilter.DefaultOrPullRequest
         }
     }

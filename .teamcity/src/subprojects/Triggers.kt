@@ -29,20 +29,6 @@ object TriggerRules {
         -:*.md
         -:.gitignore
     """.trimIndent()
-
-    val IgnoreBotCommits = """
-        -:user=*+renovate[bot]:.
-        -:user=*+dependabot[bot]:.
-    """.trimIndent()
-
-    val GradleFiles = """
-        +:**/*.gradle
-        +:**/*.gradle.kts
-        +:**/*.versions.toml
-        +:buildSrc/**
-        +:**/gradle-wrapper.properties
-        +:**/gradle.properties
-    """.trimIndent()
 }
 
 fun Triggers.onChangeDefaultOrPullRequest(additionalTriggerRules: String = "") {
