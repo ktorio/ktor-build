@@ -10,6 +10,7 @@ import subprojects.kotlinx.html.*
 import subprojects.plugins.*
 import subprojects.release.*
 import subprojects.release.space.*
+import subprojects.train.ExternalSamplesEAPValidation
 import subprojects.train.TriggerProjectSamplesOnEAP
 
 /*
@@ -80,6 +81,7 @@ project {
     subProject(ProjectPublishEAPToSpace)
     subProject(ProjectBuildPluginSamples)
     subProject(TriggerProjectSamplesOnEAP)
+    subProject(ExternalSamplesEAPValidation)
     subProject(ProjectPublishReleaseToSpace)
     subProject(PublishKotlinxHtml)
     subProject(ProjectCLI)
