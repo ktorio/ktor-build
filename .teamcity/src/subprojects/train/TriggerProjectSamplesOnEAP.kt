@@ -9,7 +9,6 @@ import subprojects.*
 import subprojects.Agents.ANY
 import subprojects.Agents.Arch
 import subprojects.Agents.OS
-import subprojects.benchmarks.ProjectBenchmarks.buildType
 import subprojects.build.*
 import subprojects.build.samples.*
 
@@ -312,7 +311,7 @@ fun SampleProjectSettings.asEAPSampleConfig(versionResolver: BuildType): EAPSamp
     object : EAPSampleConfig {
         override val projectName = this@asEAPSampleConfig.projectName
 
-        override fun createEAPBuildType(): BuildType = buildType {
+        override fun createEAPBuildType(): BuildType = BuildType {
             id("KtorEAPSample_${projectName.replace('-', '_')}")
             name = "EAP Validate $projectName sample"
 
@@ -343,7 +342,7 @@ fun BuildPluginSampleSettings.asBuildPluginEAPSampleConfig(versionResolver: Buil
     object : EAPSampleConfig {
         override val projectName = this@asBuildPluginEAPSampleConfig.projectName
 
-        override fun createEAPBuildType(): BuildType = buildType {
+        override fun createEAPBuildType(): BuildType = BuildType {
             id("KtorEAPGradlePluginSample_${projectName.replace('-', '_')}")
             name = "EAP Validate $projectName sample"
 
