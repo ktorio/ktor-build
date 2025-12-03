@@ -17,6 +17,9 @@ object ProjectGradlePlugin : Project({
     name = "Ktor Gradle Plugin"
     description = "Publish Ktor Gradle Plugin"
 
+    vcsRoot(VCSKtorBuildPlugins)
+    vcsRoot(VCSKtorBuildPluginsEAP)
+
     params {
         defaultGradleParams()
         password("env.PUBLISHING_USER", value = "%space.packages.user%")

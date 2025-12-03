@@ -11,6 +11,8 @@ object PublishKotlinxHtml : Project({
     id("ProjectKotlinxHtml")
     name = "Project kotlinx.html"
 
+    vcsRoot(VCSKotlinxHtml)
+
     publishKotlinxHtmlToSpace()
 })
 

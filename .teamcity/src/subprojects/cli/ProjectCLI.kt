@@ -9,6 +9,8 @@ object ProjectCLI : Project({
     id("ProjectKtorCLI")
     name = "Ktor CLI"
 
+    vcsRoot(VCSKtorCLI)
+
     buildType(BuildCLI)
     buildType(PackMsiInstaller)
     buildType(ReleaseGithub)

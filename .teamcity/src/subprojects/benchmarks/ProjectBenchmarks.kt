@@ -10,6 +10,8 @@ object ProjectBenchmarks : Project({
     id("ProjectKtorBenchmarks")
     name = "Benchmarks"
 
+    vcsRoot(VCSKtorBenchmarks)
+
     buildType {
         id("AllocationTests")
         name = "Allocation tests"
