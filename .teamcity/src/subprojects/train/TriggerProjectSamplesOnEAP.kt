@@ -372,10 +372,15 @@ object TriggerProjectSamplesOnEAP : Project({
         description = "Determines the EAP version to use for sample validation"
     )
 
+    buildType(versionResolver)
+
+
     val allEAPSamples: List<EAPSampleConfig> = sampleProjects.map { it.asEAPSampleConfig(versionResolver) } +
         buildPluginSamples.map { it.asBuildPluginEAPSampleConfig(versionResolver) }
 
     val allSampleBuilds = allEAPSamples.map { it.createEAPBuildType() }
+
+    allSampleBuilds.forEach { buildType(it) }
 
     buildType {
         id("KtorEAPSamplesCompositeBuild")

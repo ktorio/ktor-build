@@ -337,6 +337,8 @@ object ExternalSamplesEAPValidation : Project({
         description = "Determines the EAP version to use for external sample validation"
     )
 
+    buildType(versionResolver)
+
     val externalSamples = listOf(
         ExternalSampleConfig("ktor-arrow-example", VCSKtorArrowExample, ExternalSampleBuildType.GRADLE, versionResolver),
         ExternalSampleConfig("ktor-ai-server", VCSKtorAiServer, ExternalSampleBuildType.GRADLE, versionResolver),
@@ -351,6 +353,8 @@ object ExternalSamplesEAPValidation : Project({
     )
 
     val allExternalSampleBuilds = externalSamples.map { it.createEAPBuildType() }
+
+    allExternalSampleBuilds.forEach { buildType(it) }
 
     buildType {
         id("ExternalKtorEAPSamplesCompositeBuild")
@@ -398,7 +402,7 @@ object ExternalSamplesEAPValidation : Project({
             allExternalSampleBuilds.forEach { sampleBuild ->
                 dependency(sampleBuild) {
                     snapshot {
-                        onDependencyFailure = FailureAction.FAIL_TO_START
+                        onDependencyFailure = FailureAction.ADD_PROBLEM
                         onDependencyCancel = FailureAction.CANCEL
                     }
                 }
