@@ -73,6 +73,7 @@ project {
     subProject(ProjectPublishEAPToSpace)
     subProject(ProjectBuildPluginSamples)
     subProject(TriggerProjectSamplesOnEAP)
+    subProject(ExternalSamplesEAPValidation)
     subProject(ProjectPublishReleaseToSpace)
     subProject(PublishKotlinxHtml)
     subProject(ProjectCLI)
