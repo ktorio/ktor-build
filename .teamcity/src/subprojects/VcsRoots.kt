@@ -9,7 +9,7 @@ private object VcsToken {
     const val PROJECT_GENERATOR = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:20b5312f-608e-46d3-9c83-41e00a2006ec"
     const val BENCHMARKS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:6b3b0c69-150d-46dd-9cd9-14d05921e87a"
     const val KTOR_CLI = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:144c067e-37f6-4a71-a0aa-ffa2f5a2c8ba"
-    const val BUILD_PLUGINS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:23b77452-aa39-436d-b945-7188149290c8"
+    const val BUILD_PLUGINS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:622b9b62-9484-4cc4-9a11-2c8d978378ee"
 }
 
 /*

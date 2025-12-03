@@ -43,6 +43,8 @@ project {
     vcsRoot(VCSKtorGeneratorWebsite)
     vcsRoot(VCSPluginRegistry)
     vcsRoot(VCSKtorGeneratorBackend)
+    vcsRoot(VCSKtorBuildPlugins)
+    vcsRoot(VCSKtorBuildPluginsEAP)
 
     // DO NOT REMOVE
     params {
