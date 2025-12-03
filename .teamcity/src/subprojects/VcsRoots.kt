@@ -11,23 +11,29 @@ private object VcsToken {
     const val BUILD_PLUGINS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:23b77452-aa39-436d-b945-7188149290c8"
 }
 
+/*
+ * Note: According to the documentation, branchSpec *must not* contain patterns matching pull requests
+ * if the "Pull Requests" feature is used.
+ * https://www.jetbrains.com/help/teamcity/pull-requests.html#Interaction+with+VCS+Roots
+ */
 private const val defaultBranch = "refs/heads/(main)"
-private const val releaseBranches = "refs/heads/(release/*)"
 private const val defaultBranchRef = "refs/heads/main" // Reference without braces around logical name
-private const val DefaultAndPullRequests = "+:$defaultBranch\n+:$releaseBranches\n+:refs/(pull/*)/head"
-private const val AllBranchesAndPullRequests = "+:refs/heads/*\n+:refs/(pull/*)/head"
+private const val releaseBranches = "refs/heads/(release/*)"
+private const val eapBranches = "refs/heads/(*-eap)"
+private const val DefaultAndReleases = "+:$defaultBranch\n+:$releaseBranches"
+private const val AllBranches = "+:refs/heads/*"
 
 object VCSCore : TokenVcsRoot(VcsToken.KTOR, {
     name = "Ktor Core"
     url = "https://github.com/ktorio/ktor.git"
-    branchSpec = AllBranchesAndPullRequests
+    branchSpec = AllBranches
 })
 
 object VCSCoreEAP : TokenVcsRoot(VcsToken.KTOR, {
     name = "Ktor Core EAP Branches"
     url = "https://github.com/ktorio/ktor.git"
     branchSpec = """
-        +:refs/heads/(*-eap)
+        +:$eapBranches
         +:$releaseBranches
         +:$defaultBranch
     """.trimIndent()
@@ -46,7 +52,7 @@ object VCSSamples : TokenVcsRoot(VcsToken.DOCS_AND_SAMPLES, {
 object VCSAPIDocs : TokenVcsRoot(VcsToken.DOCS_AND_SAMPLES, {
     name = "API Docs"
     url = "https://github.com/ktorio/api.ktor.io.git"
-    branchSpec = AllBranchesAndPullRequests
+    branchSpec = AllBranches
 })
 
 @Suppress("DEPRECATION")
@@ -54,7 +60,7 @@ object VCSKotlinxHtml : PasswordVcsRoot({
     name = "Kotlinx.html Library"
     url = "https://github.com/Kotlin/kotlinx.html.git"
     branch = "refs/heads/master"
-    branchSpec = AllBranchesAndPullRequests
+    branchSpec = AllBranches
 })
 
 object VCSKtorBenchmarks : TokenVcsRoot(VcsToken.BENCHMARKS, {
@@ -65,20 +71,20 @@ object VCSKtorBenchmarks : TokenVcsRoot(VcsToken.BENCHMARKS, {
 object VCSPluginRegistry : TokenVcsRoot(VcsToken.PROJECT_GENERATOR, {
     name = "Ktor Plugin Registry"
     url = "https://github.com/ktorio/ktor-plugin-registry.git"
-    branchSpec = DefaultAndPullRequests
+    branchSpec = DefaultAndReleases
 })
 
 object VCSKtorGeneratorBackend : TokenVcsRoot(VcsToken.PROJECT_GENERATOR, {
     name = "Ktor Generator Backend"
     url = "https://github.com/ktorio/ktor-generator-backend.git"
-    branchSpec = DefaultAndPullRequests
+    branchSpec = DefaultAndReleases
 })
 
 object VCSKtorGeneratorWebsite : TokenVcsRoot(VcsToken.PROJECT_GENERATOR, {
     name = "Ktor Generator Website"
     url = "https://github.com/ktorio/ktor-generator-website.git"
     branch = "refs/heads/master"
-    branchSpec = DefaultAndPullRequests
+    branchSpec = DefaultAndReleases
 })
 
 object VCSKtorCLI : TokenVcsRoot(VcsToken.KTOR_CLI, {
@@ -98,7 +104,7 @@ object VCSKtorBuildPluginsEAP : TokenVcsRoot(VcsToken.BUILD_PLUGINS, {
     name = "Ktor Build Plugins EAP"
     url = "https://github.com/ktorio/ktor-build-plugins.git"
     branchSpec = """
-        +:refs/heads/(*-eap)
+        +:$eapBranches
         +:$defaultBranch
     """.trimIndent()
 })

@@ -165,14 +165,10 @@ fun BuildType.defaultBuildFeatures(vcsRootId: Id? = null) {
 
 fun BuildFeatures.githubPullRequestsLoader(vcsRootId: Id? = null) {
     pullRequests {
-        vcsRootExtId = vcsRootId?.toString().orEmpty()
+        vcsRootId?.let { vcsRootExtId = it.toString() }
 
         provider = github {
             authType = vcsRoot()
-            filterTargetBranch = """
-                +:refs/heads/*
-                -:refs/pull/*/head
-            """.trimIndent()
             filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
         }
     }
@@ -180,7 +176,7 @@ fun BuildFeatures.githubPullRequestsLoader(vcsRootId: Id? = null) {
 
 fun BuildFeatures.githubCommitStatusPublisher(vcsRootId: Id? = null) {
     commitStatusPublisher {
-        vcsRootExtId = vcsRootId?.toString().orEmpty()
+        vcsRootId?.let { vcsRootExtId = it.toString() }
 
         publisher = github {
             githubUrl = "https://api.github.com"
