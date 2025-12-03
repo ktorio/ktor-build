@@ -327,6 +327,17 @@ object ExternalSamplesEAPValidation : Project({
     name = "External Samples EAP Validation"
     description = "Validate external GitHub samples against EAP versions of Ktor"
 
+    vcsRoot(VCSKtorArrowExample)
+    vcsRoot(VCSKtorAiServer)
+    vcsRoot(VCSKtorNativeServer)
+    vcsRoot(VCSKtorKoogExample)
+    vcsRoot(VCSFullStackKtorTalk)
+    vcsRoot(VCSKtorConfigExample)
+    vcsRoot(VCSKtorWorkshop2025)
+    vcsRoot(VCSAmperKtorSample)
+    vcsRoot(VCSKtorDIOverview)
+    vcsRoot(VCSKtorFullStackRealWorld)
+
     params {
         param("ktor.eap.version", "KTOR_VERSION")
     }
