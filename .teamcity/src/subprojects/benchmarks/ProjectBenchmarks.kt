@@ -51,7 +51,7 @@ object ProjectBenchmarks : Project({
             param("system.teamcity.default.properties", "ktor/teamcity.default.properties")
         }
 
-        defaultBuildFeatures(VCSKtorBenchmarks.id)
+        defaultBuildFeatures(VCSCore.id)
     }
 
     features {
