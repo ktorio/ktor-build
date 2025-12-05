@@ -412,7 +412,7 @@ object TriggerProjectSamplesOnEAP : Project({
             finishBuildTrigger {
                 buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
                 successfulOnly = true
-                branchFilter = "+:*"
+                branchFilter = "+:refs/heads/*"
             }
         }
 
