@@ -114,7 +114,7 @@ object ExternalSampleScripts {
             if [ -f "gradle/libs.versions.toml" ]; then
                 echo "=== TOML Pattern Analysis ==="
                 for toml_pattern in "ktor" "ktor-version" "ktorVersion" "ktor_version" "ktor-client" "ktor-server"; do
-                    if grep -q "^\s*${'$'}{toml_pattern}\s*=" gradle/libs.versions.toml; then
+                    if grep -q "^[[:space:]]*${'$'}{toml_pattern}[[:space:]]*=" gradle/libs.versions.toml; then
                         echo "TOML_PATTERN_${'$'}{toml_pattern}=true" >> project_analysis.env
                         echo "✓ Found TOML pattern: ${'$'}{toml_pattern}"
                     fi
@@ -134,8 +134,8 @@ object ExternalSampleScripts {
             
             if [ -f "gradle.properties" ]; then
                 echo "Updating existing gradle.properties..."
-                grep -v "^ktor.*Version\s*=" gradle.properties > gradle.properties.tmp || touch gradle.properties.tmp
-                grep -v "^ktor\..*\.version\s*=" gradle.properties.tmp > gradle.properties.tmp2 || cp gradle.properties.tmp gradle.properties.tmp2
+                grep -v "^ktor.*Version[[:space:]]*=" gradle.properties > gradle.properties.tmp || touch gradle.properties.tmp
+                grep -v "^ktor\\..*\\.version[[:space:]]*=" gradle.properties.tmp > gradle.properties.tmp2 || cp gradle.properties.tmp gradle.properties.tmp2
                 
                 echo "ktorVersion=%env.KTOR_VERSION%" >> gradle.properties.tmp2
                 echo "ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%" >> gradle.properties.tmp2
@@ -176,8 +176,8 @@ EOF
                 )
 
                 for version_pattern in "${'$'}{patterns[@]}"; do
-                    if grep -q "^\s*${'$'}{version_pattern}\s*=" gradle/libs.versions.toml; then
-                        sed -i "s/^\s*${'$'}{version_pattern}\s*=.*/${'$'}{version_pattern} = \"%env.KTOR_VERSION%\"/" gradle/libs.versions.toml
+                    if grep -q "^[[:space:]]*${'$'}{version_pattern}[[:space:]]*=" gradle/libs.versions.toml; then
+                        sed -i "s/^[[:space:]]*${'$'}{version_pattern}[[:space:]]*=.*/${'$'}{version_pattern} = \"%env.KTOR_VERSION%\"/" gradle/libs.versions.toml
                         echo "✓ Updated ${'$'}{version_pattern} version reference"
                     fi
                 done
@@ -187,7 +187,7 @@ EOF
                     echo "✓ Updated ktor-bom reference"
                 fi
 
-                if ! grep -q "^\s*ktor\s*=" gradle/libs.versions.toml; then
+                if ! grep -q "^[[:space:]]*ktor[[:space:]]*=" gradle/libs.versions.toml; then
                     if grep -q "^\[versions\]" gradle/libs.versions.toml; then
                         sed -i '/^\[versions\]/a ktor = "%env.KTOR_VERSION%"' gradle/libs.versions.toml
                     else
