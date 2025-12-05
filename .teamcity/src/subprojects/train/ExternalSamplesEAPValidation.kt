@@ -310,7 +310,7 @@ EOF
             if [ -f "module.yaml" ]; then
                 echo "Updating module.yaml..."
                 
-                sed -i 's/io\.ktor:[^:]*:[0-9][^[:space:]]*/io.ktor:\1:%env.KTOR_VERSION%/g' module.yaml
+                sed -i 's/io\.ktor:\([^:]*\):[0-9][^[:space:]]*/io.ktor:\1:%env.KTOR_VERSION%/g' module.yaml
                 
                 for artifact in "ktor-server-core" "ktor-client-core" "ktor-server-netty" "ktor-client-cio" "ktor-server-auth" "ktor-serialization"; do
                     if grep -q "${'$'}artifact" module.yaml; then
@@ -329,6 +329,43 @@ EOF
             echo "✓ Enhanced Amper version update completed"
         }
         update_amper_versions_enhanced
+    """.trimIndent()
+
+    fun validateTomlChanges() = """
+        validate_toml_changes() {
+            echo "=== Validating TOML Changes ==="
+            
+            if [ -f "gradle/libs.versions.toml" ]; then
+                echo "Checking TOML file for version placeholders..."
+                
+                if grep -q "%env.KTOR_VERSION%" gradle/libs.versions.toml; then
+                    echo "✓ Found KTOR_VERSION placeholder in TOML"
+                else
+                    echo "⚠ Warning: KTOR_VERSION placeholder not found in TOML"
+                fi
+                
+                if grep -q "ktor.*=" gradle/libs.versions.toml; then
+                    echo "✓ Found Ktor version entries in TOML"
+                    grep "ktor.*=" gradle/libs.versions.toml || true
+                fi
+                
+                echo "Validating TOML syntax..."
+                if grep -q "^\[" gradle/libs.versions.toml && ! grep -q "^\[.*\[" gradle/libs.versions.toml; then
+                    echo "✓ TOML sections appear valid"
+                else
+                    echo "⚠ Warning: TOML sections may have issues"
+                fi
+                
+                if [ "$(grep "^[[:space:]]*ktor[[:space:]]*=" gradle/libs.versions.toml | wc -l)" -gt 1 ]; then
+                    echo "⚠ Warning: Multiple 'ktor' version entries found"
+                fi
+                
+                echo "✓ TOML validation completed"
+            else
+                echo "No libs.versions.toml found, skipping TOML validation"
+            fi
+        }
+        validate_toml_changes
     """.trimIndent()
 
     fun validateVersionApplication() = """
@@ -351,7 +388,7 @@ EOF
             fi
             
             if [ -f "gradle/libs.versions.toml" ]; then
-                validate_toml_changes
+                ${validateTomlChanges()}
             fi
             
             echo "✓ Using Ktor version: %env.KTOR_VERSION%"
