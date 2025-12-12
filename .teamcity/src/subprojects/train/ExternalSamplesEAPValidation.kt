@@ -521,7 +521,7 @@ EOF
                 
                 if grep -q "^dependencies:" module.yaml; then
                     echo "Updating Ktor version in dependencies"
-                    sed -i.tmp 's/io\.ktor:[^:]*:\([^"'\'']*\)/io.ktor:\1:%ktor.eap.version%/g' module.yaml
+                    sed -i.tmp 's/io\.ktor:\([^:]*\):[^"'\'']*\)/io.ktor:\1:%ktor.eap.version%/g' module.yaml
                 fi
                 
                 echo "✓ EAP configuration injected into module.yaml"
@@ -638,7 +638,7 @@ EOF
                 fi
             fi
             
-            sed -i.bak "s/io.ktor:\([^:]*\):[0-9][^'\"]*['\"]${'$'}/io.ktor:\1:${'$'}{KTOR_VERSION}\"/" module.yaml
+            sed -i.bak "s/io.ktor:\([^:]*\):[0-9][^'\"]*['\"]$/io.ktor:\1:${'$'}{KTOR_VERSION}\"/" module.yaml
             
             echo "✓ Amper versions updated"
             echo "Updated module.yaml content:"
