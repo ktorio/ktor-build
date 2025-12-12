@@ -875,7 +875,7 @@ private fun createVersionResolver(): BuildType = BuildType {
     name = "External Samples EAP Version Resolver"
 
     vcs {
-        root(VCSCoreEAP)
+        coreEap()
     }
 
     requirements {
