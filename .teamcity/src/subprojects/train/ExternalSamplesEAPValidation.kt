@@ -17,6 +17,7 @@ object EAPConfig {
     object Repositories {
         const val KTOR_EAP = "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
         const val COMPOSE_DEV = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
+        const val GOOGLE_ANDROID = "https://dl.google.com/dl/android/maven2/"
     }
 }
 
@@ -127,7 +128,9 @@ object EAPScriptTemplates {
     fun repositoryConfiguration() = """
         maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }
         maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }
+        maven { url = uri("${EAPConfig.Repositories.GOOGLE_ANDROID}") }
         mavenCentral()
+        google()
         gradlePluginPortal()
     """.trimIndent()
 
@@ -400,19 +403,43 @@ EOF
         echo "✓ Enhanced Gradle repositories configuration completed"
     """.trimIndent()
 
+
     fun configureKotlinMultiplatform() = """
-        echo "=== Configuring Kotlin Multiplatform ==="
+    echo "=== Configuring Kotlin Multiplatform ==="
+    
+    if [ -f "build.gradle.kts" ] && grep -q "kotlin.*multiplatform" build.gradle.kts; then
+        echo "Kotlin Multiplatform project detected"
         
-        if [ -f "build.gradle.kts" ] && grep -q "kotlin.*multiplatform" build.gradle.kts; then
-            echo "Kotlin Multiplatform project detected"
+        if grep -q "org.jetbrains.compose" build.gradle.kts || grep -q "compose" build.gradle.kts; then
+            echo "Compose Multiplatform detected, ensuring all required repositories are available"
             
-            echo "Configuring repositories for multiplatform targets"
+            if ! grep -q "repositories {" build.gradle.kts; then
+                echo "Adding repositories block to build.gradle.kts"
+                sed -i '1i\repositories {\
+    maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }\
+    maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }\
+    maven { url = uri("${EAPConfig.Repositories.GOOGLE_ANDROID}") }\
+    google()\
+    mavenCentral()\
+    gradlePluginPortal()\
+}\
+' build.gradle.kts
+            else
+                echo "Repositories block exists, ensuring Google repository is present"
+                if ! grep -q "google()" build.gradle.kts && ! grep -q "${EAPConfig.Repositories.GOOGLE_ANDROID}" build.gradle.kts; then
+                    sed -i '/repositories {/a\    maven { url = uri("${EAPConfig.Repositories.GOOGLE_ANDROID}") }\
+    google()' build.gradle.kts
+                fi
+            fi
             
-            echo "✓ Multiplatform configuration applied"
-        else
-            echo "Not a multiplatform project, skipping multiplatform configuration"
+            echo "✓ Compose Multiplatform repositories configured"
         fi
-    """.trimIndent()
+        
+        echo "✓ Multiplatform configuration applied"
+    else
+        echo "Not a multiplatform project, skipping multiplatform configuration"
+    fi
+""".trimIndent()
 
     fun handleAmperGradleHybrid() = """
         echo "=== Handling Amper-Gradle Hybrid Project ==="
@@ -744,7 +771,8 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
     EAPSampleBuilder("ktor-ai-server", VCSKtorAiServer, versionResolver).build(),
     EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
         .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM).build(),
-    EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver).build(),
+    EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM).build(),
     EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver).build(),
     EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver).build(),
     EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver)
@@ -753,8 +781,10 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
         .withBuildType(ExternalSampleBuildType.AMPER)
         .withSpecialHandling(SpecialHandling.AMPER_GRADLE_HYBRID).build(),
     EAPSampleBuilder("ktor-di-overview", VCSKtorDIOverview, versionResolver).build(),
-    EAPSampleBuilder("ktor-full-stack-real-world", VCSKtorFullStackRealWorld, versionResolver).build()
-)
+    EAPSampleBuilder("ktor-full-stack-real-world", VCSKtorFullStackRealWorld, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.ENHANCED_TOML_PATTERNS).build()
+    )
 
 private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<BuildType>): BuildType = BuildType {
     id("KtorExternalSamplesEAPCompositeBuild")
