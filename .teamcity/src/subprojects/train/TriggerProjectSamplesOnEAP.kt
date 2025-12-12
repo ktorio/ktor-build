@@ -27,8 +27,8 @@ object EapRepositoryConfig {
 
     fun generateGradleRepositories(): String = """
         repositories {
-            maven("$KTOR_EAP_URL")
-            maven("$COMPOSE_DEV_URL")
+            maven { url = uri("$KTOR_EAP_URL") }
+            maven { url = uri("$COMPOSE_DEV_URL") }
             mavenCentral()
             gradlePluginPortal()
         }
@@ -50,8 +50,8 @@ object EapRepositoryConfig {
     fun generateSettingsContent(): String = """
         pluginManagement {
             repositories {
-                maven("$KTOR_EAP_URL")
-                maven("$COMPOSE_DEV_URL")
+                maven { url = uri("$KTOR_EAP_URL") }
+                maven { url = uri("$COMPOSE_DEV_URL") }
                 gradlePluginPortal()
                 mavenCentral()
             }
