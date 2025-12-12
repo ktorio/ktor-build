@@ -489,28 +489,52 @@ repositories {\
         """
     }
 
+
     fun handleAmperGradleHybrid() = generateScript("handle_amper_gradle_hybrid") {
         """
-        echo "=== Handling Amper-Gradle Hybrid Projects ==="
+    echo "=== Handling Amper-Gradle Hybrid Projects ==="
+    
+    if [ -f "module.yaml" ] && [ -f "build.gradle.kts" ]; then
+        echo "✓ Amper-Gradle hybrid detected"
         
-        if [ -f "module.yaml" ] && [ -f "build.gradle.kts" ]; then
-            echo "✓ Amper-Gradle hybrid detected"
+        if [ -f "module.yaml" ]; then
+            echo "Backing up module.yaml"
+            cp module.yaml module.yaml.backup
             
-            if [ -f "module.yaml" ]; then
-                echo "Backing up module.yaml"
-                cp module.yaml module.yaml.backup
+            if ! grep -q "ktor-eap" module.yaml; then
+                echo "Adding EAP repositories to module.yaml"
                 
-                if ! grep -q "ktor-eap" module.yaml; then
-                    echo "Adding EAP repositories to module.yaml"
-                    echo "# EAP repositories configuration would be added here"
+                if grep -q "^repositories:" module.yaml; then
+                    echo "Found existing repositories section, adding EAP repos"
+                    sed -i.tmp '/^repositories:/a\\
+  - url: "${EAPConfig.Repositories.KTOR_EAP}"\\
+  - url: "${EAPConfig.Repositories.COMPOSE_DEV}"' module.yaml
+                else
+                    echo "No repositories section found, creating new one"
+                    cat >> module.yaml << 'EOF'
+
+repositories:
+  - url: "${EAPConfig.Repositories.KTOR_EAP}"
+  - url: "${EAPConfig.Repositories.COMPOSE_DEV}"
+EOF
                 fi
+                
+                if grep -q "^dependencies:" module.yaml; then
+                    echo "Updating Ktor version in dependencies"
+                    sed -i.tmp 's/io\.ktor:[^:]*:\([^"'\'']*\)/io.ktor:\1:%ktor.eap.version%/g' module.yaml
+                fi
+                
+                echo "✓ EAP configuration injected into module.yaml"
+            else
+                echo "✓ EAP repositories already configured"
             fi
-            
-            echo "✓ Amper-Gradle hybrid configuration completed"
-        else
-            echo "ℹ Not an Amper-Gradle hybrid project"
         fi
-        """
+        
+        echo "✓ Amper-Gradle hybrid configuration completed"
+    else
+        echo "ℹ Not an Amper-Gradle hybrid project"
+    fi
+    """
     }
 
     fun buildGradleProjectEnhanced(specialHandling: List<SpecialHandling> = emptyList()) =
@@ -614,7 +638,7 @@ EOF
                 fi
             fi
             
-            sed -i.bak "s/io.ktor:[^:]*:[0-9][^'\"]*['\"]$/io.ktor:\1:${'$'}{KTOR_VERSION}/" module.yaml
+            sed -i.bak "s/io.ktor:\([^:]*\):[0-9][^'\"]*['\"]${'$'}/io.ktor:\1:${'$'}{KTOR_VERSION}\"/" module.yaml
             
             echo "✓ Amper versions updated"
             echo "Updated module.yaml content:"
@@ -640,19 +664,19 @@ EOF
                 if [ -f "./gradlew" ]; then
                     echo "Found Gradle wrapper, using as fallback for Amper build"
                     
-                    ./gradlew clean --init-script ../gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION}
+                    ./gradlew clean --init-script gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION}
                     if [ $? -ne 0 ]; then
                         echo "❌ Amper project clean failed"
                         exit 1
                     fi
                     
-                    ./gradlew build --init-script ../gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION} --stacktrace
+                    ./gradlew build --init-script gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION} --stacktrace
                     if [ $? -ne 0 ]; then
                         echo "❌ Amper project build failed"
                         exit 1
                     fi
                     
-                    ./gradlew test --init-script ../gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION}
+                    ./gradlew test --init-script gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION}
                     if [ $? -eq 0 ]; then
                         echo "✓ Amper project tests passed"
                     else
