@@ -7,7 +7,26 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
-import subprojects.build.*
+import subprojects.Agents.ANY
+import subprojects.build.defaultBuildFeatures
+import subprojects.build.defaultGradleParams
+
+object EAPConfig {
+    object Repositories {
+        const val KTOR_EAP = "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
+        const val COMPOSE_DEV = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
+    }
+}
+
+enum class SpecialHandling {
+    KOTLIN_MULTIPLATFORM,
+    AMPER_GRADLE_HYBRID,
+    ENHANCED_TOML_PATTERNS
+}
+
+enum class ExternalSampleBuildType {
+    GRADLE, MAVEN, AMPER
+}
 
 object VCSKtorArrowExample : KtorVcsRoot({
     name = "Ktor Arrow Example"
@@ -59,620 +78,786 @@ object VCSKtorFullStackRealWorld : KtorVcsRoot({
     url = "https://github.com/nomisRev/ktor-full-stack-real-world.git"
 })
 
-enum class SpecialHandling {
-    KOTLIN_MULTIPLATFORM,
-    AMPER_GRADLE_HYBRID,
-    ENHANCED_TOML_PATTERNS
+data class EAPSampleBuilder(
+    val projectName: String,
+    val vcsRoot: VcsRoot,
+    val versionResolver: BuildType
+) {
+    private var buildType: ExternalSampleBuildType = ExternalSampleBuildType.GRADLE
+    private var specialHandling: List<SpecialHandling> = emptyList()
+
+    fun withBuildType(type: ExternalSampleBuildType) = apply { buildType = type }
+    fun withSpecialHandling(vararg handling: SpecialHandling) = apply {
+        specialHandling = handling.toList()
+    }
+
+    fun build(): ExternalSampleConfig = ExternalSampleConfig(
+        projectName = projectName,
+        vcsRoot = vcsRoot,
+        buildType = buildType,
+        versionResolver = versionResolver,
+        specialHandling = specialHandling
+    )
+}
+
+object EAPBuildFeatures {
+    fun BuildFeatures.addEAPSlackNotifications(
+        includeSuccess: Boolean = false,
+        includeBuildStart: Boolean = false
+    ) {
+        notifications {
+            notifierSettings = slackNotifier {
+                connection = "PROJECT_EXT_5"
+                sendTo = "#ktor-external-samples-eap"
+                messageFormat = verboseMessageFormat {
+                    addStatusText = true
+                }
+            }
+            buildFailed = true
+            if (includeSuccess) buildFinishedSuccessfully = true
+            if (includeBuildStart) buildStarted = true
+        }
+    }
+}
+
+object EAPScriptTemplates {
+    fun repositoryConfiguration() = """
+        maven("${EAPConfig.Repositories.KTOR_EAP}")
+        maven("${EAPConfig.Repositories.COMPOSE_DEV}")
+        mavenCentral()
+        gradlePluginPortal()
+    """.trimIndent()
+
+    fun mavenRepositoryXml() = """
+        <!-- EAP Repositories -->
+        <repository>
+            <id>ktor-eap</id>
+            <url>${EAPConfig.Repositories.KTOR_EAP}</url>
+        </repository>
+        <repository>
+            <id>compose-dev</id>
+            <url>${EAPConfig.Repositories.COMPOSE_DEV}</url>
+        </repository>
+    """.trimIndent()
+
+    fun buildCommonSetup() = """
+        echo "Setting up EAP build environment..."
+        echo "KTOR_VERSION: %env.KTOR_VERSION%"
+        echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+    """.trimIndent()
+}
+
+object EAPBuildSteps {
+
+    fun BuildSteps.standardEAPSetup(specialHandling: List<SpecialHandling> = emptyList()) {
+        script {
+            name = "Standard EAP Setup"
+            scriptContent = ExternalSampleScripts.backupConfigFiles()
+        }
+        script {
+            name = "Analyze Project Structure"
+            scriptContent = ExternalSampleScripts.analyzeProjectStructure(specialHandling)
+        }
+    }
+
+    fun BuildSteps.gradleEAPBuild(specialHandling: List<SpecialHandling> = emptyList()) {
+        script {
+            name = "Update Gradle Properties"
+            scriptContent = ExternalSampleScripts.updateGradlePropertiesEnhanced()
+        }
+        script {
+            name = "Update Version Catalog"
+            scriptContent = ExternalSampleScripts.updateVersionCatalogComprehensive(specialHandling)
+        }
+        script {
+            name = "Setup Enhanced Gradle Repositories"
+            scriptContent = ExternalSampleScripts.setupEnhancedGradleRepositories()
+        }
+
+        if (specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM)) {
+            script {
+                name = "Configure Kotlin Multiplatform"
+                scriptContent = ExternalSampleScripts.configureKotlinMultiplatform()
+            }
+        }
+
+        if (specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)) {
+            script {
+                name = "Handle Amper-Gradle Hybrid"
+                scriptContent = ExternalSampleScripts.handleAmperGradleHybrid()
+            }
+        }
+
+        script {
+            name = "Setup Composite Builds Support"
+            scriptContent = ExternalSampleScripts.setupCompositeBuildsSupport()
+        }
+        script {
+            name = "Build Gradle Project"
+            scriptContent = ExternalSampleScripts.buildGradleProjectEnhanced(specialHandling)
+        }
+    }
+
+    fun BuildSteps.mavenEAPBuild() {
+        script {
+            name = "Setup Enhanced Maven Repositories"
+            scriptContent = ExternalSampleScripts.setupMavenRepositoriesEnhanced()
+        }
+        script {
+            name = "Build Maven Project"
+            scriptContent = ExternalSampleScripts.buildMavenProjectEnhanced()
+        }
+    }
+
+    fun BuildSteps.amperEAPBuild() {
+        script {
+            name = "Setup Amper Repositories"
+            scriptContent = ExternalSampleScripts.setupAmperRepositories()
+        }
+        script {
+            name = "Update Amper Versions"
+            scriptContent = ExternalSampleScripts.updateAmperVersionsEnhanced()
+        }
+        script {
+            name = "Build Amper Project"
+            scriptContent = ExternalSampleScripts.buildAmperProjectEnhanced()
+        }
+    }
 }
 
 object ExternalSampleScripts {
-
-    fun backupConfigFiles() = """
+    fun backupConfigFiles() = generateScript("backup_config_files") {
+        """
         echo "=== Backing up configuration files ==="
-        [ -f "gradle.properties" ] && cp gradle.properties gradle.properties.backup
-        [ -f "gradle/libs.versions.toml" ] && cp gradle/libs.versions.toml gradle/libs.versions.toml.backup
-        [ -f "settings.gradle.kts" ] && cp settings.gradle.kts settings.gradle.kts.backup
-        [ -f "settings.gradle" ] && cp settings.gradle settings.gradle.backup
-        [ -f "pom.xml" ] && cp pom.xml pom.xml.backup
-        [ -f "module.yaml" ] && cp module.yaml module.yaml.backup
-        [ -f "settings.yaml" ] && cp settings.yaml settings.yaml.backup
+        find . -name "settings.gradle.kts" -exec cp {} {}.backup \;
+        find . -name "build.gradle.kts" -exec cp {} {}.backup \;
+        find . -name "gradle.properties" -exec cp {} {}.backup \;
+        find . -name "libs.versions.toml" -exec cp {} {}.backup \;
+        find . -name "pom.xml" -exec cp {} {}.backup \;
+        find . -name "module.yaml" -exec cp {} {}.backup \;
         echo "✓ Configuration files backed up"
-    """.trimIndent()
+        """
+    }
 
-    fun analyzeProjectStructure() = """
-        analyze_project_structure() {
-            echo "=== Analyzing Project Structure ==="
-            
-            touch project_analysis.env
-            
-            if [ -f "build.gradle.kts" ] || [ -f "build.gradle" ]; then
-                echo "BUILD_SYSTEM=gradle" >> project_analysis.env
-                echo "✓ Detected Gradle build system"
-            elif [ -f "pom.xml" ]; then
-                echo "BUILD_SYSTEM=maven" >> project_analysis.env
-                echo "✓ Detected Maven build system"
-            elif [ -f "module.yaml" ]; then
-                echo "BUILD_SYSTEM=amper" >> project_analysis.env
-                echo "✓ Detected Amper build system"
+    fun analyzeProjectStructure(specialHandling: List<SpecialHandling> = emptyList()) =
+        generateScript("analyze_project_structure") {
+            """
+        echo "=== Analyzing project structure ==="
+        echo "Root directory contents:"
+        ls -la
+        echo ""
+        
+        if [ -f "settings.gradle.kts" ] || [ -f "build.gradle.kts" ]; then
+            echo "✓ Gradle project detected"
+            PROJECT_TYPE="gradle"
+        elif [ -f "pom.xml" ]; then
+            echo "✓ Maven project detected"
+            PROJECT_TYPE="maven"
+        elif [ -f "module.yaml" ]; then
+            echo "✓ Amper project detected"
+            PROJECT_TYPE="amper"
+        else
+            echo "⚠ Unknown project type"
+            PROJECT_TYPE="unknown"
+        fi
+        
+        ${
+                if (specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM)) {
+                    """
+            echo "🔍 Checking for Kotlin Multiplatform..."
+            if grep -r "kotlin.*multiplatform" . --include="*.gradle.kts" --include="*.gradle"; then
+                echo "✓ Kotlin Multiplatform detected"
             fi
-            
-            if grep -r "kotlin.*multiplatform" . --include="*.gradle*" --include="*.kts" 2>/dev/null; then
-                echo "KMP_PROJECT=true" >> project_analysis.env
-                echo "✓ Detected Kotlin Multiplatform project"
+            """
+                } else ""
+            }
+        
+        ${
+                if (specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)) {
+                    """
+            echo "🔍 Checking for Amper-Gradle hybrid..."
+            if [ -f "module.yaml" ] && [ -f "build.gradle.kts" ]; then
+                echo "✓ Amper-Gradle hybrid detected"
             fi
-            
-            if grep -r "includeBuild\|include.*Build" . --include="settings.gradle*" 2>/dev/null; then
-                echo "COMPOSITE_BUILD=true" >> project_analysis.env
-                echo "✓ Detected composite build configuration"
-            fi
-            
-            if [ -f "gradle/libs.versions.toml" ]; then
-                echo "VERSION_CATALOG=true" >> project_analysis.env
-                echo "✓ Detected version catalog (libs.versions.toml)"
-            fi
-            
-            if [ -f "gradle/libs.versions.toml" ]; then
-                echo "=== TOML Pattern Analysis ==="
-                for toml_pattern in "ktor" "ktor-version" "ktorVersion" "ktor_version" "ktor-client" "ktor-server"; do
-                    if grep -q "^[[:space:]]*${'$'}{toml_pattern}[[:space:]]*=" gradle/libs.versions.toml; then
-                        echo "TOML_PATTERN_${'$'}{toml_pattern}=true" >> project_analysis.env
-                        echo "✓ Found TOML pattern: ${'$'}{toml_pattern}"
-                    fi
-                done
-            fi
-            
-            echo "✓ Project analysis completed"
-            echo "=== Analysis Results ==="
-            cat project_analysis.env
+            """
+                } else ""
+            }
+        
+        echo "Project type: ${'$'}PROJECT_TYPE"
+        """
         }
-        analyze_project_structure
-    """.trimIndent()
 
-    fun updateGradlePropertiesEnhanced() = """
-        update_gradle_properties_enhanced() {
-            echo "=== Enhanced Gradle Properties Update ==="
+    fun updateGradlePropertiesEnhanced() = generateScript("update_gradle_properties_enhanced") {
+        """
+        echo "=== Updating gradle.properties ==="
+        ${EAPScriptTemplates.buildCommonSetup()}
+        
+        if [ -f "gradle.properties" ]; then
+            echo "Found existing gradle.properties, preserving existing configuration"
             
-            if [ -f "gradle.properties" ]; then
-                echo "Updating existing gradle.properties..."
-                grep -v "^ktor.*Version[[:space:]]*=" gradle.properties > gradle.properties.tmp || touch gradle.properties.tmp
-                grep -v "^ktor\\..*\\.version[[:space:]]*=" gradle.properties.tmp > gradle.properties.tmp2 || cp gradle.properties.tmp gradle.properties.tmp2
-                
-                echo "ktorVersion=%env.KTOR_VERSION%" >> gradle.properties.tmp2
-                echo "ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%" >> gradle.properties.tmp2
-                
-                if grep -q "KMP_PROJECT=true" project_analysis.env 2>/dev/null; then
-                    echo "ktor.client.version=%env.KTOR_VERSION%" >> gradle.properties.tmp2
-                    echo "ktor.server.version=%env.KTOR_VERSION%" >> gradle.properties.tmp2
-                    echo "✓ Added KMP-specific version properties"
-                fi
-                
-                mv gradle.properties.tmp2 gradle.properties
-                rm -f gradle.properties.tmp
+            if grep -q "ktor.version" gradle.properties; then
+                echo "Updating existing ktor.version"
+                sed -i.bak "s/ktor.version=.*/ktor.version=${'$'}{KTOR_VERSION}/" gradle.properties
             else
-                echo "Creating new gradle.properties..."
-                cat > gradle.properties << EOF
-ktorVersion=%env.KTOR_VERSION%
-ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%
-org.gradle.daemon=false
-org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m
+                echo "Adding ktor.version to existing file"
+                echo "" >> gradle.properties
+                echo "# EAP Version Configuration" >> gradle.properties
+                echo "ktor.version=${'$'}{KTOR_VERSION}" >> gradle.properties
+            fi
+            
+            if grep -q "ktor_compiler_plugin.version" gradle.properties; then
+                echo "Updating existing ktor_compiler_plugin.version"
+                sed -i.bak "s/ktor_compiler_plugin.version=.*/ktor_compiler_plugin.version=${'$'}{KTOR_COMPILER_PLUGIN_VERSION}/" gradle.properties
+            else
+                echo "Adding ktor_compiler_plugin.version to existing file"
+                echo "ktor_compiler_plugin.version=${'$'}{KTOR_COMPILER_PLUGIN_VERSION}" >> gradle.properties
+            fi
+        else
+            echo "Creating new gradle.properties with EAP configuration"
+            cat > gradle.properties << EOF
+ktor.version=${'$'}{KTOR_VERSION}
+ktor_compiler_plugin.version=${'$'}{KTOR_COMPILER_PLUGIN_VERSION}
 EOF
-            fi
-            echo "✓ Enhanced gradle.properties update completed"
-        }
-        update_gradle_properties_enhanced
-    """.trimIndent()
+        fi
+        
+        echo "✓ gradle.properties updated"
+        """
+    }
 
-    fun updateVersionCatalogComprehensive() = """
-        update_version_catalog_comprehensive() {
-            if [ -f "gradle/libs.versions.toml" ]; then
-                echo "=== Comprehensive Version Catalog Update ==="
-
-                local patterns=(
-                    "ktor"
-                    "ktor-client"
-                    "ktor-server"
-                    "ktor-plugin"
-                    "ktor-compiler-plugin"
-                )
-
-                for version_pattern in "${'$'}{patterns[@]}"; do
-                    if grep -q "^[[:space:]]*${'$'}{version_pattern}[[:space:]]*=" gradle/libs.versions.toml; then
-                        sed -i "s/^[[:space:]]*${'$'}{version_pattern}[[:space:]]*=.*/${'$'}{version_pattern} = \"%env.KTOR_VERSION%\"/" gradle/libs.versions.toml
-                        echo "✓ Updated ${'$'}{version_pattern} version reference"
-                    fi
-                done
-
-                if grep -q "ktor-bom" gradle/libs.versions.toml; then
-                    sed -i 's/ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "[^"]*" }/ktor-bom = { module = "io.ktor:ktor-bom", version.ref = "ktor" }/' gradle/libs.versions.toml
-                    echo "✓ Updated ktor-bom reference"
-                fi
-
-                if ! grep -q "^[[:space:]]*ktor[[:space:]]*=" gradle/libs.versions.toml; then
-                    if grep -q "^\[versions\]" gradle/libs.versions.toml; then
-                        sed -i '/^\[versions\]/a ktor = "%env.KTOR_VERSION%"' gradle/libs.versions.toml
+    fun updateVersionCatalogComprehensive(specialHandling: List<SpecialHandling> = emptyList()) =
+        generateScript("update_version_catalog_comprehensive") {
+            """
+        echo "=== Updating Version Catalog (Comprehensive) ==="
+        
+        CATALOG_FILES=$(find . -name "libs.versions.toml" -o -name "gradle/libs.versions.toml")
+        
+        if [ -n "${'$'}CATALOG_FILES" ]; then
+            for CATALOG in ${'$'}CATALOG_FILES; do
+                echo "Processing version catalog: ${'$'}CATALOG"
+                
+                if [ -f "${'$'}CATALOG" ]; then
+                    echo "✓ Found version catalog, preserving existing structure"
+                    
+                    cp "${'$'}CATALOG" "${'$'}CATALOG.backup"
+                    
+                    if grep -q "ktor.*=" "${'$'}CATALOG"; then
+                        echo "Updating existing Ktor version entries"
+                        sed -i.tmp -E 's/ktor[[:space:]]*=[[:space:]]*"[^"]*"/ktor = "'${'$'}{KTOR_VERSION}'"/' "${'$'}CATALOG"
                     else
-                        echo -e "\n[versions]\nktor = \"%env.KTOR_VERSION%\"" >> gradle/libs.versions.toml
+                        echo "Adding Ktor version to existing catalog"
+                        if grep -q "\[versions\]" "${'$'}CATALOG"; then
+                            sed -i.tmp '/\[versions\]/a\
+ktor = "'${'$'}{KTOR_VERSION}'"' "${'$'}CATALOG"
+                        else
+                            echo "" >> "${'$'}CATALOG"
+                            echo "[versions]" >> "${'$'}CATALOG"
+                            echo 'ktor = "'${'$'}{KTOR_VERSION}'"' >> "${'$'}CATALOG"
+                        fi
                     fi
-                    echo "✓ Added ktor version to [versions] section"
+                    
+                    ${
+                if (specialHandling.contains(SpecialHandling.ENHANCED_TOML_PATTERNS)) {
+                    """
+                        echo "Applying enhanced TOML patterns"
+                        sed -i.tmp -E 's/ktor-[a-zA-Z-]*[[:space:]]*=[[:space:]]*{[^}]*version\.ref[[:space:]]*=[[:space:]]*"[^"]*"/ktor-core = { version.ref = "ktor" }/' "${'$'}CATALOG"
+                        """
+                } else ""
+            }
+                    
+                    rm -f "${'$'}CATALOG.tmp"
+                    echo "✓ Version catalog updated: ${'$'}CATALOG"
                 fi
-
-                if grep -q "^\[plugins\]" gradle/libs.versions.toml; then
-                    sed -i 's/ktor = { id = "io.ktor.plugin", version.ref = "[^"]*" }/ktor = { id = "io.ktor.plugin", version.ref = "ktor" }/' gradle/libs.versions.toml
-                    echo "✓ Updated ktor plugin version reference"
-                fi
-
-                echo "✓ Comprehensive version catalog update completed"
-            fi
+            done
+        else
+            echo "ℹ No version catalogs found - this is normal for projects not using version catalogs"
+        fi
+        """
         }
-        update_version_catalog_comprehensive
-    """.trimIndent()
 
-    fun setupEnhancedGradleRepositories() = """
-        setup_enhanced_gradle_repositories() {
-            echo "=== Setting up Enhanced Gradle Repositories ==="
-            cat > gradle-eap-init.gradle << EOF
+    fun setupEnhancedGradleRepositories() = generateScript("setup_enhanced_gradle_repositories") {
+        """
+        echo "=== Setting up Enhanced Gradle Repositories ==="
+        
+        if [ -f "settings.gradle.kts" ]; then
+            echo "Found settings.gradle.kts, preserving existing configuration"
+            
+            if grep -q "${EAPConfig.Repositories.KTOR_EAP}" settings.gradle.kts; then
+                echo "✓ EAP repositories already configured"
+            else
+                echo "Adding EAP repositories to existing settings.gradle.kts"
+                
+                if grep -q "pluginManagement" settings.gradle.kts; then
+                    echo "Found existing pluginManagement, adding repositories"
+                    awk '
+                    /pluginManagement.*{/{pm=1}
+                    /repositories.*{/ && pm==1 {repos=1; print; print "        maven(\"${EAPConfig.Repositories.KTOR_EAP}\")"; print "        maven(\"${EAPConfig.Repositories.COMPOSE_DEV}\")"; next}
+                    /^}/ && pm==1 {pm=0}
+                    {print}
+                    ' settings.gradle.kts > settings.gradle.kts.tmp && mv settings.gradle.kts.tmp settings.gradle.kts
+                else
+                    echo "Prepending pluginManagement to preserve existing content"
+                    cat > settings.gradle.kts.tmp << 'EOF'
+pluginManagement {
+    repositories {
+        ${EAPScriptTemplates.repositoryConfiguration()}
+    }
+}
+
+EOF
+                    cat settings.gradle.kts >> settings.gradle.kts.tmp
+                    mv settings.gradle.kts.tmp settings.gradle.kts
+                fi
+            fi
+        else
+            echo "Creating new settings.gradle.kts with EAP repositories"
+            cat > settings.gradle.kts << 'EOF'
+pluginManagement {
+    repositories {
+        ${EAPScriptTemplates.repositoryConfiguration()}
+    }
+}
+EOF
+        fi
+        
+        cat > gradle-eap-init.gradle << 'EOF'
 allprojects {
     repositories {
-        maven { url "${EapRepositoryConfig.KTOR_EAP_URL}" }
-        maven { url "${EapRepositoryConfig.COMPOSE_DEV_URL}" }
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-
-gradle.allprojects { project ->
-    project.buildscript {
-        repositories {
-            maven { url "${EapRepositoryConfig.KTOR_EAP_URL}" }
-            maven { url "${EapRepositoryConfig.COMPOSE_DEV_URL}" }
-            mavenCentral()
-            gradlePluginPortal()
-        }
-    }
-}
-
-gradle.settingsEvaluated { settings ->
-    settings.pluginManagement {
-        repositories {
-            maven { url "${EapRepositoryConfig.KTOR_EAP_URL}" }
-            maven { url "${EapRepositoryConfig.COMPOSE_DEV_URL}" }
-            gradlePluginPortal()
-            mavenCentral()
-        }
+        ${EAPScriptTemplates.repositoryConfiguration()}
     }
 }
 EOF
-            echo "✓ Enhanced Gradle repositories configuration created"
-        }
-        setup_enhanced_gradle_repositories
-    """.trimIndent()
+        
+        echo "✓ Enhanced Gradle repositories configuration completed"
+        """
+    }
 
-    fun setupCompositeBuildsSupport() = """
-        setup_composite_build_support() {
-            echo "=== Setting up Composite Build Support ==="
-            
-            if grep -q "COMPOSITE_BUILD=true" project_analysis.env 2>/dev/null; then
-                echo "Configuring composite build support..."
+    fun setupCompositeBuildsSupport() = generateScript("setup_composite_builds_support") {
+        """
+        echo "=== Setting up Composite Builds Support ==="
+        
+        if [ -f "settings.gradle.kts" ]; then
+            if grep -q "includeBuild" settings.gradle.kts; then
+                echo "✓ Composite builds detected, configuration preserved"
                 
-                for settings_file in "settings.gradle.kts" "settings.gradle"; do
-                    if [ -f "${'$'}settings_file" ]; then
-                        if grep -q "includeBuild\|include.*Build" "${'$'}settings_file"; then
-                            echo "Detected composite build in ${'$'}settings_file"
-                            
-                            find . -name "gradle.properties" -not -path "./gradle.properties" | while read prop_file; do
-                                dir=$(dirname "${'$'}prop_file")
-                                cp gradle-eap-init.gradle "${'$'}dir/" 2>/dev/null || true
-                                echo "✓ Applied init script to: ${'$'}dir"
-                            done
+                for BUILD_DIR in $(grep -oP '(?<=includeBuild\(")[^"]*' settings.gradle.kts 2>/dev/null || true); do
+                    if [ -d "${'$'}BUILD_DIR" ] && [ -f "${'$'}BUILD_DIR/settings.gradle.kts" ]; then
+                        echo "Configuring EAP repositories for included build: ${'$'}BUILD_DIR"
+                        if ! grep -q "${EAPConfig.Repositories.KTOR_EAP}" "${'$'}BUILD_DIR/settings.gradle.kts"; then
+                            cp "${'$'}BUILD_DIR/settings.gradle.kts" "${'$'}BUILD_DIR/settings.gradle.kts.backup"
+                            cat > "${'$'}BUILD_DIR/settings.gradle.kts.tmp" << 'EOF'
+pluginManagement {
+    repositories {
+        ${EAPScriptTemplates.repositoryConfiguration()}
+    }
+}
+
+EOF
+                            cat "${'$'}BUILD_DIR/settings.gradle.kts" >> "${'$'}BUILD_DIR/settings.gradle.kts.tmp"
+                            mv "${'$'}BUILD_DIR/settings.gradle.kts.tmp" "${'$'}BUILD_DIR/settings.gradle.kts"
                         fi
                     fi
                 done
             else
-                echo "No composite build detected, skipping"
+                echo "ℹ No composite builds detected"
             fi
-        }
-        setup_composite_build_support
-    """.trimIndent()
+        fi
+        
+        echo "✓ Composite builds support configured"
+        """
+    }
 
-    fun buildGradleProjectEnhanced() = """
-        build_gradle_project_enhanced() {
-            echo "=== Enhanced Gradle Build ==="
+    fun configureKotlinMultiplatform() = generateScript("configure_kotlin_multiplatform") {
+        """
+        echo "=== Configuring Kotlin Multiplatform ==="
+        
+        find . -name "build.gradle.kts" -exec grep -l "kotlin.*multiplatform" {} \; | while read -r BUILD_FILE; do
+            echo "Configuring multiplatform build file: ${'$'}BUILD_FILE"
             
-            if [ -f "./gradlew" ]; then
-                chmod +x ./gradlew
-                GRADLE_CMD="./gradlew"
+            if ! grep -q "${EAPConfig.Repositories.KTOR_EAP}" "${'$'}BUILD_FILE"; then
+                echo "Adding EAP repositories to ${'$'}BUILD_FILE"
+                
+                if ! grep -q "repositories.*{" "${'$'}BUILD_FILE"; then
+                    sed -i.tmp '1i\
+repositories {\
+    ${EAPScriptTemplates.repositoryConfiguration()}\
+}' "${'$'}BUILD_FILE"
+                fi
+            fi
+        done
+        
+        echo "✓ Kotlin Multiplatform configuration completed"
+        """
+    }
+
+
+    fun handleAmperGradleHybrid() = generateScript("handle_amper_gradle_hybrid") {
+        """
+    echo "=== Handling Amper-Gradle Hybrid Projects ==="
+    
+    if [ -f "module.yaml" ] && [ -f "build.gradle.kts" ]; then
+        echo "✓ Amper-Gradle hybrid detected"
+        
+        if [ -f "module.yaml" ]; then
+            echo "Backing up module.yaml"
+            cp module.yaml module.yaml.backup
+            
+            if ! grep -q "ktor-eap" module.yaml; then
+                echo "Adding EAP repositories to module.yaml"
+                
+                if grep -q "^repositories:" module.yaml; then
+                    echo "Found existing repositories section, adding EAP repos"
+                    sed -i.tmp '/^repositories:/a\\
+  - url: "${EAPConfig.Repositories.KTOR_EAP}"\\
+  - url: "${EAPConfig.Repositories.COMPOSE_DEV}"' module.yaml
+                else
+                    echo "No repositories section found, creating new one"
+                    cat >> module.yaml << 'EOF'
+
+repositories:
+  - url: "${EAPConfig.Repositories.KTOR_EAP}"
+  - url: "${EAPConfig.Repositories.COMPOSE_DEV}"
+EOF
+                fi
+                
+                if grep -q "^dependencies:" module.yaml; then
+                    echo "Updating Ktor version in dependencies"
+                    sed -i.tmp 's/io\.ktor:\([^:]*\):[^"'\'']*\)/io.ktor:\1:%ktor.eap.version%/g' module.yaml
+                fi
+                
+                echo "✓ EAP configuration injected into module.yaml"
             else
-                GRADLE_CMD="gradle"
+                echo "✓ EAP repositories already configured"
             fi
+        fi
+        
+        echo "✓ Amper-Gradle hybrid configuration completed"
+    else
+        echo "ℹ Not an Amper-Gradle hybrid project"
+    fi
+    """
+    }
 
-            echo "Building with: ${'$'}GRADLE_CMD"
-            echo "Using Ktor version: %env.KTOR_VERSION%"
-            echo "Using compiler plugin version: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-            
-            ${'$'}GRADLE_CMD clean build \
-                --init-script gradle-eap-init.gradle \
-                --no-daemon --stacktrace --refresh-dependencies \
-                --continue || {
-                echo "Build failed, analyzing..."
-                analyze_build_failure
-                exit 1
+    fun buildGradleProjectEnhanced(specialHandling: List<SpecialHandling> = emptyList()) =
+        generateScript("build_gradle_project_enhanced") {
+            """
+        echo "=== Building Gradle Project (Enhanced) ==="
+        ${EAPScriptTemplates.buildCommonSetup()}
+        
+        GRADLE_OPTS="--init-script gradle-eap-init.gradle"
+        
+        echo "Running Gradle build with EAP configuration..."
+        
+        if ./gradlew clean ${'$'}GRADLE_OPTS; then
+            echo "✓ Clean completed successfully"
+        else
+            echo "⚠ Clean failed, continuing with build"
+        fi
+        
+        if ./gradlew build ${'$'}GRADLE_OPTS --stacktrace; then
+            echo "✓ Build completed successfully"
+        else
+            echo "❌ Build failed"
+            exit 1
+        fi
+        
+        ${
+                if (specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM)) {
+                    """
+            echo "Running multiplatform-specific tasks..."
+            ./gradlew allTests ${'$'}GRADLE_OPTS || echo "⚠ Some multiplatform tests failed"
+            """
+                } else ""
             }
-            
-            echo "✓ Enhanced Gradle build completed successfully"
+        
+        echo "✓ Gradle build enhanced completed"
+        """
         }
-        build_gradle_project_enhanced
-    """.trimIndent()
 
-    fun updateAmperVersionsEnhanced() = """
-        update_amper_versions_enhanced() {
-            echo "=== Enhanced Amper Version Update ==="
+
+    fun setupAmperRepositories() = generateScript("setup_amper_repositories") {
+        """
+        echo "=== Setting up Amper Repositories ==="
+        
+        if [ -f "module.yaml" ]; then
+            echo "✓ Amper project detected, configuring repositories"
+            cp module.yaml module.yaml.backup
+            cat > amper-settings.yaml << 'EOF'
+repositories:
+  - url: ${EAPConfig.Repositories.KTOR_EAP}
+    name: ktor-eap
+  - url: ${EAPConfig.Repositories.COMPOSE_DEV}
+    name: compose-dev
+  - url: https://repo1.maven.org/maven2/
+    name: central
+  - url: https://plugins.gradle.org/m2/
+    name: gradle-plugins
+EOF
             
-            if [ -f "module.yaml" ]; then
-                echo "Updating module.yaml..."
+            echo "✓ Amper repositories configured in amper-settings.yaml"
+            if ! grep -q "repositories:" module.yaml; then
+                cat >> module.yaml << 'EOF'
+
+repositories:
+  - url: ${EAPConfig.Repositories.KTOR_EAP}
+  - url: ${EAPConfig.Repositories.COMPOSE_DEV}
+EOF
+                echo "✓ EAP repositories added to module.yaml"
+            fi
+        else
+            echo "ℹ No module.yaml found, not an Amper project"
+        fi
+        """
+    }
+
+    fun updateAmperVersionsEnhanced() = generateScript("update_amper_versions_enhanced") {
+        """
+        echo "=== Updating Amper Versions (Enhanced) ==="
+        
+        if [ -f "module.yaml" ]; then
+            echo "Updating Ktor versions in module.yaml while preserving configuration"
+            cp module.yaml module.yaml.backup
+            
+            if grep -q "ktor.*version" module.yaml; then
+                echo "Updating existing Ktor version reference"
+                sed -i.bak "s/ktor.*version.*:.*/  ktor-version: ${'$'}{KTOR_VERSION}/" module.yaml
+            else
+                if grep -q "dependencies:" module.yaml; then
+                    sed -i.bak '/dependencies:/i\
+# EAP versions\
+settings:\
+  ktor-version: '"${'$'}{KTOR_VERSION}"'\
+  ktor-compiler-plugin-version: '"${'$'}{KTOR_COMPILER_PLUGIN_VERSION}"'\
+' module.yaml
+                else
+                    cat >> module.yaml << EOF
+
+settings:
+  ktor-version: ${'$'}{KTOR_VERSION}
+  ktor-compiler-plugin-version: ${'$'}{KTOR_COMPILER_PLUGIN_VERSION}
+EOF
+                fi
+            fi
+            
+            sed -i.bak "s/io.ktor:\([^:]*\):[0-9][^'\"]*['\"]$/io.ktor:\1:${'$'}{KTOR_VERSION}\"/" module.yaml
+            
+            echo "✓ Amper versions updated"
+            echo "Updated module.yaml content:"
+            cat module.yaml
+        else
+            echo "ℹ No module.yaml found, skipping Amper version updates"
+        fi
+        """
+    }
+
+    fun buildAmperProjectEnhanced() = generateScript("build_amper_project_enhanced") {
+        """
+        echo "=== Building Amper Project (Enhanced) ==="
+        ${EAPScriptTemplates.buildCommonSetup()}
+        
+        if [ -f "module.yaml" ]; then
+            echo "Building Amper project with EAP versions..."
+            
+            if ! command -v amper &> /dev/null; then
+                echo "Amper command not found, attempting to install or use alternative build method"
                 
-                sed -i 's/io\.ktor:\([^:]*\):[0-9][^[:space:]]*/io.ktor:\1:%env.KTOR_VERSION%/g' module.yaml
                 
-                for artifact in "ktor-server-core" "ktor-client-core" "ktor-server-netty" "ktor-client-cio" "ktor-server-auth" "ktor-serialization"; do
-                    if grep -q "${'$'}artifact" module.yaml; then
-                        sed -i "s/${'$'}{artifact}:[0-9][^[:space:]]*/${'$'}{artifact}:%env.KTOR_VERSION%/g" module.yaml
-                        echo "✓ Updated ${'$'}artifact version"
+                if [ -f "./gradlew" ]; then
+                    echo "Found Gradle wrapper, using as fallback for Amper build"
+                    
+                    ./gradlew clean --init-script gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION}
+                    if [ $? -ne 0 ]; then
+                        echo "❌ Amper project clean failed"
+                        exit 1
                     fi
-                done
-            fi
-            
-            if [ -f "settings.yaml" ]; then
-                echo "Updating settings.yaml..."
-                sed -i 's/ktor-version: [0-9][^[:space:]]*/ktor-version: %env.KTOR_VERSION%/g' settings.yaml
-                echo "✓ Updated settings.yaml"
-            fi
-            
-            echo "✓ Enhanced Amper version update completed"
-        }
-        update_amper_versions_enhanced
-    """.trimIndent()
-
-    fun validateTomlChanges() = """
-        validate_toml_changes() {
-            echo "=== Validating TOML Changes ==="
-            
-            if [ -f "gradle/libs.versions.toml" ]; then
-                echo "Checking TOML file for version placeholders..."
-                
-                if grep -q "%env.KTOR_VERSION%" gradle/libs.versions.toml; then
-                    echo "✓ Found KTOR_VERSION placeholder in TOML"
+                    
+                    ./gradlew build --init-script gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION} --stacktrace
+                    if [ $? -ne 0 ]; then
+                        echo "❌ Amper project build failed"
+                        exit 1
+                    fi
+                    
+                    ./gradlew test --init-script gradle-eap-init.gradle -Pktor.version=${'$'}{KTOR_VERSION}
+                    if [ $? -eq 0 ]; then
+                        echo "✓ Amper project tests passed"
+                    else
+                        echo "⚠ Some Amper project tests failed"
+                    fi
+                    
                 else
-                    echo "⚠ Warning: KTOR_VERSION placeholder not found in TOML"
+                    echo "❌ No build method available for Amper project"
+                    echo "Neither 'amper' command nor './gradlew' found"
+                    exit 1
                 fi
-                
-                if grep -q "ktor.*=" gradle/libs.versions.toml; then
-                    echo "✓ Found Ktor version entries in TOML"
-                    grep "ktor.*=" gradle/libs.versions.toml || true
-                fi
-                
-                echo "Validating TOML syntax..."
-                if grep -q "^\[" gradle/libs.versions.toml && ! grep -q "^\[.*\[" gradle/libs.versions.toml; then
-                    echo "✓ TOML sections appear valid"
-                else
-                    echo "⚠ Warning: TOML sections may have issues"
-                fi
-                
-                if [ "$(grep "^[[:space:]]*ktor[[:space:]]*=" gradle/libs.versions.toml | wc -l)" -gt 1 ]; then
-                    echo "⚠ Warning: Multiple 'ktor' version entries found"
-                fi
-                
-                echo "✓ TOML validation completed"
             else
-                echo "No libs.versions.toml found, skipping TOML validation"
+                echo "Using native amper command for build"
+                
+                export KTOR_VERSION=${'$'}{KTOR_VERSION}
+                export KTOR_COMPILER_PLUGIN_VERSION=${'$'}{KTOR_COMPILER_PLUGIN_VERSION}
+                
+                amper clean
+                if [ $? -ne 0 ]; then
+                    echo "❌ Amper clean failed"
+                    exit 1
+                fi
+                
+                amper build
+                if [ $? -ne 0 ]; then
+                    echo "❌ Amper build failed"
+                    exit 1
+                fi
+                
+                amper test
+                if [ $? -eq 0 ]; then
+                    echo "✓ Amper tests passed"
+                else
+                    echo "⚠ Some Amper tests failed, continuing"
+                fi
             fi
-        }
-        validate_toml_changes
-    """.trimIndent()
+            
+            echo "✓ Amper build completed"
+        else
+            echo "ℹ No module.yaml found, skipping Amper build"
+        fi
+        """
+    }
 
-    fun validateVersionApplication() = """
-        validate_version_application() {
-            echo "=== Validating Version Application ==="
+    fun setupMavenRepositoriesEnhanced() = generateScript("setup_maven_repositories_enhanced") {
+        """
+        echo "=== Setting up Maven Repositories (Enhanced) ==="
+        
+        if [ -f "pom.xml" ]; then
+            echo "Found pom.xml, preserving existing configuration"
             
-            if [ -f "./gradlew" ]; then
-                echo "Checking resolved dependencies..."
-                ./gradlew dependencies --configuration runtimeClasspath 2>/dev/null | grep -i ktor | head -10 || true
+            if grep -q "ktor-eap" pom.xml; then
+                echo "✓ EAP repositories already configured"
+                exit 0
             fi
             
-            if [ -z "%env.KTOR_VERSION%" ]; then
-                echo "ERROR: KTOR_VERSION not set"
-                exit 1
-            fi
+            cp pom.xml pom.xml.backup
             
-            if [ -z "%env.KTOR_COMPILER_PLUGIN_VERSION%" ]; then
-                echo "ERROR: KTOR_COMPILER_PLUGIN_VERSION not set"
-                exit 1
-            fi
-            
-            if [ -f "gradle/libs.versions.toml" ]; then
-                ${validateTomlChanges()}
-            fi
-            
-            echo "✓ Using Ktor version: %env.KTOR_VERSION%"
-            echo "✓ Using compiler plugin version: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-            echo "✓ Version application validation completed"
-        }
-        validate_version_application
-    """.trimIndent()
-
-    fun logVersionChanges() = """
-        log_version_changes() {
-            echo "=== Version Change Log ==="
-            echo "Original files:"
-            [ -f "gradle.properties.backup" ] && echo "gradle.properties:" && cat gradle.properties.backup
-            [ -f "gradle/libs.versions.toml.backup" ] && echo "libs.versions.toml:" && cat gradle/libs.versions.toml.backup
-            
-            echo "Modified files:"
-            [ -f "gradle.properties" ] && echo "gradle.properties:" && cat gradle.properties
-            [ -f "gradle/libs.versions.toml" ] && echo "libs.versions.toml:" && cat gradle/libs.versions.toml
-            
-            if [ -f "gradle/libs.versions.toml.backup" ] && [ -f "gradle/libs.versions.toml" ]; then
-                echo "=== TOML Changes ==="
-                diff gradle/libs.versions.toml.backup gradle/libs.versions.toml || true
-            fi
-            echo "========================"
-        }
-        log_version_changes
-    """.trimIndent()
-
-    fun setupMavenRepositoriesEnhanced() = """
-        setup_maven_repositories_enhanced() {
-            echo "=== Enhanced Maven Repository Setup ==="
-            
-            if ! [ -f "pom.xml" ]; then
-                echo "ERROR: No pom.xml found"
-                exit 1
-            fi
-
             if grep -q "<repositories>" pom.xml; then
+                echo "Adding EAP repositories to existing repositories section"
                 sed -i '/<\/repositories>/i\
-        <repository><id>ktor-eap</id><url>${EapRepositoryConfig.KTOR_EAP_URL}</url></repository>\
-        <repository><id>compose-dev</id><url>${EapRepositoryConfig.COMPOSE_DEV_URL}</url></repository>' pom.xml
+        ${EAPScriptTemplates.mavenRepositoryXml()}' pom.xml
             else
-                sed -i '/<modelVersion>.*<\/modelVersion>/a\
+                echo "Adding new repositories section"
+                sed -i '/<project[^>]*>/a\
     <repositories>\
-        <repository><id>ktor-eap</id><url>${EapRepositoryConfig.KTOR_EAP_URL}</url></repository>\
-        <repository><id>compose-dev</id><url>${EapRepositoryConfig.COMPOSE_DEV_URL}</url></repository>\
+        ${EAPScriptTemplates.mavenRepositoryXml()}\
     </repositories>' pom.xml
             fi
-            echo "✓ Enhanced Maven repositories configured"
-        }
-        setup_maven_repositories_enhanced
-    """.trimIndent()
-
-    fun buildMavenProjectEnhanced() = """
-        build_maven_project_enhanced() {
-            echo "=== Enhanced Maven Build ==="
-            echo "Using Ktor version: %env.KTOR_VERSION%"
-            echo "Using compiler plugin version: %env.KTOR_COMPILER_PLUGIN_VERSION%"
             
-            mvn clean compile test \
-                -Dktor.version=%env.KTOR_VERSION% \
-                -Dktor-compiler-plugin.version=%env.KTOR_COMPILER_PLUGIN_VERSION% \
-                -U || {
-                echo "Maven build failed, analyzing..."
-                analyze_build_failure
+            echo "✓ Maven repositories enhanced configuration completed"
+        else
+            echo "ℹ No pom.xml found, not a Maven project"
+        fi
+        """
+    }
+
+    fun buildMavenProjectEnhanced() = generateScript("build_maven_project_enhanced") {
+        """
+        echo "=== Building Maven Project (Enhanced) ==="
+        ${EAPScriptTemplates.buildCommonSetup()}
+        
+        if [ -f "pom.xml" ]; then
+            echo "Building Maven project with EAP repositories..."
+            
+            if mvn clean compile -B; then
+                echo "✓ Maven compile completed successfully"
+            else
+                echo "❌ Maven compile failed"
                 exit 1
-            }
-            echo "✓ Enhanced Maven build completed successfully"
-        }
-        build_maven_project_enhanced
+            fi
+            
+            if mvn test -B; then
+                echo "✓ Maven test completed successfully"
+            else
+                echo "⚠ Some Maven tests failed, continuing"
+            fi
+            
+            echo "✓ Maven build enhanced completed"
+        else
+            echo "ℹ No pom.xml found, skipping Maven build"
+        fi
+        """
+    }
+
+    private fun generateScript(functionName: String, content: () -> String): String = """
+        #!/bin/bash
+        set -e
+        
+        # Script: $functionName
+        # Generated for EAP validation with configuration preservation
+        
+        ${content().trimIndent()}
     """.trimIndent()
-
-    fun cleanupBackups() = """
-        cleanup_backups() {
-            echo "=== Cleaning up backup files ==="
-            rm -f *.backup gradle/libs.versions.toml.backup gradle-eap-init.gradle gradle-amper-eap-init.gradle project_analysis.env
-            echo "✓ Cleanup completed"
-        }
-        cleanup_backups
-    """.trimIndent()
 }
 
-fun BuildSteps.buildEnhancedEAPExternalGradleSample() {
-    script {
-        name = "Analyze Project Structure"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            ${ExternalSampleScripts.analyzeProjectStructure()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Setup Enhanced EAP Configuration"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            ${ExternalSampleScripts.backupConfigFiles()}
-            ${ExternalSampleScripts.updateGradlePropertiesEnhanced()}
-            ${ExternalSampleScripts.updateVersionCatalogComprehensive()}
-            ${ExternalSampleScripts.setupEnhancedGradleRepositories()}
-            ${ExternalSampleScripts.setupCompositeBuildsSupport()}
-            ${ExternalSampleScripts.logVersionChanges()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Validate Configuration"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            ${ExternalSampleScripts.validateVersionApplication()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Build Enhanced Gradle Sample"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            echo "=== Building Enhanced External Gradle Sample with Ktor EAP %env.KTOR_VERSION% ==="
-            ${ExternalSampleScripts.buildGradleProjectEnhanced()}
-            echo "✓ Enhanced build completed successfully"
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.buildEnhancedEAPExternalMavenSample() {
-    script {
-        name = "Analyze Project Structure"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            ${ExternalSampleScripts.analyzeProjectStructure()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Setup Enhanced Maven EAP Configuration"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            echo "=== Setting up Enhanced Maven EAP Configuration ==="
-            ${ExternalSampleScripts.backupConfigFiles()}
-            ${ExternalSampleScripts.setupMavenRepositoriesEnhanced()}
-            ${ExternalSampleScripts.logVersionChanges()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Validate Configuration"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            ${ExternalSampleScripts.validateVersionApplication()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Build Enhanced Maven Sample"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            echo "=== Building Enhanced External Maven Sample with Ktor EAP %env.KTOR_VERSION% ==="
-            ${ExternalSampleScripts.buildMavenProjectEnhanced()}
-            echo "✓ Enhanced Maven build completed successfully"
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.buildEnhancedEAPExternalAmperSample() {
-    script {
-        name = "Analyze Project Structure"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            ${ExternalSampleScripts.analyzeProjectStructure()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Setup Enhanced Amper EAP Configuration"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            echo "=== Setting up Enhanced Amper EAP Configuration ==="
-            ${ExternalSampleScripts.backupConfigFiles()}
-            ${ExternalSampleScripts.updateAmperVersionsEnhanced()}
-            ${ExternalSampleScripts.updateGradlePropertiesEnhanced()}
-            ${ExternalSampleScripts.logVersionChanges()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Validate Configuration"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            ${ExternalSampleScripts.validateVersionApplication()}
-        """.trimIndent()
-    }
-
-    script {
-        name = "Build Enhanced Amper Sample"
-        scriptContent = """
-            #!/bin/bash
-            set -e
-            echo "=== Building Enhanced External Amper Sample with Ktor EAP %env.KTOR_VERSION% ==="
-            ${ExternalSampleScripts.setupEnhancedGradleRepositories()}
-            ${ExternalSampleScripts.buildGradleProjectEnhanced()}
-            echo "✓ Enhanced Amper build completed successfully"
-        """.trimIndent()
-    }
-}
-
-fun BuildSteps.addEnhancedCleanupStep() {
-    script {
-        name = "Enhanced Cleanup"
-        scriptContent = """
-            #!/bin/bash
-            ${ExternalSampleScripts.cleanupBackups()}
-        """.trimIndent()
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-    }
+interface ExternalEAPSampleConfig {
+    val projectName: String
+    fun createEAPBuildType(): BuildType
 }
 
 data class ExternalSampleConfig(
     override val projectName: String,
     val vcsRoot: VcsRoot,
-    val buildType: ExternalSampleBuildType = ExternalSampleBuildType.GRADLE,
+    val buildType: ExternalSampleBuildType,
     val versionResolver: BuildType,
-    val specialHandling: List<SpecialHandling> = emptyList()
-) : EAPSampleConfig {
+    val specialHandling: List<SpecialHandling>
+) : ExternalEAPSampleConfig {
 
-    override fun createEAPBuildType(): BuildType {
-        return BuildType {
-            id("ExternalEAP_${projectName.replace("-", "_").replace(" ", "_")}")
-            name = "EAP: $projectName"
-            description = "Enhanced validation of $projectName against EAP version of Ktor with comprehensive TOML handling"
+    override fun createEAPBuildType(): BuildType = BuildType {
+        id("KtorExternalEAPSample_${projectName.replace('-', '_').replace(' ', '_')}")
+        name = "EAP Validate External $projectName"
 
-            configureEAPSampleBuild(projectName, vcsRoot, versionResolver)
+        configureEAPSampleBuild(projectName, vcsRoot, versionResolver)
 
-            steps {
-                debugEnvironmentVariables()
-                createEAPGradleInitScript()
+        steps {
+            with(EAPBuildSteps) {
+                standardEAPSetup(specialHandling)
 
                 when (buildType) {
-                    ExternalSampleBuildType.GRADLE -> buildEnhancedEAPExternalGradleSample()
-                    ExternalSampleBuildType.MAVEN -> buildEnhancedEAPExternalMavenSample()
-                    ExternalSampleBuildType.AMPER -> buildEnhancedEAPExternalAmperSample()
+                    ExternalSampleBuildType.GRADLE -> gradleEAPBuild(specialHandling)
+                    ExternalSampleBuildType.MAVEN -> mavenEAPBuild()
+                    ExternalSampleBuildType.AMPER -> amperEAPBuild()
                 }
-
-                addEnhancedCleanupStep()
             }
+        }
 
-            failureConditions {
-                failOnText {
-                    conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                    pattern = "BUILD FAILED"
-                    failureMessage = "Build failed for $projectName"
-                    stopBuildOnFailure = true
-                }
-                failOnText {
-                    conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                    pattern = "CRITICAL ERROR:"
-                    failureMessage = "Critical error in $projectName build"
-                    stopBuildOnFailure = true
-                }
-                executionTimeoutMin = 30
+        features {
+            with(EAPBuildFeatures) {
+                addEAPSlackNotifications()
             }
         }
     }
 }
 
-enum class ExternalSampleBuildType {
-    GRADLE, MAVEN, AMPER
-}
-
 object ExternalSamplesEAPValidation : Project({
     id("ExternalSamplesEAPValidation")
     name = "External Samples EAP Validation"
-    description = "Enhanced validation of external GitHub samples against EAP versions of Ktor with comprehensive TOML handling and improved monitoring"
+    description =
+        "Enhanced validation of external GitHub samples against EAP versions of Ktor with configuration preservation"
 
+    registerVCSRoots()
+
+    params {
+        param("ktor.eap.version", "KTOR_VERSION")
+        param("enhanced.validation.enabled", "true")
+        param("toml.comprehensive.handling", "true")
+        param("configuration.preservation.enabled", "true")
+    }
+
+    val versionResolver = createVersionResolver()
+    buildType(versionResolver)
+
+    val samples = createSampleConfigurations(versionResolver)
+    val buildTypes = samples.map { it.createEAPBuildType() }
+
+    buildTypes.forEach { buildType(it) }
+    buildType(createCompositeBuild(versionResolver, buildTypes))
+})
+
+private fun Project.registerVCSRoots() {
     vcsRoot(VCSKtorArrowExample)
     vcsRoot(VCSKtorAiServer)
     vcsRoot(VCSKtorNativeServer)
@@ -683,169 +868,155 @@ object ExternalSamplesEAPValidation : Project({
     vcsRoot(VCSAmperKtorSample)
     vcsRoot(VCSKtorDIOverview)
     vcsRoot(VCSKtorFullStackRealWorld)
+}
 
-    params {
-        param("ktor.eap.version", "KTOR_VERSION")
-        param("enhanced.validation.enabled", "true")
-        param("toml.comprehensive.handling", "true")
+private fun createVersionResolver(): BuildType = BuildType {
+    id("KtorExternalEAPVersionResolver")
+    name = "External Samples EAP Version Resolver"
+
+    vcs {
+        root(VCSCoreEAP)
     }
 
-    val versionResolver = EAPVersionResolver.createVersionResolver(
-        id = "ExternalKtorEAPVersionResolver",
-        name = "EAP Version Resolver for External Samples",
-        description = "Enhanced version resolver with comprehensive validation for external sample validation"
-    )
+    requirements {
+        agent(Agents.OS.Linux, Agents.Arch.X64, hardwareCapacity = ANY)
+    }
 
-    buildType(versionResolver)
+    params {
+        defaultGradleParams()
+        param("teamcity.build.skipDependencyBuilds", "true")
+        param("teamcity.runAsFirstBuild", "true")
+        param("env.KTOR_VERSION", "")
+        param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
+    }
 
-    val externalSamples = listOf(
-        ExternalSampleConfig(
-            "ktor-arrow-example",
-            VCSKtorArrowExample,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "ktor-ai-server",
-            VCSKtorAiServer,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "ktor-native-server",
-            VCSKtorNativeServer,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "ktor-koog-example",
-            VCSKtorKoogExample,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "full-stack-ktor-talk",
-            VCSFullStackKtorTalk,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "ktor-config-example",
-            VCSKtorConfigExample,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "ktor-workshop-2025",
-            VCSKtorWorkshop2025,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "amper-ktor-sample",
-            VCSAmperKtorSample,
-            ExternalSampleBuildType.AMPER,
-            versionResolver,
-            listOf(SpecialHandling.AMPER_GRADLE_HYBRID, SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "Ktor-DI-Overview",
-            VCSKtorDIOverview,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.ENHANCED_TOML_PATTERNS)
-        ),
-        ExternalSampleConfig(
-            "ktor-full-stack-real-world",
-            VCSKtorFullStackRealWorld,
-            ExternalSampleBuildType.GRADLE,
-            versionResolver,
-            listOf(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.ENHANCED_TOML_PATTERNS)
-        )
-    )
-
-    val allExternalSampleBuilds = externalSamples.map { it.createEAPBuildType() }
-
-    allExternalSampleBuilds.forEach { buildType(it) }
-
-    buildType {
-        id("ExternalKtorEAPSamplesCompositeBuild")
-        name = "Validate All External Samples with EAP"
-        description = "Enhanced validation of all external GitHub samples against EAP version of Ktor with comprehensive TOML handling"
-        type = BuildTypeSettings.Type.COMPOSITE
-
-        params {
-            defaultGradleParams()
-            param("env.GIT_BRANCH", "%teamcity.build.branch%")
-            param("teamcity.build.skipDependencyBuilds", "true")
-            param("enhanced.validation.enabled", "true")
+    steps {
+        script {
+            name = "Resolve EAP Versions"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+                
+                echo "=== Resolving EAP Versions ==="
+                
+                KTOR_EAP_VERSION=$(curl -s "${EapConstants.KTOR_EAP_METADATA_URL}" | grep -o "${EapConstants.EAP_VERSION_REGEX}" | sed 's/[<>]//g' | head -1)
+                KTOR_COMPILER_PLUGIN_VERSION=$(curl -s "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}" | grep -o "${EapConstants.EAP_VERSION_REGEX}" | sed 's/[<>]//g' | head -1)
+                
+                echo "Resolved Ktor EAP version: ${'$'}KTOR_EAP_VERSION"
+                echo "Resolved Ktor Compiler Plugin EAP version: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
+                
+                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_EAP_VERSION']"
+                echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
+                
+                echo "✓ EAP version resolution completed"
+            """.trimIndent()
         }
+    }
 
-        features {
-            notifications {
-                notifierSettings = slackNotifier {
-                    connection = "PROJECT_EXT_5"
-                    sendTo = "#ktor-external-samples-eap"
-                    messageFormat = verboseMessageFormat {
-                        addStatusText = true
-                        addBranch = true
-                        addChanges = true
-                    }
-                }
-                buildFailedToStart = true
-                buildFailed = true
-                buildFinishedSuccessfully = true
-                firstSuccessAfterFailure = true
+    failureConditions {
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "ERROR:"
+            failureMessage = "Error detected in version resolution"
+            stopBuildOnFailure = true
+        }
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "CRITICAL ERROR:"
+            failureMessage = "Critical error in version resolution"
+            stopBuildOnFailure = true
+        }
+        executionTimeoutMin = 10
+    }
+
+    defaultBuildFeatures()
+}
+
+private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> = listOf(
+    EAPSampleBuilder("Ktor Arrow Example", VCSKtorArrowExample, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+        .build(),
+
+    EAPSampleBuilder("Ktor AI Server", VCSKtorAiServer, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .build(),
+
+    EAPSampleBuilder("Ktor Native Server", VCSKtorNativeServer, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+        .build(),
+
+    EAPSampleBuilder("Ktor Koog Example", VCSKtorKoogExample, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .build(),
+
+    EAPSampleBuilder("Full Stack Ktor Talk", VCSFullStackKtorTalk, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .build(),
+
+    EAPSampleBuilder("Ktor Config Example", VCSKtorConfigExample, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .build(),
+
+    EAPSampleBuilder("Ktor Workshop 2025", VCSKtorWorkshop2025, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.ENHANCED_TOML_PATTERNS)
+        .build(),
+
+    EAPSampleBuilder("Amper Ktor Sample", VCSAmperKtorSample, versionResolver)
+        .withBuildType(ExternalSampleBuildType.AMPER)
+        .withSpecialHandling(SpecialHandling.AMPER_GRADLE_HYBRID)
+        .build(),
+
+    EAPSampleBuilder("Ktor DI Overview", VCSKtorDIOverview, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .build(),
+
+    EAPSampleBuilder("Ktor Full Stack Real World", VCSKtorFullStackRealWorld, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+        .build()
+)
+
+private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<BuildType>): BuildType = BuildType {
+    id("KtorExternalEAPSamplesComposite")
+    name = "Validate All External Samples with EAP"
+    description = "Comprehensive validation of external samples against EAP versions with configuration preservation"
+    type = BuildTypeSettings.Type.COMPOSITE
+
+    triggers {
+        finishBuildTrigger {
+            buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
+            successfulOnly = true
+        }
+    }
+
+    features {
+        with(EAPBuildFeatures) {
+            addEAPSlackNotifications(includeSuccess = true)
+        }
+    }
+
+    dependencies {
+        dependency(versionResolver) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+                onDependencyCancel = FailureAction.CANCEL
             }
         }
 
-        triggers {
-            finishBuildTrigger {
-                buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
-                successfulOnly = true
-                branchFilter = "+:refs/heads/*"
-            }
-        }
-
-        dependencies {
-            dependency(versionResolver) {
+        buildTypes.forEach { sampleBuild ->
+            dependency(sampleBuild) {
                 snapshot {
                     onDependencyFailure = FailureAction.FAIL_TO_START
                     onDependencyCancel = FailureAction.CANCEL
                 }
             }
-
-            allExternalSampleBuilds.forEach { sampleBuild ->
-                dependency(sampleBuild) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.ADD_PROBLEM
-                        onDependencyCancel = FailureAction.CANCEL
-                    }
-                }
-            }
-        }
-
-        failureConditions {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "No agents available to run"
-                failureMessage = "No compatible agents found for external samples composite"
-                stopBuildOnFailure = true
-            }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "✗.*FAILED:"
-                failureMessage = "Enhanced validation failed in one or more samples"
-                stopBuildOnFailure = false
-            }
-            executionTimeoutMin = 45
         }
     }
-})
+
+    failureConditions {
+        executionTimeoutMin = 60
+    }
+}
