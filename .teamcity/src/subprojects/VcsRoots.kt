@@ -34,9 +34,9 @@ fun VcsSettings.coreEap() {
     root(VCSCore)
     branchFilter = """
         -:*
-        +:$eapBranches
-        +:$releaseBranches
-        +:$defaultBranch
+        +:*-eap
+        +:release/*
+        +:<default>
     """.trimIndent()
 }
 
