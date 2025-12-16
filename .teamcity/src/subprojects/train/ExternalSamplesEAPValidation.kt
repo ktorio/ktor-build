@@ -236,7 +236,7 @@ object EAPBuildSteps {
             if (DockerSupport.requiresDocker(specialHandling)) {
                 dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
                 dockerPull = true
-                dockerImage = Env.JDK_LTS
+                dockerImage = "gradle:latest"
             }
         }
     }
