@@ -556,7 +556,7 @@ fun BuildType.addEAPSampleFailureConditions(
             stopBuildOnFailure = true
         }
         failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            conditionType = BuildFailureOnText.ConditionType.REGEXP
             pattern = "build was re-added to build queue|build canceled"
             failureMessage = "Build queue management issue for $sampleName"
             stopBuildOnFailure = true
@@ -692,11 +692,14 @@ object ExternalSamplesEAPValidation : Project({
         sample.projectName to buildType
     }
 
+    val stagesList = mutableListOf<BuildType>()
     buildStages.forEachIndexed { stageIndex, stage ->
-        buildType(createStagedCompositeBuild(versionResolver, stage, stageIndex, buildTypesByProject))
+        val stageBuildType = createStagedCompositeBuild(versionResolver, stage, stageIndex, buildTypesByProject)
+        buildType(stageBuildType)
+        stagesList.add(stageBuildType)
     }
 
-    buildType(createMasterCompositeBuild(versionResolver, buildStages))
+    buildType(createMasterCompositeBuild(versionResolver, stagesList))
 })
 
 private fun Project.registerVCSRoots() {
@@ -876,7 +879,7 @@ private fun createStagedCompositeBuild(
 
 private fun createMasterCompositeBuild(
     versionResolver: BuildType,
-    buildStages: List<BuildStage>
+    stageBuildTypes: List<BuildType>
 ): BuildType = BuildType {
     id("ExternalEAPMasterValidation")
     name = "Master EAP Validation (Resource-Optimized)"
@@ -885,8 +888,8 @@ private fun createMasterCompositeBuild(
 
     params {
         defaultGradleParams()
-        param("total.stages", buildStages.size.toString())
-        param("total.projects", buildStages.sumOf { it.projects.size }.toString())
+        param("total.stages", stageBuildTypes.size.toString())
+        param("total.projects", stageBuildTypes.size.toString())
         param("resource.optimization.enabled", "true")
         param("env.GIT_BRANCH", "%teamcity.build.branch%")
     }
@@ -913,8 +916,8 @@ private fun createMasterCompositeBuild(
             }
         }
 
-        buildStages.forEachIndexed { stageIndex, _ ->
-            dependency(BuildType { id("ExternalEAPStage${stageIndex}") }) {
+        stageBuildTypes.forEach { stageBuildType ->
+            dependency(stageBuildType) {
                 snapshot {
                     onDependencyFailure = FailureAction.IGNORE
                     onDependencyCancel = FailureAction.IGNORE
