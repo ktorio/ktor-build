@@ -13,24 +13,23 @@ import subprojects.Agents.OS
 import subprojects.build.defaultBuildFeatures
 import subprojects.build.defaultGradleParams
 
-object EAPConfig {
-    object Repositories {
-        const val KTOR_EAP = "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
-        const val COMPOSE_DEV = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
-        const val GOOGLE_ANDROID = "https://dl.google.com/dl/android/maven2/"
-    }
-}
-
 enum class SpecialHandling {
     KOTLIN_MULTIPLATFORM,
     AMPER_GRADLE_HYBRID,
-    ENHANCED_TOML_PATTERNS,
     DOCKER_TESTCONTAINERS,
-    DAGGER_ANNOTATION_PROCESSING
+    DAGGER_ANNOTATION_PROCESSING,
+    ANDROID_SDK_REQUIRED
 }
 
 enum class ExternalSampleBuildType {
     GRADLE, AMPER
+}
+
+enum class ProjectComplexity {
+    LIGHT,
+    MEDIUM,
+    HEAVY,
+    ULTRA_HEAVY
 }
 
 object VCSKtorArrowExample : KtorVcsRoot({
@@ -83,6 +82,122 @@ object VCSKtorFullStackRealWorld : KtorVcsRoot({
     url = "https://github.com/nomisRev/ktor-full-stack-real-world.git"
 })
 
+object ResourceManager {
+    fun getComplexityFor(projectName: String, specialHandling: List<SpecialHandling>): ProjectComplexity {
+        return when {
+            projectName in listOf("ktor-full-stack-real-world", "ktor-koog-example") ->
+                ProjectComplexity.ULTRA_HEAVY
+
+            projectName in listOf("ktor-arrow-example", "ktor-ai-server") ->
+                ProjectComplexity.HEAVY
+
+            specialHandling.any { it in listOf(SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.KOTLIN_MULTIPLATFORM) } ->
+                ProjectComplexity.MEDIUM
+
+            else -> ProjectComplexity.LIGHT
+        }
+    }
+
+    fun getResourceRequirements(complexity: ProjectComplexity): ResourceRequirements {
+        return when (complexity) {
+            ProjectComplexity.LIGHT -> ResourceRequirements(
+                timeoutMinutes = 20,
+                memoryMB = 3072,
+                maxWorkers = 4,
+                gradleOpts = "-Xmx2g -XX:MaxMetaspaceSize=512m"
+            )
+            ProjectComplexity.MEDIUM -> ResourceRequirements(
+                timeoutMinutes = 35,
+                memoryMB = 4096,
+                maxWorkers = 3,
+                gradleOpts = "-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC"
+            )
+            ProjectComplexity.HEAVY -> ResourceRequirements(
+                timeoutMinutes = 50,
+                memoryMB = 6144,
+                maxWorkers = 2,
+                gradleOpts = "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
+            )
+            ProjectComplexity.ULTRA_HEAVY -> ResourceRequirements(
+                timeoutMinutes = 120,
+                memoryMB = 8192,
+                maxWorkers = 1,
+                gradleOpts = "-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+UseStringDeduplication"
+            )
+        }
+    }
+}
+
+data class ResourceRequirements(
+    val timeoutMinutes: Int,
+    val memoryMB: Int,
+    val maxWorkers: Int,
+    val gradleOpts: String
+)
+
+object BuildQueueManager {
+    fun createStagedBuildConfiguration(samples: List<ExternalSampleConfig>): List<BuildStage> {
+        val groupedByComplexity = samples.groupBy {
+            ResourceManager.getComplexityFor(it.projectName, it.specialHandling)
+        }
+
+        val stages = mutableListOf<BuildStage>()
+
+        groupedByComplexity[ProjectComplexity.LIGHT]?.let { lightProjects ->
+            lightProjects.chunked(4).forEachIndexed { index, batch ->
+                stages.add(BuildStage(
+                    name = "Light_Stage_${index + 1}",
+                    projects = batch,
+                    maxConcurrency = 4,
+                    stagingDelayMinutes = 0
+                ))
+            }
+        }
+
+        groupedByComplexity[ProjectComplexity.MEDIUM]?.let { mediumProjects ->
+            mediumProjects.chunked(2).forEachIndexed { index, batch ->
+                stages.add(BuildStage(
+                    name = "Medium_Stage_${index + 1}",
+                    projects = batch,
+                    maxConcurrency = 2,
+                    stagingDelayMinutes = 2
+                ))
+            }
+        }
+
+        groupedByComplexity[ProjectComplexity.HEAVY]?.let { heavyProjects ->
+            heavyProjects.chunked(1).forEachIndexed { index, batch ->
+                stages.add(BuildStage(
+                    name = "Heavy_Stage_${index + 1}",
+                    projects = batch,
+                    maxConcurrency = 1,
+                    stagingDelayMinutes = 5
+                ))
+            }
+        }
+
+        groupedByComplexity[ProjectComplexity.ULTRA_HEAVY]?.let { ultraHeavyProjects ->
+            ultraHeavyProjects.forEachIndexed { index, project ->
+                stages.add(BuildStage(
+                    name = "UltraHeavy_Stage_${index + 1}",
+                    projects = listOf(project),
+                    maxConcurrency = 1,
+                    stagingDelayMinutes = 10
+                ))
+            }
+        }
+
+        return stages
+    }
+}
+
+data class BuildStage(
+    val name: String,
+    val projects: List<ExternalSampleConfig>,
+    val maxConcurrency: Int,
+    val stagingDelayMinutes: Int
+)
+
 data class EAPSampleBuilder(
     val projectName: String,
     val vcsRoot: VcsRoot,
@@ -92,6 +207,7 @@ data class EAPSampleBuilder(
     private var specialHandling: List<SpecialHandling> = emptyList()
 
     fun withBuildType(type: ExternalSampleBuildType) = apply { buildType = type }
+
     fun withSpecialHandling(vararg handling: SpecialHandling) = apply {
         specialHandling = handling.toList()
     }
@@ -107,12 +223,17 @@ data class EAPSampleBuilder(
 
 object DockerSupport {
     fun requiresDocker(specialHandling: List<SpecialHandling>): Boolean =
-        specialHandling.contains(SpecialHandling.DOCKER_TESTCONTAINERS)
+        SpecialHandling.DOCKER_TESTCONTAINERS in specialHandling
 }
 
 object DaggerSupport {
     fun requiresDagger(specialHandling: List<SpecialHandling>): Boolean =
-        specialHandling.contains(SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
+        SpecialHandling.DAGGER_ANNOTATION_PROCESSING in specialHandling
+}
+
+object AndroidSupport {
+    fun requiresAndroidSDK(specialHandling: List<SpecialHandling>): Boolean =
+        SpecialHandling.ANDROID_SDK_REQUIRED in specialHandling
 }
 
 object EAPBuildFeatures {
@@ -123,50 +244,43 @@ object EAPBuildFeatures {
         notifications {
             notifierSettings = slackNotifier {
                 connection = "PROJECT_EXT_5"
-                sendTo = "#ktor-external-samples-eap"
+                sendTo = "#ktor-projects-on-eap"
                 messageFormat = verboseMessageFormat {
                     addStatusText = true
                 }
             }
-            if (includeBuildStart) buildStarted = true
             buildFailedToStart = true
             buildFailed = true
             if (includeSuccess) buildFinishedSuccessfully = true
+            if (includeBuildStart) buildStarted = true
         }
     }
 }
 
 object EAPScriptTemplates {
-    fun repositoryConfiguration() = """
-        maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }
-        maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }
-        maven { url = uri("${EAPConfig.Repositories.GOOGLE_ANDROID}") }
-        mavenCentral()
-        google()
-        gradlePluginPortal()
-    """.trimIndent()
-
     fun buildCommonSetup() = """
-        echo "Setting up EAP build environment..."
-        echo "KTOR_VERSION: %env.KTOR_VERSION%"
-        echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+        #!/bin/bash
+        set -e
+        echo "=== EAP Environment Setup ==="
+        
+        echo "Available Memory: $(free -h | awk '/^Mem:/ {print $7}' 2>/dev/null || echo 'N/A')"
+        echo "CPU Load: $(uptime | cut -d' ' -f3- 2>/dev/null || echo 'N/A')"
+        echo "Disk Space: $(df -h . | awk 'NR==2 {print $4}' 2>/dev/null || echo 'N/A')"
+        
+        if [ -f "./gradlew" ]; then
+            echo "Found gradlew, stopping existing daemons..."
+            ./gradlew --stop || true
+        fi
+        
+        echo "=== Setup Complete ==="
     """.trimIndent()
 }
 
 object EAPBuildSteps {
-
-    fun BuildSteps.standardEAPSetup(specialHandling: List<SpecialHandling> = emptyList()) {
+    fun BuildSteps.standardEAPSetup() {
         script {
             name = "Standard EAP Setup"
-            scriptContent = ExternalSampleScripts.backupConfigFiles()
-        }
-        script {
-            name = "Analyze Project Structure"
-            scriptContent = ExternalSampleScripts.analyzeProjectStructure(specialHandling)
-        }
-
-        if (DockerSupport.requiresDocker(specialHandling)) {
-            setupDockerEnvironment()
+            scriptContent = EAPScriptTemplates.buildCommonSetup()
         }
     }
 
@@ -184,529 +298,217 @@ object EAPBuildSteps {
         }
     }
 
-    fun BuildSteps.gradleEAPBuild(specialHandling: List<SpecialHandling> = emptyList()) {
-        standardEAPSetup(specialHandling)
+    fun BuildSteps.setupAndroidEnvironment() {
         script {
-            name = "Update Gradle Properties"
-            scriptContent = ExternalSampleScripts.updateGradlePropertiesEnhanced()
-        }
-        script {
-            name = "Update Version Catalog"
-            scriptContent = ExternalSampleScripts.updateVersionCatalogComprehensive(specialHandling)
-        }
-        script {
-            name = "Setup Enhanced Gradle Repositories"
-            scriptContent = ExternalSampleScripts.setupEnhancedGradleRepositories()
-        }
-
-        if (specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM)) {
-            script {
-                name = "Configure Kotlin Multiplatform"
-                scriptContent = ExternalSampleScripts.configureKotlinMultiplatform()
-            }
-        }
-
-        if (specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)) {
-            script {
-                name = "Handle Amper Gradle Hybrid"
-                scriptContent = ExternalSampleScripts.handleAmperGradleHybrid()
-            }
-        }
-
-        if (DaggerSupport.requiresDagger(specialHandling)) {
-            setupDaggerEnvironment()
-            script {
-                name = "Configure Dagger Annotation Processing"
-                scriptContent = ExternalSampleScripts.configureDaggerAnnotationProcessing()
-            }
-        }
-
-        gradle {
-            name = "Build Gradle Project (Enhanced)"
-            tasks = if (DaggerSupport.requiresDagger(specialHandling)) {
-                "clean compileKotlin kaptKotlin compileTestKotlin kaptTestKotlin test --continue --info --stacktrace"
-            } else {
-                "clean build --continue --info --stacktrace"
-            }
-            jdkHome = Env.JDK_LTS
-            param("org.gradle.parallel", "false")
-            param("org.gradle.daemon", "false")
-            param("org.gradle.configureondemand", "false")
-
-            if (DockerSupport.requiresDocker(specialHandling)) {
-                dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
-                dockerPull = true
-                dockerImage = "gradle:latest"
-            }
+            name = "Setup Android Environment"
+            scriptContent = ExternalSampleScripts.setupAndroidSDK()
         }
     }
 
-    fun BuildSteps.amperEAPBuild(specialHandling: List<SpecialHandling> = emptyList()) {
-        standardEAPSetup(specialHandling)
+    fun BuildSteps.gradleEAPBuild(
+        projectName: String,
+        specialHandling: List<SpecialHandling> = emptyList()
+    ) {
+        val complexity = ResourceManager.getComplexityFor(projectName, specialHandling)
+        val requirements = ResourceManager.getResourceRequirements(complexity)
+
         script {
-            name = "Setup Amper Repositories"
-            scriptContent = ExternalSampleScripts.setupAmperRepositories()
+            name = "Pre-build Resource Check"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Pre-build Resource Assessment ==="
+                echo "Project: $projectName"
+                echo "Complexity: ${complexity.name}"
+                echo "Memory Allocation: ${requirements.memoryMB}MB"
+                echo "Max Workers: ${requirements.maxWorkers}"
+                echo "Timeout: ${requirements.timeoutMinutes} minutes"
+                
+                AVAILABLE_MEM=$(free -m | awk 'NR==2{printf "%.0f", $7}' 2>/dev/null || echo "0")
+                if [ "${'$'}AVAILABLE_MEM" -lt "${requirements.memoryMB}" ]; then
+                    echo "WARNING: Limited memory available (${'$'}{AVAILABLE_MEM}MB < ${requirements.memoryMB}MB)"
+                fi
+                
+                echo "================================"
+            """.trimIndent()
         }
-        script {
-            name = "Update Amper Versions"
-            scriptContent = ExternalSampleScripts.updateAmperVersionsEnhanced()
+
+        when (complexity) {
+            ProjectComplexity.ULTRA_HEAVY -> {
+                ultraHeavyPhasedBuild(requirements)
+            }
+            ProjectComplexity.HEAVY -> {
+                heavyOptimizedBuild(requirements)
+            }
+            ProjectComplexity.MEDIUM -> {
+                mediumOptimizedBuild(requirements)
+            }
+            ProjectComplexity.LIGHT -> {
+                lightOptimizedBuild(requirements)
+            }
         }
+
         script {
-            name = "Build Amper Project (Enhanced)"
+            name = "Post-build Cleanup"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Post-build Resource Cleanup ==="
+                
+                if [ -f "./gradlew" ]; then
+                    ./gradlew --stop || true
+                fi
+                
+                if [ -d ".gradle" ]; then
+                    CACHE_SIZE=$(du -sm .gradle 2>/dev/null | cut -f1 || echo "0")
+                    if [ "${'$'}CACHE_SIZE" -gt 1000 ]; then
+                        echo "Cleaning large Gradle cache (${'$'}{CACHE_SIZE}MB)..."
+                        rm -rf .gradle/caches/build-cache-* || true
+                    fi
+                fi
+                
+                find . -name "*.tmp" -delete 2>/dev/null || true
+                find . -name "*.lock" -delete 2>/dev/null || true
+                
+                echo "Cleanup completed"
+            """.trimIndent()
+            executionMode = BuildStep.ExecutionMode.ALWAYS
+        }
+    }
+
+    private fun BuildSteps.ultraHeavyPhasedBuild(requirements: ResourceRequirements) {
+        gradle {
+            name = "Phase 1 - Dependencies & Verification"
+            tasks = "dependencies --write-verification-metadata sha256"
+            jdkHome = Env.JDK_LTS
+            gradleParams = "${requirements.gradleOpts} -Dorg.gradle.caching=true --max-workers=${requirements.maxWorkers}"
+        }
+
+        gradle {
+            name = "Phase 2 - Backend Compilation"
+            tasks = "compileKotlin compileJava"
+            jdkHome = Env.JDK_LTS
+            gradleParams = "${requirements.gradleOpts} --max-workers=${requirements.maxWorkers}"
+        }
+
+        gradle {
+            name = "Phase 3 - Frontend Compilation"
+            tasks = "compileKotlinJs compileKotlinWasm"
+            jdkHome = Env.JDK_LTS
+            gradleParams = "${requirements.gradleOpts} --max-workers=1"
+            executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+        }
+
+        gradle {
+            name = "Phase 4 - Testing"
+            tasks = "test --max-workers=1 --no-parallel"
+            jdkHome = Env.JDK_LTS
+            gradleParams = requirements.gradleOpts
+        }
+    }
+
+    private fun BuildSteps.heavyOptimizedBuild(requirements: ResourceRequirements) {
+        gradle {
+            name = "Build Heavy Project"
+            tasks = "build --max-workers=${requirements.maxWorkers} --parallel"
+            jdkHome = Env.JDK_LTS
+            gradleParams = requirements.gradleOpts
+        }
+    }
+
+    private fun BuildSteps.mediumOptimizedBuild(requirements: ResourceRequirements) {
+        gradle {
+            name = "Build Medium Project"
+            tasks = "build --max-workers=${requirements.maxWorkers} --parallel"
+            jdkHome = Env.JDK_LTS
+            gradleParams = requirements.gradleOpts
+        }
+    }
+
+    private fun BuildSteps.lightOptimizedBuild(requirements: ResourceRequirements) {
+        gradle {
+            name = "Build Light Project"
+            tasks = "build --max-workers=${requirements.maxWorkers}"
+            jdkHome = Env.JDK_LTS
+            gradleParams = requirements.gradleOpts
+        }
+    }
+
+    fun BuildSteps.amperEAPBuild() {
+        script {
+            name = "Build Amper Project"
             scriptContent = ExternalSampleScripts.buildAmperProjectEnhanced()
         }
     }
 }
 
 object ExternalSampleScripts {
-    fun backupConfigFiles() = """
-        echo "=== Backing up Configuration Files ==="
-        
-        mkdir -p .backup
-        
-        for file in build.gradle.kts build.gradle settings.gradle.kts settings.gradle gradle.properties module.yaml; do
-            if [ -f "${'$'}file" ]; then
-                echo "Backing up ${'$'}file"
-                cp "${'$'}file" ".backup/${'$'}file.original"
-            fi
-        done
-        
-        for dir in dagger koin kodein hilt; do
-            if [ -d "${'$'}dir" ]; then
-                echo "Backing up ${'$'}dir module configuration"
-                mkdir -p ".backup/${'$'}dir"
-                if [ -f "${'$'}dir/build.gradle.kts" ]; then
-                    cp "${'$'}dir/build.gradle.kts" ".backup/${'$'}dir/build.gradle.kts.original"
-                fi
-                if [ -f "${'$'}dir/build.gradle" ]; then
-                    cp "${'$'}dir/build.gradle" ".backup/${'$'}dir/build.gradle.original"
-                fi
-            fi
-        done
-        
-        if [ -d "gradle" ]; then
-            echo "Backing up gradle directory"
-            cp -r gradle .backup/gradle_original
-        fi
-        
-        echo "✓ Configuration backup completed"
-    """.trimIndent()
-
-    fun analyzeProjectStructure(specialHandling: List<SpecialHandling> = emptyList()) = """
-        echo "=== Analyzing Project Structure ==="
-        
-        echo "Project root contents:"
-        ls -la .
-        
-        echo "Build system detection:"
-        if [ -f "build.gradle.kts" ] || [ -f "build.gradle" ]; then
-            echo "✓ Gradle project detected"
-            BUILD_SYSTEM="gradle"
-        elif [ -f "module.yaml" ]; then
-            echo "✓ Amper project detected"
-            BUILD_SYSTEM="amper"
-        else
-            echo "⚠ Unknown build system"
-            BUILD_SYSTEM="unknown"
-        fi
-        
-        echo "##teamcity[setParameter name='env.DETECTED_BUILD_SYSTEM' value='${'$'}BUILD_SYSTEM']"
-        
-        DAGGER_FOUND=false
-        if find . -name "*.kt" -o -name "*.java" | xargs grep -l "@Component\|@Module\|@Inject" | head -1; then
-            echo "✓ Dagger annotations found in source files"
-            DAGGER_FOUND=true
-        elif find . -name "build.gradle*" -exec grep -l "dagger" {} \; | head -1; then
-            echo "✓ Dagger dependencies found in build files"
-            DAGGER_FOUND=true
-        fi
-        
-        if [ "${'$'}DAGGER_FOUND" = true ]; then
-            echo "PROJECT_USES_DAGGER=true" >> gradle.properties
-        else
-            echo "PROJECT_USES_DAGGER=false" >> gradle.properties
-        fi
-        
-        ${if (specialHandling.contains(SpecialHandling.DOCKER_TESTCONTAINERS)) {
-        """
-            echo "Docker/Testcontainers support enabled"
-            
-            TESTCONTAINERS_FOUND=false
-            if find . -name "build.gradle*" -exec grep -l "testcontainers" {} \; | head -1; then
-                echo "✓ Testcontainers found in Gradle build files"
-                TESTCONTAINERS_FOUND=true
-            fi
-            
-            if [ "${'$'}TESTCONTAINERS_FOUND" = true ]; then
-                echo "PROJECT_REQUIRES_DOCKER=true" >> gradle.properties
-            else
-                echo "⚠ Docker support enabled but no Testcontainers dependencies found"
-                echo "PROJECT_REQUIRES_DOCKER=false" >> gradle.properties
-            fi
-            """
-    } else {
-        """
-            echo "Standard project handling (no Docker support)"
-            echo "PROJECT_REQUIRES_DOCKER=false" >> gradle.properties
-            """
-    }}
-        
-        ${if (specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM))
-        "echo \"Kotlin Multiplatform handling enabled\""
-    else "echo \"Standard project handling\""}
-        
-        echo "✓ Project analysis completed"
-    """.trimIndent()
-
     fun setupDockerEnvironment() = """
+        #!/bin/bash
+        set -e
         echo "=== Docker Environment Setup ==="
         
         if ! command -v docker &> /dev/null; then
-            echo "ERROR: Docker is not installed"
+            echo "ERROR: Docker not available"
             exit 1
         fi
         
-        if ! docker info &> /dev/null; then
-            echo "ERROR: Docker daemon is not running or accessible"
-            docker info || true
-            exit 1
+        export DOCKER_MEMORY_LIMIT="2g"
+        export DOCKER_CPU_LIMIT="1.5"
+        
+        if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
+            echo "Starting Docker Compose services with resource limits..."
+            docker-compose up -d --scale app=1 2>/dev/null || \
+            docker compose up -d --scale app=1 || \
+            echo "Docker Compose startup failed, continuing..."
         fi
         
-        echo "Docker version:"
-        docker --version
-        
-        echo "Docker info:"
-        docker info --format "{{.ServerVersion}}"
-        
-        echo "Pre-pulling common test containers..."
-        docker pull postgres:latest || echo "Failed to pull postgres, will try during test"
-        docker pull testcontainers/ryuk:latest || echo "Failed to pull ryuk, will try during test"
-        docker pull mysql:latest || echo "Failed to pull mysql, will try during test"
-        docker pull redis:alpine || echo "Failed to pull redis, will try during test"
-        
-        echo "DOCKER_HOST=unix:///var/run/docker.sock" >> gradle.properties
-        echo "TESTCONTAINERS_RYUK_DISABLED=true" >> gradle.properties
-        echo "TESTCONTAINERS_CHECKS_DISABLE=true" >> gradle.properties
-        echo "TESTCONTAINERS_HOST_OVERRIDE=localhost" >> gradle.properties
-        
-        export TESTCONTAINERS_RYUK_DISABLED=true
-        export TESTCONTAINERS_CHECKS_DISABLE=true
-        export TESTCONTAINERS_HOST_OVERRIDE=localhost
-        
-        echo "=== Docker Environment Setup Complete ==="
+        echo "Docker environment configured"
     """.trimIndent()
 
     fun setupDaggerEnvironment() = """
-        echo "=== Setting up Dagger Environment ==="
+        #!/bin/bash
+        echo "=== Dagger Environment Setup ==="
         
-        echo "Configuring Dagger-specific CI properties..."
-        
-        echo "kapt.include.compile.classpath=false" >> gradle.properties
-        echo "kapt.incremental.apt=false" >> gradle.properties
-        echo "kapt.use.worker.api=false" >> gradle.properties
-        echo "kapt.incremental.apt.keep.annotation.file=false" >> gradle.properties
-        echo "kapt.verbose=true" >> gradle.properties
-        
-        echo "org.gradle.parallel=false" >> gradle.properties
-        echo "org.gradle.daemon=false" >> gradle.properties
-        echo "org.gradle.configureondemand=false" >> gradle.properties
-        echo "org.gradle.caching=false" >> gradle.properties
-        
-        echo "DAGGER_CI_MODE=true" >> gradle.properties
-        
-        echo "✓ Dagger environment configured for CI"
-    """.trimIndent()
-
-    fun configureDaggerAnnotationProcessing() = """
-        echo "=== Configuring Dagger Annotation Processing ==="
-        
-        for module_dir in dagger koin kodein hilt; do
-            if [ -d "${'$'}module_dir" ]; then
-                echo "Found ${'$'}module_dir module, checking Dagger configuration..."
-                
-                build_file=""
-                if [ -f "${'$'}module_dir/build.gradle.kts" ]; then
-                    build_file="${'$'}module_dir/build.gradle.kts"
-                elif [ -f "${'$'}module_dir/build.gradle" ]; then
-                    build_file="${'$'}module_dir/build.gradle"
-                fi
-                
-                if [ -n "${'$'}build_file" ]; then
-                    echo "Checking ${'$'}build_file for Dagger configuration..."
-                    
-                    if [ "${'$'}module_dir" = "dagger" ]; then
-                        echo "Processing dagger module build file..."
-                        
-                        cp "${'$'}build_file" "${'$'}build_file.backup"
-                        
-                        if grep -q "dagger" "${'$'}build_file"; then
-                            echo "✓ Dagger dependencies found in ${'$'}build_file"
-                            
-                            if ! grep -q "kotlin-kapt" "${'$'}build_file" && ! grep -q "id.*kapt" "${'$'}build_file"; then
-                                echo "⚠ KAPT plugin not found, this may cause issues"
-                                echo "Consider adding 'kotlin-kapt' plugin to ${'$'}build_file"
-                            else
-                                echo "✓ KAPT plugin found in ${'$'}build_file"
-                            fi
-                            
-                            if ! grep -q "testImplementation.*dagger" "${'$'}build_file"; then
-                                echo "⚠ Test Dagger dependencies may be missing"
-                            fi
-                            
-                            if ! grep -q "kaptTest.*dagger-compiler" "${'$'}build_file" && ! grep -q "testAnnotationProcessor.*dagger-compiler" "${'$'}build_file"; then
-                                echo "⚠ Test annotation processor may be missing"
-                            fi
-                        fi
-                    fi
-                    
-                    echo "Build file analysis complete for ${'$'}module_dir"
-                else
-                    echo "No build file found in ${'$'}module_dir"
-                fi
-            fi
-        done
-        
-        echo "=== Dagger Annotation Processing Configuration Complete ==="
-    """.trimIndent()
-
-    fun updateGradlePropertiesEnhanced() = """
-        echo "=== Updating Gradle Properties (Enhanced) ==="
-        
-        if [ -f "gradle.properties" ]; then
-            echo "Updating existing gradle.properties"
-            
-            sed -i '/^ktorVersion/d' gradle.properties
-            sed -i '/^ktor_version/d' gradle.properties
-            sed -i '/^ktor-version/d' gradle.properties
-            
-            echo "" >> gradle.properties
-            echo "# EAP Versions" >> gradle.properties
-            echo "ktorVersion=%env.KTOR_VERSION%" >> gradle.properties
-            echo "ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%" >> gradle.properties
+        if grep -r "dagger" build.gradle.kts 2>/dev/null; then
+            echo "Dagger dependencies detected"
+            echo "Configuring annotation processing..."
         else
-            echo "Creating new gradle.properties"
-            cat > gradle.properties << 'EOF'
-ktorVersion=%env.KTOR_VERSION%
-ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%
-EOF
+            echo "No Dagger dependencies found"
         fi
         
-        echo "Updated gradle.properties:"
-        cat gradle.properties
-        echo "✓ Gradle properties updated successfully"
+        echo "Dagger setup completed"
     """.trimIndent()
 
-    fun updateVersionCatalogComprehensive(specialHandling: List<SpecialHandling> = emptyList()) = """
-        echo "=== Updating Version Catalog (Comprehensive) ==="
+    fun setupAndroidSDK() = """
+        #!/bin/bash
+        echo "=== Android SDK Setup ==="
         
-        if [ -f "gradle/libs.versions.toml" ]; then
-            echo "Found version catalog, updating..."
-            
-            TOML_FILE="gradle/libs.versions.toml"
-            
-            if grep -q "\[versions\]" "${'$'}TOML_FILE"; then
-                echo "Updating existing versions section"
-                
-                ${if (specialHandling.contains(SpecialHandling.ENHANCED_TOML_PATTERNS)) {
-        """
-                    sed -i '/^ktor[_-]*[Vv]*ersion.*=.*/d' "${'$'}TOML_FILE"
-                    sed -i '/^ktor[_-]*compiler[_-]*plugin.*=.*/d' "${'$'}TOML_FILE"
-                    """
-    } else {
-        """
-                    sed -i '/^ktorVersion/d' "${'$'}TOML_FILE"
-                    sed -i '/^ktor_version/d' "${'$'}TOML_FILE"
-                    """
-    }}
-                
-                awk '/^\[versions\]/{print; print "ktorVersion = \"%env.KTOR_VERSION%\""; print "ktorCompilerPluginVersion = \"%env.KTOR_COMPILER_PLUGIN_VERSION%\""; next}1' "${'$'}TOML_FILE" > "${'$'}TOML_FILE.tmp"
-                mv "${'$'}TOML_FILE.tmp" "${'$'}TOML_FILE"
-            else
-                echo "Adding versions section to TOML"
-                echo "" >> "${'$'}TOML_FILE"
-                echo "[versions]" >> "${'$'}TOML_FILE"
-                echo "ktorVersion = \"%env.KTOR_VERSION%\"" >> "${'$'}TOML_FILE"
-                echo "ktorCompilerPluginVersion = \"%env.KTOR_COMPILER_PLUGIN_VERSION%\"" >> "${'$'}TOML_FILE"
-            fi
-            
-            echo "Updated version catalog:"
-            cat "${'$'}TOML_FILE"
+        if [ -f "app/build.gradle.kts" ] && grep -q "android" app/build.gradle.kts 2>/dev/null; then
+            echo "Android project detected"
+            export ANDROID_SDK_ROOT="/opt/android-sdk"
+            export ANDROID_HOME="/opt/android-sdk"
+            echo "Android SDK configured"
         else
-            echo "No version catalog found, skipping..."
+            echo "No Android configuration found"
         fi
-        
-        echo "✓ Version catalog update completed"
-    """.trimIndent()
-
-    fun setupEnhancedGradleRepositories() = """
-        echo "=== Setting up Enhanced Gradle Repositories ==="
-        
-        if [ -f "settings.gradle.kts" ]; then
-            echo "Found settings.gradle.kts, preserving existing configuration"
-            
-            if grep -q "${EAPConfig.Repositories.KTOR_EAP}" settings.gradle.kts; then
-                echo "✓ EAP repositories already configured"
-            else
-                echo "Adding EAP repositories to existing settings.gradle.kts"
-                
-                if grep -q "pluginManagement" settings.gradle.kts; then
-                    echo "Found existing pluginManagement, adding repositories"
-                    awk '
-                    /pluginManagement.*{/{pm=1}
-                    /repositories.*{/ && pm==1 {repos=1; print; print "        maven { url = uri(\"${EAPConfig.Repositories.KTOR_EAP}\") }"; print "        maven { url = uri(\"${EAPConfig.Repositories.COMPOSE_DEV}\") }"; next}
-                    /^}/ && pm==1 {pm=0}
-                    {print}
-                    ' settings.gradle.kts > settings.gradle.kts.tmp && mv settings.gradle.kts.tmp settings.gradle.kts
-                else
-                    echo "Prepending pluginManagement to preserve existing content"
-                    cat > settings.gradle.kts.tmp << 'EOF'
-pluginManagement {
-    repositories {
-        ${EAPScriptTemplates.repositoryConfiguration()}
-    }
-}
-
-EOF
-                    cat settings.gradle.kts >> settings.gradle.kts.tmp
-                    mv settings.gradle.kts.tmp settings.gradle.kts
-                fi
-            fi
-        else
-            echo "Creating new settings.gradle.kts with EAP repositories"
-            cat > settings.gradle.kts << 'EOF'
-pluginManagement {
-    repositories {
-        ${EAPScriptTemplates.repositoryConfiguration()}
-    }
-}
-EOF
-        fi
-        
-        cat > gradle-eap-init.gradle << 'EOF'
-allprojects {
-    repositories {
-        ${EAPScriptTemplates.repositoryConfiguration()}
-    }
-}
-EOF
-        
-        echo "✓ Enhanced Gradle repositories configuration completed"
-    """.trimIndent()
-
-    fun configureKotlinMultiplatform() = """
-        echo "=== Configuring Kotlin Multiplatform ==="
-        
-        if [ -f "build.gradle.kts" ] && grep -q "kotlin.*multiplatform" build.gradle.kts; then
-            echo "Kotlin Multiplatform project detected"
-            
-            if grep -q "org.jetbrains.compose" build.gradle.kts || grep -q "compose" build.gradle.kts; then
-                echo "Compose Multiplatform detected, ensuring all required repositories are available"
-                
-                if ! grep -q "repositories {" build.gradle.kts; then
-                    echo "Adding repositories block to build.gradle.kts"
-                    sed -i '1i\repositories {\
-    maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }\
-    maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }\
-    maven { url = uri("${EAPConfig.Repositories.GOOGLE_ANDROID}") }\
-    google()\
-    mavenCentral()\
-    gradlePluginPortal()\
-}\
-' build.gradle.kts
-                else
-                    echo "Repositories block exists, ensuring Google repository is present"
-                    if ! grep -q "google()" build.gradle.kts && ! grep -q "${EAPConfig.Repositories.GOOGLE_ANDROID}" build.gradle.kts; then
-                        sed -i '/repositories {/a\    maven { url = uri("${EAPConfig.Repositories.GOOGLE_ANDROID}") }\
-    google()' build.gradle.kts
-                    fi
-                fi
-                
-                echo "✓ Compose Multiplatform repositories configured"
-            fi
-            
-            echo "✓ Multiplatform configuration applied"
-        else
-            echo "Not a multiplatform project, skipping multiplatform configuration"
-        fi
-    """.trimIndent()
-
-    fun handleAmperGradleHybrid() = """
-        echo "=== Handling Amper-Gradle Hybrid Project ==="
-        
-        if [ -f "module.yaml" ] && ([ -f "build.gradle.kts" ] || [ -f "build.gradle" ]); then
-            echo "Amper-Gradle hybrid project detected"
-            
-            echo "Updating Amper configuration..."
-            echo "Updating Gradle configuration..."
-            echo "✓ Amper-Gradle hybrid configuration completed"
-        else
-            echo "Not an Amper-Gradle hybrid project, skipping"
-        fi
-    """.trimIndent()
-
-    fun setupAmperRepositories() = """
-        echo "=== Setting up Amper Repositories ==="
-        
-        if [ -f "module.yaml" ]; then
-            echo "Found Amper module.yaml, adding EAP repositories"
-            
-            cp module.yaml module.yaml.backup
-            
-            if grep -q "repositories:" module.yaml; then
-                echo "Adding EAP repositories to existing repositories section"
-                sed -i '/repositories:/a\  - url: ${EAPConfig.Repositories.KTOR_EAP}' module.yaml
-                sed -i '/repositories:/a\  - url: ${EAPConfig.Repositories.COMPOSE_DEV}' module.yaml
-            else
-                echo "Adding repositories section to module.yaml"
-                echo "" >> module.yaml
-                echo "repositories:" >> module.yaml
-                echo "  - url: ${EAPConfig.Repositories.KTOR_EAP}" >> module.yaml
-                echo "  - url: ${EAPConfig.Repositories.COMPOSE_DEV}" >> module.yaml
-            fi
-            
-            echo "Updated module.yaml:"
-            cat module.yaml
-        else
-            echo "No module.yaml found, skipping Amper repository setup"
-        fi
-        
-        echo "✓ Amper repositories setup completed"
-    """.trimIndent()
-
-    fun updateAmperVersionsEnhanced() = """
-        echo "=== Updating Amper Versions (Enhanced) ==="
-        
-        if [ -f "module.yaml" ]; then
-            echo "Updating Ktor versions in module.yaml"
-            
-            if grep -q "ktor.*:" module.yaml; then
-                sed -i 's/ktor.*:.*/ktor: %env.KTOR_VERSION%/' module.yaml
-            else
-                echo "dependencies:" >> module.yaml
-                echo "  ktor: %env.KTOR_VERSION%" >> module.yaml
-            fi
-            
-            echo "Updated module.yaml:"
-            cat module.yaml
-        else
-            echo "No module.yaml found, skipping Amper version update"
-        fi
-        
-        echo "✓ Amper versions update completed"
     """.trimIndent()
 
     fun buildAmperProjectEnhanced() = """
-        echo "=== Building Amper Project (Enhanced) ==="
+        #!/bin/bash
+        set -e
+        echo "=== Building Amper project with enhancements ==="
         
-        if command -v amper >/dev/null 2>&1; then
-            echo "Running Amper build..."
-            amper build --verbose
-            echo "✓ Amper build completed successfully"
+        if command -v amper &> /dev/null; then
+            echo "Building with Amper..."
+            amper build
+        elif [ -f "gradlew" ]; then
+            echo "Falling back to Gradle build..."
+            ./gradlew build
         else
-            echo "Amper command not found, falling back to Gradle"
-            ./gradlew build --stacktrace
-            echo "✓ Gradle fallback build completed successfully"
+            echo "ERROR: Neither Amper nor Gradle wrapper found"
+            exit 1
         fi
+        
+        echo "Amper project build completed"
     """.trimIndent()
 }
 
@@ -719,71 +521,48 @@ fun BuildType.addEAPSampleFailureConditions(
     sampleName: String,
     specialHandling: List<SpecialHandling> = emptyList()
 ) {
+    val complexity = ResourceManager.getComplexityFor(sampleName, specialHandling)
+    val requirements = ResourceManager.getResourceRequirements(complexity)
+
     failureConditions {
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "BUILD FAILED"
-            failureMessage = "Build failed for external sample $sampleName"
+            failureMessage = "Build failed for $sampleName (${complexity.name})"
             stopBuildOnFailure = true
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "FAILURE:"
-            failureMessage = "Build failure detected in external sample $sampleName"
+            failureMessage = "Build failure detected in $sampleName"
             stopBuildOnFailure = true
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "IllegalStateException"
-            failureMessage = "IllegalStateException detected in $sampleName - likely Dagger component generation issue"
+            pattern = "OutOfMemoryError"
+            failureMessage = "Memory exhaustion in ${complexity.name} project $sampleName"
             stopBuildOnFailure = true
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "cannot be provided without an @Provides"
-            failureMessage = "Dagger dependency injection error in $sampleName"
+            pattern = "Java heap space"
+            failureMessage = "Java heap space exhaustion in ${complexity.name} project $sampleName"
             stopBuildOnFailure = true
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "Component must be created"
-            failureMessage = "Dagger component creation error in $sampleName"
+            pattern = "No space left on device"
+            failureMessage = "Disk space exhaustion during $sampleName build"
+            stopBuildOnFailure = true
+        }
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.REGEXP
+            pattern = "build was re-added to build queue|build canceled"
+            failureMessage = "Build queue management issue for $sampleName"
             stopBuildOnFailure = true
         }
 
-        if (DockerSupport.requiresDocker(specialHandling)) {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "DockerClientProviderStrategy"
-                failureMessage = "Docker client provider failed in $sampleName - Docker may not be available"
-                stopBuildOnFailure = true
-            }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "Could not find a valid Docker environment"
-                failureMessage = "Docker environment not found for $sampleName sample"
-                stopBuildOnFailure = true
-            }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "TestcontainersException"
-                failureMessage = "Testcontainers exception in $sampleName sample"
-                stopBuildOnFailure = true
-            }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "Cannot connect to the Docker daemon"
-                failureMessage = "Cannot connect to Docker daemon for $sampleName sample"
-                stopBuildOnFailure = true
-            }
-            executionTimeoutMin = 35
-        } else if (specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM)) {
-            executionTimeoutMin = 45
-        } else if (DaggerSupport.requiresDagger(specialHandling)) {
-            executionTimeoutMin = 40
-        } else {
-            executionTimeoutMin = 30
-        }
+        executionTimeoutMin = requirements.timeoutMinutes
     }
 }
 
@@ -796,9 +575,11 @@ data class ExternalSampleConfig(
 ) : ExternalEAPSampleConfig {
 
     override fun createEAPBuildType(): BuildType = BuildType {
-        id("KtorExternalEAPSample_${projectName.replace('-', '_').replace('.', '_')}")
-        name = "EAP External Sample: $projectName"
-        description = "Validate $projectName against EAP versions of Ktor with enhanced configuration preservation"
+        val complexity = ResourceManager.getComplexityFor(projectName, specialHandling)
+        val requirements = ResourceManager.getResourceRequirements(complexity)
+
+        id("ExternalEAPSample_${projectName.replace('-', '_')}")
+        name = "EAP $projectName [${complexity.name}]"
 
         vcs {
             root(vcsRoot)
@@ -807,9 +588,16 @@ data class ExternalSampleConfig(
         requirements {
             agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
 
-            if (DockerSupport.requiresDocker(specialHandling)) {
-                contains("docker.server.version", "")
-                contains("docker.daemon.available", "true")
+            if (complexity == ProjectComplexity.MEDIUM) {
+                noLessThan("system.memory.mb", "4096")
+            }
+            if (complexity == ProjectComplexity.HEAVY) {
+                noLessThan("system.memory.mb", "6144")
+                noLessThan("system.cpu.count", "4")
+            }
+            if (complexity == ProjectComplexity.ULTRA_HEAVY) {
+                noLessThan("system.memory.mb", "8192")
+                noLessThan("system.cpu.count", "8")
             }
         }
 
@@ -817,91 +605,50 @@ data class ExternalSampleConfig(
             defaultGradleParams()
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-            param("env.PROJECT_NAME", projectName)
-            param("env.BUILD_TYPE", buildType.name)
 
-            if (DockerSupport.requiresDocker(specialHandling)) {
-                param("env.DOCKER_HOST", "unix:///var/run/docker.sock")
-                param("env.TESTCONTAINERS_RYUK_DISABLED", "true")
-                param("env.TESTCONTAINERS_CHECKS_DISABLE", "true")
-                param("env.TESTCONTAINERS_HOST_OVERRIDE", "localhost")
-            }
+            param("project.complexity", complexity.name)
+            param("max.memory.mb", requirements.memoryMB.toString())
+            param("max.workers", requirements.maxWorkers.toString())
 
-            if (DaggerSupport.requiresDagger(specialHandling)) {
-                param("env.DAGGER_CI_MODE", "true")
-                param("kapt.include.compile.classpath", "false")
-                param("kapt.incremental.apt", "false")
-                param("kapt.use.worker.api", "false")
+            param("teamcity.build.workingDir", "%teamcity.build.workingDir%/${projectName}")
+            param("teamcity.build.checkoutDir", "%teamcity.build.checkoutDir%/${projectName}")
+
+            param("teamcity.build.branch.is.default", "true")
+            param("teamcity.build.skipDependencyBuilds", "true")
+        }
+
+        addEAPSampleFailureConditions(projectName, specialHandling)
+        defaultBuildFeatures()
+
+        features {
+            EAPBuildFeatures.run {
+                addEAPSlackNotifications(
+                    includeSuccess = (complexity >= ProjectComplexity.HEAVY),
+                    includeBuildStart = (complexity == ProjectComplexity.ULTRA_HEAVY)
+                )
             }
         }
 
         steps {
-            script {
-                name = "Environment Debug"
-                scriptContent = EAPScriptTemplates.buildCommonSetup()
-            }
+            with(EAPBuildSteps) {
+                standardEAPSetup()
 
-            when (buildType) {
-                ExternalSampleBuildType.GRADLE -> {
-                    with(EAPBuildSteps) {
-                        gradleEAPBuild(specialHandling)
-                    }
+                if (DockerSupport.requiresDocker(specialHandling)) {
+                    setupDockerEnvironment()
                 }
-                ExternalSampleBuildType.AMPER -> {
-                    with(EAPBuildSteps) {
-                        amperEAPBuild(specialHandling)
-                    }
+
+                if (DaggerSupport.requiresDagger(specialHandling)) {
+                    setupDaggerEnvironment()
                 }
-            }
 
-            script {
-                name = "Restore Original Configuration"
-                scriptContent = """
-                    echo "=== Restoring Original Configuration ==="
-                    
-                    if [ -d ".backup" ]; then
-                        echo "Restoring configuration files from backup..."
-                        for backup_file in .backup/*.original; do
-                            if [ -f "${'$'}backup_file" ]; then
-                                original_name=$(basename "${'$'}backup_file" .original)
-                                echo "Restoring ${'$'}original_name"
-                                cp "${'$'}backup_file" "${'$'}original_name"
-                            fi
-                        done
-                        
-                        for dir in dagger koin kodein hilt; do
-                            if [ -d ".backup/${'$'}dir" ]; then
-                                echo "Restoring ${'$'}dir module configuration"
-                                for backup_file in .backup/${'$'}dir/*.original; do
-                                    if [ -f "${'$'}backup_file" ]; then
-                                        original_name=$(basename "${'$'}backup_file" .original)
-                                        echo "Restoring ${'$'}dir/${'$'}original_name"
-                                        cp "${'$'}backup_file" "${'$'}dir/${'$'}original_name"
-                                    fi
-                                done
-                            fi
-                        done
-                        
-                        if [ -d ".backup/gradle_original" ]; then
-                            echo "Restoring gradle directory"
-                            rm -rf gradle
-                            cp -r .backup/gradle_original gradle
-                        fi
-                    fi
-                    
-                    echo "✓ Configuration restoration completed"
-                """.trimIndent()
-                executionMode = BuildStep.ExecutionMode.ALWAYS
-            }
-        }
+                if (AndroidSupport.requiresAndroidSDK(specialHandling)) {
+                    setupAndroidEnvironment()
+                }
 
-        addEAPSampleFailureConditions(projectName, specialHandling)
-
-        defaultBuildFeatures()
-
-        features {
-            with(EAPBuildFeatures) {
-                addEAPSlackNotifications()
+                when (buildType) {
+                    ExternalSampleBuildType.GRADLE -> gradleEAPBuild(projectName, specialHandling)
+                    ExternalSampleBuildType.AMPER -> amperEAPBuild()
+                }
             }
         }
 
@@ -919,28 +666,40 @@ data class ExternalSampleConfig(
 object ExternalSamplesEAPValidation : Project({
     id("ExternalSamplesEAPValidation")
     name = "External Samples EAP Validation"
-    description =
-        "Enhanced validation of external GitHub samples against EAP versions of Ktor with configuration preservation"
+    description = "Resource-optimized validation with intelligent build queue management"
 
     registerVCSRoots()
 
     params {
         param("ktor.eap.version", "KTOR_VERSION")
         param("enhanced.validation.enabled", "true")
-        param("toml.comprehensive.handling", "true")
-        param("configuration.preservation.enabled", "true")
-        param("docker.testcontainers.support", "true")
-        param("dagger.annotation.processing.support", "true")
+        param("resource.management.enabled", "true")
+        param("build.queue.optimization.enabled", "true")
+        param("staged.execution.enabled", "true")
+        param("agent.resource.monitoring.enabled", "true")
     }
 
     val versionResolver = createVersionResolver()
     buildType(versionResolver)
 
     val samples = createSampleConfigurations(versionResolver)
-    val buildTypes = samples.map { it.createEAPBuildType() }
+    val buildStages = BuildQueueManager.createStagedBuildConfiguration(samples)
 
-    buildTypes.forEach { buildType(it) }
-    buildType(createCompositeBuild(versionResolver, buildTypes))
+    val allBuildTypes = samples.map { it.createEAPBuildType() }
+    allBuildTypes.forEach { buildType(it) }
+
+    val buildTypesByProject = samples.zip(allBuildTypes).associate { (sample, buildType) ->
+        sample.projectName to buildType
+    }
+
+    val stagesList = mutableListOf<BuildType>()
+    buildStages.forEachIndexed { stageIndex, stage ->
+        val stageBuildType = createStagedCompositeBuild(versionResolver, stage, stageIndex, buildTypesByProject)
+        buildType(stageBuildType)
+        stagesList.add(stageBuildType)
+    }
+
+    buildType(createMasterCompositeBuild(versionResolver, stagesList))
 })
 
 private fun Project.registerVCSRoots() {
@@ -956,74 +715,194 @@ private fun Project.registerVCSRoots() {
     vcsRoot(VCSKtorFullStackRealWorld)
 }
 
-private fun createVersionResolver(): BuildType = EAPVersionResolver.createVersionResolver(
-    id = "KtorExternalEAPVersionResolver",
-    name = "External EAP Version Resolver",
-    description = "Determines the EAP version for external sample validation"
-)
+private fun createVersionResolver(): BuildType = BuildType {
+    id("ExternalEAPVersionResolver")
+    name = "EAP Version Resolver"
+    description = "Resolves EAP versions with enhanced error handling"
 
-private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> = listOf(
-    EAPSampleBuilder("ktor-arrow-example", VCSKtorArrowExample, versionResolver)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
-        .build(),
+    vcs {
+        root(VCSCore)
+    }
 
-    EAPSampleBuilder("ktor-ai-server", VCSKtorAiServer, versionResolver)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
-        .build(),
+    requirements {
+        agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
+    }
 
-    EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
-        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM).build(),
+    params {
+        defaultGradleParams()
+        param("teamcity.build.skipDependencyBuilds", "true")
+        param("teamcity.build.runAsFirstBuild", "true")
+        param("env.KTOR_VERSION", "")
+        param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
+    }
 
-    EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver)
-        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM).build(),
+    steps {
+        script {
+            name = "Resolve EAP Versions"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+                echo "=== EAP Version Resolution ==="
+                
+                KTOR_EAP_METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+                KTOR_COMPILER_PLUGIN_METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
+                
+                echo "Fetching Ktor EAP metadata..."
+                KTOR_VERSION=$(curl -s "${'$'}KTOR_EAP_METADATA_URL" | grep -o '>[0-9][^<]*-eap-[0-9]*<' | head -1 | sed 's/[><]//g')
+                
+                if [ -z "${'$'}KTOR_VERSION" ]; then
+                    echo "ERROR: Failed to resolve Ktor EAP version"
+                    exit 1
+                fi
+                
+                echo "Fetching Ktor Compiler Plugin EAP metadata..."
+                KTOR_COMPILER_PLUGIN_VERSION=$(curl -s "${'$'}KTOR_COMPILER_PLUGIN_METADATA_URL" | grep -o '>[0-9][^<]*-eap-[0-9]*<' | head -1 | sed 's/[><]//g')
+                
+                if [ -z "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
+                    echo "ERROR: Failed to resolve Ktor Compiler Plugin EAP version"
+                    exit 1
+                fi
+                
+                echo "Resolved versions:"
+                echo "  KTOR_VERSION: ${'$'}KTOR_VERSION"
+                echo "  KTOR_COMPILER_PLUGIN_VERSION: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
+                
+                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
+                echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
+                
+                echo "Version resolution completed successfully"
+            """.trimIndent()
+        }
+    }
 
-    EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver).build(),
+    failureConditions {
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.REGEXP
+            pattern = "ERROR:|CRITICAL ERROR:"
+            failureMessage = "Version resolution failed"
+            stopBuildOnFailure = true
+        }
+        executionTimeoutMin = 10
+    }
+}
 
-    EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
-        .build(),
+private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> =
+    listOf(
+        EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver).build(),
+        EAPSampleBuilder("ktor-di-overview", VCSKtorDIOverview, versionResolver).build(),
+        EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver).build(),
+        EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
+            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+            .build(),
+        EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver)
+            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+            .build(),
+        EAPSampleBuilder("amper-ktor-sample", VCSAmperKtorSample, versionResolver)
+            .withBuildType(ExternalSampleBuildType.AMPER)
+            .withSpecialHandling(SpecialHandling.AMPER_GRADLE_HYBRID)
+            .build(),
+        EAPSampleBuilder("ktor-arrow-example", VCSKtorArrowExample, versionResolver)
+            .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+            .build(),
+        EAPSampleBuilder("ktor-ai-server", VCSKtorAiServer, versionResolver)
+            .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+            .build(),
+        EAPSampleBuilder("ktor-full-stack-real-world", VCSKtorFullStackRealWorld, versionResolver)
+            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS)
+            .build(),
+        EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver)
+            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+            .build()
+    )
 
-    EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver)
-        .withSpecialHandling(SpecialHandling.ENHANCED_TOML_PATTERNS).build(),
-
-    EAPSampleBuilder("amper-ktor-sample", VCSAmperKtorSample, versionResolver)
-        .withBuildType(ExternalSampleBuildType.AMPER)
-        .withSpecialHandling(SpecialHandling.AMPER_GRADLE_HYBRID).build(),
-
-    EAPSampleBuilder("ktor-di-overview", VCSKtorDIOverview, versionResolver)
-        .withSpecialHandling(SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
-        .build(),
-
-    EAPSampleBuilder("ktor-full-stack-real-world", VCSKtorFullStackRealWorld, versionResolver)
-        .withBuildType(ExternalSampleBuildType.GRADLE)
-        .withSpecialHandling(
-            SpecialHandling.KOTLIN_MULTIPLATFORM,
-            SpecialHandling.ENHANCED_TOML_PATTERNS,
-            SpecialHandling.DOCKER_TESTCONTAINERS
-        ).build()
-)
-
-private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<BuildType>): BuildType = BuildType {
-    id("KtorExternalSamplesEAPCompositeBuild")
-    name = "External Samples EAP Validation (All)"
-    description = "Run all external samples against EAP versions of Ktor"
+private fun createStagedCompositeBuild(
+    versionResolver: BuildType,
+    stage: BuildStage,
+    stageIndex: Int,
+    buildTypesByProject: Map<String, BuildType>
+): BuildType = BuildType {
+    id("ExternalEAPStage${stageIndex}")
+    name = "Stage ${stageIndex}: ${stage.name} (${stage.projects.size} projects)"
+    description = "Staged execution for ${stage.projects.joinToString { it.projectName }}"
     type = BuildTypeSettings.Type.COMPOSITE
 
     params {
         defaultGradleParams()
-        param("env.GIT_BRANCH", "%teamcity.build.branch%")
+        param("stage.name", stage.name)
+        param("stage.index", stageIndex.toString())
+        param("max.concurrency", stage.maxConcurrency.toString())
+        param("staging.delay.minutes", stage.stagingDelayMinutes.toString())
         param("teamcity.build.skipDependencyBuilds", "true")
     }
 
+    if (stageIndex > 0 && stage.stagingDelayMinutes > 0) {
+        triggers {
+            finishBuildTrigger {
+                buildType = "ExternalEAPStage${stageIndex - 1}"
+                successfulOnly = false
+                branchFilter = "+:*"
+            }
+        }
+    }
+
+    dependencies {
+        dependency(versionResolver) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+                onDependencyCancel = FailureAction.CANCEL
+            }
+        }
+
+        stage.projects.forEach { projectConfig ->
+            val existingBuildType = buildTypesByProject[projectConfig.projectName]
+            if (existingBuildType != null) {
+                dependency(existingBuildType) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.IGNORE
+                        onDependencyCancel = FailureAction.IGNORE
+                    }
+                }
+            }
+        }
+    }
+
+    failureConditions {
+        val maxProjectTimeout = stage.projects.maxOfOrNull {
+            ResourceManager.getResourceRequirements(
+                ResourceManager.getComplexityFor(it.projectName, it.specialHandling)
+            ).timeoutMinutes
+        } ?: 30
+
+        executionTimeoutMin = maxProjectTimeout + 15
+    }
+}
+
+private fun createMasterCompositeBuild(
+    versionResolver: BuildType,
+    stageBuildTypes: List<BuildType>
+): BuildType = BuildType {
+    id("ExternalEAPMasterValidation")
+    name = "Master EAP Validation (Resource-Optimized)"
+    description = "Orchestrates staged execution with intelligent resource management"
+    type = BuildTypeSettings.Type.COMPOSITE
+
+    params {
+        defaultGradleParams()
+        param("total.stages", stageBuildTypes.size.toString())
+        param("total.projects", stageBuildTypes.size.toString())
+        param("resource.optimization.enabled", "true")
+        param("env.GIT_BRANCH", "%teamcity.build.branch%")
+    }
+
     features {
-        with(EAPBuildFeatures) {
-            addEAPSlackNotifications(includeSuccess = true)
+        EAPBuildFeatures.run {
+            addEAPSlackNotifications(includeSuccess = true, includeBuildStart = true)
         }
     }
 
     triggers {
         finishBuildTrigger {
-            buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
+            buildType = "KtorPublish_AllEAP"
             successfulOnly = true
             branchFilter = "+:refs/heads/*"
         }
@@ -1037,11 +916,11 @@ private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<Bu
             }
         }
 
-        buildTypes.forEach { sampleBuild ->
-            dependency(sampleBuild) {
+        stageBuildTypes.forEach { stageBuildType ->
+            dependency(stageBuildType) {
                 snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.CANCEL
+                    onDependencyFailure = FailureAction.IGNORE
+                    onDependencyCancel = FailureAction.IGNORE
                 }
             }
         }
@@ -1050,16 +929,11 @@ private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<Bu
     failureConditions {
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "No agents available to run"
-            failureMessage = "No compatible agents found for external EAP samples composite"
+            pattern = "All stages failed"
+            failureMessage = "Complete EAP validation failure"
             stopBuildOnFailure = true
         }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "Build queue timeout"
-            failureMessage = "External EAP samples build timed out waiting for compatible agents"
-            stopBuildOnFailure = true
-        }
-        executionTimeoutMin = 60
+
+        executionTimeoutMin = 120
     }
 }
