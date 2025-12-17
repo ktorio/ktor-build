@@ -539,8 +539,14 @@ fun BuildType.addEAPSampleFailureConditions(
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "OutOfMemoryError|Java heap space"
+            pattern = "OutOfMemoryError"
             failureMessage = "Memory exhaustion in ${complexity.name} project $sampleName"
+            stopBuildOnFailure = true
+        }
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Java heap space"
+            failureMessage = "Java heap space exhaustion in ${complexity.name} project $sampleName"
             stopBuildOnFailure = true
         }
         failOnText {
@@ -583,16 +589,15 @@ data class ExternalSampleConfig(
             agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
 
             if (complexity == ProjectComplexity.MEDIUM) {
-                contains("system.memory.mb", "4096")
+                noLessThan("system.memory.mb", "4096")
             }
             if (complexity == ProjectComplexity.HEAVY) {
-                contains("system.memory.mb", "6144")
-                contains("system.cpu.count", "4")
+                noLessThan("system.memory.mb", "6144")
+                noLessThan("system.cpu.count", "4")
             }
             if (complexity == ProjectComplexity.ULTRA_HEAVY) {
-                contains("system.memory.mb", "8192")
-                contains("system.cpu.count", "8")
-                doesNotContain("agent.pool", "light")
+                noLessThan("system.memory.mb", "8192")
+                noLessThan("system.cpu.count", "8")
             }
         }
 
@@ -683,8 +688,12 @@ object ExternalSamplesEAPValidation : Project({
     val allBuildTypes = samples.map { it.createEAPBuildType() }
     allBuildTypes.forEach { buildType(it) }
 
+    val buildTypesByProject = samples.zip(allBuildTypes).associate { (sample, buildType) ->
+        sample.projectName to buildType
+    }
+
     buildStages.forEachIndexed { stageIndex, stage ->
-        buildType(createStagedCompositeBuild(versionResolver, stage, stageIndex))
+        buildType(createStagedCompositeBuild(versionResolver, stage, stageIndex, buildTypesByProject))
     }
 
     buildType(createMasterCompositeBuild(versionResolver, buildStages))
@@ -806,7 +815,8 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
 private fun createStagedCompositeBuild(
     versionResolver: BuildType,
     stage: BuildStage,
-    stageIndex: Int
+    stageIndex: Int,
+    buildTypesByProject: Map<String, BuildType>
 ): BuildType = BuildType {
     id("ExternalEAPStage${stageIndex}")
     name = "Stage ${stageIndex}: ${stage.name} (${stage.projects.size} projects)"
@@ -841,11 +851,13 @@ private fun createStagedCompositeBuild(
         }
 
         stage.projects.forEach { projectConfig ->
-            val buildType = projectConfig.createEAPBuildType()
-            dependency(buildType) {
-                snapshot {
-                    onDependencyFailure = FailureAction.IGNORE
-                    onDependencyCancel = FailureAction.IGNORE
+            val existingBuildType = buildTypesByProject[projectConfig.projectName]
+            if (existingBuildType != null) {
+                dependency(existingBuildType) {
+                    snapshot {
+                        onDependencyFailure = FailureAction.IGNORE
+                        onDependencyCancel = FailureAction.IGNORE
+                    }
                 }
             }
         }
