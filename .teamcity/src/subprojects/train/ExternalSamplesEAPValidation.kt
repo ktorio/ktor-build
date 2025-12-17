@@ -774,7 +774,7 @@ private fun createVersionResolver(): BuildType = BuildType {
 
     failureConditions {
         failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            conditionType = BuildFailureOnText.ConditionType.REGEXP
             pattern = "ERROR:|CRITICAL ERROR:"
             failureMessage = "Version resolution failed"
             stopBuildOnFailure = true
