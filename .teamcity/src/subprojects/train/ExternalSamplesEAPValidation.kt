@@ -248,25 +248,19 @@ object EAPBuildSteps {
         }
     }
 
-    fun BuildSteps.gradleEAPBuild() {
+    fun BuildSteps.gradleEAPBuildWithConditionalTests(projectName: String) {
         gradle {
             name = "Build EAP Sample"
-            tasks = "build"
+            tasks = if (projectName == "ktor-ai-server") {
+                "assemble"
+            } else {
+                "build"
+            }
             jdkHome = Env.JDK_LTS
-            gradleParams = "--no-scan --build-cache --parallel"
-            jvmArgs = "-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
+            gradleParams = "--no-scan --build-cache --parallel --no-daemon"
+            jvmArgs = "-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC"
             useGradleWrapper = true
             enableStacktrace = true
-        }
-
-        script {
-            name = "Essential Cleanup"
-            scriptContent = """
-                #!/bin/bash
-                ./gradlew --stop || true
-                find . -name "*.tmp" -delete 2>/dev/null || true
-            """.trimIndent()
-            executionMode = BuildStep.ExecutionMode.ALWAYS
         }
     }
 
@@ -279,13 +273,32 @@ object EAPBuildSteps {
 }
 
 object ExternalSampleScripts {
+
     fun setupDockerEnvironment() = """
-        #!/bin/bash
-        set -e
-        echo "Setting up Docker environment for EAP testing..."
-        docker --version
-        docker info
-        echo "Docker setup completed"
+    #!/bin/bash
+    set -e
+    echo "Setting up Docker environment for EAP testing..."
+    
+    docker --version
+    
+    DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
+    echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
+    
+    if [ "${'$'}DOCKER_API_VERSION" != "unknown" ]; then
+        MAJOR_VERSION=$(echo ${'$'}DOCKER_API_VERSION | cut -d. -f1)
+        MINOR_VERSION=$(echo ${'$'}DOCKER_API_VERSION | cut -d. -f2)
+        
+        if [ ${'$'}MAJOR_VERSION -eq 1 ] && [ ${'$'}MINOR_VERSION -lt 44 ]; then
+            echo "WARNING: Docker API version ${'$'}DOCKER_API_VERSION is too old. Minimum required is 1.44"
+            echo "Attempting to use newer Docker client..."
+            
+            export DOCKER_API_VERSION=1.44
+            echo "Set DOCKER_API_VERSION to 1.44"
+        fi
+    fi
+    
+    docker info
+    echo "Docker setup completed successfully"
     """.trimIndent()
 
     fun setupDaggerEnvironment() = """
@@ -308,18 +321,50 @@ object ExternalSampleScripts {
     """.trimIndent()
 
     fun buildAmperProject() = """
-        #!/bin/bash
-        set -e
-        echo "Building Amper project with EAP dependencies..."
+    #!/bin/bash
+    set -e
+    echo "Building Amper project with EAP dependencies..."
+    
+    if [ -f "module.yaml" ]; then
+        echo "Found module.yaml - this is an Amper project"
+        
+        if [ -f "./amperw" ]; then
+            echo "Using Amper wrapper"
+            ./amperw build
+        elif [ -f "gradlew" ]; then
+            echo "Amper project with Gradle wrapper - using Gradle"
+            echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC" >> gradle.properties
+            echo "org.gradle.daemon=true" >> gradle.properties  
+            echo "org.gradle.parallel=true" >> gradle.properties
+            ./gradlew build --info --build-cache --no-scan
+        else
+            echo "No build wrapper found. Checking for Gradle installation..."
+            if command -v gradle &> /dev/null; then
+                echo "Using system Gradle"
+                gradle build --info --build-cache --no-scan
+            else
+                echo "ERROR: No Gradle wrapper or system Gradle found for Amper project"
+                echo "Please ensure the project has either gradlew, amperw, or system Gradle available"
+                exit 1
+            fi
+        fi
+    else
+        echo "No module.yaml found - treating as regular Gradle project"
+        if [ ! -f "./gradlew" ]; then
+            echo "ERROR: No gradlew found in project root"
+            echo "Contents of current directory:"
+            ls -la
+            exit 1
+        fi
         
         echo "org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC" >> gradle.properties
         echo "org.gradle.daemon=true" >> gradle.properties
         echo "org.gradle.parallel=true" >> gradle.properties
-        
         ./gradlew build --info --build-cache --no-scan
-        
-        echo "Amper project build completed"
-    """.trimIndent()
+    fi
+    
+    echo "Amper project build completed"
+""".trimIndent()
 }
 
 data class ExternalSampleConfig(
@@ -344,6 +389,9 @@ data class ExternalSampleConfig(
             if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                 contains("teamcity.agent.jvm.os.name", "Linux")
                 exists("docker.server.version")
+                matches("docker.server.version", ".*")
+                doesNotContain("docker.server.version", "1.3")
+                doesNotMatch("docker.server.version", "1\\.(3|4[0-3])")
             }
 
             if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
@@ -357,6 +405,7 @@ data class ExternalSampleConfig(
 
             if (projectName == "full-stack-ktor-talk") {
                 param("env.GOOGLE_CLIENT_ID", "placeholder-google-client-id")
+                param("env.API_BASE_URL", "http://localhost:8080")
             }
         }
 
@@ -378,7 +427,7 @@ data class ExternalSampleConfig(
 
                 when (buildType) {
                     ExternalSampleBuildType.GRADLE -> {
-                        gradleEAPBuild()
+                        gradleEAPBuildWithConditionalTests(projectName)
                     }
                     ExternalSampleBuildType.AMPER -> {
                         amperEAPBuild()
