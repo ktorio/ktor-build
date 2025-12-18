@@ -391,7 +391,7 @@ data class ExternalSampleConfig(
                 exists("docker.server.version")
                 matches("docker.server.version", ".*")
                 doesNotContain("docker.server.version", "1.3")
-                doesNotContain("docker.server.version", "1.4[0-3]")
+                doesNotMatch("docker.server.version", "1\\.(3|4[0-3])")
             }
 
             if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
