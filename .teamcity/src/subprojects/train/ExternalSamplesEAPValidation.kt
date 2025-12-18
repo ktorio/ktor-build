@@ -88,7 +88,7 @@ object ResourceManager {
             projectName in listOf("ktor-full-stack-real-world", "ktor-koog-example") ->
                 ProjectComplexity.ULTRA_HEAVY
 
-            projectName in listOf("ktor-arrow-example", "ktor-ai-server") ->
+            projectName in listOf("ktor-arrow-example", "ktor-ai-server", "ktor-di-overview") ->
                 ProjectComplexity.HEAVY
 
             specialHandling.any { it in listOf(SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.KOTLIN_MULTIPLATFORM) } ->
@@ -104,25 +104,29 @@ object ResourceManager {
                 timeoutMinutes = 20,
                 memoryMB = 3072,
                 maxWorkers = 4,
-                gradleOpts = "-Xmx2g -XX:MaxMetaspaceSize=512m"
+                gradleOpts = "-Xmx2g -XX:MaxMetaspaceSize=512m",
+                teamCityJvmArgs = "-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError"
             )
             ProjectComplexity.MEDIUM -> ResourceRequirements(
                 timeoutMinutes = 35,
                 memoryMB = 4096,
                 maxWorkers = 3,
-                gradleOpts = "-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC"
+                gradleOpts = "-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC",
+                teamCityJvmArgs = "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
             )
             ProjectComplexity.HEAVY -> ResourceRequirements(
                 timeoutMinutes = 50,
                 memoryMB = 6144,
                 maxWorkers = 2,
-                gradleOpts = "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
+                gradleOpts = "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC",
+                teamCityJvmArgs = "-Xmx5g -XX:MaxMetaspaceSize=1500m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
             )
             ProjectComplexity.ULTRA_HEAVY -> ResourceRequirements(
                 timeoutMinutes = 120,
                 memoryMB = 8192,
                 maxWorkers = 1,
-                gradleOpts = "-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+UseStringDeduplication"
+                gradleOpts = "-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+UseStringDeduplication",
+                teamCityJvmArgs = "-Xmx7g -XX:MaxMetaspaceSize=2g -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError"
             )
         }
     }
@@ -132,7 +136,8 @@ data class ResourceRequirements(
     val timeoutMinutes: Int,
     val memoryMB: Int,
     val maxWorkers: Int,
-    val gradleOpts: String
+    val gradleOpts: String,
+    val teamCityJvmArgs: String
 )
 
 object BuildQueueManager {
@@ -322,6 +327,7 @@ object EAPBuildSteps {
                 echo "Memory Allocation: ${requirements.memoryMB}MB"
                 echo "Max Workers: ${requirements.maxWorkers}"
                 echo "Timeout: ${requirements.timeoutMinutes} minutes"
+                echo "TeamCity JVM Args: ${requirements.teamCityJvmArgs}"
                 
                 AVAILABLE_MEM=$(free -m | awk 'NR==2{printf "%.0f", $7}' 2>/dev/null || echo "0")
                 if [ "${'$'}AVAILABLE_MEM" -lt "${requirements.memoryMB}" ]; then
@@ -380,6 +386,9 @@ object EAPBuildSteps {
             tasks = "dependencies --write-verification-metadata sha256"
             jdkHome = Env.JDK_LTS
             gradleParams = "${requirements.gradleOpts} -Dorg.gradle.caching=true --max-workers=${requirements.maxWorkers}"
+            jvmArgs = requirements.teamCityJvmArgs
+            useGradleWrapper = true
+            enableStacktrace = true
         }
 
         gradle {
@@ -387,6 +396,9 @@ object EAPBuildSteps {
             tasks = "compileKotlin compileJava"
             jdkHome = Env.JDK_LTS
             gradleParams = "${requirements.gradleOpts} --max-workers=${requirements.maxWorkers}"
+            jvmArgs = requirements.teamCityJvmArgs
+            useGradleWrapper = true
+            enableStacktrace = true
         }
 
         gradle {
@@ -395,6 +407,9 @@ object EAPBuildSteps {
             jdkHome = Env.JDK_LTS
             gradleParams = "${requirements.gradleOpts} --max-workers=1"
             executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
+            jvmArgs = requirements.teamCityJvmArgs
+            useGradleWrapper = true
+            enableStacktrace = true
         }
 
         gradle {
@@ -402,6 +417,9 @@ object EAPBuildSteps {
             tasks = "test --max-workers=1 --no-parallel"
             jdkHome = Env.JDK_LTS
             gradleParams = requirements.gradleOpts
+            jvmArgs = requirements.teamCityJvmArgs
+            useGradleWrapper = true
+            enableStacktrace = true
         }
     }
 
@@ -410,7 +428,11 @@ object EAPBuildSteps {
             name = "Build Heavy Project"
             tasks = "build --max-workers=${requirements.maxWorkers} --parallel"
             jdkHome = Env.JDK_LTS
-            gradleParams = requirements.gradleOpts
+            gradleParams = "${requirements.gradleOpts} --info --build-cache"
+            jvmArgs = requirements.teamCityJvmArgs
+            useGradleWrapper = true
+            enableStacktrace = true
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Any
         }
     }
 
@@ -419,7 +441,11 @@ object EAPBuildSteps {
             name = "Build Medium Project"
             tasks = "build --max-workers=${requirements.maxWorkers} --parallel"
             jdkHome = Env.JDK_LTS
-            gradleParams = requirements.gradleOpts
+            gradleParams = "${requirements.gradleOpts} --info --build-cache --configuration-cache"
+            jvmArgs = requirements.teamCityJvmArgs
+            useGradleWrapper = true
+            enableStacktrace = true
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Any
         }
     }
 
@@ -428,7 +454,11 @@ object EAPBuildSteps {
             name = "Build Light Project"
             tasks = "build --max-workers=${requirements.maxWorkers}"
             jdkHome = Env.JDK_LTS
-            gradleParams = requirements.gradleOpts
+            gradleParams = "${requirements.gradleOpts} --info --build-cache --configuration-cache"
+            jvmArgs = requirements.teamCityJvmArgs
+            useGradleWrapper = true
+            enableStacktrace = true
+            dockerImagePlatform = GradleBuildStep.ImagePlatform.Any
         }
     }
 
@@ -493,23 +523,36 @@ object ExternalSampleScripts {
     """.trimIndent()
 
     fun buildAmperProjectEnhanced() = """
-        #!/bin/bash
-        set -e
-        echo "=== Building Amper project with enhancements ==="
-        
-        if command -v amper &> /dev/null; then
-            echo "Building with Amper..."
-            amper build
-        elif [ -f "gradlew" ]; then
-            echo "Falling back to Gradle build..."
-            ./gradlew build
-        else
-            echo "ERROR: Neither Amper nor Gradle wrapper found"
-            exit 1
-        fi
-        
-        echo "Amper project build completed"
-    """.trimIndent()
+    #!/bin/bash
+    set -e
+    echo "=== Building Amper project with enhancements ==="
+    
+    echo "Current directory: $(pwd)"
+    echo "Directory contents:"
+    ls -la
+    
+    if [ -f "module.yaml" ] || [ -f "amper.yaml" ]; then
+        echo "Amper project detected (found module.yaml or amper.yaml)"
+    else
+        echo "WARNING: No Amper configuration files found (module.yaml, amper.yaml)"
+    fi
+    
+    if command -v amper &> /dev/null; then
+        echo "Amper CLI found, building project..."
+        amper build
+    else
+        echo "ERROR: Amper CLI not found"
+        echo "This is a pure Amper project and requires the Amper CLI tool to build"
+        echo "Please ensure Amper is installed in the build environment"
+        echo ""
+        echo "To install Amper:"
+        echo "  curl -Ls https://get.jetbrains.com/amper | bash"
+        echo "  or download from: https://github.com/JetBrains/amper"
+        exit 1
+    fi
+    
+    echo "Amper project build completed successfully"
+""".trimIndent()
 }
 
 interface ExternalEAPSampleConfig {
@@ -615,6 +658,10 @@ data class ExternalSampleConfig(
 
             param("teamcity.build.branch.is.default", "true")
             param("teamcity.build.skipDependencyBuilds", "true")
+            param("teamcity.tool.gradle.heap.size", extractHeapSize(requirements.teamCityJvmArgs))
+            param("teamcity.tool.gradle.jvm.args", requirements.teamCityJvmArgs)
+            param("teamcity.internal.gradle.runner.jvm.args", requirements.teamCityJvmArgs)
+            param("org.gradle.jvmargs", requirements.teamCityJvmArgs + " -Dfile.encoding=UTF-8")
         }
 
         addEAPSampleFailureConditions(projectName, specialHandling)
@@ -661,6 +708,12 @@ data class ExternalSampleConfig(
             }
         }
     }
+}
+
+private fun extractHeapSize(jvmArgs: String): String {
+    val xmxRegex = Regex("-Xmx([0-9]+[gmkGMK]?)")
+    val match = xmxRegex.find(jvmArgs)
+    return match?.groupValues?.get(1) ?: "2g"
 }
 
 object ExternalSamplesEAPValidation : Project({
@@ -934,6 +987,6 @@ private fun createMasterCompositeBuild(
             stopBuildOnFailure = true
         }
 
-        executionTimeoutMin = 120
+        executionTimeoutMin = 150
     }
 }
