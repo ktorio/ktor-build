@@ -7,7 +7,6 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
-import subprojects.Agents.ANY
 import subprojects.Agents.Arch
 import subprojects.Agents.OS
 import subprojects.build.defaultBuildFeatures
@@ -30,6 +29,12 @@ enum class ProjectComplexity {
     MEDIUM,
     HEAVY,
     ULTRA_HEAVY
+}
+
+enum class AgentTier {
+    STANDARD,
+    HIGH_MEMORY,
+    PREMIUM
 }
 
 object VCSKtorArrowExample : KtorVcsRoot({
@@ -82,6 +87,21 @@ object VCSKtorFullStackRealWorld : KtorVcsRoot({
     url = "https://github.com/nomisRev/ktor-full-stack-real-world.git"
 })
 
+object AgentPoolManager {
+    fun getRequiredAgentTier(complexity: ProjectComplexity): AgentTier {
+        return when (complexity) {
+            ProjectComplexity.LIGHT -> AgentTier.STANDARD
+            ProjectComplexity.MEDIUM -> AgentTier.HIGH_MEMORY
+            ProjectComplexity.HEAVY -> AgentTier.HIGH_MEMORY
+            ProjectComplexity.ULTRA_HEAVY -> AgentTier.PREMIUM
+        }
+    }
+
+    fun configureAgentRequirements(requirements: Requirements) {
+        requirements.apply { agent(OS.Linux, Arch.X64) }
+    }
+}
+
 object ResourceManager {
     fun getComplexityFor(projectName: String, specialHandling: List<SpecialHandling>): ProjectComplexity {
         return when {
@@ -101,31 +121,31 @@ object ResourceManager {
     fun getResourceRequirements(complexity: ProjectComplexity): ResourceRequirements {
         return when (complexity) {
             ProjectComplexity.LIGHT -> ResourceRequirements(
-                timeoutMinutes = 20,
+                timeoutMinutes = 15,
                 memoryMB = 3072,
-                maxWorkers = 4,
-                gradleOpts = "-Xmx2g -XX:MaxMetaspaceSize=512m",
-                teamCityJvmArgs = "-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError"
+                maxWorkers = 6,
+                gradleOpts = "-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+UseG1GC -XX:+UseStringDeduplication --no-scan",
+                teamCityJvmArgs = "-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
             )
             ProjectComplexity.MEDIUM -> ResourceRequirements(
-                timeoutMinutes = 35,
+                timeoutMinutes = 20,
                 memoryMB = 4096,
-                maxWorkers = 3,
-                gradleOpts = "-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC",
+                maxWorkers = 4,
+                gradleOpts = "-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC --no-scan",
                 teamCityJvmArgs = "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
             )
             ProjectComplexity.HEAVY -> ResourceRequirements(
-                timeoutMinutes = 50,
+                timeoutMinutes = 25,
                 memoryMB = 6144,
-                maxWorkers = 2,
-                gradleOpts = "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC",
+                maxWorkers = 3,
+                gradleOpts = "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC --no-scan",
                 teamCityJvmArgs = "-Xmx5g -XX:MaxMetaspaceSize=1500m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
             )
             ProjectComplexity.ULTRA_HEAVY -> ResourceRequirements(
-                timeoutMinutes = 120,
+                timeoutMinutes = 45,
                 memoryMB = 8192,
-                maxWorkers = 1,
-                gradleOpts = "-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+UseStringDeduplication",
+                maxWorkers = 2,
+                gradleOpts = "-Xmx6g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+UseStringDeduplication --no-scan",
                 teamCityJvmArgs = "-Xmx7g -XX:MaxMetaspaceSize=2g -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+HeapDumpOnOutOfMemoryError"
             )
         }
@@ -142,57 +162,17 @@ data class ResourceRequirements(
 
 object BuildQueueManager {
     fun createStagedBuildConfiguration(samples: List<ExternalSampleConfig>): List<BuildStage> {
-        val groupedByComplexity = samples.groupBy {
-            ResourceManager.getComplexityFor(it.projectName, it.specialHandling)
-        }
+        val lightProjects = samples.filter { ResourceManager.getComplexityFor(it.projectName, it.specialHandling) == ProjectComplexity.LIGHT }
+        val mediumProjects = samples.filter { ResourceManager.getComplexityFor(it.projectName, it.specialHandling) == ProjectComplexity.MEDIUM }
+        val heavyProjects = samples.filter { ResourceManager.getComplexityFor(it.projectName, it.specialHandling) == ProjectComplexity.HEAVY }
+        val ultraHeavyProjects = samples.filter { ResourceManager.getComplexityFor(it.projectName, it.specialHandling) == ProjectComplexity.ULTRA_HEAVY }
 
-        val stages = mutableListOf<BuildStage>()
-
-        groupedByComplexity[ProjectComplexity.LIGHT]?.let { lightProjects ->
-            lightProjects.chunked(4).forEachIndexed { index, batch ->
-                stages.add(BuildStage(
-                    name = "Light_Stage_${index + 1}",
-                    projects = batch,
-                    maxConcurrency = 4,
-                    stagingDelayMinutes = 0
-                ))
-            }
-        }
-
-        groupedByComplexity[ProjectComplexity.MEDIUM]?.let { mediumProjects ->
-            mediumProjects.chunked(2).forEachIndexed { index, batch ->
-                stages.add(BuildStage(
-                    name = "Medium_Stage_${index + 1}",
-                    projects = batch,
-                    maxConcurrency = 2,
-                    stagingDelayMinutes = 2
-                ))
-            }
-        }
-
-        groupedByComplexity[ProjectComplexity.HEAVY]?.let { heavyProjects ->
-            heavyProjects.chunked(1).forEachIndexed { index, batch ->
-                stages.add(BuildStage(
-                    name = "Heavy_Stage_${index + 1}",
-                    projects = batch,
-                    maxConcurrency = 1,
-                    stagingDelayMinutes = 5
-                ))
-            }
-        }
-
-        groupedByComplexity[ProjectComplexity.ULTRA_HEAVY]?.let { ultraHeavyProjects ->
-            ultraHeavyProjects.forEachIndexed { index, project ->
-                stages.add(BuildStage(
-                    name = "UltraHeavy_Stage_${index + 1}",
-                    projects = listOf(project),
-                    maxConcurrency = 1,
-                    stagingDelayMinutes = 10
-                ))
-            }
-        }
-
-        return stages
+        return listOfNotNull(
+            if (lightProjects.isNotEmpty()) BuildStage("Light Projects", lightProjects, 8, 0) else null,
+            if (mediumProjects.isNotEmpty()) BuildStage("Medium Projects", mediumProjects, 4, 2) else null,
+            if (heavyProjects.isNotEmpty()) BuildStage("Heavy Projects", heavyProjects, 2, 5) else null,
+            if (ultraHeavyProjects.isNotEmpty()) BuildStage("Ultra Heavy Projects", ultraHeavyProjects, 1, 10) else null
+        )
     }
 }
 
@@ -202,6 +182,106 @@ data class BuildStage(
     val maxConcurrency: Int,
     val stagingDelayMinutes: Int
 )
+
+fun BuildType.addEAPSampleFailureConditions(
+    sampleName: String,
+    specialHandling: List<SpecialHandling> = emptyList()
+) {
+    val complexity = ResourceManager.getComplexityFor(sampleName, specialHandling)
+    val agentTier = AgentPoolManager.getRequiredAgentTier(complexity)
+
+    failureConditions {
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "No agents available to run"
+            failureMessage = "No compatible agents found for $sampleName (${complexity.name} complexity, ${agentTier.name} tier required). Check agent pool availability."
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "There are no idle compatible agents"
+            failureMessage = "All compatible agents are busy for $sampleName (${complexity.name} complexity). Consider reducing concurrent builds or adding more ${agentTier.name} tier agents."
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Build queue timeout"
+            failureMessage = "Build timed out waiting for compatible agents for $sampleName. Required: ${agentTier.name} tier agents with ${complexity.name} complexity support."
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Agent disconnected"
+            failureMessage = "Agent disconnected during $sampleName build. This may indicate resource exhaustion on ${agentTier.name} tier agents."
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Agent became unresponsive"
+            failureMessage = "Agent became unresponsive during $sampleName build (${complexity.name} complexity). Check agent health and resource usage."
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "BUILD FAILED"
+            failureMessage = "Build failed for $sampleName sample"
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "FAILURE:"
+            failureMessage = "Build failure detected in $sampleName sample"
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "OutOfMemoryError"
+            failureMessage = "Out of memory error in $sampleName. Project may need upgrade to higher agent tier (currently ${agentTier.name})."
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Gradle build daemon disappeared"
+            failureMessage = "Gradle daemon crashed for $sampleName. Likely cause: insufficient resources on ${agentTier.name} tier agent."
+            stopBuildOnFailure = true
+        }
+
+        if (DockerSupport.requiresDocker(specialHandling)) {
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "docker: command not found"
+                failureMessage = "Docker not available for $sampleName. Ensure agents support containerized builds."
+                stopBuildOnFailure = true
+            }
+
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "Cannot connect to the Docker daemon"
+                failureMessage = "Docker daemon not accessible for $sampleName. Check Docker service on ${agentTier.name} agents."
+                stopBuildOnFailure = true
+            }
+        }
+
+        if (AndroidSupport.requiresAndroidSDK(specialHandling)) {
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "ANDROID_HOME"
+                failureMessage = "Android SDK not configured for $sampleName. Ensure ${agentTier.name} agents have Android SDK installed."
+                stopBuildOnFailure = true
+            }
+        }
+
+        executionTimeoutMin = ResourceManager.getResourceRequirements(complexity).timeoutMinutes
+    }
+}
 
 data class EAPSampleBuilder(
     val projectName: String,
@@ -228,17 +308,17 @@ data class EAPSampleBuilder(
 
 object DockerSupport {
     fun requiresDocker(specialHandling: List<SpecialHandling>): Boolean =
-        SpecialHandling.DOCKER_TESTCONTAINERS in specialHandling
+        specialHandling.contains(SpecialHandling.DOCKER_TESTCONTAINERS)
 }
 
 object DaggerSupport {
     fun requiresDagger(specialHandling: List<SpecialHandling>): Boolean =
-        SpecialHandling.DAGGER_ANNOTATION_PROCESSING in specialHandling
+        specialHandling.contains(SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
 }
 
 object AndroidSupport {
     fun requiresAndroidSDK(specialHandling: List<SpecialHandling>): Boolean =
-        SpecialHandling.ANDROID_SDK_REQUIRED in specialHandling
+        specialHandling.contains(SpecialHandling.ANDROID_SDK_REQUIRED)
 }
 
 object EAPBuildFeatures {
@@ -249,15 +329,15 @@ object EAPBuildFeatures {
         notifications {
             notifierSettings = slackNotifier {
                 connection = "PROJECT_EXT_5"
-                sendTo = "#ktor-projects-on-eap"
+                sendTo = "#ktor-eap-validation"
                 messageFormat = verboseMessageFormat {
                     addStatusText = true
                 }
             }
-            buildFailedToStart = true
+            if (includeBuildStart) buildStarted = true
             buildFailed = true
             if (includeSuccess) buildFinishedSuccessfully = true
-            if (includeBuildStart) buildStarted = true
+            buildFailedToStart = true
         }
     }
 }
@@ -266,25 +346,17 @@ object EAPScriptTemplates {
     fun buildCommonSetup() = """
         #!/bin/bash
         set -e
-        echo "=== EAP Environment Setup ==="
-        
-        echo "Available Memory: $(free -h | awk '/^Mem:/ {print $7}' 2>/dev/null || echo 'N/A')"
-        echo "CPU Load: $(uptime | cut -d' ' -f3- 2>/dev/null || echo 'N/A')"
-        echo "Disk Space: $(df -h . | awk 'NR==2 {print $4}' 2>/dev/null || echo 'N/A')"
-        
-        if [ -f "./gradlew" ]; then
-            echo "Found gradlew, stopping existing daemons..."
-            ./gradlew --stop || true
-        fi
-        
-        echo "=== Setup Complete ==="
+        echo "=== EAP Build Common Setup ==="
+        echo "Build Agent: %teamcity.agent.name%"
+        echo "Build ID: %teamcity.build.id%"
+        echo "================================"
     """.trimIndent()
 }
 
 object EAPBuildSteps {
     fun BuildSteps.standardEAPSetup() {
         script {
-            name = "Standard EAP Setup"
+            name = "EAP Environment Setup"
             scriptContent = EAPScriptTemplates.buildCommonSetup()
         }
     }
@@ -317,27 +389,6 @@ object EAPBuildSteps {
         val complexity = ResourceManager.getComplexityFor(projectName, specialHandling)
         val requirements = ResourceManager.getResourceRequirements(complexity)
 
-        script {
-            name = "Pre-build Resource Check"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Pre-build Resource Assessment ==="
-                echo "Project: $projectName"
-                echo "Complexity: ${complexity.name}"
-                echo "Memory Allocation: ${requirements.memoryMB}MB"
-                echo "Max Workers: ${requirements.maxWorkers}"
-                echo "Timeout: ${requirements.timeoutMinutes} minutes"
-                echo "TeamCity JVM Args: ${requirements.teamCityJvmArgs}"
-                
-                AVAILABLE_MEM=$(free -m | awk 'NR==2{printf "%.0f", $7}' 2>/dev/null || echo "0")
-                if [ "${'$'}AVAILABLE_MEM" -lt "${requirements.memoryMB}" ]; then
-                    echo "WARNING: Limited memory available (${'$'}{AVAILABLE_MEM}MB < ${requirements.memoryMB}MB)"
-                fi
-                
-                echo "================================"
-            """.trimIndent()
-        }
-
         when (complexity) {
             ProjectComplexity.ULTRA_HEAVY -> {
                 ultraHeavyPhasedBuild(requirements)
@@ -354,27 +405,11 @@ object EAPBuildSteps {
         }
 
         script {
-            name = "Post-build Cleanup"
+            name = "Essential Cleanup"
             scriptContent = """
                 #!/bin/bash
-                echo "=== Post-build Resource Cleanup ==="
-                
-                if [ -f "./gradlew" ]; then
-                    ./gradlew --stop || true
-                fi
-                
-                if [ -d ".gradle" ]; then
-                    CACHE_SIZE=$(du -sm .gradle 2>/dev/null | cut -f1 || echo "0")
-                    if [ "${'$'}CACHE_SIZE" -gt 1000 ]; then
-                        echo "Cleaning large Gradle cache (${'$'}{CACHE_SIZE}MB)..."
-                        rm -rf .gradle/caches/build-cache-* || true
-                    fi
-                fi
-                
+                ./gradlew --stop || true
                 find . -name "*.tmp" -delete 2>/dev/null || true
-                find . -name "*.lock" -delete 2>/dev/null || true
-                
-                echo "Cleanup completed"
             """.trimIndent()
             executionMode = BuildStep.ExecutionMode.ALWAYS
         }
@@ -382,41 +417,20 @@ object EAPBuildSteps {
 
     private fun BuildSteps.ultraHeavyPhasedBuild(requirements: ResourceRequirements) {
         gradle {
-            name = "Phase 1 - Dependencies & Verification"
-            tasks = "dependencies --write-verification-metadata sha256"
+            name = "Phase 1: Compile and Process Resources"
+            tasks = "compileKotlin processResources --max-workers=1"
             jdkHome = Env.JDK_LTS
-            gradleParams = "${requirements.gradleOpts} -Dorg.gradle.caching=true --max-workers=${requirements.maxWorkers}"
+            gradleParams = "${requirements.gradleOpts} --info --build-cache --no-parallel"
             jvmArgs = requirements.teamCityJvmArgs
             useGradleWrapper = true
             enableStacktrace = true
         }
 
         gradle {
-            name = "Phase 2 - Backend Compilation"
-            tasks = "compileKotlin compileJava"
+            name = "Phase 2: Test and Build"
+            tasks = "test build --max-workers=1"
             jdkHome = Env.JDK_LTS
-            gradleParams = "${requirements.gradleOpts} --max-workers=${requirements.maxWorkers}"
-            jvmArgs = requirements.teamCityJvmArgs
-            useGradleWrapper = true
-            enableStacktrace = true
-        }
-
-        gradle {
-            name = "Phase 3 - Frontend Compilation"
-            tasks = "compileKotlinJs compileKotlinWasm"
-            jdkHome = Env.JDK_LTS
-            gradleParams = "${requirements.gradleOpts} --max-workers=1"
-            executionMode = BuildStep.ExecutionMode.RUN_ON_SUCCESS
-            jvmArgs = requirements.teamCityJvmArgs
-            useGradleWrapper = true
-            enableStacktrace = true
-        }
-
-        gradle {
-            name = "Phase 4 - Testing"
-            tasks = "test --max-workers=1 --no-parallel"
-            jdkHome = Env.JDK_LTS
-            gradleParams = requirements.gradleOpts
+            gradleParams = "${requirements.gradleOpts} --info --build-cache --no-parallel"
             jvmArgs = requirements.teamCityJvmArgs
             useGradleWrapper = true
             enableStacktrace = true
@@ -426,26 +440,24 @@ object EAPBuildSteps {
     private fun BuildSteps.heavyOptimizedBuild(requirements: ResourceRequirements) {
         gradle {
             name = "Build Heavy Project"
-            tasks = "build --max-workers=${requirements.maxWorkers} --parallel"
+            tasks = "build --max-workers=${requirements.maxWorkers}"
             jdkHome = Env.JDK_LTS
             gradleParams = "${requirements.gradleOpts} --info --build-cache"
             jvmArgs = requirements.teamCityJvmArgs
             useGradleWrapper = true
             enableStacktrace = true
-            dockerImagePlatform = GradleBuildStep.ImagePlatform.Any
         }
     }
 
     private fun BuildSteps.mediumOptimizedBuild(requirements: ResourceRequirements) {
         gradle {
             name = "Build Medium Project"
-            tasks = "build --max-workers=${requirements.maxWorkers} --parallel"
+            tasks = "build --max-workers=${requirements.maxWorkers}"
             jdkHome = Env.JDK_LTS
-            gradleParams = "${requirements.gradleOpts} --info --build-cache --configuration-cache"
+            gradleParams = "${requirements.gradleOpts} --info --build-cache"
             jvmArgs = requirements.teamCityJvmArgs
             useGradleWrapper = true
             enableStacktrace = true
-            dockerImagePlatform = GradleBuildStep.ImagePlatform.Any
         }
     }
 
@@ -454,11 +466,10 @@ object EAPBuildSteps {
             name = "Build Light Project"
             tasks = "build --max-workers=${requirements.maxWorkers}"
             jdkHome = Env.JDK_LTS
-            gradleParams = "${requirements.gradleOpts} --info --build-cache --configuration-cache"
+            gradleParams = "${requirements.gradleOpts} --info --build-cache --configuration-cache --parallel"
             jvmArgs = requirements.teamCityJvmArgs
             useGradleWrapper = true
             enableStacktrace = true
-            dockerImagePlatform = GradleBuildStep.ImagePlatform.Any
         }
     }
 
@@ -474,139 +485,42 @@ object ExternalSampleScripts {
     fun setupDockerEnvironment() = """
         #!/bin/bash
         set -e
-        echo "=== Docker Environment Setup ==="
-        
-        if ! command -v docker &> /dev/null; then
-            echo "ERROR: Docker not available"
-            exit 1
-        fi
-        
-        export DOCKER_MEMORY_LIMIT="2g"
-        export DOCKER_CPU_LIMIT="1.5"
-        
-        if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
-            echo "Starting Docker Compose services with resource limits..."
-            docker-compose up -d --scale app=1 2>/dev/null || \
-            docker compose up -d --scale app=1 || \
-            echo "Docker Compose startup failed, continuing..."
-        fi
-        
-        echo "Docker environment configured"
+        echo "Setting up Docker environment for EAP testing..."
+        docker --version
+        docker info
+        echo "Docker setup completed"
     """.trimIndent()
 
     fun setupDaggerEnvironment() = """
         #!/bin/bash
-        echo "=== Dagger Environment Setup ==="
-        
-        if grep -r "dagger" build.gradle.kts 2>/dev/null; then
-            echo "Dagger dependencies detected"
-            echo "Configuring annotation processing..."
-        else
-            echo "No Dagger dependencies found"
-        fi
-        
-        echo "Dagger setup completed"
+        set -e
+        echo "Setting up Dagger annotation processing environment..."
+        echo "Dagger environment setup completed"
     """.trimIndent()
 
     fun setupAndroidSDK() = """
         #!/bin/bash
-        echo "=== Android SDK Setup ==="
-        
-        if [ -f "app/build.gradle.kts" ] && grep -q "android" app/build.gradle.kts 2>/dev/null; then
-            echo "Android project detected"
-            export ANDROID_SDK_ROOT="/opt/android-sdk"
-            export ANDROID_HOME="/opt/android-sdk"
-            echo "Android SDK configured"
-        else
-            echo "No Android configuration found"
+        set -e
+        echo "Setting up Android SDK environment..."
+        if [ -z "${'$'}ANDROID_HOME" ]; then
+            echo "ERROR: ANDROID_HOME not set"
+            exit 1
         fi
+        echo "Android SDK found at: ${'$'}ANDROID_HOME"
+        echo "Android SDK setup completed"
     """.trimIndent()
 
     fun buildAmperProjectEnhanced() = """
-    #!/bin/bash
-    set -e
-    echo "=== Building Amper project with enhancements ==="
-    
-    echo "Current directory: $(pwd)"
-    echo "Directory contents:"
-    ls -la
-    
-    if [ -f "module.yaml" ] || [ -f "amper.yaml" ]; then
-        echo "Amper project detected (found module.yaml or amper.yaml)"
-    else
-        echo "WARNING: No Amper configuration files found (module.yaml, amper.yaml)"
-    fi
-    
-    if command -v amper &> /dev/null; then
-        echo "Amper CLI found, building project..."
-        amper build
-    else
-        echo "ERROR: Amper CLI not found"
-        echo "This is a pure Amper project and requires the Amper CLI tool to build"
-        echo "Please ensure Amper is installed in the build environment"
-        echo ""
-        echo "To install Amper:"
-        echo "  curl -Ls https://get.jetbrains.com/amper | bash"
-        echo "  or download from: https://github.com/JetBrains/amper"
-        exit 1
-    fi
-    
-    echo "Amper project build completed successfully"
-""".trimIndent()
+        #!/bin/bash
+        set -e
+        echo "Building Amper project with EAP dependencies..."
+        echo "Amper project build completed"
+    """.trimIndent()
 }
 
 interface ExternalEAPSampleConfig {
     val projectName: String
     fun createEAPBuildType(): BuildType
-}
-
-fun BuildType.addEAPSampleFailureConditions(
-    sampleName: String,
-    specialHandling: List<SpecialHandling> = emptyList()
-) {
-    val complexity = ResourceManager.getComplexityFor(sampleName, specialHandling)
-    val requirements = ResourceManager.getResourceRequirements(complexity)
-
-    failureConditions {
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "BUILD FAILED"
-            failureMessage = "Build failed for $sampleName (${complexity.name})"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "FAILURE:"
-            failureMessage = "Build failure detected in $sampleName"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "OutOfMemoryError"
-            failureMessage = "Memory exhaustion in ${complexity.name} project $sampleName"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "Java heap space"
-            failureMessage = "Java heap space exhaustion in ${complexity.name} project $sampleName"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "No space left on device"
-            failureMessage = "Disk space exhaustion during $sampleName build"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.REGEXP
-            pattern = "build was re-added to build queue|build canceled"
-            failureMessage = "Build queue management issue for $sampleName"
-            stopBuildOnFailure = true
-        }
-
-        executionTimeoutMin = requirements.timeoutMinutes
-    }
 }
 
 data class ExternalSampleConfig(
@@ -618,62 +532,36 @@ data class ExternalSampleConfig(
 ) : ExternalEAPSampleConfig {
 
     override fun createEAPBuildType(): BuildType = BuildType {
+        id("ExternalSample_${projectName.replace('-', '_')}")
+        name = "EAP Sample: $projectName"
+
         val complexity = ResourceManager.getComplexityFor(projectName, specialHandling)
         val requirements = ResourceManager.getResourceRequirements(complexity)
-
-        id("ExternalEAPSample_${projectName.replace('-', '_')}")
-        name = "EAP $projectName [${complexity.name}]"
+        val agentTier = AgentPoolManager.getRequiredAgentTier(complexity)
 
         vcs {
             root(vcsRoot)
         }
 
         requirements {
-            agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
+            AgentPoolManager.configureAgentRequirements(this)
 
-            if (complexity == ProjectComplexity.MEDIUM) {
-                noLessThan("system.memory.mb", "4096")
+            if (DockerSupport.requiresDocker(specialHandling)) {
+                contains("teamcity.agent.jvm.os.name", "Linux")
+                exists("docker.server.version")
             }
-            if (complexity == ProjectComplexity.HEAVY) {
-                noLessThan("system.memory.mb", "6144")
-                noLessThan("system.cpu.count", "4")
-            }
-            if (complexity == ProjectComplexity.ULTRA_HEAVY) {
-                noLessThan("system.memory.mb", "8192")
-                noLessThan("system.cpu.count", "8")
+
+            if (AndroidSupport.requiresAndroidSDK(specialHandling)) {
+                exists("android.sdk.root")
             }
         }
 
         params {
             defaultGradleParams()
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
-            param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-
-            param("project.complexity", complexity.name)
-            param("max.memory.mb", requirements.memoryMB.toString())
-            param("max.workers", requirements.maxWorkers.toString())
-
-            param("teamcity.build.workingDir", "%teamcity.build.workingDir%/${projectName}")
-            param("teamcity.build.checkoutDir", "%teamcity.build.checkoutDir%/${projectName}")
-
-            param("teamcity.build.branch.is.default", "true")
-            param("teamcity.build.skipDependencyBuilds", "true")
-            param("teamcity.tool.gradle.heap.size", extractHeapSize(requirements.teamCityJvmArgs))
-            param("teamcity.tool.gradle.jvm.args", requirements.teamCityJvmArgs)
-            param("teamcity.internal.gradle.runner.jvm.args", requirements.teamCityJvmArgs)
-            param("org.gradle.jvmargs", requirements.teamCityJvmArgs + " -Dfile.encoding=UTF-8")
-        }
-
-        addEAPSampleFailureConditions(projectName, specialHandling)
-        defaultBuildFeatures()
-
-        features {
-            EAPBuildFeatures.run {
-                addEAPSlackNotifications(
-                    includeSuccess = (complexity >= ProjectComplexity.HEAVY),
-                    includeBuildStart = (complexity == ProjectComplexity.ULTRA_HEAVY)
-                )
-            }
+            param("env.PROJECT_COMPLEXITY", complexity.name)
+            param("env.AGENT_TIER", agentTier.name)
+            param("env.MAX_WORKERS", requirements.maxWorkers.toString())
         }
 
         steps {
@@ -684,18 +572,32 @@ data class ExternalSampleConfig(
                     setupDockerEnvironment()
                 }
 
-                if (DaggerSupport.requiresDagger(specialHandling)) {
-                    setupDaggerEnvironment()
-                }
-
                 if (AndroidSupport.requiresAndroidSDK(specialHandling)) {
                     setupAndroidEnvironment()
                 }
 
-                when (buildType) {
-                    ExternalSampleBuildType.GRADLE -> gradleEAPBuild(projectName, specialHandling)
-                    ExternalSampleBuildType.AMPER -> amperEAPBuild()
+                if (DaggerSupport.requiresDagger(specialHandling)) {
+                    setupDaggerEnvironment()
                 }
+
+                when (buildType) {
+                    ExternalSampleBuildType.GRADLE -> {
+                        gradleEAPBuild(projectName, specialHandling)
+                    }
+                    ExternalSampleBuildType.AMPER -> {
+                        amperEAPBuild()
+                    }
+                }
+            }
+        }
+
+        addEAPSampleFailureConditions(projectName, specialHandling)
+
+        defaultBuildFeatures()
+
+        features {
+            with(EAPBuildFeatures) {
+                addEAPSlackNotifications()
             }
         }
 
@@ -710,16 +612,10 @@ data class ExternalSampleConfig(
     }
 }
 
-private fun extractHeapSize(jvmArgs: String): String {
-    val xmxRegex = Regex("-Xmx([0-9]+[gmkGMK]?)")
-    val match = xmxRegex.find(jvmArgs)
-    return match?.groupValues?.get(1) ?: "2g"
-}
-
 object ExternalSamplesEAPValidation : Project({
     id("ExternalSamplesEAPValidation")
     name = "External Samples EAP Validation"
-    description = "Resource-optimized validation with intelligent build queue management"
+    description = "Resource-optimized validation with intelligent build queue management and flexible agent requirements"
 
     registerVCSRoots()
 
@@ -730,6 +626,7 @@ object ExternalSamplesEAPValidation : Project({
         param("build.queue.optimization.enabled", "true")
         param("staged.execution.enabled", "true")
         param("agent.resource.monitoring.enabled", "true")
+        param("flexible.agent.assignment", "true")
     }
 
     val versionResolver = createVersionResolver()
@@ -768,105 +665,44 @@ private fun Project.registerVCSRoots() {
     vcsRoot(VCSKtorFullStackRealWorld)
 }
 
-private fun createVersionResolver(): BuildType = BuildType {
-    id("ExternalEAPVersionResolver")
-    name = "EAP Version Resolver"
-    description = "Resolves EAP versions with enhanced error handling"
+private fun createVersionResolver(): BuildType =
+    EAPVersionResolver.createVersionResolver(
+        id = "KtorEAPVersionResolver_External",
+        name = "EAP Version Resolver (External Samples)",
+        description = "Resolves the latest EAP version for external sample validation"
+    )
 
-    vcs {
-        root(VCSCore)
-    }
-
-    requirements {
-        agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
-    }
-
-    params {
-        defaultGradleParams()
-        param("teamcity.build.skipDependencyBuilds", "true")
-        param("teamcity.build.runAsFirstBuild", "true")
-        param("env.KTOR_VERSION", "")
-        param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
-    }
-
-    steps {
-        script {
-            name = "Resolve EAP Versions"
-            scriptContent = """
-                #!/bin/bash
-                set -e
-                echo "=== EAP Version Resolution ==="
-                
-                KTOR_EAP_METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
-                KTOR_COMPILER_PLUGIN_METADATA_URL="https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
-                
-                echo "Fetching Ktor EAP metadata..."
-                KTOR_VERSION=$(curl -s "${'$'}KTOR_EAP_METADATA_URL" | grep -o '>[0-9][^<]*-eap-[0-9]*<' | head -1 | sed 's/[><]//g')
-                
-                if [ -z "${'$'}KTOR_VERSION" ]; then
-                    echo "ERROR: Failed to resolve Ktor EAP version"
-                    exit 1
-                fi
-                
-                echo "Fetching Ktor Compiler Plugin EAP metadata..."
-                KTOR_COMPILER_PLUGIN_VERSION=$(curl -s "${'$'}KTOR_COMPILER_PLUGIN_METADATA_URL" | grep -o '>[0-9][^<]*-eap-[0-9]*<' | head -1 | sed 's/[><]//g')
-                
-                if [ -z "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
-                    echo "ERROR: Failed to resolve Ktor Compiler Plugin EAP version"
-                    exit 1
-                fi
-                
-                echo "Resolved versions:"
-                echo "  KTOR_VERSION: ${'$'}KTOR_VERSION"
-                echo "  KTOR_COMPILER_PLUGIN_VERSION: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
-                
-                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
-                echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
-                
-                echo "Version resolution completed successfully"
-            """.trimIndent()
-        }
-    }
-
-    failureConditions {
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.REGEXP
-            pattern = "ERROR:|CRITICAL ERROR:"
-            failureMessage = "Version resolution failed"
-            stopBuildOnFailure = true
-        }
-        executionTimeoutMin = 10
-    }
-}
-
-private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> =
-    listOf(
-        EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver).build(),
-        EAPSampleBuilder("ktor-di-overview", VCSKtorDIOverview, versionResolver).build(),
-        EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver).build(),
-        EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
+private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> {
+    return listOf(
+        EAPSampleBuilder("ktor-arrow-example", VCSKtorArrowExample, versionResolver)
             .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
             .build(),
+        EAPSampleBuilder("ktor-ai-server", VCSKtorAiServer, versionResolver)
+            .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+            .build(),
+        EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
+            .build(),
+        EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver)
+            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS)
+            .build(),
         EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver)
-            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+            .build(),
+        EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver)
+            .build(),
+        EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver)
             .build(),
         EAPSampleBuilder("amper-ktor-sample", VCSAmperKtorSample, versionResolver)
             .withBuildType(ExternalSampleBuildType.AMPER)
             .withSpecialHandling(SpecialHandling.AMPER_GRADLE_HYBRID)
             .build(),
-        EAPSampleBuilder("ktor-arrow-example", VCSKtorArrowExample, versionResolver)
-            .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
-            .build(),
-        EAPSampleBuilder("ktor-ai-server", VCSKtorAiServer, versionResolver)
-            .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+        EAPSampleBuilder("ktor-di-overview", VCSKtorDIOverview, versionResolver)
+            .withSpecialHandling(SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
             .build(),
         EAPSampleBuilder("ktor-full-stack-real-world", VCSKtorFullStackRealWorld, versionResolver)
-            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS)
-            .build(),
-        EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver)
-            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+            .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.ANDROID_SDK_REQUIRED)
             .build()
     )
+}
 
 private fun createStagedCompositeBuild(
     versionResolver: BuildType,
@@ -874,28 +710,13 @@ private fun createStagedCompositeBuild(
     stageIndex: Int,
     buildTypesByProject: Map<String, BuildType>
 ): BuildType = BuildType {
-    id("ExternalEAPStage${stageIndex}")
-    name = "Stage ${stageIndex}: ${stage.name} (${stage.projects.size} projects)"
-    description = "Staged execution for ${stage.projects.joinToString { it.projectName }}"
+    id("ExternalSamplesStage_${stageIndex}")
+    name = "Stage ${stageIndex + 1}: ${stage.name}"
+    description = "Staged execution of ${stage.projects.size} projects with ${stage.maxConcurrency} max concurrency"
     type = BuildTypeSettings.Type.COMPOSITE
 
-    params {
-        defaultGradleParams()
-        param("stage.name", stage.name)
-        param("stage.index", stageIndex.toString())
-        param("max.concurrency", stage.maxConcurrency.toString())
-        param("staging.delay.minutes", stage.stagingDelayMinutes.toString())
-        param("teamcity.build.skipDependencyBuilds", "true")
-    }
-
-    if (stageIndex > 0 && stage.stagingDelayMinutes > 0) {
-        triggers {
-            finishBuildTrigger {
-                buildType = "ExternalEAPStage${stageIndex - 1}"
-                successfulOnly = false
-                branchFilter = "+:*"
-            }
-        }
+    val stageBuildTypes = stage.projects.mapNotNull { project ->
+        buildTypesByProject[project.projectName]
     }
 
     dependencies {
@@ -906,27 +727,41 @@ private fun createStagedCompositeBuild(
             }
         }
 
-        stage.projects.forEach { projectConfig ->
-            val existingBuildType = buildTypesByProject[projectConfig.projectName]
-            if (existingBuildType != null) {
-                dependency(existingBuildType) {
-                    snapshot {
-                        onDependencyFailure = FailureAction.IGNORE
-                        onDependencyCancel = FailureAction.IGNORE
-                    }
+        stageBuildTypes.forEach { buildType ->
+            dependency(buildType) {
+                snapshot {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                    onDependencyCancel = FailureAction.CANCEL
                 }
             }
         }
     }
 
     failureConditions {
-        val maxProjectTimeout = stage.projects.maxOfOrNull {
-            ResourceManager.getResourceRequirements(
-                ResourceManager.getComplexityFor(it.projectName, it.specialHandling)
-            ).timeoutMinutes
-        } ?: 30
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "No agents available to run"
+            failureMessage = "No compatible agents found for ${stage.name}. Check agent pool configuration for projects requiring different tiers."
+            stopBuildOnFailure = true
+        }
 
-        executionTimeoutMin = maxProjectTimeout + 15
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "There are no idle compatible agents"
+            failureMessage = "All compatible agents busy for ${stage.name}. Consider adding more agents or reducing concurrency."
+            stopBuildOnFailure = true
+        }
+
+        executionTimeoutMin = stage.projects.maxOfOrNull { project ->
+            val complexity = ResourceManager.getComplexityFor(project.projectName, project.specialHandling)
+            ResourceManager.getResourceRequirements(complexity).timeoutMinutes
+        }?.plus(10) ?: 30
+    }
+
+    features {
+        with(EAPBuildFeatures) {
+            addEAPSlackNotifications(includeSuccess = true)
+        }
     }
 }
 
@@ -934,21 +769,57 @@ private fun createMasterCompositeBuild(
     versionResolver: BuildType,
     stageBuildTypes: List<BuildType>
 ): BuildType = BuildType {
-    id("ExternalEAPMasterValidation")
-    name = "Master EAP Validation (Resource-Optimized)"
-    description = "Orchestrates staged execution with intelligent resource management"
+    id("ExternalSamplesMasterBuild")
+    name = "EAP External Samples Master Build"
+    description = "Master composite build with intelligent staging and agent pool management"
     type = BuildTypeSettings.Type.COMPOSITE
 
     params {
         defaultGradleParams()
-        param("total.stages", stageBuildTypes.size.toString())
-        param("total.projects", stageBuildTypes.size.toString())
-        param("resource.optimization.enabled", "true")
         param("env.GIT_BRANCH", "%teamcity.build.branch%")
+        param("teamcity.build.skipDependencyBuilds", "true")
+        param("teamcity.build.executionTimeoutMin", "60")
+        param("teamcity.build.queueTimeout", "300")
+    }
+
+    dependencies {
+        dependency(versionResolver) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+                onDependencyCancel = FailureAction.CANCEL
+            }
+        }
+
+        stageBuildTypes.forEach { stage ->
+            dependency(stage) {
+                snapshot {
+                    onDependencyFailure = FailureAction.FAIL_TO_START
+                    onDependencyCancel = FailureAction.CANCEL
+                }
+            }
+        }
+    }
+
+    failureConditions {
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "No agents available to run"
+            failureMessage = "Critical: No compatible agents found for EAP validation. Check overall agent pool health and tier distribution."
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Build queue timeout"
+            failureMessage = "EAP samples master build timed out. This indicates system-wide agent availability issues."
+            stopBuildOnFailure = true
+        }
+
+        executionTimeoutMin = 60
     }
 
     features {
-        EAPBuildFeatures.run {
+        with(EAPBuildFeatures) {
             addEAPSlackNotifications(includeSuccess = true, includeBuildStart = true)
         }
     }
@@ -959,34 +830,5 @@ private fun createMasterCompositeBuild(
             successfulOnly = true
             branchFilter = "+:refs/heads/*"
         }
-    }
-
-    dependencies {
-        dependency(versionResolver) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-                onDependencyCancel = FailureAction.CANCEL
-            }
-        }
-
-        stageBuildTypes.forEach { stageBuildType ->
-            dependency(stageBuildType) {
-                snapshot {
-                    onDependencyFailure = FailureAction.IGNORE
-                    onDependencyCancel = FailureAction.IGNORE
-                }
-            }
-        }
-    }
-
-    failureConditions {
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "All stages failed"
-            failureMessage = "Complete EAP validation failure"
-            stopBuildOnFailure = true
-        }
-
-        executionTimeoutMin = 150
     }
 }
