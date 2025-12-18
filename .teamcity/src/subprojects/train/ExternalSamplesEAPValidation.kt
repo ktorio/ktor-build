@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -32,9 +31,20 @@ interface ExternalEAPSampleConfig : EAPSampleConfig {
     val specialHandling: List<SpecialHandling>
 }
 
+object SpecialHandlingUtils {
+    fun requiresDocker(specialHandling: List<SpecialHandling>): Boolean =
+        specialHandling.contains(SpecialHandling.DOCKER_TESTCONTAINERS)
+
+    fun requiresAndroidSDK(specialHandling: List<SpecialHandling>): Boolean =
+        specialHandling.contains(SpecialHandling.ANDROID_SDK_REQUIRED)
+
+    fun requiresDagger(specialHandling: List<SpecialHandling>): Boolean =
+        specialHandling.contains(SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
+}
+
 abstract class BaseExternalEAPSample : EAPSampleConfig {
-    protected fun BuildType.addCommonExternalEAPConfiguration(sampleName: String) {
-        addExternalEAPSampleFailureConditions(sampleName)
+    protected fun BuildType.addCommonExternalEAPConfiguration(sampleName: String, specialHandling: List<SpecialHandling>) {
+        addExternalEAPSampleFailureConditions(sampleName, specialHandling)
         defaultBuildFeatures()
 
         features {
@@ -95,7 +105,7 @@ object VCSKtorFullStackRealWorld : KtorVcsRoot({
     url = "https://github.com/nomisRev/ktor-full-stack-real-world.git"
 })
 
-fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String) {
+fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String, specialHandling: List<SpecialHandling>) {
     failureConditions {
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
@@ -125,7 +135,7 @@ fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String) {
             stopBuildOnFailure = true
         }
 
-        if (DockerSupport.requiresDocker(sampleName)) {
+        if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
             failOnText {
                 conditionType = BuildFailureOnText.ConditionType.CONTAINS
                 pattern = "docker: command not found"
@@ -141,7 +151,7 @@ fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String) {
             }
         }
 
-        if (AndroidSupport.requiresAndroidSDK(sampleName)) {
+        if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
             failOnText {
                 conditionType = BuildFailureOnText.ConditionType.CONTAINS
                 pattern = "ANDROID_HOME"
@@ -175,21 +185,6 @@ data class EAPSampleBuilder(
         versionResolver = versionResolver,
         specialHandling = specialHandling
     )
-}
-
-object DockerSupport {
-    fun requiresDocker(projectName: String): Boolean =
-        projectName in listOf("ktor-ai-server", "ktor-koog-example", "ktor-full-stack-real-world")
-}
-
-object DaggerSupport {
-    fun requiresDagger(projectName: String): Boolean =
-        projectName in listOf("ktor-di-overview")
-}
-
-object AndroidSupport {
-    fun requiresAndroidSDK(projectName: String): Boolean =
-        projectName in listOf("ktor-full-stack-real-world")
 }
 
 object EAPBuildFeatures {
@@ -253,7 +248,7 @@ object EAPBuildSteps {
         }
     }
 
-    fun BuildSteps.gradleEAPBuild(projectName: String) {
+    fun BuildSteps.gradleEAPBuild() {
         gradle {
             name = "Build EAP Sample"
             tasks = "build"
@@ -346,12 +341,12 @@ data class ExternalSampleConfig(
         requirements {
             agent(OS.Linux, Arch.X64)
 
-            if (DockerSupport.requiresDocker(projectName)) {
+            if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                 contains("teamcity.agent.jvm.os.name", "Linux")
                 exists("docker.server.version")
             }
 
-            if (AndroidSupport.requiresAndroidSDK(projectName)) {
+            if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
                 exists("android.sdk.root")
             }
         }
@@ -369,21 +364,21 @@ data class ExternalSampleConfig(
             with(EAPBuildSteps) {
                 standardEAPSetup()
 
-                if (DockerSupport.requiresDocker(projectName)) {
+                if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                     setupDockerEnvironment()
                 }
 
-                if (AndroidSupport.requiresAndroidSDK(projectName)) {
+                if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
                     setupAndroidEnvironment()
                 }
 
-                if (DaggerSupport.requiresDagger(projectName)) {
+                if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
                     setupDaggerEnvironment()
                 }
 
                 when (buildType) {
                     ExternalSampleBuildType.GRADLE -> {
-                        gradleEAPBuild(projectName)
+                        gradleEAPBuild()
                     }
                     ExternalSampleBuildType.AMPER -> {
                         amperEAPBuild()
@@ -392,7 +387,7 @@ data class ExternalSampleConfig(
             }
         }
 
-        addCommonExternalEAPConfiguration(projectName)
+        addCommonExternalEAPConfiguration(projectName, specialHandling)
 
         dependencies {
             dependency(versionResolver) {
