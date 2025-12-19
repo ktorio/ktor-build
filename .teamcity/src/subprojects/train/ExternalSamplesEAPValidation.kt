@@ -212,6 +212,8 @@ object ExternalSampleScripts {
         update_gradle_properties() {
             echo "=== Gradle Properties Update ==="
             
+            WORKERS=4
+
             if [ -f "gradle.properties" ]; then
                 echo "Updating existing gradle.properties..."
                 grep -v "^ktor.*Version[[:space:]]*=" gradle.properties > gradle.properties.tmp || touch gradle.properties.tmp
