@@ -137,6 +137,12 @@ fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String) {
             failureMessage = "Gradle daemon crashed for $sampleName"
             stopBuildOnFailure = true
         }
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Plugin \\[id: 'io.ktor.plugin'.*was not found"
+            failureMessage = "Ktor plugin not found in $sampleName - repository configuration issue"
+            stopBuildOnFailure = true
+        }
         executionTimeoutMin = 30
     }
 }
@@ -228,7 +234,7 @@ object ExternalSampleScripts {
                 cat >> gradle.properties.tmp8 << EOF
 ktorVersion=%env.KTOR_VERSION%
 ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%
-org.gradle.daemon=true
+org.gradle.daemon=false
 org.gradle.parallel=true
 org.gradle.caching=true
 org.gradle.configureondemand=false
@@ -244,7 +250,7 @@ EOF
                 cat > gradle.properties << EOF
 ktorVersion=%env.KTOR_VERSION%
 ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%
-org.gradle.daemon=true
+org.gradle.daemon=false
 org.gradle.parallel=true
 org.gradle.caching=true
 org.gradle.configureondemand=false
@@ -265,41 +271,40 @@ EOF
         setup_gradle_repositories() {
             echo "=== Gradle Repositories Setup ==="
             
-            if [ -f "build.gradle.kts" ]; then
-                echo "Updating build.gradle.kts repositories..."
-                cp "build.gradle.kts" "build.gradle.kts.backup"
-                
-                sed -i '/repositories {/a\
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }\
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }' build.gradle.kts
-                
-                echo "✓ Updated build.gradle.kts"
-            fi
-            
-            if [ -f "settings.gradle.kts" ]; then
-                echo "Updating settings.gradle.kts..."
-                cp "settings.gradle.kts" "settings.gradle.kts.backup"
-                
-                if ! grep -q "pluginManagement" settings.gradle.kts; then
-                    cat > settings.gradle.kts.new << EOF
-pluginManagement {
+            cat > gradle-eap-init.gradle << EOF
+allprojects {
     repositories {
         maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
         maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
-        gradlePluginPortal()
         mavenCentral()
+        gradlePluginPortal()
     }
 }
 
-$(cat settings.gradle.kts)
+gradle.allprojects { project ->
+    project.buildscript {
+        repositories {
+            maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
+            maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
+            mavenCentral()
+            gradlePluginPortal()
+        }
+    }
+}
+
+gradle.settingsEvaluated { settings ->
+    settings.pluginManagement {
+        repositories {
+            maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
+            maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
+            gradlePluginPortal()
+            mavenCentral()
+        }
+    }
+}
 EOF
-                    mv settings.gradle.kts.new settings.gradle.kts
-                fi
-                
-                echo "✓ Updated settings.gradle.kts"
-            fi
             
-            echo "======================================"
+            echo "✓ Init script created"
         }
         setup_gradle_repositories
     """.trimIndent()
@@ -349,6 +354,55 @@ EOF
         setup_android_sdk
     """.trimIndent()
 
+    fun buildGradleProjectWithInitScript() = """
+        build_gradle_project_with_init_script() {
+            echo "=== Building Gradle Project with EAP Init Script ==="
+            echo "Using Ktor version: %env.KTOR_VERSION%"
+            echo "Using compiler plugin version: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+            
+            if [ -f "./gradlew" ]; then
+                chmod +x ./gradlew
+                GRADLE_CMD="./gradlew"
+            else
+                GRADLE_CMD="gradle"
+            fi
+
+            echo "Building with: ${'$'}GRADLE_CMD"
+            echo "Init script location: gradle-eap-init.gradle"
+            
+            if [ -f "gradle-eap-init.gradle" ]; then
+                echo "✓ Init script exists"
+                echo "Init script content:"
+                cat gradle-eap-init.gradle
+            else
+                echo "ERROR: Init script not found!"
+                exit 1
+            fi
+            
+            echo "Starting build with init script..."
+            ${'$'}GRADLE_CMD clean build \
+                --init-script gradle-eap-init.gradle \
+                --no-daemon \
+                --stacktrace \
+                --refresh-dependencies \
+                --info || {
+                echo "Build failed, checking for common issues..."
+                if [ -f "build.gradle.kts" ]; then
+                    echo "=== build.gradle.kts content ==="
+                    cat build.gradle.kts
+                fi
+                if [ -f "settings.gradle.kts" ]; then
+                    echo "=== settings.gradle.kts content ==="
+                    cat settings.gradle.kts
+                fi
+                exit 1
+            }
+            
+            echo "✓ Gradle build completed successfully with EAP repositories"
+        }
+        build_gradle_project_with_init_script
+    """.trimIndent()
+
     fun buildAmperProject() = """
         build_amper_project() {
             echo "=== Amper Project Build ==="
@@ -364,13 +418,10 @@ repositories:
 EOF
                 
                 echo "✓ Amper repositories configured"
-                echo "Building with Amper..."
+                echo "Building with Amper (using init script)..."
                 
-                if [ -f "./gradlew" ]; then
-                    ./gradlew build --info
-                else
-                    gradle build --info
-                fi
+                ${setupGradleRepositories()}
+                ${buildGradleProjectWithInitScript()}
             else
                 echo "⚠ No module.yaml found - not an Amper project"
             fi
@@ -383,6 +434,7 @@ EOF
         cleanup_backups() {
             echo "=== Cleanup Backup Files ==="
             find . -name "*.backup" -type f -delete 2>/dev/null || echo "No backup files to clean"
+            rm -f gradle-eap-init.gradle 2>/dev/null || echo "No init script to clean"
             echo "✓ Backup cleanup completed"
             echo "============================="
         }
@@ -430,20 +482,6 @@ object EAPBuildSteps {
         }
     }
 
-    fun BuildSteps.gradleEAPBuild(projectName: String) {
-        gradle {
-            name = "Build $projectName"
-            tasks = "build --info"
-
-            param("org.gradle.daemon", "true")
-            param("org.gradle.parallel", "true")
-            param("org.gradle.workers.max", "4")
-            param("kotlin.incremental", "true")
-
-            jdkHome = Env.JDK_LTS
-        }
-    }
-
     fun BuildSteps.buildEAPExternalGradleSample(projectName: String, specialHandling: List<SpecialHandling>) {
         script {
             name = "EAP Setup for $projectName"
@@ -465,12 +503,15 @@ object EAPBuildSteps {
             setupAndroidEnvironment()
         }
 
-        gradleEAPBuild(projectName)
+        script {
+            name = "Build $projectName with EAP Init Script"
+            scriptContent = ExternalSampleScripts.buildGradleProjectWithInitScript()
+        }
     }
 
     fun BuildSteps.buildEAPExternalAmperSample() {
         script {
-            name = "Amper Build"
+            name = "Amper Build with EAP Support"
             scriptContent = ExternalSampleScripts.buildAmperProject()
         }
     }
