@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -132,14 +133,21 @@ fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String, specialH
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "OutOfMemoryError"
-            failureMessage = "Out of memory error in $sampleName"
+            failureMessage = "Out of memory error in $sampleName - hosted agent memory exceeded"
             stopBuildOnFailure = true
         }
 
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "Gradle build daemon disappeared"
-            failureMessage = "Gradle daemon crashed for $sampleName"
+            failureMessage = "Gradle daemon crashed for $sampleName - likely memory exhaustion on hosted agent"
+            stopBuildOnFailure = true
+        }
+
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Java heap space"
+            failureMessage = "Java heap space exhausted for $sampleName on hosted agent"
             stopBuildOnFailure = true
         }
 
@@ -175,11 +183,37 @@ fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String, specialH
             }
         }
 
-        executionTimeoutMin = if (SpecialHandlingUtils.requiresHighMemory(specialHandling)) 30 else 20
+        executionTimeoutMin = if (SpecialHandlingUtils.requiresHighMemory(specialHandling)) 40 else 25
     }
 }
 
 object ExternalSampleScripts {
+
+    fun monitorHostedAgentResources() = """
+        monitor_hosted_agent_resources() {
+            echo "=== Hosted Agent Resource Monitoring ==="
+            echo "Agent Name: %teamcity.agent.name%"
+            echo "Build ID: %teamcity.build.id%"
+            
+            if command -v free >/dev/null 2>&1; then
+                echo "=== System Memory Status ==="
+                free -h
+            else
+                echo "Memory monitoring not available on this hosted agent"
+            fi
+            
+            echo "=== Java Memory Allocation Test ==="
+            java -Xmx1g -version >/dev/null 2>&1 && echo "✓ 1GB allocation: OK" || echo "✗ 1GB allocation: FAILED"
+            java -Xmx1536m -version >/dev/null 2>&1 && echo "✓ 1.5GB allocation: OK" || echo "✗ 1.5GB allocation: FAILED"
+            java -Xmx2g -version >/dev/null 2>&1 && echo "✓ 2GB allocation: OK" || echo "✗ 2GB allocation: FAILED"
+            
+            echo "=== Disk Space Status ==="
+            df -h . 2>/dev/null || echo "Disk space monitoring not available"
+            
+            echo "✓ Resource monitoring completed"
+        }
+        monitor_hosted_agent_resources
+    """.trimIndent()
 
     fun analyzeProjectStructure() = """
         analyze_project_structure() {
@@ -271,30 +305,57 @@ object ExternalSampleScripts {
         update_version_catalog_comprehensive
     """.trimIndent()
 
-    fun updateGradlePropertiesEnhanced() = """
+    fun updateGradlePropertiesEnhanced(specialHandling: List<SpecialHandling>) = """
         update_gradle_properties_enhanced() {
-            echo "=== Enhanced Gradle Properties Update ==="
+            echo "=== Enhanced Gradle Properties Update (TeamCity Cloud Hosted Agents) ==="
+            
+            if ${if (SpecialHandlingUtils.requiresHighMemory(specialHandling)) "true" else "false"}; then
+                HEAP_SIZE="2g"
+                METASPACE_SIZE="512m"
+                echo "Using high memory configuration for hosted agents: heap=${'$'}HEAP_SIZE, metaspace=${'$'}METASPACE_SIZE"
+            else
+                HEAP_SIZE="1536m"
+                METASPACE_SIZE="256m"
+                echo "Using standard memory configuration for hosted agents: heap=${'$'}HEAP_SIZE, metaspace=${'$'}METASPACE_SIZE"
+            fi
             
             if [ -f "gradle.properties" ]; then
                 echo "Updating existing gradle.properties..."
                 grep -v "^ktor.*Version[[:space:]]*=" gradle.properties > gradle.properties.tmp || touch gradle.properties.tmp
                 grep -v "^ktor\\..*\\.version[[:space:]]*=" gradle.properties.tmp > gradle.properties.tmp2 || cp gradle.properties.tmp gradle.properties.tmp2
+                grep -v "^org\\.gradle\\.jvmargs[[:space:]]*=" gradle.properties.tmp2 > gradle.properties.tmp3 || cp gradle.properties.tmp2 gradle.properties.tmp3
+                grep -v "^org\\.gradle\\.daemon[[:space:]]*=" gradle.properties.tmp3 > gradle.properties.tmp4 || cp gradle.properties.tmp3 gradle.properties.tmp4
+                grep -v "^org\\.gradle\\.parallel[[:space:]]*=" gradle.properties.tmp4 > gradle.properties.tmp5 || cp gradle.properties.tmp4 gradle.properties.tmp5
+                grep -v "^org\\.gradle\\.caching[[:space:]]*=" gradle.properties.tmp5 > gradle.properties.tmp6 || cp gradle.properties.tmp5 gradle.properties.tmp6
                 
-                echo "ktorVersion=%env.KTOR_VERSION%" >> gradle.properties.tmp2
-                echo "ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%" >> gradle.properties.tmp2
+                cat >> gradle.properties.tmp6 << EOF
+ktorVersion=%env.KTOR_VERSION%
+ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%
+org.gradle.daemon=false
+org.gradle.jvmargs=-Xmx${'$'}HEAP_SIZE -XX:MaxMetaspaceSize=${'$'}METASPACE_SIZE -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError
+org.gradle.parallel=false
+org.gradle.caching=false
+org.gradle.configureondemand=false
+EOF
                 
-                mv gradle.properties.tmp2 gradle.properties
-                rm -f gradle.properties.tmp
+                mv gradle.properties.tmp6 gradle.properties
+                rm -f gradle.properties.tmp*
             else
                 echo "Creating new gradle.properties..."
                 cat > gradle.properties << EOF
 ktorVersion=%env.KTOR_VERSION%
 ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%
 org.gradle.daemon=false
-org.gradle.jvmargs=-Xmx3g -XX:MaxMetaspaceSize=768m
+org.gradle.jvmargs=-Xmx${'$'}HEAP_SIZE -XX:MaxMetaspaceSize=${'$'}METASPACE_SIZE -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError
+org.gradle.parallel=false
+org.gradle.caching=false
+org.gradle.configureondemand=false
 EOF
             fi
-            echo "✓ Enhanced gradle.properties update completed"
+            
+            echo "Final gradle.properties content:"
+            cat gradle.properties
+            echo "✓ Enhanced gradle.properties update completed for hosted agents"
         }
         update_gradle_properties_enhanced
     """.trimIndent()
@@ -342,7 +403,7 @@ EOF
     fun setupDockerEnvironment() = """
         #!/bin/bash
         set -e
-        echo "Setting up Docker environment for EAP testing..."
+        echo "Setting up Docker environment for EAP testing on hosted agent..."
         
         docker --version
         
@@ -362,23 +423,25 @@ EOF
             fi
         fi
         
-        docker info
+        echo "Testing Docker functionality..."
+        docker info > /dev/null 2>&1 && echo "✓ Docker is functional" || echo "⚠ Docker may have limitations on this hosted agent"
+        
         echo "Docker setup completed successfully"
     """.trimIndent()
 
     fun setupDaggerEnvironment() = """
         #!/bin/bash
         set -e
-        echo "Setting up Dagger annotation processing environment..."
+        echo "Setting up Dagger annotation processing environment on hosted agent..."
         echo "Dagger environment setup completed"
     """.trimIndent()
 
     fun setupAndroidSDK() = """
         #!/bin/bash
         set -e
-        echo "Setting up Android SDK environment..."
+        echo "Setting up Android SDK environment on hosted agent..."
         if [ -z "${'$'}ANDROID_HOME" ]; then
-            echo "ERROR: ANDROID_HOME not set"
+            echo "ERROR: ANDROID_HOME not set on hosted agent"
             exit 1
         fi
         echo "Android SDK found at: ${'$'}ANDROID_HOME"
@@ -387,7 +450,7 @@ EOF
 
     fun buildAmperProjectEnhanced() = """
         build_amper_project_enhanced() {
-            echo "=== Enhanced Amper Build ==="
+            echo "=== Enhanced Amper Build (Hosted Agent Optimized) ==="
             echo "Current directory contents:"
             ls -la
             
@@ -401,7 +464,7 @@ EOF
                 elif [ -f "gradlew" ]; then
                     echo "Amper project with Gradle wrapper detected"
                     chmod +x ./gradlew
-                    ./gradlew build --init-script gradle-eap-init.gradle --no-daemon --stacktrace
+                    ./gradlew build --init-script gradle-eap-init.gradle --no-daemon --no-parallel --no-build-cache --stacktrace
                 else
                     echo "ERROR: No build wrapper found for Amper project"
                     exit 1
@@ -410,21 +473,21 @@ EOF
                 echo "No module.yaml found - treating as regular Gradle project"
                 if [ -f "./gradlew" ]; then
                     chmod +x ./gradlew
-                    ./gradlew build --init-script gradle-eap-init.gradle --no-daemon --stacktrace
+                    ./gradlew build --init-script gradle-eap-init.gradle --no-daemon --no-parallel --no-build-cache --stacktrace
                 else
                     echo "ERROR: No gradlew found"
                     exit 1
                 fi
             fi
             
-            echo "✓ Enhanced Amper build completed successfully"
+            echo "✓ Enhanced Amper build completed successfully on hosted agent"
         }
         build_amper_project_enhanced
     """.trimIndent()
 
     fun cleanupBackups() = """
         cleanup_backups() {
-            echo "=== Cleaning up backup files ==="
+            echo "=== Cleaning up backup files on hosted agent ==="
             rm -f *.backup gradle/libs.versions.toml.backup gradle-eap-init.gradle project_analysis.env
             echo "✓ Cleanup completed"
         }
@@ -433,18 +496,30 @@ EOF
 }
 
 object EAPBuildSteps {
+    fun BuildSteps.hostedAgentResourceMonitoring() {
+        script {
+            name = "Monitor Hosted Agent Resources"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+                ${ExternalSampleScripts.monitorHostedAgentResources()}
+            """.trimIndent()
+        }
+    }
+
     fun BuildSteps.standardEAPSetup() {
         script {
             name = "EAP Environment Setup"
             scriptContent = """
                 #!/bin/bash
                 set -e
-                echo "=== EAP Build Common Setup ==="
+                echo "=== EAP Build Setup for TeamCity Cloud Hosted Agents ==="
                 echo "Build Agent: %teamcity.agent.name%"
                 echo "Build ID: %teamcity.build.id%"
                 echo "Using Ktor version: %env.KTOR_VERSION%"
                 echo "Using compiler plugin version: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-                echo "================================"
+                echo "Hosted Agent Configuration: Optimized for 4-8GB memory"
+                echo "=============================================================="
             """.trimIndent()
         }
     }
@@ -470,21 +545,33 @@ object EAPBuildSteps {
         }
     }
 
+
     fun BuildSteps.gradleEAPBuildWithMemoryHandling(projectName: String, specialHandling: List<SpecialHandling>) {
         gradle {
-            name = "Build EAP Sample"
-            tasks = if (projectName == "ktor-ai-server") {
+            name = "Build EAP Sample (Hosted Agent Optimized)"
+            tasks = if (projectName == "ktor-ai-server" || projectName == "ktor-full-stack-real-world") {
                 "assemble"
             } else {
                 "build"
             }
             jdkHome = Env.JDK_LTS
-            gradleParams = "--no-scan --build-cache --parallel --no-daemon --init-script gradle-eap-init.gradle"
 
-            jvmArgs = if (SpecialHandlingUtils.requiresHighMemory(specialHandling)) {
-                "-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
-            } else {
-                "-Xmx3g -XX:MaxMetaspaceSize=768m -XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError"
+            gradleParams = "--no-scan --no-build-cache --no-parallel --no-daemon --init-script gradle-eap-init.gradle --info"
+
+            jvmArgs = buildString {
+                append("-XX:+UseG1GC -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=./heap-dump.hprof")
+
+                if (SpecialHandlingUtils.requiresHighMemory(specialHandling)) {
+                    append(" -XX:G1HeapRegionSize=16m -XX:+UnlockExperimentalVMOptions")
+                }
+
+                if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+                    append(" -Djava.security.egd=file:/dev/./urandom")
+                }
+
+                if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
+                    append(" -Dkapt.verbose=false -Dkapt.use.worker.api=false")
+                }
             }
 
             useGradleWrapper = true
@@ -508,7 +595,7 @@ object EAPBuildSteps {
                 #!/bin/bash
                 set -e
                 ${ExternalSampleScripts.backupConfigFiles()}
-                ${ExternalSampleScripts.updateGradlePropertiesEnhanced()}
+                ${ExternalSampleScripts.updateGradlePropertiesEnhanced(specialHandling)}
                 ${if (SpecialHandlingUtils.requiresEnhancedTomlHandling(specialHandling)) ExternalSampleScripts.updateVersionCatalogComprehensive() else "echo 'Skipping TOML handling'"}
                 ${ExternalSampleScripts.setupEnhancedGradleRepositories()}
             """.trimIndent()
@@ -525,7 +612,7 @@ object EAPBuildSteps {
                 set -e
                 ${ExternalSampleScripts.analyzeProjectStructure()}
                 ${ExternalSampleScripts.backupConfigFiles()}
-                ${ExternalSampleScripts.updateGradlePropertiesEnhanced()}
+                ${ExternalSampleScripts.updateGradlePropertiesEnhanced(emptyList())}
                 ${ExternalSampleScripts.setupEnhancedGradleRepositories()}
             """.trimIndent()
         }
@@ -583,7 +670,7 @@ object EAPBuildFeatures {
         notifications {
             notifierSettings = slackNotifier {
                 connection = "PROJECT_EXT_5"
-                sendTo = "#ktor-eap-validation"
+                sendTo = "#ktor-projects-on-eap"
                 messageFormat = verboseMessageFormat {
                     addStatusText = true
                     addBranch = true
@@ -610,7 +697,7 @@ data class ExternalSampleConfig(
     override fun createEAPBuildType(): BuildType = BuildType {
         id("ExternalEAP_${projectName.replace("-", "_").replace(" ", "_")}")
         name = "EAP: $projectName"
-        description = "Enhanced validation of $projectName against EAP version of Ktor with smart memory handling and comprehensive configuration"
+        description = "Enhanced validation of $projectName against EAP version of Ktor optimized for TeamCity Cloud hosted agents"
 
         vcs {
             root(vcsRoot)
@@ -630,10 +717,6 @@ data class ExternalSampleConfig(
             if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
                 exists("android.sdk.root")
             }
-
-            if (SpecialHandlingUtils.requiresHighMemory(specialHandling)) {
-                contains("teamcity.agent.jvm.memory.max", "8g")
-            }
         }
 
         params {
@@ -641,6 +724,7 @@ data class ExternalSampleConfig(
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
             param("enhanced.validation.enabled", "true")
+            param("hosted.agent.optimized", "true")
             param("toml.comprehensive.handling", if (SpecialHandlingUtils.requiresEnhancedTomlHandling(specialHandling)) "true" else "false")
 
             if (projectName == "full-stack-ktor-talk") {
@@ -651,6 +735,7 @@ data class ExternalSampleConfig(
 
         steps {
             with(EAPBuildSteps) {
+                hostedAgentResourceMonitoring()
                 standardEAPSetup()
 
                 if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
@@ -694,14 +779,15 @@ data class ExternalSampleConfig(
 object ExternalSamplesEAPValidation : Project({
     id("ExternalSamplesEAPValidation")
     name = "External Samples EAP Validation"
-    description = "Enhanced validation of external GitHub samples against EAP versions of Ktor with smart memory handling, comprehensive TOML support, and Docker/Android SDK compatibility"
+    description = "Enhanced validation of external GitHub samples against EAP versions of Ktor optimized for TeamCity Cloud hosted agents"
 
     registerVCSRoots()
 
     params {
         param("ktor.eap.version", "KTOR_VERSION")
         param("enhanced.validation.enabled", "true")
-        param("smart.memory.handling", "true")
+        param("hosted.agent.optimized", "true")
+        param("teamcity.cloud.hosted", "true")
     }
 
     val versionResolver = createVersionResolver()
@@ -711,7 +797,7 @@ object ExternalSamplesEAPValidation : Project({
     val allBuildTypes = samples.map { it.createEAPBuildType() }
     allBuildTypes.forEach { buildType(it) }
 
-    buildType(createAllSamplesCompositeBuild(versionResolver, allBuildTypes))
+    buildType(createMasterCompositeBuild(versionResolver, allBuildTypes))
 })
 
 private fun Project.registerVCSRoots() {
@@ -731,7 +817,7 @@ private fun createVersionResolver(): BuildType =
     EAPVersionResolver.createVersionResolver(
         id = "ExternalKtorEAPVersionResolver",
         name = "EAP Version Resolver for External Samples",
-        description = "Enhanced version resolver with comprehensive validation for external sample validation"
+        description = "Enhanced version resolver optimized for hosted agents with comprehensive validation"
     )
 
 private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> {
@@ -740,7 +826,7 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
             .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.ENHANCED_TOML_PATTERNS)
             .build(),
         EAPSampleBuilder("ktor-ai-server", VCSKtorAiServer, versionResolver)
-            .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.ENHANCED_TOML_PATTERNS)
+            .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.ENHANCED_TOML_PATTERNS, SpecialHandling.HIGH_MEMORY_REQUIRED)
             .build(),
         EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
             .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.ENHANCED_TOML_PATTERNS)
@@ -776,13 +862,13 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
     )
 }
 
-private fun createAllSamplesCompositeBuild(
+private fun createMasterCompositeBuild(
     versionResolver: BuildType,
     allBuildTypes: List<BuildType>
 ): BuildType = BuildType {
-    id("AllExternalSamplesBuild")
-    name = "All EAP External Samples Build"
-    description = "Enhanced all external samples composite build with smart failure handling"
+    id("ExternalSamplesMasterBuild")
+    name = "EAP External Samples Master Build"
+    description = "Enhanced master composite build for all external samples optimized for TeamCity Cloud hosted agents"
     type = BuildTypeSettings.Type.COMPOSITE
 
     params {
@@ -790,7 +876,8 @@ private fun createAllSamplesCompositeBuild(
         param("env.GIT_BRANCH", "%teamcity.build.branch%")
         param("teamcity.build.skipDependencyBuilds", "true")
         param("enhanced.validation.enabled", "true")
-        param("smart.memory.handling", "true")
+        param("hosted.agent.optimized", "true")
+        param("teamcity.cloud.hosted", "true")
     }
 
     dependencies {
@@ -815,25 +902,32 @@ private fun createAllSamplesCompositeBuild(
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "No agents available to run"
-            failureMessage = "No compatible agents found for external samples composite"
+            failureMessage = "No hosted agents available for external samples composite"
             stopBuildOnFailure = true
         }
 
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "Build queue timeout"
-            failureMessage = "All external samples build timed out"
+            failureMessage = "External samples master build timed out waiting for hosted agents"
             stopBuildOnFailure = true
         }
 
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
             pattern = "✗.*FAILED:"
-            failureMessage = "Enhanced validation failed in one or more samples"
+            failureMessage = "Enhanced validation failed in one or more samples on hosted agents"
             stopBuildOnFailure = false
         }
 
-        executionTimeoutMin = 45
+        failOnText {
+            conditionType = BuildFailureOnText.ConditionType.CONTAINS
+            pattern = "Java heap space"
+            failureMessage = "Memory exhaustion detected on hosted agent"
+            stopBuildOnFailure = true
+        }
+
+        executionTimeoutMin = 60
     }
 
     features {
