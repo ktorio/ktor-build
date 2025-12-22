@@ -235,6 +235,10 @@ object ExternalSampleScripts {
         "echo \"Dagger annotation processing handling enabled\""
     else ""}
         
+        ${if (specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM))
+        "echo \"Compose Multiplatform handling enabled\""
+    else ""}
+        
         echo "✓ Project analysis completed"
     """.trimIndent()
 
@@ -368,13 +372,11 @@ EOF
     fun setupEnhancedGradleRepositories(specialHandling: List<SpecialHandling> = emptyList()) = """
         echo "=== Setting up Enhanced Gradle Repositories ==="
         
-        if ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) "true" else "false"}; then
-            echo "Configuring repositories for Compose Multiplatform project"
-            REPO_CONFIG="${EAPScriptTemplates.composeMultiplatformRepositories()}"
-        else
-            echo "Configuring repositories for standard project"
-            REPO_CONFIG="${EAPScriptTemplates.repositoryConfiguration()}"
-        fi
+        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+        "echo \"Configuring repositories for Compose Multiplatform project\""
+    } else {
+        "echo \"Configuring repositories for standard project\""
+    }}
         
         if [ -f "settings.gradle.kts" ]; then
             echo "Found settings.gradle.kts, preserving existing configuration"
@@ -397,7 +399,11 @@ EOF
                     cat > settings.gradle.kts.tmp << 'EOF'
 pluginManagement {
     repositories {
-        ${EAPScriptTemplates.repositoryConfiguration()}
+        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+        EAPScriptTemplates.composeMultiplatformRepositories()
+    } else {
+        EAPScriptTemplates.repositoryConfiguration()
+    }}
     }
 }
 
@@ -411,7 +417,11 @@ EOF
             cat > settings.gradle.kts << 'EOF'
 pluginManagement {
     repositories {
-        ${EAPScriptTemplates.repositoryConfiguration()}
+        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+        EAPScriptTemplates.composeMultiplatformRepositories()
+    } else {
+        EAPScriptTemplates.repositoryConfiguration()
+    }}
     }
 }
 EOF
@@ -420,7 +430,11 @@ EOF
         cat > gradle-eap-init.gradle << 'EOF'
 allprojects {
     repositories {
-        ${EAPScriptTemplates.repositoryConfiguration()}
+        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+        EAPScriptTemplates.composeMultiplatformRepositories()
+    } else {
+        EAPScriptTemplates.repositoryConfiguration()
+    }}
     }
 }
 EOF
