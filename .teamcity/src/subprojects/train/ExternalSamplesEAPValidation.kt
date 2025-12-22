@@ -1,4 +1,3 @@
-
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -18,6 +17,8 @@ object EAPConfig {
     object Repositories {
         const val KTOR_EAP = "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
         const val COMPOSE_DEV = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
+        const val ANDROIDX_DEV = "https://androidx.dev/storage/compose-compiler/repository"
+        const val GOOGLE_MAVEN = "https://maven.google.com"
     }
 }
 
@@ -27,7 +28,8 @@ enum class SpecialHandling {
     DOCKER_TESTCONTAINERS,
     DAGGER_ANNOTATION_PROCESSING,
     ANDROID_SDK_REQUIRED,
-    ENHANCED_TOML_PATTERNS
+    ENHANCED_TOML_PATTERNS,
+    COMPOSE_MULTIPLATFORM
 }
 
 enum class ExternalSampleBuildType {
@@ -54,6 +56,9 @@ object SpecialHandlingUtils {
 
     fun isAmperHybrid(specialHandling: List<SpecialHandling>): Boolean =
         specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)
+
+    fun isComposeMultiplatform(specialHandling: List<SpecialHandling>): Boolean =
+        specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM)
 }
 
 object VCSKtorArrowExample : KtorVcsRoot({
@@ -153,6 +158,15 @@ object EAPScriptTemplates {
     fun repositoryConfiguration() = """
         maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }
         maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }
+        mavenCentral()
+        gradlePluginPortal()
+    """.trimIndent()
+
+    fun composeMultiplatformRepositories() = """
+        maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }
+        maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }
+        maven { url = uri("${EAPConfig.Repositories.ANDROIDX_DEV}") }
+        maven { url = uri("${EAPConfig.Repositories.GOOGLE_MAVEN}") }
         mavenCentral()
         gradlePluginPortal()
     """.trimIndent()
@@ -351,8 +365,16 @@ EOF
         echo "✓ Version catalog update completed"
     """.trimIndent()
 
-    fun setupEnhancedGradleRepositories() = """
+    fun setupEnhancedGradleRepositories(specialHandling: List<SpecialHandling> = emptyList()) = """
         echo "=== Setting up Enhanced Gradle Repositories ==="
+        
+        if ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) "true" else "false"}; then
+            echo "Configuring repositories for Compose Multiplatform project"
+            REPO_CONFIG="${EAPScriptTemplates.composeMultiplatformRepositories()}"
+        else
+            echo "Configuring repositories for standard project"
+            REPO_CONFIG="${EAPScriptTemplates.repositoryConfiguration()}"
+        fi
         
         if [ -f "settings.gradle.kts" ]; then
             echo "Found settings.gradle.kts, preserving existing configuration"
@@ -650,7 +672,7 @@ data class ExternalSampleConfig(
                     }
                     script {
                         name = "Setup Enhanced Gradle Repositories"
-                        scriptContent = ExternalSampleScripts.setupEnhancedGradleRepositories()
+                        scriptContent = ExternalSampleScripts.setupEnhancedGradleRepositories(specialHandling)
                     }
 
                     if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
@@ -754,8 +776,7 @@ data class ExternalSampleConfig(
 object ExternalSamplesEAPValidation : Project({
     id("ExternalSamplesEAPValidation")
     name = "External Samples EAP Validation"
-    description =
-        "Enhanced validation of external GitHub samples against EAP versions of Ktor with configuration preservation"
+    description = "Enhanced validation of external GitHub samples against EAP versions of Ktor with Compose Multiplatform support"
 
     registerVCSRoots()
 
@@ -765,6 +786,7 @@ object ExternalSamplesEAPValidation : Project({
         param("toml.comprehensive.handling", "true")
         param("configuration.preservation.enabled", "true")
         param("special.handling.enabled", "true")
+        param("compose.multiplatform.support", "true")
     }
 
     val versionResolver = createVersionResolver()
@@ -802,7 +824,11 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
     EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
         .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM).build(),
     EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS).build(),
+        .withSpecialHandling(
+            SpecialHandling.KOTLIN_MULTIPLATFORM,
+            SpecialHandling.COMPOSE_MULTIPLATFORM,
+            SpecialHandling.DOCKER_TESTCONTAINERS
+        ).build(),
     EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver).build(),
     EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver).build(),
     EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver)
