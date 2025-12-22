@@ -1,3 +1,4 @@
+
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
@@ -127,8 +128,8 @@ fun BuildType.addExternalEAPSampleFailureConditions(sampleName: String) {
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "OutOfMemoryError"
-            failureMessage = "Out of memory error in $sampleName"
+            pattern = "java.lang.OutOfMemoryError"
+            failureMessage = "Fatal out of memory error in $sampleName"
             stopBuildOnFailure = true
         }
         failOnText {
@@ -801,8 +802,8 @@ private fun createAllSamplesCompositeBuild(
         }
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "OutOfMemoryError"
-            failureMessage = "Memory exhaustion detected in external samples build"
+            pattern = "java.lang.OutOfMemoryError"
+            failureMessage = "Fatal memory exhaustion detected in external samples build"
             stopBuildOnFailure = true
         }
         executionTimeoutMin = 45
