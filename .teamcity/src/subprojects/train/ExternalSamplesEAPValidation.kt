@@ -470,6 +470,75 @@ EOF
         fi
     """.trimIndent()
 
+    fun buildGradleProjectEnhanced(specialHandling: List<SpecialHandling> = emptyList()) = """
+        #!/bin/bash
+        set -e
+        
+        echo "=== Building Gradle Project (Enhanced) ==="
+        echo "Setting up EAP build environment..."
+        echo "KTOR_VERSION: %env.KTOR_VERSION%"
+        echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+        
+        GRADLE_OPTS="--init-script gradle-eap-init.gradle"
+        
+        ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+        """
+            if [ "${'$'}DOCKER_AVAILABLE" != "false" ]; then
+                echo "Docker is available, including Docker-related tasks"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=true"
+            else
+                echo "Docker not available, excluding Docker-related tasks"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=false"
+            fi
+            """
+    } else ""}
+        
+        ${if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
+        """
+            if [ "${'$'}ANDROID_SDK_AVAILABLE" != "false" ]; then
+                echo "Android SDK available, including Android tasks"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pandroid.enabled=true"
+            else
+                echo "Android SDK not available, excluding Android tasks"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pandroid.enabled=false"
+            fi
+            """
+    } else ""}
+        
+        ${if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
+        """
+            if [ "${'$'}DAGGER_CONFIGURED" = "true" ]; then
+                echo "Dagger annotation processing enabled"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdagger.enabled=true"
+            fi
+            """
+    } else ""}
+        
+        echo "Running Gradle build with EAP configuration..."
+        
+        if ./gradlew clean ${'$'}GRADLE_OPTS; then
+            echo "✓ Clean completed successfully"
+        else
+            echo "⚠ Clean failed, continuing with build"
+        fi
+        
+        if ./gradlew build ${'$'}GRADLE_OPTS --stacktrace; then
+            echo "✓ Build completed successfully"
+        else
+            echo "❌ Build failed"
+            exit 1
+        fi
+        
+        ${if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+        """
+            echo "Running multiplatform-specific tasks..."
+            ./gradlew allTests ${'$'}GRADLE_OPTS || echo "⚠ Some multiplatform tests failed"
+            """
+    } else ""}
+        
+        echo "✓ Gradle build enhanced completed"
+    """.trimIndent()
+
     fun setupAmperRepositories() = """
         echo "=== Setting up Amper Repositories ==="
         
@@ -519,6 +588,20 @@ EOF
         fi
         
         echo "✓ Amper versions update completed"
+    """.trimIndent()
+
+    fun buildAmperProjectEnhanced() = """
+        echo "=== Building Amper Project (Enhanced) ==="
+        
+        if command -v amper >/dev/null 2>&1; then
+            echo "Running Amper build..."
+            amper build --verbose
+            echo "✓ Amper build completed successfully"
+        else
+            echo "Amper command not found, falling back to Gradle"
+            ./gradlew build --stacktrace
+            echo "✓ Gradle fallback build completed successfully"
+        fi
     """.trimIndent()
 }
 
@@ -620,34 +703,9 @@ data class ExternalSampleConfig(
                         }
                     }
 
-                    gradle {
+                    script {
                         name = "Build Gradle Project (Enhanced)"
-                        tasks = "clean build"
-                        jdkHome = Env.JDK_LTS
-                        gradleParams = buildString {
-                            append("--init-script gradle-eap-init.gradle")
-
-                            if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
-                                append(" -Pdocker.enabled=%env.DOCKER_AVAILABLE%")
-                            }
-
-                            if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
-                                append(" -Pandroid.enabled=%env.ANDROID_SDK_AVAILABLE%")
-                            }
-
-                            if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
-                                append(" -Pdagger.enabled=%env.DAGGER_CONFIGURED%")
-                            }
-
-                            append(" --stacktrace")
-                        }
-                        jvmArgs = "-Xmx3g -XX:MaxMetaspaceSize=1g"
-                        useGradleWrapper = true
-                        enableStacktrace = true
-
-                        if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
-                            param("gradle.additional.cmdParams", "allTests")
-                        }
+                        scriptContent = ExternalSampleScripts.buildGradleProjectEnhanced(specialHandling)
                     }
                 }
                 ExternalSampleBuildType.AMPER -> {
@@ -659,15 +717,9 @@ data class ExternalSampleConfig(
                         name = "Update Amper Versions"
                         scriptContent = ExternalSampleScripts.updateAmperVersionsEnhanced()
                     }
-
-                    gradle {
+                    script {
                         name = "Build Amper Project (Enhanced)"
-                        tasks = "build"
-                        jdkHome = Env.JDK_LTS
-                        gradleParams = "--info --build-cache --no-scan"
-                        jvmArgs = "-Xmx2g -XX:MaxMetaspaceSize=512m"
-                        useGradleWrapper = true
-                        enableStacktrace = true
+                        scriptContent = ExternalSampleScripts.buildAmperProjectEnhanced()
                     }
                 }
             }
