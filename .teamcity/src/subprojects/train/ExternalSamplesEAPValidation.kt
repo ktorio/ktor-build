@@ -250,6 +250,13 @@ object ExternalSampleScripts {
         if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
             echo "✓ Testcontainers Cloud token found, configuring cloud environment"
             
+            mkdir -p ${'$'}HOME/.testcontainers
+            cat > ${'$'}HOME/.testcontainers/testcontainers.properties << 'EOF'
+testcontainers.reuse.enable=false
+ryuk.container.privileged=true
+testcontainers.cloud.token=%TC_CLOUD_TOKEN%
+EOF
+            
             export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
             export TESTCONTAINERS_RYUK_DISABLED=true
             
@@ -260,6 +267,7 @@ object ExternalSampleScripts {
             if [ -f "gradle.properties" ]; then
                 echo "Updating existing gradle.properties with Testcontainers Cloud configuration"
                 sed -i '/^testcontainers\./d' gradle.properties
+                sed -i '/^TESTCONTAINERS_/d' gradle.properties
             else
                 echo "Creating gradle.properties with Testcontainers Cloud configuration"
                 touch gradle.properties
@@ -269,6 +277,13 @@ object ExternalSampleScripts {
             echo "# Testcontainers Cloud Configuration" >> gradle.properties
             echo "testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
             echo "testcontainers.ryuk.disabled=true" >> gradle.properties
+            echo "systemProp.testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
+            echo "systemProp.testcontainers.ryuk.disabled=true" >> gradle.properties
+            
+            echo "Contents of gradle.properties:"
+            cat gradle.properties
+            echo "Contents of testcontainers.properties:"
+            cat ${'$'}HOME/.testcontainers/testcontainers.properties
             
             echo "✓ Testcontainers Cloud configured successfully"
         else
@@ -525,6 +540,9 @@ EOF
                     echo "Using Testcontainers Cloud for container tests"
                     export TESTCONTAINERS_CLOUD_TOKEN="%env.TESTCONTAINERS_CLOUD_TOKEN%"
                     export TESTCONTAINERS_RYUK_DISABLED=true
+                    
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%env.TESTCONTAINERS_CLOUD_TOKEN%"
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
                     GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
                     ;;
                 "local")
@@ -533,8 +551,29 @@ EOF
                     ;;
                 "skip"|*)
                     echo "⚠ Skipping Docker-dependent tests due to environment limitations"
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS -x test -x integrationTest -x testIntegration"
-                    BUILD_TASK="assemble"
+                    echo "Creating test exclusion filter..."
+                    
+                    cat > exclude-integration-tests.gradle << 'SCRIPT_EOF'
+allprojects {
+    tasks.withType(Test) {
+        exclude '**/IntegrationTest.class'
+        exclude '**/integration/**'
+        exclude '**/*IntegrationTest.class'
+        exclude '**/*IT.class'
+        exclude '**/TestContainers*'
+        exclude '**/testcontainers/**'
+        
+        systemProperty 'testcontainers.disabled', 'true'
+        
+        doFirst {
+            logger.warn("Skipping integration tests - Docker environment not available")
+        }
+    }
+}
+SCRIPT_EOF
+                    
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS --init-script exclude-integration-tests.gradle"
+                    echo "Integration test exclusion filter applied"
                     ;;
             esac
             """
@@ -570,10 +609,17 @@ EOF
             echo "⚠ Clean failed, continuing with build"
         fi
         
+        echo "Starting main build..."
         if ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS; then
             echo "✓ Build completed successfully"
         else
             echo "❌ Build failed"
+            echo "Build output and logs:"
+            echo "=============================="
+            
+            echo "Last 50 lines of build output:"
+            ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | tail -50 || true
+            
             exit 1
         fi
         
