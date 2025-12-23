@@ -530,138 +530,75 @@ EOF
         GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
         BUILD_TASK="build"
         
-        ${
-        if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
-            """
+        ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+        """
+            echo "=== DOCKER/TESTCONTAINERS CONFIGURATION ==="
+            
+            if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
+                echo "✓ Testcontainers Cloud token available - using cloud mode"
+                export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
+                export TESTCONTAINERS_RYUK_DISABLED=true
+                export TESTCONTAINERS_REUSE_ENABLE=false
+                
+                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
+                
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%TC_CLOUD_TOKEN%"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.reuse.enable=false"
+                GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
+                
+                echo "Testcontainers Cloud configuration applied"
+                
+            elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+                echo "✓ Local Docker available - checking compatibility"
+                
+                DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
+                echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
+                
+                if [[ "${'$'}DOCKER_API_VERSION" =~ ^([0-9]+)\.([0-9]+) ]]; then
+                    MAJOR=${'$'}{BASH_REMATCH[1]}
+                    MINOR=${'$'}{BASH_REMATCH[2]}
+                    
+                    if [ "${'$'}MAJOR" -gt 1 ] || ([ "${'$'}MAJOR" -eq 1 ] && [ "${'$'}MINOR" -ge 44 ]); then
+                        echo "✓ Docker API version compatible (${'$'}DOCKER_API_VERSION >= 1.44)"
+                        echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='local']"
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=true"
+                    else
+                        echo "⚠ Docker API version too old (${'$'}DOCKER_API_VERSION < 1.44)"
+                        echo "This will cause Testcontainers to fail with 'client version too old' error"
+                        echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
+                    fi
+                else
+                    echo "⚠ Could not determine Docker API version"
+                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
+                fi
+                
+            else
+                echo "⚠ No Docker environment available"
+                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
+            fi
+            
             TESTCONTAINERS_MODE="%env.TESTCONTAINERS_MODE%"
-            echo "Testcontainers mode detected: ${'$'}TESTCONTAINERS_MODE"
+            echo "Final Testcontainers mode: ${'$'}TESTCONTAINERS_MODE"
             
             case "${'$'}TESTCONTAINERS_MODE" in
                 "cloud")
-                    echo "Using Testcontainers Cloud for container tests"
-                    export TESTCONTAINERS_CLOUD_TOKEN="%env.TESTCONTAINERS_CLOUD_TOKEN%"
-                    export TESTCONTAINERS_RYUK_DISABLED=true
-                    
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%env.TESTCONTAINERS_CLOUD_TOKEN%"
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
+                    echo "Using Testcontainers Cloud for integration tests"
                     ;;
                 "local")
-                    echo "Using local Docker for container tests"
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=true"
+                    echo "Using local Docker for integration tests"
                     ;;
                 "skip"|*)
-                    echo "⚠ CRITICAL: Disabling integration tests - Docker environment not available"
-                    
-                    echo "STEP 1: Physically removing integration test files BEFORE any Gradle operations..."
-                    
-                    echo "Finding and disabling integration test files..."
-                    
-                    find . -name "*IntegrationTest.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -name "*IntegrationTest.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -name "*IT.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -name "*IT.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -name "ExampleIntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -name "IntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -path "*/integration/*Test.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -path "*/integration/*Test.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -path "*/testcontainers/*Test.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -path "*/testcontainers/*Test.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -path "*/src/test/*" -name "*IntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -path "*/src/test/*" -name "*IT.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    find . -path "*/src/test/*" -name "ExampleIntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
-                    
-                    echo "STEP 2: Creating backup gradle configuration to exclude tests..."
-                    
-                    cat > disable-integration-tests.gradle << 'DISABLE_SCRIPT_EOF'
-allprojects {
-    tasks.withType(Test) {
-        systemProperty 'testcontainers.disabled', 'true'
-        systemProperty 'testcontainers.docker.client.strategy', 'org.testcontainers.dockerclient.NullDockerClientProviderStrategy'
-        systemProperty 'testcontainers.reuse.enable', 'false'
-        systemProperty 'testcontainers.ryuk.disabled', 'true'
-        
-        environment 'TESTCONTAINERS_DISABLED', 'true'
-        environment 'TESTCONTAINERS_RYUK_DISABLED', 'true'
-        
-        exclude '**/IntegrationTest.class'
-        exclude '**/*IntegrationTest.class'
-        exclude '**/IntegrationTest$*.class'
-        exclude '**/*IntegrationTest$*.class'
-        exclude '**/integration/**'
-        exclude '**/*IT.class'
-        exclude '**/TestContainers*'
-        exclude '**/testcontainers/**'
-        exclude '**/ExampleIntegrationTest.class'
-        exclude '**/ExampleIntegrationTest$*.class'
-        exclude 'org/jetbrains/ExampleIntegrationTest.class'
-        exclude 'org/jetbrains/ExampleIntegrationTest$*.class'
-        exclude 'org/jetbrains/IntegrationTest.class'
-        exclude 'org/jetbrains/IntegrationTest$*.class'
-        
-        doFirst {
-            logger.warn("=== INTEGRATION TESTS DISABLED ===")
-            logger.warn("Running unit tests only - Docker environment unavailable")
-            logger.warn("Testcontainers mode: skip")
-        }
-        
-        onOutput { descriptor, event ->
-            def message = event.message
-            if (message.contains("testcontainers") || message.contains("docker") || message.contains("DockerClient")) {
-                logger.error("CRITICAL: Unexpected container-related activity detected: ${'$'}message")
-            }
-        }
-        
-        testClassesDirs = testClassesDirs.filter { dir ->
-            def hasIntegrationTests = false
-            if (dir.exists()) {
-                dir.eachFileRecurse { file ->
-                    if (file.name.contains("IntegrationTest") || file.name.contains("IT.")) {
-                        hasIntegrationTests = true
-                    }
-                }
-            }
-            return !hasIntegrationTests
-        }
-    }
-    
-    tasks.withType(JavaCompile) {
-        doFirst {
-            logger.warn("Excluding integration test compilation")
-        }
-    }
-    
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
-        doFirst {
-            logger.warn("Excluding Kotlin integration test compilation")  
-        }
-    }
-}
-DISABLE_SCRIPT_EOF
-                    
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS --init-script disable-integration-tests.gradle"
-                    
-                    echo "STEP 3: Verification - listing disabled files..."
-                    echo "Files that were disabled:"
-                    find . -name "*.disabled" -type f | head -20
-                    
-                    echo "STEP 4: Verification - ensuring no integration test classes remain..."
-                    REMAINING_INTEGRATION_TESTS=$(find . -name "*IntegrationTest.*" -type f | grep -v ".disabled" | head -5)
-                    if [ -n "${'$'}REMAINING_INTEGRATION_TESTS" ]; then
-                        echo "WARNING: Some integration test files may still be present:"
-                        echo "${'$'}REMAINING_INTEGRATION_TESTS"
-                    else
-                        echo "✓ No integration test files found - successfully disabled"
-                    fi
-                    ;;
+                    echo "❌ CRITICAL: Cannot run integration tests - no compatible Docker environment"
+                    echo "This will cause integration tests to fail as expected"
+                    echo "Consider configuring Testcontainers Cloud token for reliable test execution"
+                   ;;
             esac
             """
-        } else ""
-    }
+    } else ""}
         
-        ${
-        if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
-            """
+        ${if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
+        """
             if [ "%env.ANDROID_SDK_AVAILABLE%" != "false" ]; then
                 echo "Android SDK available, including Android tasks"
                 GRADLE_OPTS="${'$'}GRADLE_OPTS -Pandroid.enabled=true"
@@ -670,19 +607,16 @@ DISABLE_SCRIPT_EOF
                 GRADLE_OPTS="${'$'}GRADLE_OPTS -Pandroid.enabled=false"
             fi
             """
-        } else ""
-    }
+    } else ""}
         
-        ${
-        if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
-            """
+        ${if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
+        """
             if [ "%env.DAGGER_CONFIGURED%" = "true" ]; then
                 echo "Dagger annotation processing enabled"
                 GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdagger.enabled=true"
             fi
             """
-        } else ""
-    }
+    } else ""}
         
         echo "=== STARTING GRADLE OPERATIONS ==="
         echo "Final Gradle options: ${'$'}GRADLE_OPTS"
@@ -706,26 +640,15 @@ DISABLE_SCRIPT_EOF
             echo "Last 50 lines of build output:"
             ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | tail -50 || true
             
-            echo "Restoring disabled files for debugging..."
-            find . -name "*.disabled" -type f -exec sh -c 'mv "$1" "${'$'}{1%.disabled}"' _ {} \; 2>/dev/null || true
-            
             exit 1
         fi
         
-        if [ -n "${'$'}TESTCONTAINERS_MODE" ] && [ "${'$'}TESTCONTAINERS_MODE" = "skip" ]; then
-            echo "=== CLEANUP: Restoring disabled integration test files ==="
-            find . -name "*.disabled" -type f -exec sh -c 'mv "$1" "${'$'}{1%.disabled}"' _ {} \; 2>/dev/null || true
-            echo "Files restored for future runs"
-        fi
-        
-        ${
-        if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
-            """
+        ${if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+        """
             echo "Running multiplatform-specific tasks..."
             ./gradlew allTests ${'$'}GRADLE_OPTS || echo "⚠ Some multiplatform tests failed"
             """
-        } else ""
-    }
+    } else ""}
         
         echo "✓ Gradle build enhanced completed successfully"
     """.trimIndent()
