@@ -242,23 +242,44 @@ object ExternalSampleScripts {
         echo "✓ Project analysis completed"
     """.trimIndent()
 
-    fun setupDockerEnvironment() = """
-        echo "=== Docker Environment Setup ==="
-        echo "Checking Docker availability..."
-        if command -v docker >/dev/null 2>&1; then
-            echo "✓ Docker is available"
-            docker version || echo "Docker version check failed"
+    fun setupTestcontainersEnvironment() = """
+        #!/bin/bash
+        echo "=== Setting up Testcontainers Environment ==="
+        
+        if [ -n "${'$'}TC_CLOUD_TOKEN" ]; then
+            echo "✓ Testcontainers Cloud token found, configuring cloud environment"
             
-            echo "Starting Docker service if needed..."
-            sudo service docker start || echo "Docker service already running or start failed"
+            export TESTCONTAINERS_CLOUD_TOKEN="${'$'}TC_CLOUD_TOKEN"
+            export TESTCONTAINERS_RYUK_DISABLED=true
             
-            echo "Docker system info:"
-            docker system df || echo "Docker system info failed"
+            echo "" >> gradle.properties
+            echo "# Testcontainers Cloud Configuration" >> gradle.properties
+            echo "testcontainers.cloud.token=${'$'}TC_CLOUD_TOKEN" >> gradle.properties
+            echo "testcontainers.ryuk.disabled=true" >> gradle.properties
+            
+            echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
+            echo "✓ Testcontainers Cloud configured successfully"
         else
-            echo "⚠ Docker not available - skipping Docker-related tests"
-            echo "##teamcity[setParameter name='env.DOCKER_AVAILABLE' value='false']"
+            echo "No Testcontainers Cloud token found, checking for local Docker"
+            
+            if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+                echo "✓ Docker is available and running"
+                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='local']"
+            else
+                echo "⚠ Neither Testcontainers Cloud nor Docker available"
+                echo "Setting up test skip configuration..."
+                
+                echo "" >> gradle.properties
+                echo "# Skip Docker-dependent tests" >> gradle.properties
+                echo "skip.integration.tests=true" >> gradle.properties
+                echo "skip.docker.tests=true" >> gradle.properties
+                
+                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
+                echo "✓ Test skip configuration applied"
+            fi
         fi
-        echo "================================"
+        
+        echo "=== Testcontainers Environment Setup Complete ==="
     """.trimIndent()
 
     fun setupAndroidSDK() = """
@@ -479,23 +500,31 @@ EOF
         echo "KTOR_VERSION: %env.KTOR_VERSION%"
         echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
         
-        GRADLE_OPTS="--init-script gradle-eap-init.gradle"
+        GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
         
         ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
         """
-            if [ "${'$'}DOCKER_AVAILABLE" != "false" ]; then
-                echo "Docker is available, including Docker-related tasks"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=true"
-            else
-                echo "Docker not available, excluding Docker-related tasks"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=false"
-            fi
+            case "%env.TESTCONTAINERS_MODE%" in
+                "cloud")
+                    echo "Using Testcontainers Cloud for container tests"
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
+                    ;;
+                "local")
+                    echo "Using local Docker for container tests"
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=true"
+                    ;;
+                "skip")
+                    echo "Skipping Docker-dependent tests"
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -x test -x integrationTest"
+                    echo "⚠ Integration tests will be skipped due to missing Docker environment"
+                    ;;
+            esac
             """
     } else ""}
         
         ${if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
         """
-            if [ "${'$'}ANDROID_SDK_AVAILABLE" != "false" ]; then
+            if [ "%env.ANDROID_SDK_AVAILABLE%" != "false" ]; then
                 echo "Android SDK available, including Android tasks"
                 GRADLE_OPTS="${'$'}GRADLE_OPTS -Pandroid.enabled=true"
             else
@@ -507,7 +536,7 @@ EOF
         
         ${if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
         """
-            if [ "${'$'}DAGGER_CONFIGURED" = "true" ]; then
+            if [ "%env.DAGGER_CONFIGURED%" = "true" ]; then
                 echo "Dagger annotation processing enabled"
                 GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdagger.enabled=true"
             fi
@@ -522,7 +551,7 @@ EOF
             echo "⚠ Clean failed, continuing with build"
         fi
         
-        if ./gradlew build ${'$'}GRADLE_OPTS --stacktrace; then
+        if ./gradlew build ${'$'}GRADLE_OPTS; then
             echo "✓ Build completed successfully"
         else
             echo "❌ Build failed"
@@ -616,7 +645,7 @@ data class ExternalSampleConfig(
     override fun createEAPBuildType(): BuildType = BuildType {
         id("KtorExternalEAPSample_${projectName.replace('-', '_').replace('.', '_')}")
         name = "EAP External Sample: $projectName"
-        description = "Validate $projectName against EAP versions of Ktor with enhanced configuration preservation"
+        description = "Validate $projectName against EAP versions of Ktor with Testcontainers Cloud support"
 
         vcs {
             root(vcsRoot)
@@ -632,9 +661,15 @@ data class ExternalSampleConfig(
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
             param("env.PROJECT_NAME", projectName)
             param("env.BUILD_TYPE", buildType.name)
-            param("env.DOCKER_AVAILABLE", "true")
             param("env.ANDROID_SDK_AVAILABLE", "true")
             param("env.DAGGER_CONFIGURED", "false")
+            param("env.TESTCONTAINERS_MODE", "unknown")
+
+            if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+                password("TC_CLOUD_TOKEN", "credentialsJSON:testcontainers-cloud-token")
+                param("env.TESTCONTAINERS_CLOUD_TOKEN", "%TC_CLOUD_TOKEN%")
+                param("env.TESTCONTAINERS_RYUK_DISABLED", "true")
+            }
         }
 
         steps {
@@ -655,8 +690,8 @@ data class ExternalSampleConfig(
 
             if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                 script {
-                    name = "Setup Docker Environment"
-                    scriptContent = ExternalSampleScripts.setupDockerEnvironment()
+                    name = "Setup Testcontainers Environment"
+                    scriptContent = ExternalSampleScripts.setupTestcontainersEnvironment()
                 }
             }
 
@@ -765,6 +800,12 @@ data class ExternalSampleConfig(
                 failureMessage = "Build failure detected in external sample $projectName"
                 stopBuildOnFailure = true
             }
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "java.lang.IllegalStateException at DockerClientProviderStrategy"
+                failureMessage = "Docker/Testcontainers configuration issue in $projectName"
+                stopBuildOnFailure = false
+            }
             executionTimeoutMin = 30
         }
 
@@ -790,7 +831,7 @@ data class ExternalSampleConfig(
 object ExternalSamplesEAPValidation : Project({
     id("ExternalSamplesEAPValidation")
     name = "External Samples EAP Validation"
-    description = "Enhanced validation of external GitHub samples against EAP versions of Ktor with Compose Multiplatform support"
+    description = "Enhanced validation of external GitHub samples against EAP versions of Ktor with Testcontainers Cloud support"
 
     registerVCSRoots()
 
@@ -801,6 +842,8 @@ object ExternalSamplesEAPValidation : Project({
         param("configuration.preservation.enabled", "true")
         param("special.handling.enabled", "true")
         param("compose.multiplatform.support", "true")
+        param("testcontainers.cloud.enabled", "true")
+        password("testcontainers-cloud-token", "credentialsJSON:your-testcontainers-cloud-token-id")
     }
 
     val versionResolver = createVersionResolver()
@@ -844,7 +887,8 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
             SpecialHandling.DOCKER_TESTCONTAINERS
         ).build(),
     EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver).build(),
-    EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver).build(),
+    EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver)
+        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS).build(),
     EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver)
         .withSpecialHandling(SpecialHandling.ENHANCED_TOML_PATTERNS).build(),
     EAPSampleBuilder("amper-ktor-sample", VCSAmperKtorSample, versionResolver)
@@ -859,7 +903,7 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
 private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<BuildType>): BuildType = BuildType {
     id("KtorExternalSamplesEAPCompositeBuild")
     name = "External Samples EAP Validation (All)"
-    description = "Run all external samples against EAP versions of Ktor"
+    description = "Run all external samples against EAP versions of Ktor with Testcontainers Cloud support"
     type = BuildTypeSettings.Type.COMPOSITE
 
     params {
