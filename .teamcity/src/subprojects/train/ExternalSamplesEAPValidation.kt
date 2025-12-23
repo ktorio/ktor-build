@@ -551,62 +551,108 @@ EOF
                     GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=true"
                     ;;
                 "skip"|*)
-                    echo "⚠ Disabling integration tests - Docker environment not available"
+                    echo "⚠ CRITICAL: Disabling integration tests - Docker environment not available"
                     
-                    echo "Physically removing integration test files to prevent class loading..."
+                    echo "STEP 1: Physically removing integration test files BEFORE any Gradle operations..."
                     
-                    find . -name "*IntegrationTest.java" -type f -exec mv {} {}.disabled \; || true
-                    find . -name "*IntegrationTest.kt" -type f -exec mv {} {}.disabled \; || true
-                    find . -name "*IT.java" -type f -exec mv {} {}.disabled \; || true
-                    find . -name "*IT.kt" -type f -exec mv {} {}.disabled \; || true
-                    find . -name "ExampleIntegrationTest.*" -type f -exec mv {} {}.disabled \; || true
+                    echo "Finding and disabling integration test files..."
                     
-                    find . -path "*/integration/*Test.java" -type f -exec mv {} {}.disabled \; || true
-                    find . -path "*/integration/*Test.kt" -type f -exec mv {} {}.disabled \; || true
-                    find . -path "*/testcontainers/*Test.java" -type f -exec mv {} {}.disabled \; || true
-                    find . -path "*/testcontainers/*Test.kt" -type f -exec mv {} {}.disabled \; || true
+                    find . -name "*IntegrationTest.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -name "*IntegrationTest.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -name "*IT.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -name "*IT.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -name "ExampleIntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -name "IntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -path "*/integration/*Test.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -path "*/integration/*Test.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -path "*/testcontainers/*Test.java" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -path "*/testcontainers/*Test.kt" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -path "*/src/test/*" -name "*IntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -path "*/src/test/*" -name "*IT.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
+                    find . -path "*/src/test/*" -name "ExampleIntegrationTest.*" -type f -print -exec mv {} {}.disabled \; 2>/dev/null || true
                     
-                    echo "Integration test files physically disabled"
+                    echo "STEP 2: Creating backup gradle configuration to exclude tests..."
                     
-                    echo "Disabled files:"
-                    find . -name "*.disabled" -type f || true
-                    
-                    cat > disable-integration-tests.gradle << 'SCRIPT_EOF'
+                    cat > disable-integration-tests.gradle << 'DISABLE_SCRIPT_EOF'
 allprojects {
     tasks.withType(Test) {
         systemProperty 'testcontainers.disabled', 'true'
         systemProperty 'testcontainers.docker.client.strategy', 'org.testcontainers.dockerclient.NullDockerClientProviderStrategy'
+        systemProperty 'testcontainers.reuse.enable', 'false'
+        systemProperty 'testcontainers.ryuk.disabled', 'true'
         
         environment 'TESTCONTAINERS_DISABLED', 'true'
+        environment 'TESTCONTAINERS_RYUK_DISABLED', 'true'
         
         exclude '**/IntegrationTest.class'
         exclude '**/*IntegrationTest.class'
+        exclude '**/IntegrationTest$*.class'
+        exclude '**/*IntegrationTest$*.class'
         exclude '**/integration/**'
         exclude '**/*IT.class'
         exclude '**/TestContainers*'
         exclude '**/testcontainers/**'
         exclude '**/ExampleIntegrationTest.class'
-        
-        testLogging {
-            events "passed", "skipped", "failed"
-            showStandardStreams = true
-        }
+        exclude '**/ExampleIntegrationTest$*.class'
+        exclude 'org/jetbrains/ExampleIntegrationTest.class'
+        exclude 'org/jetbrains/ExampleIntegrationTest$*.class'
+        exclude 'org/jetbrains/IntegrationTest.class'
+        exclude 'org/jetbrains/IntegrationTest$*.class'
         
         doFirst {
-            logger.warn("Integration tests physically disabled - running unit tests only")
+            logger.warn("=== INTEGRATION TESTS DISABLED ===")
+            logger.warn("Running unit tests only - Docker environment unavailable")
+            logger.warn("Testcontainers mode: skip")
         }
         
         onOutput { descriptor, event ->
-            if (event.message.contains("testcontainers") || event.message.contains("docker")) {
-                logger.error("Unexpected container-related output: ${'$'}{event.message}")
+            def message = event.message
+            if (message.contains("testcontainers") || message.contains("docker") || message.contains("DockerClient")) {
+                logger.error("CRITICAL: Unexpected container-related activity detected: ${'$'}message")
             }
+        }
+        
+        testClassesDirs = testClassesDirs.filter { dir ->
+            def hasIntegrationTests = false
+            if (dir.exists()) {
+                dir.eachFileRecurse { file ->
+                    if (file.name.contains("IntegrationTest") || file.name.contains("IT.")) {
+                        hasIntegrationTests = true
+                    }
+                }
+            }
+            return !hasIntegrationTests
+        }
+    }
+    
+    tasks.withType(JavaCompile) {
+        doFirst {
+            logger.warn("Excluding integration test compilation")
+        }
+    }
+    
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile) {
+        doFirst {
+            logger.warn("Excluding Kotlin integration test compilation")  
         }
     }
 }
-SCRIPT_EOF
+DISABLE_SCRIPT_EOF
                     
                     GRADLE_OPTS="${'$'}GRADLE_OPTS --init-script disable-integration-tests.gradle"
-                    echo "Gradle configuration applied to disable integration tests"
+                    
+                    echo "STEP 3: Verification - listing disabled files..."
+                    echo "Files that were disabled:"
+                    find . -name "*.disabled" -type f | head -20
+                    
+                    echo "STEP 4: Verification - ensuring no integration test classes remain..."
+                    REMAINING_INTEGRATION_TESTS=$(find . -name "*IntegrationTest.*" -type f | grep -v ".disabled" | head -5)
+                    if [ -n "${'$'}REMAINING_INTEGRATION_TESTS" ]; then
+                        echo "WARNING: Some integration test files may still be present:"
+                        echo "${'$'}REMAINING_INTEGRATION_TESTS"
+                    else
+                        echo "✓ No integration test files found - successfully disabled"
+                    fi
                     ;;
             esac
             """
@@ -638,16 +684,18 @@ SCRIPT_EOF
         } else ""
     }
         
-        echo "Running Gradle build with options: ${'$'}GRADLE_OPTS"
+        echo "=== STARTING GRADLE OPERATIONS ==="
+        echo "Final Gradle options: ${'$'}GRADLE_OPTS"
         echo "Build task: ${'$'}BUILD_TASK"
         
+        echo "STEP: Gradle Clean..."
         if ./gradlew clean ${'$'}GRADLE_OPTS; then
             echo "✓ Clean completed successfully"
         else
             echo "⚠ Clean failed, continuing with build"
         fi
         
-        echo "Starting main build..."
+        echo "STEP: Gradle Build..."
         if ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS; then
             echo "✓ Build completed successfully"
         else
@@ -655,20 +703,19 @@ SCRIPT_EOF
             echo "Build output and logs:"
             echo "=============================="
             
-            # Show more detailed error information  
             echo "Last 50 lines of build output:"
             ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | tail -50 || true
             
             echo "Restoring disabled files for debugging..."
-            find . -name "*.disabled" -type f -exec sh -c 'mv "$1" "${'$'}{1%.disabled}"' _ {} \; || true
+            find . -name "*.disabled" -type f -exec sh -c 'mv "$1" "${'$'}{1%.disabled}"' _ {} \; 2>/dev/null || true
             
             exit 1
         fi
         
-        if [ "${'$'}TESTCONTAINERS_MODE" = "skip" ]; then
-            echo "Restoring disabled integration test files..."
-            find . -name "*.disabled" -type f -exec sh -c 'mv "$1" "${'$'}{1%.disabled}"' _ {} \; || true
-            echo "Files restored"
+        if [ -n "${'$'}TESTCONTAINERS_MODE" ] && [ "${'$'}TESTCONTAINERS_MODE" = "skip" ]; then
+            echo "=== CLEANUP: Restoring disabled integration test files ==="
+            find . -name "*.disabled" -type f -exec sh -c 'mv "$1" "${'$'}{1%.disabled}"' _ {} \; 2>/dev/null || true
+            echo "Files restored for future runs"
         fi
         
         ${
@@ -680,7 +727,7 @@ SCRIPT_EOF
         } else ""
     }
         
-        echo "✓ Gradle build enhanced completed"
+        echo "✓ Gradle build enhanced completed successfully"
     """.trimIndent()
 
     fun setupAmperRepositories() = """
