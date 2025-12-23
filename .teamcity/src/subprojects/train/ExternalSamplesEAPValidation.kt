@@ -534,6 +534,9 @@ EOF
         """
             echo "=== DOCKER/TESTCONTAINERS CONFIGURATION ==="
             
+            DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
+            echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
+            
             if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
                 echo "✓ Testcontainers Cloud token available - using cloud mode"
                 export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
