@@ -196,20 +196,20 @@ object ExternalSampleScripts {
                 set -e
                 echo "=== Setting up Testcontainers Environment ==="
 
-                if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
+                if [ -n "%env.TC_CLOUD_TOKEN%" ] && [ "%env.TC_CLOUD_TOKEN%" != "" ]; then
                     echo "✓ Testcontainers Cloud token found, configuring cloud environment"
 
                     mkdir -p ${'$'}HOME/.testcontainers
                     cat > ${'$'}HOME/.testcontainers/testcontainers.properties << 'EOF'
 testcontainers.reuse.enable=false
 ryuk.container.privileged=true
-testcontainers.cloud.token=%TC_CLOUD_TOKEN%
+testcontainers.cloud.token=%env.TC_CLOUD_TOKEN%
 EOF
 
-                    export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
+                    export TESTCONTAINERS_CLOUD_TOKEN="%env.TC_CLOUD_TOKEN%"
                     export TESTCONTAINERS_RYUK_DISABLED=true
 
-                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_CLOUD_TOKEN' value='%TC_CLOUD_TOKEN%']"
+                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_CLOUD_TOKEN' value='%env.TC_CLOUD_TOKEN%']"
                     echo "##teamcity[setParameter name='env.TESTCONTAINERS_RYUK_DISABLED' value='true']"
                     echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
 
@@ -223,9 +223,9 @@ EOF
 
                     echo "" >> gradle.properties
                     echo "# Testcontainers Cloud Configuration" >> gradle.properties
-                    echo "testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
+                    echo "testcontainers.cloud.token=%env.TC_CLOUD_TOKEN%" >> gradle.properties
                     echo "testcontainers.ryuk.disabled=true" >> gradle.properties
-                    echo "systemProp.testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
+                    echo "systemProp.testcontainers.cloud.token=%env.TC_CLOUD_TOKEN%" >> gradle.properties
                     echo "systemProp.testcontainers.ryuk.disabled=true" >> gradle.properties
 
                     echo "Contents of gradle.properties:"
@@ -399,15 +399,15 @@ EOF
                     DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
                     echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
 
-                    if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
+                    if [ -n "%env.TC_CLOUD_TOKEN%" ] && [ "%env.TC_CLOUD_TOKEN%" != "" ]; then
                         echo "✓ Testcontainers Cloud token available - using cloud mode"
-                        export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
+                        export TESTCONTAINERS_CLOUD_TOKEN="%env.TC_CLOUD_TOKEN%"
                         export TESTCONTAINERS_RYUK_DISABLED=true
                         export TESTCONTAINERS_REUSE_ENABLE=false
 
                         echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
 
-                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%TC_CLOUD_TOKEN%"
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%env.TC_CLOUD_TOKEN%"
                         GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
                         GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.reuse.enable=false"
                         GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
