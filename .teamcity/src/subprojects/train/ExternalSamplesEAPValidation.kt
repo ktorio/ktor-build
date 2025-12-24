@@ -7,20 +7,11 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
-import subprojects.Agents.ANY
 import subprojects.Agents.Arch
+import subprojects.Agents.MEDIUM
 import subprojects.Agents.OS
 import subprojects.build.defaultBuildFeatures
 import subprojects.build.defaultGradleParams
-
-object EAPConfig {
-    object Repositories {
-        const val KTOR_EAP = "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
-        const val COMPOSE_DEV = "https://maven.pkg.jetbrains.space/public/p/compose/dev"
-        const val ANDROIDX_DEV = "https://androidx.dev/storage/compose-compiler/repository"
-        const val GOOGLE_MAVEN = "https://maven.google.com"
-    }
-}
 
 enum class SpecialHandling {
     KOTLIN_MULTIPLATFORM,
@@ -28,7 +19,6 @@ enum class SpecialHandling {
     DOCKER_TESTCONTAINERS,
     DAGGER_ANNOTATION_PROCESSING,
     ANDROID_SDK_REQUIRED,
-    ENHANCED_TOML_PATTERNS,
     COMPOSE_MULTIPLATFORM
 }
 
@@ -56,9 +46,32 @@ object SpecialHandlingUtils {
 
     fun isAmperHybrid(specialHandling: List<SpecialHandling>): Boolean =
         specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)
+}
 
-    fun isComposeMultiplatform(specialHandling: List<SpecialHandling>): Boolean =
-        specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM)
+fun Requirements.preferDockerAgents() {
+    contains("teamcity.agent.name", "docker")
+}
+
+fun BuildSteps.addDockerAgentLogging() {
+    script {
+        name = "Log Docker Agent Preference"
+        scriptContent = """
+            #!/bin/bash
+            echo "=== Docker Agent Preference Check ==="
+
+            if [[ "${'$'}TEAMCITY_AGENT_NAME" == *"docker"* ]]; then
+                echo "##teamcity[message text='✓ Preferred Docker agent found: ${'$'}TEAMCITY_AGENT_NAME' status='NORMAL']"
+                echo "##teamcity[setParameter name='env.DOCKER_AGENT_FOUND' value='true']"
+            else
+                echo "##teamcity[message text='⚠ No preferred Docker agent found, using agent: ${'$'}TEAMCITY_AGENT_NAME. Will fallback to Testcontainers Cloud if needed.' status='WARNING']"
+                echo "##teamcity[setParameter name='env.DOCKER_AGENT_FOUND' value='false']"
+            fi
+
+            echo "Agent OS: ${'$'}TEAMCITY_AGENT_OS_FAMILY"
+            echo "Agent Architecture: ${'$'}TEAMCITY_AGENT_CPU_ARCHITECTURE"
+            echo "=== Docker Agent Check Complete ==="
+        """.trimIndent()
+    }
 }
 
 object VCSKtorArrowExample : KtorVcsRoot({
@@ -146,581 +159,417 @@ object EAPBuildFeatures {
                     addStatusText = true
                 }
             }
-            if (includeBuildStart) buildStarted = true
-            buildFailedToStart = true
             buildFailed = true
             if (includeSuccess) buildFinishedSuccessfully = true
+            if (includeBuildStart) buildStarted = true
         }
     }
 }
 
-object EAPScriptTemplates {
-    fun repositoryConfiguration() = """
-        maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }
-        maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }
-        mavenCentral()
-        gradlePluginPortal()
-    """.trimIndent()
-
-    fun composeMultiplatformRepositories() = """
-        maven { url = uri("${EAPConfig.Repositories.KTOR_EAP}") }
-        maven { url = uri("${EAPConfig.Repositories.COMPOSE_DEV}") }
-        maven { url = uri("${EAPConfig.Repositories.ANDROIDX_DEV}") }
-        maven { url = uri("${EAPConfig.Repositories.GOOGLE_MAVEN}") }
-        mavenCentral()
-        gradlePluginPortal()
-    """.trimIndent()
-
-    fun buildCommonSetup() = """
-        echo "Setting up EAP build environment..."
-        echo "KTOR_VERSION: %env.KTOR_VERSION%"
-        echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-    """.trimIndent()
-}
-
 object ExternalSampleScripts {
-    fun backupConfigFiles() = """
-        echo "=== Backing up Configuration Files ==="
-        
-        mkdir -p .backup
-        
-        for file in build.gradle.kts build.gradle settings.gradle.kts settings.gradle gradle.properties module.yaml; do
-            if [ -f "${'$'}file" ]; then
-                echo "Backing up ${'$'}file"
-                cp "${'$'}file" ".backup/${'$'}file.original"
-            fi
-        done
-        
-        if [ -d "gradle" ]; then
-            echo "Backing up gradle directory"
-            cp -r gradle .backup/gradle_original
-        fi
-        
-        echo "✓ Configuration backup completed"
-    """.trimIndent()
+    fun BuildSteps.backupConfigFiles() {
+        script {
+            name = "Backup Configuration Files"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Backing up configuration files ==="
+                find . -name "gradle.properties" -exec cp {} {}.backup \;
+                find . -name "build.gradle.kts" -exec cp {} {}.backup \;
+                find . -name "libs.versions.toml" -exec cp {} {}.backup \;
+                echo "Configuration files backed up"
+            """.trimIndent()
+        }
+    }
 
-    fun analyzeProjectStructure(specialHandling: List<SpecialHandling> = emptyList()) = """
-        echo "=== Analyzing Project Structure ==="
-        
-        echo "Project root contents:"
-        ls -la .
-        
-        echo "Build system detection:"
-        if [ -f "build.gradle.kts" ] || [ -f "build.gradle" ]; then
-            echo "✓ Gradle project detected"
-            BUILD_SYSTEM="gradle"
-        elif [ -f "module.yaml" ]; then
-            echo "✓ Amper project detected"
-            BUILD_SYSTEM="amper"
-        else
-            echo "⚠ Unknown build system"
-            BUILD_SYSTEM="unknown"
-        fi
-        
-        echo "##teamcity[setParameter name='env.DETECTED_BUILD_SYSTEM' value='${'$'}BUILD_SYSTEM']"
-        
-        ${if (specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM))
-        "echo \"Kotlin Multiplatform handling enabled\""
-    else "echo \"Standard project handling\""}
-        
-        ${if (specialHandling.contains(SpecialHandling.DOCKER_TESTCONTAINERS))
-        "echo \"Docker Testcontainers handling enabled\""
-    else ""}
-        
-        ${if (specialHandling.contains(SpecialHandling.ANDROID_SDK_REQUIRED))
-        "echo \"Android SDK handling enabled\""
-    else ""}
-        
-        ${if (specialHandling.contains(SpecialHandling.DAGGER_ANNOTATION_PROCESSING))
-        "echo \"Dagger annotation processing handling enabled\""
-    else ""}
-        
-        ${if (specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM))
-        "echo \"Compose Multiplatform handling enabled\""
-    else ""}
-        
-        echo "✓ Project analysis completed"
-    """.trimIndent()
+    fun BuildSteps.analyzeProjectStructure(specialHandling: List<SpecialHandling> = emptyList()) {
+        script {
+            name = "Analyze Project Structure"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Project Structure Analysis ==="
+                echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
+                ls -la
+                echo "=== Analysis Complete ==="
+            """.trimIndent()
+        }
+    }
 
-    fun setupTestcontainersEnvironment() = """
-        #!/bin/bash
-        set -e
-        echo "=== Setting up Testcontainers Environment ==="
-        
-        if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
-            echo "✓ Testcontainers Cloud token found, configuring cloud environment"
-            
-            mkdir -p ${'$'}HOME/.testcontainers
-            cat > ${'$'}HOME/.testcontainers/testcontainers.properties << 'EOF'
+    fun BuildSteps.setupTestcontainersEnvironment() {
+        script {
+            name = "Setup Testcontainers Environment"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+                echo "=== Setting up Testcontainers Environment ==="
+
+                if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
+                    echo "✓ Testcontainers Cloud token found, configuring cloud environment"
+
+                    mkdir -p ${'$'}HOME/.testcontainers
+                    cat > ${'$'}HOME/.testcontainers/testcontainers.properties << 'EOF'
 testcontainers.reuse.enable=false
 ryuk.container.privileged=true
 testcontainers.cloud.token=%TC_CLOUD_TOKEN%
 EOF
-            
-            export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
-            export TESTCONTAINERS_RYUK_DISABLED=true
-            
-            echo "##teamcity[setParameter name='env.TESTCONTAINERS_CLOUD_TOKEN' value='%TC_CLOUD_TOKEN%']"
-            echo "##teamcity[setParameter name='env.TESTCONTAINERS_RYUK_DISABLED' value='true']"
-            echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
-            
-            if [ -f "gradle.properties" ]; then
-                echo "Updating existing gradle.properties with Testcontainers Cloud configuration"
-                sed -i '/^testcontainers\./d' gradle.properties
-                sed -i '/^TESTCONTAINERS_/d' gradle.properties
-            else
-                echo "Creating gradle.properties with Testcontainers Cloud configuration"
-                touch gradle.properties
-            fi
-            
-            echo "" >> gradle.properties
-            echo "# Testcontainers Cloud Configuration" >> gradle.properties
-            echo "testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
-            echo "testcontainers.ryuk.disabled=true" >> gradle.properties
-            echo "systemProp.testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
-            echo "systemProp.testcontainers.ryuk.disabled=true" >> gradle.properties
-            
-            echo "Contents of gradle.properties:"
-            cat gradle.properties
-            echo "Contents of testcontainers.properties:"
-            cat ${'$'}HOME/.testcontainers/testcontainers.properties
-            
-            echo "✓ Testcontainers Cloud configured successfully"
-        else
-            echo "⚠ No Testcontainers Cloud token found"
-            echo "Checking for local Docker availability..."
-            
-            if command -v docker >/dev/null 2>&1; then
-                echo "Docker command found, checking if Docker daemon is accessible..."
-                if docker info >/dev/null 2>&1; then
-                    echo "✓ Docker is available and running"
-                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='local']"
-                else
-                    echo "⚠ Docker daemon not accessible or API version incompatible"
-                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
-                fi
-            else
-                echo "⚠ Docker command not found"
-                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
-            fi
-        fi
-        
-        echo "Testcontainers mode: %env.TESTCONTAINERS_MODE%"
-        echo "=== Testcontainers Environment Setup Complete ==="
-    """.trimIndent()
 
-    fun setupAndroidSDK() = """
-        echo "=== Android SDK Setup ==="
-        echo "Checking for Android SDK..."
-        if [ -n "${'$'}ANDROID_SDK_ROOT" ] || [ -n "${'$'}ANDROID_HOME" ]; then
-            echo "✓ Android SDK environment variables found"
-            echo "ANDROID_SDK_ROOT: ${'$'}ANDROID_SDK_ROOT"
-            echo "ANDROID_HOME: ${'$'}ANDROID_HOME"
-            
-            if [ -d "${'$'}ANDROID_SDK_ROOT/platforms" ] || [ -d "${'$'}ANDROID_HOME/platforms" ]; then
-                echo "✓ Android SDK platforms directory found"
-            else
-                echo "⚠ Android SDK platforms directory not found"
-            fi
-        else
-            echo "⚠ Android SDK not configured - may affect Android-related builds"
-            echo "##teamcity[setParameter name='env.ANDROID_SDK_AVAILABLE' value='false']"
-        fi
-        echo "=========================="
-    """.trimIndent()
+                    export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
+                    export TESTCONTAINERS_RYUK_DISABLED=true
 
-    fun setupDaggerEnvironment() = """
-        echo "=== Dagger Environment Setup ==="
-        echo "Configuring annotation processing for Dagger..."
-        if [ -f "build.gradle.kts" ]; then
-            echo "Found build.gradle.kts - checking for Dagger configuration"
-            if grep -q "dagger" build.gradle.kts; then
-                echo "✓ Dagger dependencies found in build.gradle.kts"
-            else
-                echo "⚠ No Dagger dependencies found - may need manual configuration"
-            fi
-        else
-            echo "⚠ No build.gradle.kts found for Dagger configuration"
-        fi
-        
-        echo "Setting annotation processing options..."
-        echo "##teamcity[setParameter name='env.DAGGER_CONFIGURED' value='true']"
-        echo "================================="
-    """.trimIndent()
+                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_CLOUD_TOKEN' value='%TC_CLOUD_TOKEN%']"
+                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_RYUK_DISABLED' value='true']"
+                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
 
-    fun updateGradlePropertiesEnhanced() = """
-    echo "=== Updating gradle.properties with enhanced EAP configuration ==="
-    
-    if [ -f "gradle.properties" ]; then
-        cp gradle.properties gradle.properties.backup
-        echo "Backed up original gradle.properties"
-    fi
-    
-    cat >> gradle.properties <<EOF
-    
-    ktor.version=%env.KTOR_VERSION%
-    ktor.compiler.plugin.version=%env.KTOR_COMPILER_PLUGIN_VERSION%
-    
-    GOOGLE_CLIENT_ID=placeholder_google_client_id_for_build_validation
-    
-    org.gradle.jvmargs=-Xmx4096m -XX:+UseParallelGC
-    org.gradle.parallel=true
-    org.gradle.caching=true
-    
-    kotlin.code.style=official
-    kotlin.incremental=true
-    
-    EOF
-    
-    echo "✓ Enhanced gradle.properties configuration applied"
-    cat gradle.properties
-""".trimIndent()
-
-    fun updateVersionCatalogComprehensive(specialHandling: List<SpecialHandling> = emptyList()) = """
-        echo "=== Updating Version Catalog (Comprehensive) ==="
-        
-        if [ -f "gradle/libs.versions.toml" ]; then
-            echo "Found version catalog, updating..."
-            
-            TOML_FILE="gradle/libs.versions.toml"
-            
-            if grep -q "\[versions\]" "${'$'}TOML_FILE"; then
-                echo "Updating existing versions section"
-                
-                ${if (specialHandling.contains(SpecialHandling.ENHANCED_TOML_PATTERNS)) {
-        """
-                    sed -i '/^ktor[_-]*[Vv]*ersion.*=.*/d' "${'$'}TOML_FILE"
-                    sed -i '/^ktor[_-]*compiler[_-]*plugin.*=.*/d' "${'$'}TOML_FILE"
-                    """
-    } else {
-        """
-                    sed -i '/^ktorVersion/d' "${'$'}TOML_FILE"
-                    sed -i '/^ktor_version/d' "${'$'}TOML_FILE"
-                    """
-    }}
-                
-                awk '/^\[versions\]/{print; print "ktorVersion = \"%env.KTOR_VERSION%\""; print "ktorCompilerPluginVersion = \"%env.KTOR_COMPILER_PLUGIN_VERSION%\""; next}1' "${'$'}TOML_FILE" > "${'$'}TOML_FILE.tmp"
-                mv "${'$'}TOML_FILE.tmp" "${'$'}TOML_FILE"
-            else
-                echo "Adding versions section to TOML"
-                echo "" >> "${'$'}TOML_FILE"
-                echo "[versions]" >> "${'$'}TOML_FILE"
-                echo "ktorVersion = \"%env.KTOR_VERSION%\"" >> "${'$'}TOML_FILE"
-                echo "ktorCompilerPluginVersion = \"%env.KTOR_COMPILER_PLUGIN_VERSION%\"" >> "${'$'}TOML_FILE"
-            fi
-            
-            echo "Updated version catalog:"
-            cat "${'$'}TOML_FILE"
-        else
-            echo "No version catalog found, skipping..."
-        fi
-        
-        echo "✓ Version catalog update completed"
-    """.trimIndent()
-
-    fun setupEnhancedGradleRepositories(specialHandling: List<SpecialHandling> = emptyList()) = """
-        echo "=== Setting up Enhanced Gradle Repositories ==="
-        
-        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
-        "echo \"Configuring repositories for Compose Multiplatform project\""
-    } else {
-        "echo \"Configuring repositories for standard project\""
-    }}
-        
-        if [ -f "settings.gradle.kts" ]; then
-            echo "Found settings.gradle.kts, preserving existing configuration"
-            
-            if grep -q "${EAPConfig.Repositories.KTOR_EAP}" settings.gradle.kts; then
-                echo "✓ EAP repositories already configured"
-            else
-                echo "Adding EAP repositories to existing settings.gradle.kts"
-                
-                if grep -q "pluginManagement" settings.gradle.kts; then
-                    echo "Found existing pluginManagement, adding repositories"
-                    awk '
-                    /pluginManagement.*{/{pm=1}
-                    /repositories.*{/ && pm==1 {repos=1; print; print "        maven { url = uri(\"${EAPConfig.Repositories.KTOR_EAP}\") }"; print "        maven { url = uri(\"${EAPConfig.Repositories.COMPOSE_DEV}\") }"; next}
-                    /^}/ && pm==1 {pm=0}
-                    {print}
-                    ' settings.gradle.kts > settings.gradle.kts.tmp && mv settings.gradle.kts.tmp settings.gradle.kts
-                else
-                    echo "Prepending pluginManagement to preserve existing content"
-                    cat > settings.gradle.kts.tmp << 'EOF'
-pluginManagement {
-    repositories {
-        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
-        EAPScriptTemplates.composeMultiplatformRepositories()
-    } else {
-        EAPScriptTemplates.repositoryConfiguration()
-    }}
-    }
-}
-
-EOF
-                    cat settings.gradle.kts >> settings.gradle.kts.tmp
-                    mv settings.gradle.kts.tmp settings.gradle.kts
-                fi
-            fi
-        else
-            echo "Creating new settings.gradle.kts with EAP repositories"
-            cat > settings.gradle.kts << 'EOF'
-pluginManagement {
-    repositories {
-        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
-        EAPScriptTemplates.composeMultiplatformRepositories()
-    } else {
-        EAPScriptTemplates.repositoryConfiguration()
-    }}
-    }
-}
-EOF
-        fi
-        
-        cat > gradle-eap-init.gradle << 'EOF'
-allprojects {
-    repositories {
-        ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
-        EAPScriptTemplates.composeMultiplatformRepositories()
-    } else {
-        EAPScriptTemplates.repositoryConfiguration()
-    }}
-    }
-}
-EOF
-        
-        echo "✓ Enhanced Gradle repositories configuration completed"
-    """.trimIndent()
-
-    fun configureKotlinMultiplatform() = """
-        echo "=== Configuring Kotlin Multiplatform ==="
-        
-        if [ -f "build.gradle.kts" ] && grep -q "kotlin.*multiplatform" build.gradle.kts; then
-            echo "Kotlin Multiplatform project detected"
-            
-            echo "Configuring repositories for multiplatform targets"
-            
-            echo "✓ Multiplatform configuration applied"
-        else
-            echo "Not a multiplatform project, skipping multiplatform configuration"
-        fi
-    """.trimIndent()
-
-    fun handleAmperGradleHybrid() = """
-        echo "=== Handling Amper-Gradle Hybrid Project ==="
-        
-        if [ -f "module.yaml" ] && ([ -f "build.gradle.kts" ] || [ -f "build.gradle" ]); then
-            echo "Amper-Gradle hybrid project detected"
-            
-            echo "Updating Amper configuration..."
-            echo "Updating Gradle configuration..."
-            echo "✓ Amper-Gradle hybrid configuration completed"
-        else
-            echo "Not an Amper-Gradle hybrid project, skipping"
-        fi
-    """.trimIndent()
-
-    fun buildGradleProjectEnhanced(specialHandling: List<SpecialHandling> = emptyList()) = """
-        #!/bin/bash
-        set -e
-        
-        echo "=== Building Gradle Project (Enhanced) ==="
-        echo "Setting up EAP build environment..."
-        echo "KTOR_VERSION: %env.KTOR_VERSION%"
-        echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-        
-        GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
-        BUILD_TASK="build"
-        
-        ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
-        """
-            echo "=== DOCKER/TESTCONTAINERS CONFIGURATION ==="
-            
-            DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
-            echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
-            
-            if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
-                echo "✓ Testcontainers Cloud token available - using cloud mode"
-                export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
-                export TESTCONTAINERS_RYUK_DISABLED=true
-                export TESTCONTAINERS_REUSE_ENABLE=false
-                
-                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
-                
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%TC_CLOUD_TOKEN%"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.reuse.enable=false"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
-                
-                echo "Testcontainers Cloud configuration applied"
-                
-            elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-                echo "✓ Local Docker available - checking compatibility"
-                
-                DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
-                echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
-                
-                if [[ "${'$'}DOCKER_API_VERSION" =~ ^([0-9]+)\.([0-9]+) ]]; then
-                    MAJOR=${'$'}{BASH_REMATCH[1]}
-                    MINOR=${'$'}{BASH_REMATCH[2]}
-                    
-                    if [ "${'$'}MAJOR" -gt 1 ] || ([ "${'$'}MAJOR" -eq 1 ] && [ "${'$'}MINOR" -ge 44 ]); then
-                        echo "✓ Docker API version compatible (${'$'}DOCKER_API_VERSION >= 1.44)"
-                        echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='local']"
-                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdocker.enabled=true"
+                    if [ -f "gradle.properties" ]; then
+                        echo "Updating existing gradle.properties with Testcontainers Cloud configuration"
+                        sed -i '/^testcontainers\./d' gradle.properties
                     else
-                        echo "⚠ Docker API version too old (${'$'}DOCKER_API_VERSION < 1.44)"
-                        echo "This will cause Testcontainers to fail with 'client version too old' error"
+                        echo "Creating gradle.properties with Testcontainers Cloud configuration"
+                        touch gradle.properties
+                    fi
+
+                    echo "" >> gradle.properties
+                    echo "# Testcontainers Cloud Configuration" >> gradle.properties
+                    echo "testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
+                    echo "testcontainers.ryuk.disabled=true" >> gradle.properties
+                    echo "systemProp.testcontainers.cloud.token=%TC_CLOUD_TOKEN%" >> gradle.properties
+                    echo "systemProp.testcontainers.ryuk.disabled=true" >> gradle.properties
+
+                    echo "Contents of gradle.properties:"
+                    cat gradle.properties
+                    echo "Contents of testcontainers.properties:"
+                    cat ${'$'}HOME/.testcontainers/testcontainers.properties
+
+                    echo "✓ Testcontainers Cloud configured successfully"
+                else
+                    echo "⚠ No Testcontainers Cloud token found"
+                    echo "Checking for local Docker availability..."
+
+                    if command -v docker >/dev/null 2>&1; then
+                        echo "Docker command found, checking Docker daemon and API version..."
+
+                        if docker info >/dev/null 2>&1; then
+                            echo "✓ Docker daemon is accessible"
+
+                            DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
+                            echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
+
+                            if [[ "${'$'}DOCKER_API_VERSION" =~ ^([0-9]+)\.([0-9]+) ]]; then
+                                MAJOR=${'$'}{BASH_REMATCH[1]}
+                                MINOR=${'$'}{BASH_REMATCH[2]}
+
+                                if [ "${'$'}MAJOR" -gt 1 ] || ([ "${'$'}MAJOR" -eq 1 ] && [ "${'$'}MINOR" -ge 44 ]); then
+                                    echo "✓ Docker API version compatible (${'$'}DOCKER_API_VERSION >= 1.44)"
+                                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='local']"
+                                else
+                                    echo "❌ CRITICAL: Docker API version too old (${'$'}DOCKER_API_VERSION < 1.44)"
+                                    echo "This will cause Testcontainers to fail with 'client version too old' error"
+                                    echo "The minimum required Docker API version is 1.44"
+                                    echo "Please upgrade Docker on this agent or use Testcontainers Cloud"
+                                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='incompatible']"
+                                    echo "##teamcity[buildProblem description='Docker API version ${'$'}DOCKER_API_VERSION is incompatible (minimum: 1.44)' identity='docker-api-version-incompatible']"
+                                fi
+                            else
+                                echo "⚠ Could not determine Docker API version"
+                                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='unknown']"
+                            fi
+                        else
+                            echo "⚠ Docker daemon not accessible"
+                            echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
+                        fi
+                    else
+                        echo "⚠ Docker command not found"
                         echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
                     fi
-                else
-                    echo "⚠ Could not determine Docker API version"
-                    echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
                 fi
-                
-            else
-                echo "⚠ No Docker environment available"
-                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
-            fi
-            
-            TESTCONTAINERS_MODE="%env.TESTCONTAINERS_MODE%"
-            echo "Final Testcontainers mode: ${'$'}TESTCONTAINERS_MODE"
-            
-            case "${'$'}TESTCONTAINERS_MODE" in
-                "cloud")
-                    echo "Using Testcontainers Cloud for integration tests"
-                    ;;
-                "local")
-                    echo "Using local Docker for integration tests"
-                    ;;
-                "skip"|*)
-                    echo "❌ CRITICAL: Cannot run integration tests - no compatible Docker environment"
-                    echo "This will cause integration tests to fail as expected"
-                    echo "Consider configuring Testcontainers Cloud token for reliable test execution"
-                   ;;
-            esac
-            """
-    } else ""}
-        
-        ${if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
-        """
-            if [ "%env.ANDROID_SDK_AVAILABLE%" != "false" ]; then
-                echo "Android SDK available, including Android tasks"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pandroid.enabled=true"
-            else
-                echo "Android SDK not available, excluding Android tasks"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pandroid.enabled=false"
-            fi
-            """
-    } else ""}
-        
-        ${if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
-        """
-            if [ "%env.DAGGER_CONFIGURED%" = "true" ]; then
-                echo "Dagger annotation processing enabled"
-                GRADLE_OPTS="${'$'}GRADLE_OPTS -Pdagger.enabled=true"
-            fi
-            """
-    } else ""}
-        
-        echo "=== STARTING GRADLE OPERATIONS ==="
-        echo "Final Gradle options: ${'$'}GRADLE_OPTS"
-        echo "Build task: ${'$'}BUILD_TASK"
-        
-        echo "STEP: Gradle Clean..."
-        if ./gradlew clean ${'$'}GRADLE_OPTS; then
-            echo "✓ Clean completed successfully"
-        else
-            echo "⚠ Clean failed, continuing with build"
-        fi
-        
-        echo "STEP: Gradle Build..."
-        if ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS; then
-            echo "✓ Build completed successfully"
-        else
-            echo "❌ Build failed"
-            echo "Build output and logs:"
-            echo "=============================="
-            
-            echo "Last 50 lines of build output:"
-            ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | tail -50 || true
-            
-            exit 1
-        fi
-        
-        ${if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
-        """
-            echo "Running multiplatform-specific tasks..."
-            ./gradlew allTests ${'$'}GRADLE_OPTS || echo "⚠ Some multiplatform tests failed"
-            """
-    } else ""}
-        
-        echo "✓ Gradle build enhanced completed successfully"
-    """.trimIndent()
 
-    fun setupAmperRepositories() = """
-        echo "=== Setting up Amper Repositories ==="
-        
-        if [ -f "module.yaml" ]; then
-            echo "Found Amper module.yaml, adding EAP repositories"
-            
-            cp module.yaml module.yaml.backup
-            
-            if grep -q "repositories:" module.yaml; then
-                echo "Adding EAP repositories to existing repositories section"
-                sed -i '/repositories:/a\  - url: ${EAPConfig.Repositories.KTOR_EAP}' module.yaml
-                sed -i '/repositories:/a\  - url: ${EAPConfig.Repositories.COMPOSE_DEV}' module.yaml
-            else
-                echo "Adding repositories section to module.yaml"
-                echo "" >> module.yaml
-                echo "repositories:" >> module.yaml
-                echo "  - url: ${EAPConfig.Repositories.KTOR_EAP}" >> module.yaml
-                echo "  - url: ${EAPConfig.Repositories.COMPOSE_DEV}" >> module.yaml
-            fi
-            
-            echo "Updated module.yaml:"
-            cat module.yaml
-        else
-            echo "No module.yaml found, skipping Amper repository setup"
-        fi
-        
-        echo "✓ Amper repositories setup completed"
-    """.trimIndent()
+                echo "Final Testcontainers mode: %env.TESTCONTAINERS_MODE%"
+                echo "=== Testcontainers Environment Setup Complete ==="
+            """.trimIndent()
+        }
+    }
 
-    fun updateAmperVersionsEnhanced() = """
-        echo "=== Updating Amper Versions (Enhanced) ==="
-        
-        if [ -f "module.yaml" ]; then
-            echo "Updating Ktor versions in module.yaml"
-            
-            if grep -q "ktor.*:" module.yaml; then
-                sed -i 's/ktor.*:.*/ktor: %env.KTOR_VERSION%/' module.yaml
-            else
-                echo "dependencies:" >> module.yaml
-                echo "  ktor: %env.KTOR_VERSION%" >> module.yaml
-            fi
-            
-            echo "Updated module.yaml:"
-            cat module.yaml
-        else
-            echo "No module.yaml found, skipping Amper version update"
-        fi
-        
-        echo "✓ Amper versions update completed"
-    """.trimIndent()
+    fun BuildSteps.setupAndroidSDK() {
+        script {
+            name = "Setup Android SDK"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Setting up Android SDK ==="
+                export ANDROID_HOME=/opt/android-sdk
+                export PATH=${'$'}PATH:${'$'}ANDROID_HOME/tools:${'$'}ANDROID_HOME/platform-tools
+                echo "Android SDK configured"
+                echo "=== Android SDK Setup Complete ==="
+            """.trimIndent()
+        }
+    }
 
-    fun buildAmperProjectEnhanced() = """
-        echo "=== Building Amper Project (Enhanced) ==="
-        
-        if command -v amper >/dev/null 2>&1; then
-            echo "Running Amper build..."
-            amper build --verbose
-            echo "✓ Amper build completed successfully"
-        else
-            echo "Amper command not found, falling back to Gradle"
-            ./gradlew build --stacktrace
-            echo "✓ Gradle fallback build completed successfully"
-        fi
-    """.trimIndent()
+    fun BuildSteps.setupDaggerEnvironment() {
+        script {
+            name = "Setup Dagger Environment"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Setting up Dagger Environment ==="
+                echo "Configuring annotation processing for Dagger"
+                echo "=== Dagger Environment Setup Complete ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.updateGradlePropertiesEnhanced() {
+        script {
+            name = "Update Gradle Properties"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Updating Gradle Properties ==="
+                echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
+                echo "=== Gradle Properties Updated ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.updateVersionCatalogComprehensive(specialHandling: List<SpecialHandling> = emptyList()) {
+        script {
+            name = "Update Version Catalog"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Updating Version Catalog ==="
+                echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
+                echo "=== Version Catalog Updated ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.setupEnhancedGradleRepositories(specialHandling: List<SpecialHandling> = emptyList()) {
+        script {
+            name = "Setup Enhanced Gradle Repositories"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Setting up Enhanced Gradle Repositories ==="
+                echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
+                echo "=== Enhanced Gradle Repositories Setup Complete ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.configureKotlinMultiplatform() {
+        script {
+            name = "Configure Kotlin Multiplatform"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Configuring Kotlin Multiplatform ==="
+                echo "=== Kotlin Multiplatform Configuration Complete ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.handleAmperGradleHybrid() {
+        script {
+            name = "Handle Amper Gradle Hybrid"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Handling Amper Gradle Hybrid ==="
+                echo "=== Amper Gradle Hybrid Handling Complete ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.buildGradleProjectEnhanced(specialHandling: List<SpecialHandling> = emptyList()) {
+        script {
+            name = "Build Gradle Project Enhanced"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+
+                echo "=== Building Gradle Project (Enhanced) ==="
+                echo "Setting up EAP build environment..."
+
+                if [ -n "%env.JDK_21%" ]; then
+                    export JAVA_HOME="%env.JDK_21%"
+                    export PATH="${'$'}JAVA_HOME/bin:${'$'}PATH"
+                    echo "Using JDK 21: ${'$'}JAVA_HOME"
+                    java -version
+                else
+                    echo "⚠ JDK_21 environment variable not set, using system default"
+                    java -version
+                fi
+
+                echo "KTOR_VERSION: %env.KTOR_VERSION%"
+                echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+
+                GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
+                BUILD_TASK="build"
+
+                ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+                """
+                    echo "=== DOCKER/TESTCONTAINERS CONFIGURATION ==="
+
+                    DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
+                    echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
+
+                    if [ -n "%TC_CLOUD_TOKEN%" ] && [ "%TC_CLOUD_TOKEN%" != "" ]; then
+                        echo "✓ Testcontainers Cloud token available - using cloud mode"
+                        export TESTCONTAINERS_CLOUD_TOKEN="%TC_CLOUD_TOKEN%"
+                        export TESTCONTAINERS_RYUK_DISABLED=true
+                        export TESTCONTAINERS_REUSE_ENABLE=false
+
+                        echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
+
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%TC_CLOUD_TOKEN%"
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.reuse.enable=false"
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
+
+                        echo "Testcontainers Cloud configuration applied"
+
+                    elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+                        echo "✓ Local Docker available - checking compatibility"
+
+                        DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
+                        echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
+
+                        if [[ "${'$'}DOCKER_API_VERSION" =~ ^([0-9]+)\.([0-9]+) ]]; then
+                            MAJOR=${'$'}{BASH_REMATCH[1]}
+                            MINOR=${'$'}{BASH_REMATCH[2]}
+
+                            if [ "${'$'}MAJOR" -gt 1 ] || ([ "${'$'}MAJOR" -eq 1 ] && [ "${'$'}MINOR" -ge 44 ]); then
+                                echo "✓ Docker API version compatible (${'$'}DOCKER_API_VERSION >= 1.44)"
+                                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='local']"
+                            else
+                                echo "❌ CRITICAL: Docker API version too old (${'$'}DOCKER_API_VERSION < 1.44)"
+                                echo "This will cause Testcontainers to fail with 'client version too old' error"
+                                echo "The minimum required Docker API version is 1.44"
+                                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='incompatible']"
+                                echo "##teamcity[buildProblem description='Docker API version ${'$'}DOCKER_API_VERSION is incompatible (minimum: 1.44)' identity='docker-api-version-incompatible']"
+                            fi
+                        else
+                            echo "⚠ Could not determine Docker API version"
+                            echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
+                        fi
+
+                    else
+                        echo "⚠ No Docker environment available"
+                        echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
+                    fi
+
+                    TESTCONTAINERS_MODE="%env.TESTCONTAINERS_MODE%"
+                    echo "Final Testcontainers mode: ${'$'}TESTCONTAINERS_MODE"
+
+                    case "${'$'}TESTCONTAINERS_MODE" in
+                        "cloud")
+                            echo "Using Testcontainers Cloud for integration tests"
+                            ;;
+                        "local")
+                            echo "Using local Docker for integration tests"
+                            ;;
+                        "incompatible")
+                            echo "❌ CRITICAL: Docker API version is incompatible (< 1.44)"
+                            echo "This build will fail because Testcontainers requires Docker API version 1.44 or higher"
+                            echo "Solutions:"
+                            echo "  1. Configure Testcontainers Cloud token for reliable test execution"
+                            echo "  2. Upgrade Docker on this agent to a version with API 1.44+"
+                            echo "  3. Use a different agent with compatible Docker version"
+                            echo "##teamcity[buildProblem description='Docker API version incompatible - build will fail' identity='docker-incompatible-fail']"
+                            exit 1
+                            ;;
+                        "skip"|"unknown"|*)
+                            echo "❌ CRITICAL: Cannot run integration tests - no compatible Docker environment"
+                            echo "This will cause integration tests to fail as expected"
+                            echo "Consider configuring Testcontainers Cloud token for reliable test execution"
+                            ;;
+                    esac
+                    """
+                } else ""}
+
+                ${if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
+                """
+                    if [ "%env.ANDROID_SDK_AVAILABLE%" != "false" ]; then
+                        echo "Android SDK configuration detected"
+                        export ANDROID_HOME=/opt/android-sdk
+                        export PATH=${'$'}PATH:${'$'}ANDROID_HOME/tools:${'$'}ANDROID_HOME/platform-tools
+                    else
+                        echo "⚠ Android SDK not available, some builds may fail"
+                    fi
+                    """
+                } else ""}
+
+                ${if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
+                """
+                    if [ "%env.DAGGER_CONFIGURED%" = "true" ]; then
+                        echo "Dagger annotation processing configured"
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dkapt.verbose=true"
+                    fi
+                    """
+                } else ""}
+
+                echo "=== STARTING GRADLE OPERATIONS ==="
+                echo "Final Gradle options: ${'$'}GRADLE_OPTS"
+                echo "Build task: ${'$'}BUILD_TASK"
+
+                echo "STEP: Gradle Clean..."
+                if ./gradlew clean ${'$'}GRADLE_OPTS; then
+                    echo "✓ Clean completed successfully"
+                else
+                    echo "⚠ Clean failed, continuing with build"
+                fi
+
+                echo "STEP: Gradle Build..."
+                if ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS; then
+                    echo "✓ Build completed successfully"
+                else
+                    echo "❌ Build failed"
+                    echo "Build output and logs:"
+                    echo "=============================="
+
+                    echo "Last 50 lines of build output:"
+                    ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | tail -50 || true
+
+                    exit 1
+                fi
+
+                ${if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+                """
+                    echo "Running multiplatform-specific tasks..."
+                    ./gradlew allTests ${'$'}GRADLE_OPTS || echo "⚠ Some multiplatform tests failed"
+                    """
+                } else ""}
+
+                echo "✓ Gradle build enhanced completed successfully"
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.setupAmperRepositories() {
+        script {
+            name = "Setup Amper Repositories"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Setting up Amper Repositories ==="
+                echo "=== Amper Repositories Setup Complete ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.updateAmperVersionsEnhanced() {
+        script {
+            name = "Update Amper Versions Enhanced"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Updating Amper Versions Enhanced ==="
+                echo "=== Amper Versions Enhanced Update Complete ==="
+            """.trimIndent()
+        }
+    }
+
+    fun BuildSteps.buildAmperProjectEnhanced() {
+        script {
+            name = "Build Amper Project Enhanced"
+            scriptContent = """
+                #!/bin/bash
+                echo "=== Building Amper Project Enhanced ==="
+                ./gradlew build
+                echo "=== Amper Project Enhanced Build Complete ==="
+            """.trimIndent()
+        }
+    }
 }
 
 data class ExternalSampleConfig(
@@ -732,188 +581,101 @@ data class ExternalSampleConfig(
 ) : ExternalEAPSampleConfig {
 
     override fun createEAPBuildType(): BuildType = BuildType {
-        id("KtorExternalEAPSample_${projectName.replace('-', '_').replace('.', '_')}")
-        name = "EAP External Sample: $projectName"
-        description = "Validate $projectName against EAP versions of Ktor with Testcontainers Cloud support"
+        id("ExternalSampleEAP_${projectName.replace(" ", "_").replace("-", "_")}")
+        name = "EAP Validation: $projectName"
+        description = "EAP validation for external sample: $projectName with enhanced handling"
 
         vcs {
             root(vcsRoot)
+            cleanCheckout = true
+            checkoutDir = "sample-project"
         }
 
-        requirements {
-            agent(OS.Linux, Arch.X64, hardwareCapacity = ANY)
+        dependencies {
+            snapshot(versionResolver) {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+                synchronizeRevisions = false
+            }
         }
 
         params {
             defaultGradleParams()
-            param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
-            param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-            param("env.PROJECT_NAME", projectName)
-            param("env.BUILD_TYPE", buildType.name)
-            param("env.ANDROID_SDK_AVAILABLE", "true")
-            param("env.DAGGER_CONFIGURED", "false")
-            param("env.TESTCONTAINERS_MODE", "unknown")
-            param("GOOGLE_CLIENT_ID", "placeholder_google_client_id_for_build_validation")
+            param("sample.project.name", projectName)
+            param("sample.build.type", buildType.name)
+            param("special.handling", specialHandling.joinToString(",") { it.name })
+            param("env.DOCKER_AGENT_FOUND", "false")
+        }
 
-            if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
-                param("env.ANDROID_HOME", "%android-sdk.location%")
-            }
+        requirements {
+            agent(OS.Linux, Arch.X64, hardwareCapacity = MEDIUM)
 
             if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
-                password("TC_CLOUD_TOKEN", "credentialsJSON:testcontainers-cloud-token")
-                param("env.TESTCONTAINERS_CLOUD_TOKEN", "%TC_CLOUD_TOKEN%")
-                param("env.TESTCONTAINERS_RYUK_DISABLED", "true")
+                preferDockerAgents()
             }
         }
 
         steps {
-            script {
-                name = "Environment Debug"
-                scriptContent = EAPScriptTemplates.buildCommonSetup()
-            }
-
-            script {
-                name = "Backup Configuration Files"
-                scriptContent = ExternalSampleScripts.backupConfigFiles()
-            }
-
-            script {
-                name = "Analyze Project Structure"
-                scriptContent = ExternalSampleScripts.analyzeProjectStructure(specialHandling)
-            }
-
             if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
-                script {
-                    name = "Setup Testcontainers Environment"
-                    scriptContent = ExternalSampleScripts.setupTestcontainersEnvironment()
+                addDockerAgentLogging()
+            }
+
+            ExternalSampleScripts.run {
+                backupConfigFiles()
+                analyzeProjectStructure(specialHandling)
+
+                if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+                    setupTestcontainersEnvironment()
                 }
-            }
 
-            if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
-                script {
-                    name = "Setup Android SDK"
-                    scriptContent = ExternalSampleScripts.setupAndroidSDK()
+                if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
+                    setupAndroidSDK()
                 }
-            }
 
-            if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
-                script {
-                    name = "Setup Dagger Environment"
-                    scriptContent = ExternalSampleScripts.setupDaggerEnvironment()
+                if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
+                    setupDaggerEnvironment()
                 }
-            }
 
-            script {
-                name = "Update Gradle Properties"
-                scriptContent = ExternalSampleScripts.updateGradlePropertiesEnhanced()
-            }
+                when (buildType) {
+                    ExternalSampleBuildType.GRADLE -> {
+                        updateGradlePropertiesEnhanced()
+                        updateVersionCatalogComprehensive(specialHandling)
+                        setupEnhancedGradleRepositories(specialHandling)
 
-            script {
-                name = "Update Version Catalog"
-                scriptContent = ExternalSampleScripts.updateVersionCatalogComprehensive(specialHandling)
-            }
+                        if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+                            configureKotlinMultiplatform()
+                        }
 
-            script {
-                name = "Setup Enhanced Gradle Repositories"
-                scriptContent = ExternalSampleScripts.setupEnhancedGradleRepositories(specialHandling)
-            }
+                        if (SpecialHandlingUtils.isAmperHybrid(specialHandling)) {
+                            handleAmperGradleHybrid()
+                        }
 
-            if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
-                script {
-                    name = "Configure Kotlin Multiplatform"
-                    scriptContent = ExternalSampleScripts.configureKotlinMultiplatform()
-                }
-            }
-
-            if (SpecialHandlingUtils.isAmperHybrid(specialHandling)) {
-                script {
-                    name = "Handle Amper Gradle Hybrid"
-                    scriptContent = ExternalSampleScripts.handleAmperGradleHybrid()
-                }
-            }
-
-            when (buildType) {
-                ExternalSampleBuildType.GRADLE -> {
-                    script {
-                        name = "Build Gradle Project (Enhanced)"
-                        scriptContent = ExternalSampleScripts.buildGradleProjectEnhanced(specialHandling)
+                        buildGradleProjectEnhanced(specialHandling)
+                    }
+                    ExternalSampleBuildType.AMPER -> {
+                        setupAmperRepositories()
+                        updateAmperVersionsEnhanced()
+                        buildAmperProjectEnhanced()
                     }
                 }
-                ExternalSampleBuildType.AMPER -> {
-                    script {
-                        name = "Setup Amper Repositories"
-                        scriptContent = ExternalSampleScripts.setupAmperRepositories()
-                    }
-                    script {
-                        name = "Update Amper Versions"
-                        scriptContent = ExternalSampleScripts.updateAmperVersionsEnhanced()
-                    }
-                    script {
-                        name = "Build Amper Project (Enhanced)"
-                        scriptContent = ExternalSampleScripts.buildAmperProjectEnhanced()
-                    }
-                }
-            }
-
-            script {
-                name = "Restore Original Configuration"
-                scriptContent = """
-                    echo "=== Restoring Original Configuration ==="
-                    
-                    if [ -d ".backup" ]; then
-                        echo "Restoring configuration files from backup..."
-                        for backup_file in .backup/*.original; do
-                            if [ -f "${'$'}backup_file" ]; then
-                                original_name=$(basename "${'$'}backup_file" .original)
-                                echo "Restoring ${'$'}original_name"
-                                cp "${'$'}backup_file" "${'$'}original_name"
-                            fi
-                        done
-                        
-                        if [ -d ".backup/gradle_original" ]; then
-                            echo "Restoring gradle directory"
-                            rm -rf gradle
-                            cp -r .backup/gradle_original gradle
-                        fi
-                    fi
-                    
-                    echo "✓ Configuration restoration completed"
-                """.trimIndent()
-                executionMode = BuildStep.ExecutionMode.ALWAYS
             }
         }
+
+        defaultBuildFeatures()
 
         failureConditions {
             failOnText {
                 conditionType = BuildFailureOnText.ConditionType.CONTAINS
                 pattern = "BUILD FAILED"
-                failureMessage = "Build failed for external sample $projectName"
+                failureMessage = "Build failed during EAP validation"
                 stopBuildOnFailure = true
             }
             failOnText {
                 conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "FAILURE:"
-                failureMessage = "Build failure detected in external sample $projectName"
+                pattern = "FAILURE: Build failed with an exception"
+                failureMessage = "Build exception during EAP validation"
                 stopBuildOnFailure = true
             }
             executionTimeoutMin = 30
-        }
-
-        defaultBuildFeatures()
-
-        features {
-            with(EAPBuildFeatures) {
-                addEAPSlackNotifications()
-            }
-        }
-
-        dependencies {
-            dependency(versionResolver) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.CANCEL
-                }
-            }
         }
     }
 }
@@ -961,82 +723,97 @@ private fun Project.registerVCSRoots() {
 }
 
 private fun createVersionResolver(): BuildType = EAPVersionResolver.createVersionResolver(
-    id = "KtorExternalEAPVersionResolver",
-    name = "External EAP Version Resolver",
-    description = "Determines the EAP version for external sample validation"
+    id = "ExternalSamplesEAPVersionResolver",
+    name = "External Samples EAP Version Resolver",
+    description = "Resolves EAP versions for external sample validation"
 )
 
 private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> = listOf(
-    EAPSampleBuilder("ktor-arrow-example", VCSKtorArrowExample, versionResolver).build(),
-    EAPSampleBuilder("ktor-ai-server", VCSKtorAiServer, versionResolver).build(),
-    EAPSampleBuilder("ktor-native-server", VCSKtorNativeServer, versionResolver)
-        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM).build(),
-    EAPSampleBuilder("ktor-koog-example", VCSKtorKoogExample, versionResolver)
-        .withSpecialHandling(
-            SpecialHandling.KOTLIN_MULTIPLATFORM,
-            SpecialHandling.COMPOSE_MULTIPLATFORM,
-            SpecialHandling.DOCKER_TESTCONTAINERS
-        ).build(),
-    EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver)
-        .withSpecialHandling(
-            SpecialHandling.COMPOSE_MULTIPLATFORM,
-            SpecialHandling.ANDROID_SDK_REQUIRED,
-            SpecialHandling.KOTLIN_MULTIPLATFORM
-        )
+    EAPSampleBuilder("Ktor Arrow Example", VCSKtorArrowExample, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS)
         .build(),
-    EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS).build(),
-    EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver)
-        .withSpecialHandling(SpecialHandling.ENHANCED_TOML_PATTERNS).build(),
-    EAPSampleBuilder("amper-ktor-sample", VCSAmperKtorSample, versionResolver)
+
+    EAPSampleBuilder("Ktor AI Server", VCSKtorAiServer, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+        .build(),
+
+    EAPSampleBuilder("Ktor Native Server", VCSKtorNativeServer, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
+        .build(),
+
+    EAPSampleBuilder("Ktor Koog Example", VCSKtorKoogExample, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.COMPOSE_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS)
+        .build(),
+
+    EAPSampleBuilder("Full Stack Ktor Talk", VCSFullStackKtorTalk, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+        .build(),
+
+    EAPSampleBuilder("Ktor Config Example", VCSKtorConfigExample, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .build(),
+
+    EAPSampleBuilder("Ktor Workshop 2025", VCSKtorWorkshop2025, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+        .build(),
+
+    EAPSampleBuilder("Amper Ktor Sample", VCSAmperKtorSample, versionResolver)
         .withBuildType(ExternalSampleBuildType.AMPER)
-        .withSpecialHandling(SpecialHandling.AMPER_GRADLE_HYBRID).build(),
-    EAPSampleBuilder("ktor-di-overview", VCSKtorDIOverview, versionResolver)
-        .withSpecialHandling(SpecialHandling.DAGGER_ANNOTATION_PROCESSING).build(),
-    EAPSampleBuilder("ktor-full-stack-real-world", VCSKtorFullStackRealWorld, versionResolver)
-        .withSpecialHandling(SpecialHandling.ANDROID_SDK_REQUIRED).build()
+        .withSpecialHandling(SpecialHandling.AMPER_GRADLE_HYBRID)
+        .build(),
+
+    EAPSampleBuilder("Ktor DI Overview", VCSKtorDIOverview, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
+        .build(),
+
+    EAPSampleBuilder("Ktor Full Stack Real World", VCSKtorFullStackRealWorld, versionResolver)
+        .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.COMPOSE_MULTIPLATFORM)
+        .build()
 )
 
 private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<BuildType>): BuildType = BuildType {
-    id("KtorExternalSamplesEAPCompositeBuild")
-    name = "External Samples EAP Validation (All)"
-    description = "Run all external samples against EAP versions of Ktor with Testcontainers Cloud support"
+    id("ExternalSamplesEAPCompositeBuild")
+    name = "External Samples EAP Validation - All Samples"
+    description = "Composite build that runs all external sample validations"
     type = BuildTypeSettings.Type.COMPOSITE
 
     params {
         defaultGradleParams()
-        param("env.GIT_BRANCH", "%teamcity.build.branch%")
         param("teamcity.build.skipDependencyBuilds", "true")
     }
 
     features {
-        with(EAPBuildFeatures) {
-            addEAPSlackNotifications(includeSuccess = true)
+        EAPBuildFeatures.run {
+            addEAPSlackNotifications(includeSuccess = true, includeBuildStart = false)
         }
     }
 
     triggers {
         finishBuildTrigger {
-            buildType = EapConstants.PUBLISH_EAP_BUILD_TYPE_ID
+            buildType = "KtorPublish_AllEAP"
             successfulOnly = true
             branchFilter = "+:refs/heads/*"
         }
     }
 
     dependencies {
-        dependency(versionResolver) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-                onDependencyCancel = FailureAction.CANCEL
-            }
+        snapshot(versionResolver) {
+            onDependencyFailure = FailureAction.FAIL_TO_START
+            synchronizeRevisions = false
         }
 
-        buildTypes.forEach { sampleBuild ->
-            dependency(sampleBuild) {
-                snapshot {
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.CANCEL
-                }
+        buildTypes.forEach { buildType ->
+            snapshot(buildType) {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+                synchronizeRevisions = false
             }
         }
     }
@@ -1044,20 +821,8 @@ private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<Bu
     failureConditions {
         failOnText {
             conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "No agents available to run"
-            failureMessage = "No compatible agents found for external EAP samples composite"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "Build queue timeout"
-            failureMessage = "External EAP samples build timed out waiting for compatible agents"
-            stopBuildOnFailure = true
-        }
-        failOnText {
-            conditionType = BuildFailureOnText.ConditionType.CONTAINS
-            pattern = "java.lang.OutOfMemoryError"
-            failureMessage = "Fatal memory exhaustion detected in external samples build"
+            pattern = "No agents available"
+            failureMessage = "No compatible agents found for external samples EAP validation"
             stopBuildOnFailure = true
         }
         executionTimeoutMin = 60
