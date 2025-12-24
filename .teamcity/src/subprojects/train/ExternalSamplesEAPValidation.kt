@@ -600,6 +600,7 @@ data class ExternalSampleConfig(
             param("env.DOCKER_AGENT_FOUND", "false")
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
+            param("env.TESTCONTAINERS_MODE", "skip")
         }
 
         requirements {
