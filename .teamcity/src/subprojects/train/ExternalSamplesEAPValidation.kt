@@ -349,31 +349,32 @@ EOF
     """.trimIndent()
 
     fun updateGradlePropertiesEnhanced() = """
-        echo "=== Updating Gradle Properties (Enhanced) ==="
-        
-        if [ -f "gradle.properties" ]; then
-            echo "Updating existing gradle.properties"
-            
-            sed -i '/^ktorVersion/d' gradle.properties
-            sed -i '/^ktor_version/d' gradle.properties
-            sed -i '/^ktor-version/d' gradle.properties
-            
-            echo "" >> gradle.properties
-            echo "# EAP Versions" >> gradle.properties
-            echo "ktorVersion=%env.KTOR_VERSION%" >> gradle.properties
-            echo "ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%" >> gradle.properties
-        else
-            echo "Creating new gradle.properties"
-            cat > gradle.properties << 'EOF'
-ktorVersion=%env.KTOR_VERSION%
-ktorCompilerPluginVersion=%env.KTOR_COMPILER_PLUGIN_VERSION%
-EOF
-        fi
-        
-        echo "Updated gradle.properties:"
-        cat gradle.properties
-        echo "✓ Gradle properties updated successfully"
-    """.trimIndent()
+    echo "=== Updating gradle.properties with enhanced EAP configuration ==="
+    
+    if [ -f "gradle.properties" ]; then
+        cp gradle.properties gradle.properties.backup
+        echo "Backed up original gradle.properties"
+    fi
+    
+    cat >> gradle.properties <<EOF
+    
+    ktor.version=%env.KTOR_VERSION%
+    ktor.compiler.plugin.version=%env.KTOR_COMPILER_PLUGIN_VERSION%
+    
+    GOOGLE_CLIENT_ID=placeholder_google_client_id_for_build_validation
+    
+    org.gradle.jvmargs=-Xmx4096m -XX:+UseParallelGC
+    org.gradle.parallel=true
+    org.gradle.caching=true
+    
+    kotlin.code.style=official
+    kotlin.incremental=true
+    
+    EOF
+    
+    echo "✓ Enhanced gradle.properties configuration applied"
+    cat gradle.properties
+""".trimIndent()
 
     fun updateVersionCatalogComprehensive(specialHandling: List<SpecialHandling> = emptyList()) = """
         echo "=== Updating Version Catalog (Comprehensive) ==="
@@ -754,6 +755,10 @@ data class ExternalSampleConfig(
             param("env.TESTCONTAINERS_MODE", "unknown")
             param("GOOGLE_CLIENT_ID", "placeholder_google_client_id_for_build_validation")
 
+            if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
+                param("env.ANDROID_HOME", "%android-sdk.location%")
+            }
+
             if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                 password("TC_CLOUD_TOKEN", "credentialsJSON:testcontainers-cloud-token")
                 param("env.TESTCONTAINERS_CLOUD_TOKEN", "%TC_CLOUD_TOKEN%")
@@ -798,35 +803,37 @@ data class ExternalSampleConfig(
                 }
             }
 
+            script {
+                name = "Update Gradle Properties"
+                scriptContent = ExternalSampleScripts.updateGradlePropertiesEnhanced()
+            }
+
+            script {
+                name = "Update Version Catalog"
+                scriptContent = ExternalSampleScripts.updateVersionCatalogComprehensive(specialHandling)
+            }
+
+            script {
+                name = "Setup Enhanced Gradle Repositories"
+                scriptContent = ExternalSampleScripts.setupEnhancedGradleRepositories(specialHandling)
+            }
+
+            if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+                script {
+                    name = "Configure Kotlin Multiplatform"
+                    scriptContent = ExternalSampleScripts.configureKotlinMultiplatform()
+                }
+            }
+
+            if (SpecialHandlingUtils.isAmperHybrid(specialHandling)) {
+                script {
+                    name = "Handle Amper Gradle Hybrid"
+                    scriptContent = ExternalSampleScripts.handleAmperGradleHybrid()
+                }
+            }
+
             when (buildType) {
                 ExternalSampleBuildType.GRADLE -> {
-                    script {
-                        name = "Update Gradle Properties"
-                        scriptContent = ExternalSampleScripts.updateGradlePropertiesEnhanced()
-                    }
-                    script {
-                        name = "Update Version Catalog"
-                        scriptContent = ExternalSampleScripts.updateVersionCatalogComprehensive(specialHandling)
-                    }
-                    script {
-                        name = "Setup Enhanced Gradle Repositories"
-                        scriptContent = ExternalSampleScripts.setupEnhancedGradleRepositories(specialHandling)
-                    }
-
-                    if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
-                        script {
-                            name = "Configure Kotlin Multiplatform"
-                            scriptContent = ExternalSampleScripts.configureKotlinMultiplatform()
-                        }
-                    }
-
-                    if (SpecialHandlingUtils.isAmperHybrid(specialHandling)) {
-                        script {
-                            name = "Handle Amper Gradle Hybrid"
-                            scriptContent = ExternalSampleScripts.handleAmperGradleHybrid()
-                        }
-                    }
-
                     script {
                         name = "Build Gradle Project (Enhanced)"
                         scriptContent = ExternalSampleScripts.buildGradleProjectEnhanced(specialHandling)
