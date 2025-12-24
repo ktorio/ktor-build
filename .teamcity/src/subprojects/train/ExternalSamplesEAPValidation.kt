@@ -598,6 +598,8 @@ data class ExternalSampleConfig(
             param("sample.build.type", buildType.name)
             param("special.handling", specialHandling.joinToString(",") { it.name })
             param("env.DOCKER_AGENT_FOUND", "false")
+            param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
+            param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
         }
 
         requirements {
