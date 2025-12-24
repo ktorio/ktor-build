@@ -48,28 +48,22 @@ object SpecialHandlingUtils {
         specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)
 }
 
-fun Requirements.preferDockerAgents() {
-    contains("teamcity.agent.name", "docker")
-}
-
 fun BuildSteps.addDockerAgentLogging() {
     script {
-        name = "Log Docker Agent Preference"
+        name = "Log Agent Information"
         scriptContent = """
             #!/bin/bash
-            echo "=== Docker Agent Preference Check ==="
+            echo "=== Agent Information ==="
 
-            if [[ "${'$'}TEAMCITY_AGENT_NAME" == *"docker"* ]]; then
-                echo "##teamcity[message text='✓ Preferred Docker agent found: ${'$'}TEAMCITY_AGENT_NAME' status='NORMAL']"
-                echo "##teamcity[setParameter name='env.DOCKER_AGENT_FOUND' value='true']"
-            else
-                echo "##teamcity[message text='⚠ No preferred Docker agent found, using agent: ${'$'}TEAMCITY_AGENT_NAME. Will fallback to Testcontainers Cloud if needed.' status='WARNING']"
-                echo "##teamcity[setParameter name='env.DOCKER_AGENT_FOUND' value='false']"
-            fi
+            echo "##teamcity[message text='Using agent: ${'$'}TEAMCITY_AGENT_NAME' status='NORMAL']"
+            echo "##teamcity[setParameter name='env.DOCKER_AGENT_FOUND' value='false']"
 
+            echo "Agent Name: ${'$'}TEAMCITY_AGENT_NAME"
             echo "Agent OS: ${'$'}TEAMCITY_AGENT_OS_FAMILY"
             echo "Agent Architecture: ${'$'}TEAMCITY_AGENT_CPU_ARCHITECTURE"
-            echo "=== Docker Agent Check Complete ==="
+
+            echo "Note: Docker compatibility will be checked at runtime in setupTestcontainersEnvironment step"
+            echo "=== Agent Information Complete ==="
         """.trimIndent()
     }
 }
@@ -608,10 +602,6 @@ data class ExternalSampleConfig(
 
         requirements {
             agent(OS.Linux, Arch.X64, hardwareCapacity = MEDIUM)
-
-            if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
-                preferDockerAgents()
-            }
         }
 
         steps {
