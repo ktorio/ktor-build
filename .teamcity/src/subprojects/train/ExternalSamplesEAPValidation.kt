@@ -752,6 +752,7 @@ data class ExternalSampleConfig(
             param("env.ANDROID_SDK_AVAILABLE", "true")
             param("env.DAGGER_CONFIGURED", "false")
             param("env.TESTCONTAINERS_MODE", "unknown")
+            param("GOOGLE_CLIENT_ID", "placeholder_google_client_id_for_build_validation")
 
             if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                 password("TC_CLOUD_TOKEN", "credentialsJSON:testcontainers-cloud-token")
@@ -925,6 +926,7 @@ object ExternalSamplesEAPValidation : Project({
         param("special.handling.enabled", "true")
         param("compose.multiplatform.support", "true")
         param("testcontainers.cloud.enabled", "true")
+        param("GOOGLE_CLIENT_ID", "placeholder_google_client_id_for_build_validation")
         password("testcontainers-cloud-token", "credentialsJSON:your-testcontainers-cloud-token-id")
     }
 
@@ -968,7 +970,13 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
             SpecialHandling.COMPOSE_MULTIPLATFORM,
             SpecialHandling.DOCKER_TESTCONTAINERS
         ).build(),
-    EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver).build(),
+    EAPSampleBuilder("full-stack-ktor-talk", VCSFullStackKtorTalk, versionResolver)
+        .withSpecialHandling(
+            SpecialHandling.COMPOSE_MULTIPLATFORM,
+            SpecialHandling.ANDROID_SDK_REQUIRED,
+            SpecialHandling.KOTLIN_MULTIPLATFORM
+        )
+        .build(),
     EAPSampleBuilder("ktor-config-example", VCSKtorConfigExample, versionResolver)
         .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS).build(),
     EAPSampleBuilder("ktor-workshop-2025", VCSKtorWorkshop2025, versionResolver)
