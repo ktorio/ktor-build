@@ -324,6 +324,7 @@ EOF
                 fi
 
                 echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
+                echo "kotlin.native.version=%env.KOTLIN_VERSION%" >> gradle.properties
 
                 echo "=== Gradle Properties Updated ==="
                 echo "Contents of gradle.properties:"
@@ -560,10 +561,15 @@ EOF
                     exit 1
                 fi
 
-                ${if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+                ${if (SpecialHandlingUtils.isMultiplatform(specialHandling) && !SpecialHandlingUtils.requiresDocker(specialHandling)) {
                 """
                     echo "Running multiplatform-specific tasks..."
-                    ./gradlew allTests ${'$'}GRADLE_OPTS || echo "⚠ Some multiplatform tests failed"
+                    ./gradlew check ${'$'}GRADLE_OPTS || echo "⚠ Some multiplatform tests failed"
+                    """
+                } else if (SpecialHandlingUtils.isMultiplatform(specialHandling) && SpecialHandlingUtils.requiresDocker(specialHandling)) {
+                """
+                    echo "Skipping multiplatform tests for Docker project (tests already skipped)"
+                    echo "Multiplatform Docker project - tests are skipped to avoid Docker compatibility issues"
                     """
                 } else ""}
 
