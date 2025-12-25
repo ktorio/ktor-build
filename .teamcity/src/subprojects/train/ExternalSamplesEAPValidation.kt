@@ -464,7 +464,23 @@ EOF
                     GRADLE_OPTS="${'$'}GRADLE_OPTS -x test -x check"
                     ${if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
                     """
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS -x :dagger:test -x testDebugUnitTest -x testReleaseUnitTest"
+                    if ./gradlew projects | grep -q ":dagger"; then
+                        GRADLE_OPTS="${'$'}GRADLE_OPTS -x :dagger:test"
+                        echo "Found dagger subproject, added :dagger:test exclusion"
+                    else
+                        echo "No dagger subproject found, skipping :dagger:test exclusion"
+                    fi
+
+                    ${if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
+                    """
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -x testDebugUnitTest -x testReleaseUnitTest"
+                    echo "Added Android-specific test exclusions for dagger project"
+                    """
+                    } else {
+                    """
+                    echo "Non-Android project, skipping Android-specific test exclusions"
+                    """
+                    }}
                     echo "Added explicit dagger test exclusions to prevent test execution"
                     """
                     } else ""}
