@@ -38,11 +38,13 @@ object EAPVersionResolver {
                 param("teamcity.runAsFirstBuild", "true")
                 param("env.KTOR_VERSION", "")
                 param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
+                param("env.KOTLIN_VERSION", "")
             }
 
             steps {
                 debugEnvironmentVariables()
                 addEAPVersionFetchingSteps()
+                addKotlinVersionFetchingStep()
                 addEAPVersionValidationStep()
             }
 
@@ -74,7 +76,6 @@ fun BuildSteps.addEAPVersionFetchingSteps() {
 
             echo "=== Fetching Latest Ktor EAP Framework Version ==="
 
-            # Fetch Ktor BOM version
             METADATA_URL="${EapConstants.KTOR_EAP_METADATA_URL}"
             TEMP_METADATA=$(mktemp)
 
@@ -180,17 +181,14 @@ fun BuildSteps.addKotlinVersionFetchingStep() {
             KOTLIN_VERSION=$(grep -E '^kotlin\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
 
             if [ -z "${'$'}KOTLIN_VERSION" ]; then
-                # Try alternative patterns
                 KOTLIN_VERSION=$(grep -E '^kotlinVersion\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
             fi
 
             if [ -z "${'$'}KOTLIN_VERSION" ]; then
-                # Try kotlin-version pattern
                 KOTLIN_VERSION=$(grep -E '^kotlin-version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
             fi
 
             if [ -z "${'$'}KOTLIN_VERSION" ]; then
-                # Fallback: check build.gradle.kts files
                 echo "Kotlin version not found in libs.versions.toml, checking build.gradle.kts files..."
                 KOTLIN_VERSION=$(find . -name "build.gradle.kts" -exec grep -h "kotlin.*version" {} \; | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -n 1)
             fi
@@ -229,8 +227,14 @@ fun BuildSteps.addEAPVersionValidationStep() {
                 exit 1
             fi
 
+            if [ -z "%env.KOTLIN_VERSION%" ] || [ "%env.KOTLIN_VERSION%" = "" ]; then
+                echo "CRITICAL ERROR: KOTLIN_VERSION is not set after resolution"
+                exit 1
+            fi
+
             echo "✓ Framework version validated: %env.KTOR_VERSION%"
             echo "✓ Compiler plugin version validated: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+            echo "✓ Kotlin version validated: %env.KOTLIN_VERSION%"
             echo "=== Version Resolution SUCCESSFUL ==="
         """.trimIndent()
     }
