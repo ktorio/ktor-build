@@ -46,6 +46,9 @@ object SpecialHandlingUtils {
 
     fun isAmperHybrid(specialHandling: List<SpecialHandling>): Boolean =
         specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)
+
+    fun isComposeMultiplatform(specialHandling: List<SpecialHandling>): Boolean =
+        specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM)
 }
 
 fun BuildSteps.addDockerAgentLogging() {
@@ -68,11 +71,6 @@ fun BuildSteps.addDockerAgentLogging() {
     }
 }
 
-object VCSKtorArrowExample : KtorVcsRoot({
-    name = "Ktor Arrow Example"
-    url = "https://github.com/nomisRev/ktor-arrow-example.git"
-})
-
 object VCSKtorAiServer : KtorVcsRoot({
     name = "Ktor AI Server"
     url = "https://github.com/nomisRev/ktor-ai-server.git"
@@ -86,11 +84,6 @@ object VCSKtorNativeServer : KtorVcsRoot({
 object VCSKtorKoogExample : KtorVcsRoot({
     name = "Ktor Koog Example"
     url = "https://github.com/nomisRev/ktor-koog-example.git"
-})
-
-object VCSFullStackKtorTalk : KtorVcsRoot({
-    name = "Full Stack Ktor Talk"
-    url = "https://github.com/nomisRev/full-stack-ktor-talk.git"
 })
 
 object VCSKtorConfigExample : KtorVcsRoot({
@@ -382,15 +375,6 @@ allprojects {
                 if (details.requested.group == "org.jetbrains.kotlin") {
                     details.useVersion("%env.KOTLIN_VERSION%")
                     details.because("Align Kotlin version with compiler to prevent compilation errors")
-                }
-
-                if (details.requested.group == "io.arrow-kt" && 
-                    details.requested.name.contains("linuxx64")) {
-
-                    if (details.requested.version == "2.2.0") {
-                        details.useVersion("2.1.1")
-                        details.because("Forcing compatible version due to Kotlin Native ABI incompatibility (original 2.2.0 compiled with Kotlin 2.2.21)")
-                    }
                 }
             }
         }
@@ -746,7 +730,6 @@ data class ExternalSampleConfig(
             param("env.DOCKER_AGENT_FOUND", "false")
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-            param("env.KOTLIN_VERSION", "2.1.10")
             param("env.TESTCONTAINERS_MODE", "skip")
             param("env.JDK_21", "")
             param("env.TC_CLOUD_TOKEN", "")
@@ -819,7 +802,12 @@ data class ExternalSampleConfig(
                 failureMessage = "Build exception during EAP validation"
                 stopBuildOnFailure = true
             }
-            executionTimeoutMin = 30
+            executionTimeoutMin = when {
+                SpecialHandlingUtils.isComposeMultiplatform(specialHandling) -> 60
+                SpecialHandlingUtils.isMultiplatform(specialHandling) -> 45
+                SpecialHandlingUtils.requiresDocker(specialHandling) -> 40
+                else -> 30
+            }
         }
     }
 }
@@ -854,11 +842,9 @@ object ExternalSamplesEAPValidation : Project({
 })
 
 private fun Project.registerVCSRoots() {
-    vcsRoot(VCSKtorArrowExample)
     vcsRoot(VCSKtorAiServer)
     vcsRoot(VCSKtorNativeServer)
     vcsRoot(VCSKtorKoogExample)
-    vcsRoot(VCSFullStackKtorTalk)
     vcsRoot(VCSKtorConfigExample)
     vcsRoot(VCSKtorWorkshop2025)
     vcsRoot(VCSAmperKtorSample)
@@ -873,11 +859,6 @@ private fun createVersionResolver(): BuildType = EAPVersionResolver.createVersio
 )
 
 private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> = listOf(
-    EAPSampleBuilder("Ktor Arrow Example", VCSKtorArrowExample, versionResolver)
-        .withBuildType(ExternalSampleBuildType.GRADLE)
-        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS)
-        .build(),
-
     EAPSampleBuilder("Ktor AI Server", VCSKtorAiServer, versionResolver)
         .withBuildType(ExternalSampleBuildType.GRADLE)
         .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
@@ -891,11 +872,6 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
     EAPSampleBuilder("Ktor Koog Example", VCSKtorKoogExample, versionResolver)
         .withBuildType(ExternalSampleBuildType.GRADLE)
         .withSpecialHandling(SpecialHandling.COMPOSE_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS)
-        .build(),
-
-    EAPSampleBuilder("Full Stack Ktor Talk", VCSFullStackKtorTalk, versionResolver)
-        .withBuildType(ExternalSampleBuildType.GRADLE)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
         .build(),
 
     EAPSampleBuilder("Ktor Config Example", VCSKtorConfigExample, versionResolver)
