@@ -383,6 +383,15 @@ allprojects {
                     details.useVersion("%env.KOTLIN_VERSION%")
                     details.because("Align Kotlin version with compiler to prevent compilation errors")
                 }
+
+                if (details.requested.group == "io.arrow-kt" && 
+                    details.requested.name.contains("linuxx64")) {
+
+                    if (details.requested.version == "2.2.0") {
+                        details.useVersion("2.1.1")
+                        details.because("Forcing compatible version due to Kotlin Native ABI incompatibility (original 2.2.0 compiled with Kotlin 2.2.21)")
+                    }
+                }
             }
         }
     }
@@ -445,12 +454,21 @@ EOF
 
                 GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
 
-                ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+                ${if (SpecialHandlingUtils.requiresDocker(specialHandling) || SpecialHandlingUtils.requiresDagger(specialHandling)) {
                 """
-                    echo "=== SKIPPING TESTS FOR DOCKER PROJECT ==="
-                    echo "This project uses Docker/Testcontainers, skipping tests to avoid compatibility issues"
+                    echo "=== SKIPPING TESTS FOR ${if (SpecialHandlingUtils.requiresDocker(specialHandling) && SpecialHandlingUtils.requiresDagger(specialHandling)) "DOCKER AND DAGGER" else if (SpecialHandlingUtils.requiresDocker(specialHandling)) "DOCKER" else "DAGGER"} PROJECT ==="
+                    echo "This project uses ${if (SpecialHandlingUtils.requiresDocker(specialHandling) && SpecialHandlingUtils.requiresDagger(specialHandling)) "Docker/Testcontainers and Dagger annotation processing" else if (SpecialHandlingUtils.requiresDocker(specialHandling)) "Docker/Testcontainers" else "Dagger annotation processing"}, skipping tests to avoid compatibility issues"
                     BUILD_TASK="assemble"
                     echo "Using build task: ${'$'}BUILD_TASK (tests will be skipped)"
+
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -x test -x check"
+                    ${if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
+                    """
+                    GRADLE_OPTS="${'$'}GRADLE_OPTS -x :dagger:test -x testDebugUnitTest -x testReleaseUnitTest"
+                    echo "Added explicit dagger test exclusions to prevent test execution"
+                    """
+                    } else ""}
+                    echo "Final Gradle options with test exclusions: ${'$'}GRADLE_OPTS"
                     """
                 } else {
                 """
@@ -861,11 +879,12 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
 
     EAPSampleBuilder("Full Stack Ktor Talk", VCSFullStackKtorTalk, versionResolver)
         .withBuildType(ExternalSampleBuildType.GRADLE)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
         .build(),
 
     EAPSampleBuilder("Ktor Config Example", VCSKtorConfigExample, versionResolver)
         .withBuildType(ExternalSampleBuildType.GRADLE)
+        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
         .build(),
 
     EAPSampleBuilder("Ktor Workshop 2025", VCSKtorWorkshop2025, versionResolver)
@@ -885,7 +904,7 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
 
     EAPSampleBuilder("Ktor Full Stack Real World", VCSKtorFullStackRealWorld, versionResolver)
         .withBuildType(ExternalSampleBuildType.GRADLE)
-        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.COMPOSE_MULTIPLATFORM)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM, SpecialHandling.DOCKER_TESTCONTAINERS, SpecialHandling.COMPOSE_MULTIPLATFORM, SpecialHandling.DAGGER_ANNOTATION_PROCESSING)
         .build()
 )
 
