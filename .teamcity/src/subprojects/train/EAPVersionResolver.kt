@@ -38,11 +38,13 @@ object EAPVersionResolver {
                 param("teamcity.runAsFirstBuild", "true")
                 param("env.KTOR_VERSION", "")
                 param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
+                param("env.KOTLIN_VERSION", "")
             }
 
             steps {
                 debugEnvironmentVariables()
                 addEAPVersionFetchingSteps()
+                addKotlinVersionFetchingStep()
                 addEAPVersionValidationStep()
             }
 
@@ -156,6 +158,60 @@ fun BuildSteps.addEAPVersionFetchingSteps() {
     }
 }
 
+fun BuildSteps.addKotlinVersionFetchingStep() {
+    script {
+        name = "Fetch Kotlin Version from Project Repository"
+        scriptContent = """
+            #!/bin/bash
+            set -e
+
+            echo "=== Fetching Kotlin Version from Project Repository ==="
+
+            if [ ! -f "gradle/libs.versions.toml" ]; then
+                echo "ERROR: gradle/libs.versions.toml not found in repository"
+                echo "Available files in current directory:"
+                ls -la
+                echo "Available files in gradle directory (if exists):"
+                ls -la gradle/ || echo "gradle directory not found"
+                exit 1
+            fi
+
+            echo "Found gradle/libs.versions.toml, extracting Kotlin version..."
+            cat gradle/libs.versions.toml
+
+            KOTLIN_VERSION=$(grep -E '^kotlin\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+
+            if [ -z "${'$'}KOTLIN_VERSION" ]; then
+                # Try alternative patterns
+                KOTLIN_VERSION=$(grep -E '^kotlinVersion\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+            fi
+
+            if [ -z "${'$'}KOTLIN_VERSION" ]; then
+                # Try kotlin-version pattern
+                KOTLIN_VERSION=$(grep -E '^kotlin-version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+            fi
+
+            if [ -z "${'$'}KOTLIN_VERSION" ]; then
+                # Fallback: check build.gradle.kts files
+                echo "Kotlin version not found in libs.versions.toml, checking build.gradle.kts files..."
+                KOTLIN_VERSION=$(find . -name "build.gradle.kts" -exec grep -h "kotlin.*version" {} \; | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -n 1)
+            fi
+
+            if [ -n "${'$'}KOTLIN_VERSION" ]; then
+                echo "Found Kotlin version: ${'$'}KOTLIN_VERSION"
+                echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}KOTLIN_VERSION']"
+            else
+                echo "ERROR: Could not determine Kotlin version from repository"
+                echo "Contents of gradle/libs.versions.toml:"
+                cat gradle/libs.versions.toml
+                exit 1
+            fi
+
+            echo "=== Kotlin Version Set Successfully ==="
+        """.trimIndent()
+    }
+}
+
 fun BuildSteps.addEAPVersionValidationStep() {
     script {
         name = "Final Validation"
@@ -175,8 +231,14 @@ fun BuildSteps.addEAPVersionValidationStep() {
                 exit 1
             fi
 
+            if [ -z "%env.KOTLIN_VERSION%" ] || [ "%env.KOTLIN_VERSION%" = "" ]; then
+                echo "CRITICAL ERROR: KOTLIN_VERSION is not set after resolution"
+                exit 1
+            fi
+
             echo "✓ Framework version validated: %env.KTOR_VERSION%"
             echo "✓ Compiler plugin version validated: %env.KTOR_COMPILER_PLUGIN_VERSION%"
+            echo "✓ Kotlin version validated: %env.KOTLIN_VERSION%"
             echo "=== Version Resolution SUCCESSFUL ==="
         """.trimIndent()
     }
