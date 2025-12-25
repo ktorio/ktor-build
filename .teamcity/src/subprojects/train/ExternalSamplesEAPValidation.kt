@@ -364,6 +364,27 @@ allprojects {
         mavenCentral()
         gradlePluginPortal()
     }
+
+    configurations.all {
+        resolutionStrategy {
+            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-js:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-wasm-js:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-js:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
+
+            eachDependency { details ->
+                if (details.requested.group == "org.jetbrains.kotlin") {
+                    details.useVersion("%env.KOTLIN_VERSION%")
+                    details.because("Align Kotlin version with compiler to prevent compilation errors")
+                }
+            }
+        }
+    }
 }
 EOF
 
@@ -422,7 +443,20 @@ EOF
                 echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
 
                 GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
-                BUILD_TASK="build"
+
+                ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+                """
+                    echo "=== SKIPPING TESTS FOR DOCKER PROJECT ==="
+                    echo "This project uses Docker/Testcontainers, skipping tests to avoid compatibility issues"
+                    BUILD_TASK="assemble"
+                    echo "Using build task: ${'$'}BUILD_TASK (tests will be skipped)"
+                    """
+                } else {
+                """
+                    BUILD_TASK="build"
+                    echo "Using build task: ${'$'}BUILD_TASK (includes tests)"
+                    """
+                }}
 
                 ${if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                 """
@@ -607,6 +641,7 @@ data class ExternalSampleConfig(
             param("env.DOCKER_AGENT_FOUND", "false")
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
+            param("env.KOTLIN_VERSION", "%dep.${versionResolver.id}.env.KOTLIN_VERSION%")
             param("env.TESTCONTAINERS_MODE", "skip")
             param("env.JDK_21", "")
             param("env.TC_CLOUD_TOKEN", "")
