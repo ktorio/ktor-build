@@ -38,13 +38,11 @@ object EAPVersionResolver {
                 param("teamcity.runAsFirstBuild", "true")
                 param("env.KTOR_VERSION", "")
                 param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
-                param("env.KOTLIN_VERSION", "")
             }
 
             steps {
                 debugEnvironmentVariables()
                 addEAPVersionFetchingSteps()
-                addKotlinVersionFetchingStep()
                 addEAPVersionValidationStep()
             }
 
@@ -231,14 +229,8 @@ fun BuildSteps.addEAPVersionValidationStep() {
                 exit 1
             fi
 
-            if [ -z "%env.KOTLIN_VERSION%" ] || [ "%env.KOTLIN_VERSION%" = "" ]; then
-                echo "CRITICAL ERROR: KOTLIN_VERSION is not set after resolution"
-                exit 1
-            fi
-
             echo "✓ Framework version validated: %env.KTOR_VERSION%"
             echo "✓ Compiler plugin version validated: %env.KTOR_COMPILER_PLUGIN_VERSION%"
-            echo "✓ Kotlin version validated: %env.KOTLIN_VERSION%"
             echo "=== Version Resolution SUCCESSFUL ==="
         """.trimIndent()
     }
