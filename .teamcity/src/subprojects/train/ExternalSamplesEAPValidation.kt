@@ -649,7 +649,6 @@ EOF
                         if [ -f "${'$'}gradle_file" ]; then
                             echo "Checking ${'$'}gradle_file for Kotlin version..."
 
-                            # Look for kotlin version patterns in build files
                             KOTLIN_VERSION=${'$'}(grep -i kotlin "${'$'}gradle_file" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -n 1)
 
                             if [ -n "${'$'}KOTLIN_VERSION" ]; then
@@ -713,8 +712,6 @@ data class ExternalSampleConfig(
             param("env.DOCKER_AGENT_FOUND", "false")
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-            // Use default Kotlin version - will be overridden by fetchKotlinVersionFromExternalProject step
-            // This allows each external project to use its own Kotlin version instead of the centralized one
             param("env.KOTLIN_VERSION", "2.1.10")
             param("env.TESTCONTAINERS_MODE", "skip")
             param("env.JDK_21", "")
