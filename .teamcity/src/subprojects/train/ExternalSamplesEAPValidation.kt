@@ -605,6 +605,71 @@ EOF
             """.trimIndent()
         }
     }
+
+    fun BuildSteps.fetchKotlinVersionFromExternalProject() {
+        script {
+            name = "Fetch Kotlin Version from External Project"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+
+                echo "=== Fetching Kotlin Version from External Project Repository ==="
+
+                KOTLIN_VERSION=""
+
+                if [ -f "gradle/libs.versions.toml" ]; then
+                    echo "Found gradle/libs.versions.toml, extracting Kotlin version..."
+                    cat gradle/libs.versions.toml
+
+                    KOTLIN_VERSION=$(grep -E '^kotlin\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+
+                    if [ -z "${'$'}KOTLIN_VERSION" ]; then
+                        KOTLIN_VERSION=$(grep -E '^kotlinVersion\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+                    fi
+
+                    if [ -z "${'$'}KOTLIN_VERSION" ]; then
+                        KOTLIN_VERSION=$(grep -E '^kotlin-version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+                    fi
+
+                    if [ -z "${'$'}KOTLIN_VERSION" ]; then
+                        KOTLIN_VERSION=$(grep -E '^kotlin_version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+                    fi
+                fi
+
+                if [ -z "${'$'}KOTLIN_VERSION" ]; then
+                    echo "Kotlin version not found in libs.versions.toml, checking build.gradle.kts files..."
+
+                    for gradle_file in build.gradle.kts */build.gradle.kts; do
+                        if [ -f "${'$'}gradle_file" ]; then
+                            echo "Checking ${'$'}gradle_file for Kotlin version..."
+
+                            KOTLIN_VERSION=$(grep -E 'kotlin.*version.*["\']([0-9]+\.[0-9]+\.[0-9]+)["\']' "${'$'}gradle_file" | sed -E 's/.*["\']([0-9]+\.[0-9]+\.[0-9]+)["\'].*/\1/' | head -n 1)
+
+                            if [ -n "${'$'}KOTLIN_VERSION" ]; then
+                                echo "Found Kotlin version in ${'$'}gradle_file: ${'$'}KOTLIN_VERSION"
+                                break
+                            fi
+                        fi
+                    done
+                fi
+
+                if [ -z "${'$'}KOTLIN_VERSION" ] && [ -f "gradle.properties" ]; then
+                    echo "Checking gradle.properties for Kotlin version..."
+                    KOTLIN_VERSION=$(grep -E '^kotlin.*version\s*=' gradle.properties | sed 's/.*=\s*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/' | head -n 1)
+                fi
+
+                if [ -n "${'$'}KOTLIN_VERSION" ]; then
+                    echo "✓ Found Kotlin version in external project: ${'$'}KOTLIN_VERSION"
+                    echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}KOTLIN_VERSION']"
+                else
+                    echo "⚠ No Kotlin version found in external project, will use default from version resolver"
+                    echo "This may cause version alignment issues if the external project uses a different Kotlin version"
+                fi
+
+                echo "=== External Project Kotlin Version Resolution Complete ==="
+            """.trimIndent()
+        }
+    }
 }
 
 data class ExternalSampleConfig(
@@ -641,7 +706,9 @@ data class ExternalSampleConfig(
             param("env.DOCKER_AGENT_FOUND", "false")
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
-            param("env.KOTLIN_VERSION", "%dep.${versionResolver.id}.env.KOTLIN_VERSION%")
+            // Use default Kotlin version - will be overridden by fetchKotlinVersionFromExternalProject step
+            // This allows each external project to use its own Kotlin version instead of the centralized one
+            param("env.KOTLIN_VERSION", "2.1.10")
             param("env.TESTCONTAINERS_MODE", "skip")
             param("env.JDK_21", "")
             param("env.TC_CLOUD_TOKEN", "")
@@ -660,6 +727,7 @@ data class ExternalSampleConfig(
             ExternalSampleScripts.run {
                 backupConfigFiles()
                 analyzeProjectStructure(specialHandling)
+                fetchKotlinVersionFromExternalProject()
 
                 if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
                     setupTestcontainersEnvironment()
