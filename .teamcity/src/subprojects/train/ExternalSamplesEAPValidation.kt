@@ -360,6 +360,7 @@ allprojects {
     repositories {
         maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
         maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
+        google()
         mavenCentral()
         gradlePluginPortal()
     }
@@ -427,80 +428,55 @@ EOF
                 """
                     echo "=== DOCKER/TESTCONTAINERS CONFIGURATION ==="
 
-                    DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
-                    echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
-
-                    if [ -n "%env.TC_CLOUD_TOKEN%" ] && [ "%env.TC_CLOUD_TOKEN%" != "" ]; then
-                        echo "✓ Testcontainers Cloud token available - using cloud mode"
-                        export TESTCONTAINERS_CLOUD_TOKEN="%env.TC_CLOUD_TOKEN%"
-                        export TESTCONTAINERS_RYUK_DISABLED=true
-                        export TESTCONTAINERS_REUSE_ENABLE=false
-
-                        echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='cloud']"
-
-                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%env.TC_CLOUD_TOKEN%"
-                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
-                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.reuse.enable=false"
-                        GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
-
-                        echo "Testcontainers Cloud configuration applied"
-
-                    elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-                        echo "✓ Local Docker available - checking compatibility"
-
-                        DOCKER_API_VERSION=$(docker version --format '{{.Server.APIVersion}}' 2>/dev/null || echo "unknown")
-                        echo "Docker API Version: ${'$'}DOCKER_API_VERSION"
-
-                        if [[ "${'$'}DOCKER_API_VERSION" =~ ^([0-9]+)\.([0-9]+) ]]; then
-                            MAJOR=${'$'}{BASH_REMATCH[1]}
-                            MINOR=${'$'}{BASH_REMATCH[2]}
-
-                            if [ "${'$'}MAJOR" -gt 1 ] || ([ "${'$'}MAJOR" -eq 1 ] && [ "${'$'}MINOR" -ge 44 ]); then
-                                echo "✓ Docker API version compatible (${'$'}DOCKER_API_VERSION >= 1.44)"
-                                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='local']"
-                            else
-                                echo "❌ CRITICAL: Docker API version too old (${'$'}DOCKER_API_VERSION < 1.44)"
-                                echo "This will cause Testcontainers to fail with 'client version too old' error"
-                                echo "The minimum required Docker API version is 1.44"
-                                echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='incompatible']"
-                                echo "##teamcity[buildProblem description='Docker API version ${'$'}DOCKER_API_VERSION is incompatible (minimum: 1.44)' identity='docker-api-version-incompatible']"
-                            fi
-                        else
-                            echo "⚠ Could not determine Docker API version"
-                            echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
-                        fi
-
-                    else
-                        echo "⚠ No Docker environment available"
-                        echo "##teamcity[setParameter name='env.TESTCONTAINERS_MODE' value='skip']"
-                    fi
-
                     TESTCONTAINERS_MODE="%env.TESTCONTAINERS_MODE%"
-                    echo "Final Testcontainers mode: ${'$'}TESTCONTAINERS_MODE"
+                    echo "Testcontainers mode from setup: ${'$'}TESTCONTAINERS_MODE"
+
+                    if [ "${'$'}TESTCONTAINERS_MODE" = "incompatible" ]; then
+                        echo "❌ CRITICAL: Docker API version is incompatible (< 1.44)"
+                        echo "This build will fail because Testcontainers requires Docker API version 1.44 or higher"
+                        echo "The setupTestcontainersEnvironment step already detected this incompatibility"
+                        echo "Solutions:"
+                        echo "  1. Configure Testcontainers Cloud token for reliable test execution"
+                        echo "  2. Upgrade Docker on this agent to a version with API 1.44+"
+                        echo "  3. Use a different agent with compatible Docker version"
+                        echo "##teamcity[buildProblem description='Docker API version incompatible - failing fast to prevent test execution' identity='docker-incompatible-fail-fast']"
+                        exit 1
+                    fi
 
                     case "${'$'}TESTCONTAINERS_MODE" in
                         "cloud")
-                            echo "Using Testcontainers Cloud for integration tests"
+                            echo "✓ Using Testcontainers Cloud for integration tests"
+                            if [ -n "%env.TC_CLOUD_TOKEN%" ] && [ "%env.TC_CLOUD_TOKEN%" != "" ]; then
+                                export TESTCONTAINERS_CLOUD_TOKEN="%env.TC_CLOUD_TOKEN%"
+                                export TESTCONTAINERS_RYUK_DISABLED=true
+                                export TESTCONTAINERS_REUSE_ENABLE=false
+
+                                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.cloud.token=%env.TC_CLOUD_TOKEN%"
+                                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.ryuk.disabled=true"
+                                GRADLE_OPTS="${'$'}GRADLE_OPTS -Dtestcontainers.reuse.enable=false"
+                                GRADLE_OPTS="${'$'}GRADLE_OPTS -Ptestcontainers.cloud.enabled=true"
+
+                                echo "Testcontainers Cloud configuration applied"
+                            else
+                                echo "❌ ERROR: TESTCONTAINERS_MODE is 'cloud' but no TC_CLOUD_TOKEN available"
+                                exit 1
+                            fi
                             ;;
                         "local")
-                            echo "Using local Docker for integration tests"
-                            ;;
-                        "incompatible")
-                            echo "❌ CRITICAL: Docker API version is incompatible (< 1.44)"
-                            echo "This build will fail because Testcontainers requires Docker API version 1.44 or higher"
-                            echo "Solutions:"
-                            echo "  1. Configure Testcontainers Cloud token for reliable test execution"
-                            echo "  2. Upgrade Docker on this agent to a version with API 1.44+"
-                            echo "  3. Use a different agent with compatible Docker version"
-                            echo "##teamcity[buildProblem description='Docker API version incompatible - build will fail' identity='docker-incompatible-fail']"
-                            exit 1
+                            echo "✓ Using local Docker for integration tests"
+                            if ! docker info >/dev/null 2>&1; then
+                                echo "❌ ERROR: Docker was available during setup but is no longer accessible"
+                                exit 1
+                            fi
                             ;;
                         "skip"|"unknown"|*)
-                            echo "❌ CRITICAL: Cannot run integration tests - no compatible Docker environment"
-                            echo "This will cause integration tests to fail as expected"
+                            echo "⚠ WARNING: No compatible Docker environment - integration tests may fail"
+                            echo "TESTCONTAINERS_MODE: ${'$'}TESTCONTAINERS_MODE"
                             echo "Consider configuring Testcontainers Cloud token for reliable test execution"
                             ;;
                     esac
+
+                    echo "Final Docker/Testcontainers configuration complete"
                     """
                 } else ""}
 
