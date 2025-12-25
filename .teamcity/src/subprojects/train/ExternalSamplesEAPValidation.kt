@@ -337,8 +337,27 @@ EOF
             name = "Setup Enhanced Gradle Repositories"
             scriptContent = """
                 #!/bin/bash
+                set -e
                 echo "=== Setting up Enhanced Gradle Repositories ==="
                 echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
+
+                echo "Creating EAP Gradle init script..."
+
+                cat > gradle-eap-init.gradle << 'EOF'
+allprojects {
+    repositories {
+        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
+        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+EOF
+
+                echo "✓ EAP init script created successfully"
+                echo "Contents of gradle-eap-init.gradle:"
+                cat gradle-eap-init.gradle
+
                 echo "=== Enhanced Gradle Repositories Setup Complete ==="
             """.trimIndent()
         }
@@ -603,6 +622,7 @@ data class ExternalSampleConfig(
             param("env.TESTCONTAINERS_MODE", "skip")
             param("env.JDK_21", "")
             param("env.TC_CLOUD_TOKEN", "")
+            param("env.DAGGER_CONFIGURED", "false")
         }
 
         requirements {
