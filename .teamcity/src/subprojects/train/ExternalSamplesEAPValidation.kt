@@ -621,18 +621,18 @@ EOF
                     echo "Found gradle/libs.versions.toml, extracting Kotlin version..."
                     cat gradle/libs.versions.toml
 
-                    KOTLIN_VERSION=$(grep -E '^kotlin\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+                    KOTLIN_VERSION=${'$'}(grep -E '^kotlin\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
 
                     if [ -z "${'$'}KOTLIN_VERSION" ]; then
-                        KOTLIN_VERSION=$(grep -E '^kotlinVersion\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+                        KOTLIN_VERSION=${'$'}(grep -E '^kotlinVersion\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
                     fi
 
                     if [ -z "${'$'}KOTLIN_VERSION" ]; then
-                        KOTLIN_VERSION=$(grep -E '^kotlin-version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+                        KOTLIN_VERSION=${'$'}(grep -E '^kotlin-version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
                     fi
 
                     if [ -z "${'$'}KOTLIN_VERSION" ]; then
-                        KOTLIN_VERSION=$(grep -E '^kotlin_version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
+                        KOTLIN_VERSION=${'$'}(grep -E '^kotlin_version\s*=' gradle/libs.versions.toml | sed 's/.*=\s*"\([^"]*\)".*/\1/' | head -n 1)
                     fi
                 fi
 
@@ -643,7 +643,8 @@ EOF
                         if [ -f "${'$'}gradle_file" ]; then
                             echo "Checking ${'$'}gradle_file for Kotlin version..."
 
-                            KOTLIN_VERSION=$(grep -E 'kotlin.*version.*["\']([0-9]+\.[0-9]+\.[0-9]+)["\']' "${'$'}gradle_file" | sed -E 's/.*["\']([0-9]+\.[0-9]+\.[0-9]+)["\'].*/\1/' | head -n 1)
+                            # Look for kotlin version patterns in build files
+                            KOTLIN_VERSION=${'$'}(grep -i kotlin "${'$'}gradle_file" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' | head -n 1)
 
                             if [ -n "${'$'}KOTLIN_VERSION" ]; then
                                 echo "Found Kotlin version in ${'$'}gradle_file: ${'$'}KOTLIN_VERSION"
@@ -655,7 +656,7 @@ EOF
 
                 if [ -z "${'$'}KOTLIN_VERSION" ] && [ -f "gradle.properties" ]; then
                     echo "Checking gradle.properties for Kotlin version..."
-                    KOTLIN_VERSION=$(grep -E '^kotlin.*version\s*=' gradle.properties | sed 's/.*=\s*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/' | head -n 1)
+                    KOTLIN_VERSION=${'$'}(grep -E '^kotlin.*version\s*=' gradle.properties | sed 's/.*=\s*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/' | head -n 1)
                 fi
 
                 if [ -n "${'$'}KOTLIN_VERSION" ]; then
