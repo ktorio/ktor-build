@@ -314,8 +314,20 @@ EOF
             scriptContent = """
                 #!/bin/bash
                 echo "=== Updating Gradle Properties ==="
+
+                if [ ! -f "gradle.properties" ]; then
+                    touch gradle.properties
+                fi
+
+                if [ -s gradle.properties ] && [ "$(tail -c1 gradle.properties)" != "" ]; then
+                    echo "" >> gradle.properties
+                fi
+
                 echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
+
                 echo "=== Gradle Properties Updated ==="
+                echo "Contents of gradle.properties:"
+                cat gradle.properties
             """.trimIndent()
         }
     }
