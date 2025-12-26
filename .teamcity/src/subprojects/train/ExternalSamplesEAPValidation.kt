@@ -1167,6 +1167,60 @@ PACKAGE_EOF
                         echo "❌ WEBPACK SETUP INCOMPLETE - webpack tasks may still fail"
                         echo "Consider checking the project's package.json files and npm dependencies"
                     fi
+
+                    echo "=== ADDITIONAL JS BROWSER WEBPACK VERIFICATION ==="
+                    echo "Ensuring webpack is also available for jsBrowserProductionWebpack and similar tasks..."
+
+                    # Check if there are any jsBrowser webpack tasks that might need additional webpack setup
+                    if ./gradlew tasks --all 2>/dev/null | grep -q "jsBrowser.*[Ww]ebpack"; then
+                        echo "✓ JS Browser webpack tasks detected, ensuring webpack is available for these tasks"
+
+                        # Ensure webpack is available for JS browser tasks even in Compose Multiplatform projects
+                        JS_BROWSER_WEBPACK_FOUND=false
+
+                        if [ -d "build/js/packages" ]; then
+                            for package_dir in build/js/packages/*; do
+                                if [ -d "${'$'}package_dir" ]; then
+                                    package_name=$(basename "${'$'}package_dir")
+
+                                    if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ] && [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                        echo "✓ Webpack and webpack-cli verified for JS browser tasks in ${'$'}package_name"
+                                        JS_BROWSER_WEBPACK_FOUND=true
+                                    else
+                                        echo "⚠ Webpack or webpack-cli missing for JS browser tasks in ${'$'}package_name, installing..."
+
+                                        if [ ! -f "${'$'}package_dir/package.json" ]; then
+                                            cat > "${'$'}package_dir/package.json" << 'JS_BROWSER_PACKAGE_EOF'
+{
+  "name": "kotlin-js-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+JS_BROWSER_PACKAGE_EOF
+                                        fi
+
+                                        (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error 2>/dev/null) || echo "⚠ webpack install failed for JS browser tasks in ${'$'}package_name"
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            echo "✓ Webpack successfully installed for JS browser tasks in ${'$'}package_name"
+                                            JS_BROWSER_WEBPACK_FOUND=true
+                                        fi
+                                    fi
+                                fi
+                            done
+                        fi
+
+                        if [ "${'$'}JS_BROWSER_WEBPACK_FOUND" = "true" ]; then
+                            echo "✅ JS Browser webpack tasks should now work properly"
+                        else
+                            echo "⚠ JS Browser webpack setup incomplete - jsBrowserProductionWebpack may still fail"
+                        fi
+                    else
+                        echo "⚠ No JS Browser webpack tasks detected, skipping additional verification"
+                    fi
                     """
                 } else {
                 """
