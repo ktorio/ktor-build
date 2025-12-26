@@ -790,6 +790,39 @@ EOF
                     echo "  UV_THREADPOOL_SIZE: ${'$'}UV_THREADPOOL_SIZE"
                     echo "  NODE_ENV: ${'$'}NODE_ENV"
 
+                    echo "=== YARN LOCK FILE HANDLING ==="
+                    echo "Checking for yarn.lock files and handling yarn lock updates..."
+
+                    if find . -name "yarn.lock" -type f | head -1 | read yarn_lock_file; then
+                        echo "✓ Found yarn.lock file: ${'$'}yarn_lock_file"
+                        echo "Checking if kotlinUpgradeYarnLock task exists..."
+
+                        if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                            echo "✓ kotlinUpgradeYarnLock task found, running to actualize lock files..."
+                            if ./gradlew kotlinUpgradeYarnLock ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null; then
+                                echo "✓ Yarn lock files updated successfully"
+                            else
+                                echo "⚠ kotlinUpgradeYarnLock failed, but continuing with build..."
+                            fi
+                        else
+                            echo "⚠ kotlinUpgradeYarnLock task not found, skipping yarn lock update"
+                        fi
+
+                        for subproject in composeApp shared; do
+                            if [ -d "${'$'}subproject" ]; then
+                                echo "Checking if kotlinUpgradeYarnLock task exists for ${'$'}subproject..."
+                                if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                                    echo "✓ kotlinUpgradeYarnLock task found for ${'$'}subproject, executing..."
+                                    ./gradlew :${'$'}subproject:kotlinUpgradeYarnLock ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || echo "⚠ yarn lock update failed for ${'$'}subproject"
+                                else
+                                    echo "⚠ kotlinUpgradeYarnLock task not found for ${'$'}subproject, skipping yarn lock update"
+                                fi
+                            fi
+                        done
+                    else
+                        echo "⚠ No yarn.lock files found, skipping yarn lock handling"
+                    fi
+
                     echo "=== ENSURING WEBPACK DEPENDENCIES ==="
                     echo "Pre-installing Node.js dependencies to ensure webpack is available..."
 
@@ -1114,6 +1147,39 @@ EOF
                     export NPM_CONFIG_PROGRESS="false"
                     export NPM_CONFIG_LOGLEVEL="error"
 
+                    echo "=== STEP 0: Yarn Lock File Handling ==="
+                    echo "Checking for yarn.lock files and handling yarn lock updates..."
+
+                    if find . -name "yarn.lock" -type f | head -1 | read yarn_lock_file; then
+                        echo "✓ Found yarn.lock file: ${'$'}yarn_lock_file"
+                        echo "Checking if kotlinUpgradeYarnLock task exists..."
+
+                        if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                            echo "✓ kotlinUpgradeYarnLock task found, running to actualize lock files..."
+                            if ./gradlew kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache; then
+                                echo "✓ Yarn lock files updated successfully"
+                            else
+                                echo "⚠ kotlinUpgradeYarnLock failed, but continuing with build..."
+                            fi
+                        else
+                            echo "⚠ kotlinUpgradeYarnLock task not found, skipping yarn lock update"
+                        fi
+
+                        for subproject in composeApp shared; do
+                            if [ -d "${'$'}subproject" ]; then
+                                echo "Checking if kotlinUpgradeYarnLock task exists for ${'$'}subproject..."
+                                if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                                    echo "✓ kotlinUpgradeYarnLock task found for ${'$'}subproject, executing..."
+                                    ./gradlew :${'$'}subproject:kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache || echo "⚠ yarn lock update failed for ${'$'}subproject"
+                                else
+                                    echo "⚠ kotlinUpgradeYarnLock task not found for ${'$'}subproject, skipping yarn lock update"
+                                fi
+                            fi
+                        done
+                    else
+                        echo "⚠ No yarn.lock files found, skipping yarn lock handling"
+                    fi
+
                     echo "=== STEP 1: Running root-level kotlinNpmInstall ==="
                     echo "Checking if kotlinNpmInstall task exists at root level..."
                     if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
@@ -1141,6 +1207,14 @@ EOF
                     done
 
                     echo "=== STEP 3: Ensuring webpack is available in package directories ==="
+
+                    if [ ! -d "build/js/packages" ]; then
+                        echo "Packages directory not found, attempting to create it by running kotlinNpmInstall..."
+                        if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache 2>/dev/null || true; then
+                            echo "✓ kotlinNpmInstall completed, checking for packages directory..."
+                        fi
+                    fi
+
                     if [ -d "build/js/packages" ]; then
                         echo "Found packages directory: build/js/packages"
 
@@ -1162,13 +1236,56 @@ EOF
                                             echo "✓ Webpack successfully installed in ${'$'}package_name"
                                         else
                                             echo "❌ Webpack still not found in ${'$'}package_name after npm install"
+
+                                            echo "Attempting explicit webpack installation in ${'$'}package_name..."
+                                            (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
+
+                                            if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                                echo "✓ Webpack successfully installed explicitly in ${'$'}package_name"
+                                            else
+                                                echo "❌ Webpack still not found in ${'$'}package_name after explicit install"
+                                            fi
+                                        fi
+                                    else
+                                        echo "No package.json found in ${'$'}package_name, creating minimal package.json and installing webpack..."
+                                        cat > "${'$'}package_dir/package.json" << 'PACKAGE_EOF'
+{
+  "name": "kotlin-js-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+PACKAGE_EOF
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install with created package.json failed for ${'$'}package_name"
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            echo "✓ Webpack successfully installed with created package.json in ${'$'}package_name"
                                         fi
                                     fi
                                 fi
                             fi
                         done
                     else
-                        echo "⚠ Packages directory not found, webpack tasks may fail"
+                        echo "⚠ Packages directory still not found after kotlinNpmInstall, webpack tasks may fail"
+                        echo "Attempting to create basic webpack setup..."
+
+                        mkdir -p "build/js/packages/composeApp/node_modules"
+                        if [ ! -f "build/js/packages/composeApp/package.json" ]; then
+                            cat > "build/js/packages/composeApp/package.json" << 'PACKAGE_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+PACKAGE_EOF
+                            echo "Created basic package.json for composeApp"
+                            (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error) || echo "⚠ npm install for created composeApp failed"
+                        fi
                     fi
 
                     echo "=== STEP 4: Final webpack verification ==="
@@ -1358,6 +1475,51 @@ data class ExternalSampleConfig(
 
                         if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                             setupNodeJsAndWebpack(specialHandling)
+                        }
+
+                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                            script {
+                                name = "Pre-Build Webpack Verification"
+                                scriptContent = """
+                                    #!/bin/bash
+                                    set -e
+                                    echo "=== Pre-Build Webpack Verification ==="
+
+                                    echo "Running kotlinNpmInstall to ensure webpack dependencies..."
+                                    if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
+                                        echo "✓ kotlinNpmInstall completed successfully"
+                                    else
+                                        echo "⚠ kotlinNpmInstall failed, but continuing..."
+                                    fi
+
+                                    WEBPACK_VERIFIED=false
+
+                                    if [ -d "build/js/packages" ]; then
+                                        for package_dir in build/js/packages/*; do
+                                            if [ -d "${'$'}package_dir" ]; then
+                                                package_name=$(basename "${'$'}package_dir")
+                                                if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                                    echo "✓ Webpack verified in ${'$'}package_name"
+                                                    WEBPACK_VERIFIED=true
+                                                else
+                                                    echo "⚠ Webpack not found in ${'$'}package_name, attempting final install..."
+                                                    if [ -f "${'$'}package_dir/package.json" ]; then
+                                                        (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error) || true
+                                                    fi
+                                                fi
+                                            fi
+                                        done
+                                    fi
+
+                                    if [ "${'$'}WEBPACK_VERIFIED" = "true" ]; then
+                                        echo "✅ Pre-build webpack verification successful"
+                                    else
+                                        echo "⚠ Pre-build webpack verification incomplete - build may fail"
+                                    fi
+
+                                    echo "=== Pre-Build Webpack Verification Complete ==="
+                                """.trimIndent()
+                            }
                         }
 
                         if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
