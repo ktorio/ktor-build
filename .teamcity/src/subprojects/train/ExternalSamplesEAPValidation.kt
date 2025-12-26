@@ -333,6 +333,21 @@ EOF
                     echo "kotlin.js.compiler=ir" >> gradle.properties
                     echo "kotlin.js.generate.executable.default=false" >> gradle.properties
                     echo "kotlin.wasm.experimental=true" >> gradle.properties
+
+                    ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                    """
+                        echo "# Compose Multiplatform webpack optimization" >> gradle.properties
+                        echo "kotlin.js.webpack.major.version=5" >> gradle.properties
+                        echo "kotlin.js.webpack.dev.server.port=3000" >> gradle.properties
+                        echo "kotlin.js.webpack.config.timeout=600000" >> gradle.properties
+                        echo "kotlin.js.nodejs.experimental.modules=true" >> gradle.properties
+                        echo "kotlin.js.nodejs.version=22.0.0" >> gradle.properties
+                        echo "kotlin.js.webpack.optimization.minimize=false" >> gradle.properties
+                        echo "kotlin.js.webpack.mode=production" >> gradle.properties
+                        echo "systemProp.org.gradle.internal.http.connectionTimeout=300000" >> gradle.properties
+                        echo "systemProp.org.gradle.internal.http.socketTimeout=300000" >> gradle.properties
+                        """
+                    } else ""}
                     """
                 } else {
                 """
@@ -479,6 +494,30 @@ gradle.beforeProject { project ->
             }
         }
     }
+
+    ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+    """
+        project.tasks.matching { it.name.contains("webpack") || it.name.contains("Webpack") }.configureEach { task ->
+            logger.info("Configuring webpack task timeout: " + task.name)
+            try {
+                task.timeout = java.time.Duration.ofMinutes(15)
+            } catch (Exception e) {
+                logger.info("Could not set timeout for webpack task " + task.name + ": " + e.message)
+            }
+        }
+
+        project.tasks.matching { it.name.contains("jsBrowserProductionWebpack") }.configureEach { task ->
+            logger.info("Configuring production webpack task: " + task.name)
+            try {
+                task.timeout = java.time.Duration.ofMinutes(20)
+                task.systemProperty("webpack.mode", "production")
+                task.systemProperty("webpack.optimization.minimize", "false")
+            } catch (Exception e) {
+                logger.info("Could not configure production webpack task " + task.name + ": " + e.message)
+            }
+        }
+        """
+    } else ""}
 }
 EOF
                     """
@@ -722,9 +761,34 @@ EOF
 
                 export ANDROID_SDK_MANAGER_OPTS="--no_https --verbose"
 
-                export NODE_OPTIONS="--max-old-space-size=4096"
-                export NPM_CONFIG_PROGRESS="false"
-                export NPM_CONFIG_LOGLEVEL="error"
+                ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                """
+                    echo "=== COMPOSE MULTIPLATFORM WEBPACK OPTIMIZATION ==="
+                    echo "Applying enhanced Node.js and webpack settings for Compose Multiplatform"
+
+                    export NODE_OPTIONS="--max-old-space-size=8192 --max-semi-space-size=512"
+                    export NPM_CONFIG_PROGRESS="false"
+                    export NPM_CONFIG_LOGLEVEL="error"
+
+                    export WEBPACK_CLI_FORCE_LOAD_ESM_CONFIG="false"
+                    export WEBPACK_SERVE="false"
+                    export WEBPACK_DEV_SERVER_HOST="localhost"
+
+                    export UV_THREADPOOL_SIZE="128"
+                    export NODE_ENV="production"
+
+                    echo "Enhanced Node.js settings applied:"
+                    echo "  NODE_OPTIONS: ${'$'}NODE_OPTIONS"
+                    echo "  UV_THREADPOOL_SIZE: ${'$'}UV_THREADPOOL_SIZE"
+                    echo "  NODE_ENV: ${'$'}NODE_ENV"
+                    """
+                } else {
+                """
+                    export NODE_OPTIONS="--max-old-space-size=4096"
+                    export NPM_CONFIG_PROGRESS="false"
+                    export NPM_CONFIG_LOGLEVEL="error"
+                    """
+                }}
 
                 echo "Environment variables set to prevent hanging:"
                 echo "GRADLE_OPTS: ${'$'}GRADLE_OPTS"
