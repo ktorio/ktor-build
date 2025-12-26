@@ -794,17 +794,28 @@ EOF
                     echo "Pre-installing Node.js dependencies to ensure webpack is available..."
 
                     # Step 1: Try root-level npm install
-                    if ./gradlew kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || true; then
-                        echo "✓ Root NPM dependencies installation completed"
+                    echo "Checking if kotlinNpmInstall task exists at root level..."
+                    if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
+                        echo "✓ kotlinNpmInstall task found at root level, executing..."
+                        if ./gradlew kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || true; then
+                            echo "✓ Root NPM dependencies installation completed"
+                        else
+                            echo "⚠ Root NPM dependencies installation failed, trying subproject approach..."
+                        fi
                     else
-                        echo "⚠ Root NPM dependencies installation failed, trying subproject approach..."
+                        echo "⚠ kotlinNpmInstall task not found at root level, skipping root npm install"
                     fi
 
                     # Step 2: Try subproject-specific npm installs
                     for subproject in composeApp shared; do
                         if [ -d "${'$'}subproject" ]; then
-                            echo "Attempting npm install for ${'$'}subproject..."
-                            ./gradlew :${'$'}subproject:kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || echo "⚠ npm install failed for ${'$'}subproject"
+                            echo "Checking if kotlinNpmInstall task exists for ${'$'}subproject..."
+                            if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
+                                echo "✓ kotlinNpmInstall task found for ${'$'}subproject, executing..."
+                                ./gradlew :${'$'}subproject:kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || echo "⚠ npm install failed for ${'$'}subproject"
+                            else
+                                echo "⚠ kotlinNpmInstall task not found for ${'$'}subproject, skipping npm install"
+                            fi
                         fi
                     done
 
@@ -863,7 +874,13 @@ EOF
                         echo "This may cause webpack tasks to fail with 'Cannot find node module webpack/bin/webpack.js' error"
                         echo "Attempting final fallback npm install..."
 
-                        ./gradlew kotlinNpmInstall --info --stacktrace 2>/dev/null || echo "⚠ Final npm install attempt failed"
+                        echo "Checking if kotlinNpmInstall task exists for final fallback..."
+                        if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
+                            echo "✓ kotlinNpmInstall task found, executing final fallback..."
+                            ./gradlew kotlinNpmInstall --info --stacktrace 2>/dev/null || echo "⚠ Final npm install attempt failed"
+                        else
+                            echo "⚠ kotlinNpmInstall task not found, skipping final fallback npm install"
+                        fi
 
                         # Step 5: Fallback - try to create symbolic links or copy webpack
                         echo "=== WEBPACK FALLBACK MECHANISM ==="
@@ -1098,17 +1115,28 @@ EOF
                     export NPM_CONFIG_LOGLEVEL="error"
 
                     echo "=== STEP 1: Running root-level kotlinNpmInstall ==="
-                    if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
-                        echo "✓ Root kotlinNpmInstall completed successfully"
+                    echo "Checking if kotlinNpmInstall task exists at root level..."
+                    if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
+                        echo "✓ kotlinNpmInstall task found at root level, executing..."
+                        if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
+                            echo "✓ Root kotlinNpmInstall completed successfully"
+                        else
+                            echo "⚠ Root kotlinNpmInstall failed, continuing with subproject approach..."
+                        fi
                     else
-                        echo "⚠ Root kotlinNpmInstall failed, continuing with subproject approach..."
+                        echo "⚠ kotlinNpmInstall task not found at root level, skipping root npm install"
                     fi
 
                     echo "=== STEP 2: Running subproject-specific npm installs ==="
                     for subproject in composeApp shared; do
                         if [ -d "${'$'}subproject" ]; then
-                            echo "Attempting npm install for ${'$'}subproject..."
-                            ./gradlew :${'$'}subproject:kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache || echo "⚠ npm install failed for ${'$'}subproject"
+                            echo "Checking if kotlinNpmInstall task exists for ${'$'}subproject..."
+                            if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
+                                echo "✓ kotlinNpmInstall task found for ${'$'}subproject, executing..."
+                                ./gradlew :${'$'}subproject:kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache || echo "⚠ npm install failed for ${'$'}subproject"
+                            else
+                                echo "⚠ kotlinNpmInstall task not found for ${'$'}subproject, skipping npm install"
+                            fi
                         fi
                     done
 
