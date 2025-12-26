@@ -710,7 +710,7 @@ EOF
                 echo "Starting build with NPM configuration resolution fixes..."
                 echo "Build command: ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS"
 
-                export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
+                export GRADLE_JVM_OPTS="-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
                 export ANDROID_SDK_ROOT="/home/teamcity/android-sdk-linux"
                 export ANDROID_HOME="/home/teamcity/android-sdk-linux"
 
@@ -722,6 +722,7 @@ EOF
 
                 echo "Environment variables set to prevent hanging:"
                 echo "GRADLE_OPTS: ${'$'}GRADLE_OPTS"
+                echo "GRADLE_JVM_OPTS: ${'$'}GRADLE_JVM_OPTS"
                 echo "ANDROID_SDK_ROOT: ${'$'}ANDROID_SDK_ROOT"
                 echo "NODE_OPTIONS: ${'$'}NODE_OPTIONS"
 
