@@ -301,7 +301,7 @@ EOF
         }
     }
 
-    fun BuildSteps.updateGradlePropertiesEnhanced() {
+    fun BuildSteps.updateGradlePropertiesEnhanced(specialHandling: List<SpecialHandling> = emptyList()) {
         script {
             name = "Update Gradle Properties"
             scriptContent = """
@@ -316,8 +316,53 @@ EOF
                     echo "" >> gradle.properties
                 fi
 
-                echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
-                echo "kotlin.native.version=%env.KOTLIN_VERSION%" >> gradle.properties
+                ${if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                """
+                    echo "=== MULTIPLATFORM PROJECT DETECTED ==="
+                    echo "Applying multiplatform-specific Gradle properties"
+
+                    echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
+                    echo "kotlin.native.version=%env.KOTLIN_VERSION%" >> gradle.properties
+
+                    echo "# Prevent NPM configuration resolution during configuration time" >> gradle.properties
+                    echo "kotlin.js.nodejs.check.fail=false" >> gradle.properties
+                    echo "kotlin.js.yarn.check.fail=false" >> gradle.properties
+                    echo "kotlin.js.npm.lazy=true" >> gradle.properties
+
+                    echo "# Kotlin/JS and WASM optimization" >> gradle.properties
+                    echo "kotlin.js.compiler=ir" >> gradle.properties
+                    echo "kotlin.js.generate.executable.default=false" >> gradle.properties
+                    echo "kotlin.wasm.experimental=true" >> gradle.properties
+                    """
+                } else {
+                """
+                    echo "=== NON-MULTIPLATFORM PROJECT ==="
+                    echo "Skipping multiplatform-specific properties (NPM, Kotlin/JS, WASM)"
+                    """
+                }}
+
+                echo "# Gradle performance optimizations" >> gradle.properties
+                echo "org.gradle.configureondemand=true" >> gradle.properties
+                echo "org.gradle.parallel=true" >> gradle.properties
+                echo "org.gradle.caching=true" >> gradle.properties
+                echo "org.gradle.daemon=true" >> gradle.properties
+                echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC" >> gradle.properties
+
+                ${if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
+                """
+                    echo "=== ANDROID SDK PROJECT DETECTED ==="
+                    echo "Applying Android SDK optimizations"
+                    echo "# Android SDK optimization" >> gradle.properties
+                    echo "android.useAndroidX=true" >> gradle.properties
+                    echo "android.enableJetifier=true" >> gradle.properties
+                    echo "android.builder.sdkDownload=false" >> gradle.properties
+                    """
+                } else {
+                """
+                    echo "=== NON-ANDROID PROJECT ==="
+                    echo "Skipping Android SDK optimizations"
+                    """
+                }}
 
                 echo "=== Gradle Properties Updated ==="
                 echo "Contents of gradle.properties:"
@@ -347,9 +392,12 @@ EOF
                 echo "=== Setting up Enhanced Gradle Repositories ==="
                 echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
 
-                echo "Creating EAP Gradle init script..."
+                ${if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                """
+                    echo "=== MULTIPLATFORM PROJECT DETECTED ==="
+                    echo "Creating EAP Gradle init script..."
 
-                cat > gradle-eap-init.gradle << 'EOF'
+                    cat > gradle-eap-init.gradle << 'EOF'
 allprojects {
     repositories {
         maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
@@ -357,6 +405,15 @@ allprojects {
         google()
         mavenCentral()
         gradlePluginPortal()
+    }
+
+    gradle.projectsEvaluated {
+        configurations.all { config ->
+            if (config.name.contains("NpmAggregated") || config.name.contains("npm")) {
+                config.isCanBeResolved = false
+                config.isCanBeConsumed = false
+            }
+        }
     }
 
     configurations.all {
@@ -380,7 +437,81 @@ allprojects {
         }
     }
 }
+
+gradle.beforeProject { project ->
+    project.plugins.withId("org.jetbrains.kotlin.js") {
+        project.kotlin {
+            js {
+                nodejs {
+                    testTask {
+                        useMocha {
+                            timeout = "30s"
+                        }
+                    }
+                }
+                browser {
+                    testTask {
+                        useKarma {
+                            useChromeHeadless()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    project.plugins.withId("org.jetbrains.kotlin.multiplatform") {
+        project.kotlin {
+            targets.configureEach { target ->
+                if (target.name.contains("js") || target.name.contains("wasm")) {
+                    target.compilations.configureEach { compilation ->
+                        compilation.compileKotlinTask.doFirst {
+                            println("Starting compilation for target: " + target.name + ", compilation: " + compilation.name)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 EOF
+                    """
+                } else {
+                """
+                    echo "=== NON-MULTIPLATFORM PROJECT ==="
+                    echo "Creating basic EAP Gradle init script without multiplatform optimizations"
+
+                    cat > gradle-eap-init.gradle << 'EOF'
+allprojects {
+    repositories {
+        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
+        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
+
+            eachDependency { details ->
+                if (details.requested.group == "org.jetbrains.kotlin") {
+                    details.useVersion("%env.KOTLIN_VERSION%")
+                    details.because("Align Kotlin version with compiler to prevent compilation errors")
+                }
+            }
+        }
+    }
+}
+EOF
+                    """
+                }}
 
                 echo "✓ EAP init script created successfully"
                 echo "Contents of gradle-eap-init.gradle:"
@@ -436,7 +567,7 @@ EOF
                 echo "KTOR_VERSION: %env.KTOR_VERSION%"
                 echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
 
-                GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
+                GRADLE_OPTS="--init-script gradle-eap-init.gradle --init-script fix-npm-resolution.gradle --info --stacktrace"
 
                 ${if (SpecialHandlingUtils.requiresDocker(specialHandling) || SpecialHandlingUtils.requiresDagger(specialHandling)) {
                 """
@@ -566,15 +697,50 @@ EOF
                 fi
 
                 echo "STEP: Gradle Build..."
-                if ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS; then
+                echo "Starting build with NPM configuration resolution fixes..."
+                echo "Build command: ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS"
+
+                export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC"
+                export ANDROID_SDK_ROOT="/home/teamcity/android-sdk-linux"
+                export ANDROID_HOME="/home/teamcity/android-sdk-linux"
+
+                export ANDROID_SDK_MANAGER_OPTS="--no_https --verbose"
+
+                export NODE_OPTIONS="--max-old-space-size=4096"
+                export NPM_CONFIG_PROGRESS="false"
+                export NPM_CONFIG_LOGLEVEL="error"
+
+                echo "Environment variables set to prevent hanging:"
+                echo "GRADLE_OPTS: ${'$'}GRADLE_OPTS"
+                echo "ANDROID_SDK_ROOT: ${'$'}ANDROID_SDK_ROOT"
+                echo "NODE_OPTIONS: ${'$'}NODE_OPTIONS"
+
+                if timeout 3600 ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS; then
                     echo "✓ Build completed successfully"
                 else
-                    echo "❌ Build failed"
+                    BUILD_EXIT_CODE=$?
+                    echo "❌ Build failed with exit code: ${'$'}BUILD_EXIT_CODE"
+
+                    if [ ${'$'}BUILD_EXIT_CODE -eq 124 ]; then
+                        echo "❌ TIMEOUT: Build exceeded 1 hour - likely hanging due to NPM or Android SDK issues"
+                        echo "##teamcity[buildProblem description='Build timeout - NPM configuration resolution or Android SDK hanging' identity='build-hanging-timeout']"
+                    fi
+
                     echo "Build output and logs:"
                     echo "=============================="
-
                     echo "Last 50 lines of build output:"
                     ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | tail -50 || true
+
+                    echo "Checking for specific hanging indicators:"
+                    if ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | grep -q "Configuration.*was resolved during configuration time"; then
+                        echo "❌ DETECTED: NPM configuration resolution during configuration time"
+                        echo "##teamcity[buildProblem description='NPM configuration resolved during configuration time causing hang' identity='npm-config-resolution-hang']"
+                    fi
+
+                    if ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS --debug 2>&1 | grep -q "SDK Manager"; then
+                        echo "❌ DETECTED: Android SDK Manager operations potentially hanging"
+                        echo "##teamcity[buildProblem description='Android SDK Manager operations causing hang' identity='android-sdk-hang']"
+                    fi
 
                     exit 1
                 fi
@@ -694,6 +860,61 @@ EOF
             """.trimIndent()
         }
     }
+
+    fun BuildSteps.fixNpmConfigurationResolution() {
+        script {
+            name = "Fix NPM Configuration Resolution"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+                echo "=== Fixing NPM Configuration Resolution Issues ==="
+
+                cat > fix-npm-resolution.gradle << 'EOF'
+allprojects {
+    afterEvaluate { project ->
+        project.configurations.configureEach { config ->
+            if (config.name.contains("NpmAggregated") || 
+                config.name.contains("npm") || 
+                config.name.contains("Npm")) {
+
+                config.incoming.beforeResolve {
+                    logger.info("Deferring resolution of NPM configuration: " + config.name)
+                }
+
+                if (config.canBeResolved) {
+                    config.isCanBeResolved = true
+                    config.isCanBeConsumed = false
+                }
+            }
+        }
+
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile).configureEach { task ->
+            task.doFirst {
+                logger.info("Starting Kotlin/JS compilation: " + task.name)
+            }
+            task.doLast {
+                logger.info("Completed Kotlin/JS compilation: " + task.name)
+            }
+        }
+
+        project.tasks.matching { it.name.contains("npm") || it.name.contains("Npm") }.configureEach { task ->
+            task.doFirst {
+                logger.info("Starting NPM task: " + task.name)
+            }
+            task.timeout = java.time.Duration.ofMinutes(10)
+        }
+    }
+}
+EOF
+
+                echo "✓ NPM configuration resolution fix script created"
+                echo "Contents of fix-npm-resolution.gradle:"
+                cat fix-npm-resolution.gradle
+
+                echo "=== NPM Configuration Resolution Fix Complete ==="
+            """.trimIndent()
+        }
+    }
 }
 
 data class ExternalSampleConfig(
@@ -765,9 +986,13 @@ data class ExternalSampleConfig(
 
                 when (buildType) {
                     ExternalSampleBuildType.GRADLE -> {
-                        updateGradlePropertiesEnhanced()
+                        updateGradlePropertiesEnhanced(specialHandling)
                         updateVersionCatalogComprehensive(specialHandling)
                         setupEnhancedGradleRepositories(specialHandling)
+
+                        if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                            fixNpmConfigurationResolution()
+                        }
 
                         if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
                             configureKotlinMultiplatform()
