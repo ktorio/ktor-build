@@ -899,12 +899,33 @@ allprojects {
             }
         }
 
-        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile).configureEach { task ->
-            task.doFirst {
-                logger.info("Starting Kotlin/JS compilation: " + task.name)
+        project.plugins.withId("org.jetbrains.kotlin.js") {
+            try {
+                project.tasks.withType(Class.forName("org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile")).configureEach { task ->
+                    task.doFirst {
+                        logger.info("Starting Kotlin/JS compilation: " + task.name)
+                    }
+                    task.doLast {
+                        logger.info("Completed Kotlin/JS compilation: " + task.name)
+                    }
+                }
+            } catch (ClassNotFoundException e) {
+                logger.info("Kotlin/JS compile task class not found, skipping JS-specific configuration")
             }
-            task.doLast {
-                logger.info("Completed Kotlin/JS compilation: " + task.name)
+        }
+
+        project.plugins.withId("org.jetbrains.kotlin.multiplatform") {
+            try {
+                project.tasks.withType(Class.forName("org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile")).configureEach { task ->
+                    task.doFirst {
+                        logger.info("Starting Kotlin/JS compilation (multiplatform): " + task.name)
+                    }
+                    task.doLast {
+                        logger.info("Completed Kotlin/JS compilation (multiplatform): " + task.name)
+                    }
+                }
+            } catch (ClassNotFoundException e) {
+                logger.info("Kotlin/JS compile task class not found in multiplatform project, skipping JS-specific configuration")
             }
         }
 
@@ -912,7 +933,11 @@ allprojects {
             task.doFirst {
                 logger.info("Starting NPM task: " + task.name)
             }
-            task.timeout = java.time.Duration.ofMinutes(10)
+            try {
+                task.timeout = java.time.Duration.ofMinutes(10)
+            } catch (Exception e) {
+                logger.info("Could not set timeout for NPM task " + task.name + ": " + e.message)
+            }
         }
     }
 }
