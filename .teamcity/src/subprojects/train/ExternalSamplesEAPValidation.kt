@@ -790,6 +790,39 @@ EOF
                     echo "  UV_THREADPOOL_SIZE: ${'$'}UV_THREADPOOL_SIZE"
                     echo "  NODE_ENV: ${'$'}NODE_ENV"
 
+                    echo "=== YARN LOCK FILE HANDLING ==="
+                    echo "Checking for yarn.lock files and handling yarn lock updates..."
+
+                    if find . -name "yarn.lock" -type f | head -1 | read yarn_lock_file; then
+                        echo "✓ Found yarn.lock file: ${'$'}yarn_lock_file"
+                        echo "Checking if kotlinUpgradeYarnLock task exists..."
+
+                        if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                            echo "✓ kotlinUpgradeYarnLock task found, running to actualize lock files..."
+                            if ./gradlew kotlinUpgradeYarnLock ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null; then
+                                echo "✓ Yarn lock files updated successfully"
+                            else
+                                echo "⚠ kotlinUpgradeYarnLock failed, but continuing with build..."
+                            fi
+                        else
+                            echo "⚠ kotlinUpgradeYarnLock task not found, skipping yarn lock update"
+                        fi
+
+                        for subproject in composeApp shared; do
+                            if [ -d "${'$'}subproject" ]; then
+                                echo "Checking if kotlinUpgradeYarnLock task exists for ${'$'}subproject..."
+                                if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                                    echo "✓ kotlinUpgradeYarnLock task found for ${'$'}subproject, executing..."
+                                    ./gradlew :${'$'}subproject:kotlinUpgradeYarnLock ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || echo "⚠ yarn lock update failed for ${'$'}subproject"
+                                else
+                                    echo "⚠ kotlinUpgradeYarnLock task not found for ${'$'}subproject, skipping yarn lock update"
+                                fi
+                            fi
+                        done
+                    else
+                        echo "⚠ No yarn.lock files found, skipping yarn lock handling"
+                    fi
+
                     echo "=== ENSURING WEBPACK DEPENDENCIES ==="
                     echo "Pre-installing Node.js dependencies to ensure webpack is available..."
 
@@ -1113,6 +1146,39 @@ EOF
                     export NODE_OPTIONS="--max-old-space-size=8192 --max-semi-space-size=512"
                     export NPM_CONFIG_PROGRESS="false"
                     export NPM_CONFIG_LOGLEVEL="error"
+
+                    echo "=== STEP 0: Yarn Lock File Handling ==="
+                    echo "Checking for yarn.lock files and handling yarn lock updates..."
+
+                    if find . -name "yarn.lock" -type f | head -1 | read yarn_lock_file; then
+                        echo "✓ Found yarn.lock file: ${'$'}yarn_lock_file"
+                        echo "Checking if kotlinUpgradeYarnLock task exists..."
+
+                        if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                            echo "✓ kotlinUpgradeYarnLock task found, running to actualize lock files..."
+                            if ./gradlew kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache; then
+                                echo "✓ Yarn lock files updated successfully"
+                            else
+                                echo "⚠ kotlinUpgradeYarnLock failed, but continuing with build..."
+                            fi
+                        else
+                            echo "⚠ kotlinUpgradeYarnLock task not found, skipping yarn lock update"
+                        fi
+
+                        for subproject in composeApp shared; do
+                            if [ -d "${'$'}subproject" ]; then
+                                echo "Checking if kotlinUpgradeYarnLock task exists for ${'$'}subproject..."
+                                if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                                    echo "✓ kotlinUpgradeYarnLock task found for ${'$'}subproject, executing..."
+                                    ./gradlew :${'$'}subproject:kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache || echo "⚠ yarn lock update failed for ${'$'}subproject"
+                                else
+                                    echo "⚠ kotlinUpgradeYarnLock task not found for ${'$'}subproject, skipping yarn lock update"
+                                fi
+                            fi
+                        done
+                    else
+                        echo "⚠ No yarn.lock files found, skipping yarn lock handling"
+                    fi
 
                     echo "=== STEP 1: Running root-level kotlinNpmInstall ==="
                     echo "Checking if kotlinNpmInstall task exists at root level..."
