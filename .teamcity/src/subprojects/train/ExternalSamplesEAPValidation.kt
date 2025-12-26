@@ -873,31 +873,66 @@ EOF
                                 package_name=$(basename "${'$'}package_dir")
                                 echo "Checking package: ${'$'}package_name"
 
+                                WEBPACK_JS_FOUND=false
+                                WEBPACK_CLI_FOUND=false
+
                                 if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
                                     echo "✓ Webpack found in ${'$'}package_name: ${'$'}package_dir/node_modules/webpack/bin/webpack.js"
+                                    WEBPACK_JS_FOUND=true
+                                fi
+
+                                if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                    echo "✓ Webpack CLI found in ${'$'}package_name"
+                                    WEBPACK_CLI_FOUND=true
+                                fi
+
+                                if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
+                                    echo "✓ Both webpack and webpack-cli are available in ${'$'}package_name"
                                     WEBPACK_FOUND=true
                                 else
-                                    echo "⚠ Webpack not found in ${'$'}package_name, attempting to install..."
+                                    echo "⚠ Webpack or webpack-cli missing in ${'$'}package_name (webpack: ${'$'}WEBPACK_JS_FOUND, cli: ${'$'}WEBPACK_CLI_FOUND), attempting to install..."
 
                                     if [ -f "${'$'}package_dir/package.json" ]; then
                                         echo "Running npm install in ${'$'}package_name..."
                                         (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install failed for ${'$'}package_name"
 
                                         # Check again after npm install
+                                        WEBPACK_JS_FOUND=false
+                                        WEBPACK_CLI_FOUND=false
+
                                         if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                            echo "✓ Webpack successfully installed in ${'$'}package_name"
+                                            WEBPACK_JS_FOUND=true
+                                        fi
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                            WEBPACK_CLI_FOUND=true
+                                        fi
+
+                                        if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
+                                            echo "✓ Webpack and webpack-cli successfully installed in ${'$'}package_name"
                                             WEBPACK_FOUND=true
                                         else
-                                            echo "❌ Webpack still not found in ${'$'}package_name after npm install"
+                                            echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after npm install (webpack: ${'$'}WEBPACK_JS_FOUND, cli: ${'$'}WEBPACK_CLI_FOUND)"
 
-                                            echo "Attempting explicit webpack installation in ${'$'}package_name..."
+                                            echo "Attempting explicit webpack and webpack-cli installation in ${'$'}package_name..."
                                             (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error 2>/dev/null) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
 
+                                            WEBPACK_JS_FOUND=false
+                                            WEBPACK_CLI_FOUND=false
+
                                             if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                                echo "✓ Webpack successfully installed explicitly in ${'$'}package_name"
+                                                WEBPACK_JS_FOUND=true
+                                            fi
+
+                                            if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                                WEBPACK_CLI_FOUND=true
+                                            fi
+
+                                            if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
+                                                echo "✓ Webpack and webpack-cli successfully installed explicitly in ${'$'}package_name"
                                                 WEBPACK_FOUND=true
                                             else
-                                                echo "❌ Webpack still not found in ${'$'}package_name after explicit install"
+                                                echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after explicit install (webpack: ${'$'}WEBPACK_JS_FOUND, cli: ${'$'}WEBPACK_CLI_FOUND)"
                                             fi
                                         fi
                                     else
@@ -947,8 +982,24 @@ PACKAGE_EOF
                             mkdir -p "${'$'}WASM_PACKAGE_DIR"
                         fi
 
-                        if [ ! -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
-                            echo "Installing webpack for WASM JS builds in ${'$'}WASM_PACKAGE_DIR..."
+                        # Check for both webpack and webpack-cli in WASM package
+                        WASM_WEBPACK_JS_FOUND=false
+                        WASM_WEBPACK_CLI_FOUND=false
+
+                        if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                            WASM_WEBPACK_JS_FOUND=true
+                        fi
+
+                        if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/.bin/webpack" ]; then
+                            WASM_WEBPACK_CLI_FOUND=true
+                        fi
+
+                        if [ "${'$'}WASM_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WASM_WEBPACK_CLI_FOUND" = "true" ]; then
+                            echo "✓ Both webpack and webpack-cli already available for WASM JS builds"
+                            WEBPACK_FOUND=true
+                        else
+                            echo "Installing webpack and webpack-cli for WASM JS builds in ${'$'}WASM_PACKAGE_DIR..."
+                            echo "Current status - webpack: ${'$'}WASM_WEBPACK_JS_FOUND, webpack-cli: ${'$'}WASM_WEBPACK_CLI_FOUND"
 
                             if [ ! -f "${'$'}WASM_PACKAGE_DIR/package.json" ]; then
                                 cat > "${'$'}WASM_PACKAGE_DIR/package.json" << 'WASM_PACKAGE_EOF'
@@ -966,21 +1017,44 @@ WASM_PACKAGE_EOF
 
                             (cd "${'$'}WASM_PACKAGE_DIR" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install failed for WASM package"
 
+                            # Verify installation
+                            WASM_WEBPACK_JS_FOUND=false
+                            WASM_WEBPACK_CLI_FOUND=false
+
                             if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
-                                echo "✅ Webpack successfully installed for WASM JS builds"
+                                WASM_WEBPACK_JS_FOUND=true
+                            fi
+
+                            if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/.bin/webpack" ]; then
+                                WASM_WEBPACK_CLI_FOUND=true
+                            fi
+
+                            if [ "${'$'}WASM_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WASM_WEBPACK_CLI_FOUND" = "true" ]; then
+                                echo "✅ Webpack and webpack-cli successfully installed for WASM JS builds"
                                 WEBPACK_FOUND=true
                             else
-                                echo "⚠ Webpack installation for WASM JS builds failed, trying explicit install..."
+                                echo "⚠ Webpack or webpack-cli installation for WASM JS builds failed (webpack: ${'$'}WASM_WEBPACK_JS_FOUND, cli: ${'$'}WASM_WEBPACK_CLI_FOUND), trying explicit install..."
                                 (cd "${'$'}WASM_PACKAGE_DIR" && npm install webpack webpack-cli --no-progress --loglevel=error 2>/dev/null) || echo "⚠ explicit webpack install failed for WASM package"
 
+                                # Final verification for WASM
+                                WASM_WEBPACK_JS_FOUND=false
+                                WASM_WEBPACK_CLI_FOUND=false
+
                                 if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
-                                    echo "✅ Webpack successfully installed explicitly for WASM JS builds"
+                                    WASM_WEBPACK_JS_FOUND=true
+                                fi
+
+                                if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/.bin/webpack" ]; then
+                                    WASM_WEBPACK_CLI_FOUND=true
+                                fi
+
+                                if [ "${'$'}WASM_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WASM_WEBPACK_CLI_FOUND" = "true" ]; then
+                                    echo "✅ Webpack and webpack-cli successfully installed explicitly for WASM JS builds"
                                     WEBPACK_FOUND=true
+                                else
+                                    echo "❌ Failed to install webpack or webpack-cli for WASM JS builds (webpack: ${'$'}WASM_WEBPACK_JS_FOUND, cli: ${'$'}WASM_WEBPACK_CLI_FOUND)"
                                 fi
                             fi
-                        else
-                            echo "✓ Webpack already available for WASM JS builds"
-                            WEBPACK_FOUND=true
                         fi
                     else
                         echo "⚠ No WASM JS tasks detected, skipping WASM-specific webpack setup"
@@ -1099,6 +1173,156 @@ PACKAGE_EOF
                     export NODE_OPTIONS="--max-old-space-size=4096"
                     export NPM_CONFIG_PROGRESS="false"
                     export NPM_CONFIG_LOGLEVEL="error"
+
+                    echo "=== REGULAR JS PROJECT WEBPACK SETUP ==="
+                    echo "Ensuring webpack is available for regular JS builds (jsBrowserProductionWebpack, etc.)..."
+
+                    # Step 1: Try root-level npm install for regular JS projects
+                    echo "Checking if kotlinNpmInstall task exists at root level..."
+                    if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
+                        echo "✓ kotlinNpmInstall task found at root level, executing..."
+                        if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache 2>/dev/null || true; then
+                            echo "✓ Root NPM dependencies installation completed"
+                        else
+                            echo "⚠ Root NPM dependencies installation failed, trying subproject approach..."
+                        fi
+                    else
+                        echo "⚠ kotlinNpmInstall task not found at root level, skipping root npm install"
+                    fi
+
+                    # Step 2: Ensure webpack is available in package directories for regular JS builds
+                    REGULAR_JS_WEBPACK_FOUND=false
+
+                    if [ -d "build/js/packages" ]; then
+                        echo "Found packages directory: build/js/packages"
+
+                        for package_dir in build/js/packages/*; do
+                            if [ -d "${'$'}package_dir" ]; then
+                                package_name=$(basename "${'$'}package_dir")
+                                echo "Checking package: ${'$'}package_name"
+
+                                # Check for both webpack and webpack-cli
+                                REGULAR_WEBPACK_JS_FOUND=false
+                                REGULAR_WEBPACK_CLI_FOUND=false
+
+                                if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                    echo "✓ Webpack found in ${'$'}package_name"
+                                    REGULAR_WEBPACK_JS_FOUND=true
+                                fi
+
+                                if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                    echo "✓ Webpack CLI found in ${'$'}package_name"
+                                    REGULAR_WEBPACK_CLI_FOUND=true
+                                fi
+
+                                if [ "${'$'}REGULAR_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}REGULAR_WEBPACK_CLI_FOUND" = "true" ]; then
+                                    echo "✓ Both webpack and webpack-cli are available in ${'$'}package_name"
+                                    REGULAR_JS_WEBPACK_FOUND=true
+                                else
+                                    echo "⚠ Webpack or webpack-cli missing in ${'$'}package_name (webpack: ${'$'}REGULAR_WEBPACK_JS_FOUND, cli: ${'$'}REGULAR_WEBPACK_CLI_FOUND), attempting to install..."
+
+                                    if [ -f "${'$'}package_dir/package.json" ]; then
+                                        echo "Running npm install in ${'$'}package_name..."
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install failed for ${'$'}package_name"
+
+                                        # Check again after npm install
+                                        REGULAR_WEBPACK_JS_FOUND=false
+                                        REGULAR_WEBPACK_CLI_FOUND=false
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            REGULAR_WEBPACK_JS_FOUND=true
+                                        fi
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                            REGULAR_WEBPACK_CLI_FOUND=true
+                                        fi
+
+                                        if [ "${'$'}REGULAR_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}REGULAR_WEBPACK_CLI_FOUND" = "true" ]; then
+                                            echo "✓ Webpack and webpack-cli successfully installed in ${'$'}package_name"
+                                            REGULAR_JS_WEBPACK_FOUND=true
+                                        else
+                                            echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after npm install, trying explicit install..."
+                                            (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
+
+                                            # Final verification
+                                            REGULAR_WEBPACK_JS_FOUND=false
+                                            REGULAR_WEBPACK_CLI_FOUND=false
+
+                                            if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                                REGULAR_WEBPACK_JS_FOUND=true
+                                            fi
+
+                                            if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                                REGULAR_WEBPACK_CLI_FOUND=true
+                                            fi
+
+                                            if [ "${'$'}REGULAR_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}REGULAR_WEBPACK_CLI_FOUND" = "true" ]; then
+                                                echo "✓ Webpack and webpack-cli successfully installed explicitly in ${'$'}package_name"
+                                                REGULAR_JS_WEBPACK_FOUND=true
+                                            else
+                                                echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after explicit install"
+                                            fi
+                                        fi
+                                    else
+                                        echo "No package.json found in ${'$'}package_name, creating minimal package.json and installing webpack..."
+                                        cat > "${'$'}package_dir/package.json" << 'REGULAR_PACKAGE_EOF'
+{
+  "name": "kotlin-js-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+REGULAR_PACKAGE_EOF
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install with created package.json failed for ${'$'}package_name"
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            echo "✓ Webpack successfully installed with created package.json in ${'$'}package_name"
+                                            REGULAR_JS_WEBPACK_FOUND=true
+                                        fi
+                                    fi
+                                fi
+                            fi
+                        done
+                    else
+                        echo "⚠ Packages directory not found, attempting to create basic webpack setup for regular JS builds..."
+
+                        # Try to trigger package directory creation
+                        if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache 2>/dev/null || true; then
+                            echo "✓ kotlinNpmInstall completed, checking for packages directory..."
+                        fi
+
+                        # If still no packages directory, create basic structure
+                        if [ ! -d "build/js/packages" ]; then
+                            echo "Creating basic package structure for regular JS builds..."
+                            mkdir -p "build/js/packages/composeApp"
+                            cat > "build/js/packages/composeApp/package.json" << 'REGULAR_FALLBACK_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+REGULAR_FALLBACK_EOF
+                            echo "Created basic package.json for regular JS builds"
+                            (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error) || echo "⚠ npm install for created package failed"
+
+                            if [ -f "build/js/packages/composeApp/node_modules/webpack/bin/webpack.js" ]; then
+                                echo "✓ Webpack successfully installed in created package for regular JS builds"
+                                REGULAR_JS_WEBPACK_FOUND=true
+                            fi
+                        fi
+                    fi
+
+                    if [ "${'$'}REGULAR_JS_WEBPACK_FOUND" = "true" ]; then
+                        echo "✅ REGULAR JS WEBPACK SETUP SUCCESSFUL - webpack should be available for jsBrowserProductionWebpack and similar tasks"
+                    else
+                        echo "❌ REGULAR JS WEBPACK SETUP INCOMPLETE - jsBrowserProductionWebpack tasks may fail"
+                        echo "Consider checking the project's package.json files and npm dependencies"
+                    fi
                     """
                 }}
 
@@ -1348,27 +1572,65 @@ PACKAGE_EOF
                                 package_name=$(basename "${'$'}package_dir")
                                 echo "Processing package: ${'$'}package_name"
 
+                                # Check for both webpack and webpack-cli
+                                SETUP_WEBPACK_JS_FOUND=false
+                                SETUP_WEBPACK_CLI_FOUND=false
+
                                 if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
                                     echo "✓ Webpack found in ${'$'}package_name: ${'$'}package_dir/node_modules/webpack/bin/webpack.js"
+                                    SETUP_WEBPACK_JS_FOUND=true
+                                fi
+
+                                if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                    echo "✓ Webpack CLI found in ${'$'}package_name"
+                                    SETUP_WEBPACK_CLI_FOUND=true
+                                fi
+
+                                if [ "${'$'}SETUP_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}SETUP_WEBPACK_CLI_FOUND" = "true" ]; then
+                                    echo "✓ Both webpack and webpack-cli are available in ${'$'}package_name"
                                 else
-                                    echo "⚠ Webpack not found in ${'$'}package_name, attempting to install..."
+                                    echo "⚠ Webpack or webpack-cli missing in ${'$'}package_name (webpack: ${'$'}SETUP_WEBPACK_JS_FOUND, cli: ${'$'}SETUP_WEBPACK_CLI_FOUND), attempting to install..."
 
                                     if [ -f "${'$'}package_dir/package.json" ]; then
                                         echo "Found package.json in ${'$'}package_name, running npm install..."
                                         (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install failed for ${'$'}package_name"
 
-                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                            echo "✓ Webpack successfully installed in ${'$'}package_name"
-                                        else
-                                            echo "❌ Webpack still not found in ${'$'}package_name after npm install"
+                                        # Check again after npm install
+                                        SETUP_WEBPACK_JS_FOUND=false
+                                        SETUP_WEBPACK_CLI_FOUND=false
 
-                                            echo "Attempting explicit webpack installation in ${'$'}package_name..."
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            SETUP_WEBPACK_JS_FOUND=true
+                                        fi
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                            SETUP_WEBPACK_CLI_FOUND=true
+                                        fi
+
+                                        if [ "${'$'}SETUP_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}SETUP_WEBPACK_CLI_FOUND" = "true" ]; then
+                                            echo "✓ Webpack and webpack-cli successfully installed in ${'$'}package_name"
+                                        else
+                                            echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after npm install (webpack: ${'$'}SETUP_WEBPACK_JS_FOUND, cli: ${'$'}SETUP_WEBPACK_CLI_FOUND)"
+
+                                            echo "Attempting explicit webpack and webpack-cli installation in ${'$'}package_name..."
                                             (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
 
+                                            # Final verification
+                                            SETUP_WEBPACK_JS_FOUND=false
+                                            SETUP_WEBPACK_CLI_FOUND=false
+
                                             if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                                echo "✓ Webpack successfully installed explicitly in ${'$'}package_name"
+                                                SETUP_WEBPACK_JS_FOUND=true
+                                            fi
+
+                                            if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
+                                                SETUP_WEBPACK_CLI_FOUND=true
+                                            fi
+
+                                            if [ "${'$'}SETUP_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}SETUP_WEBPACK_CLI_FOUND" = "true" ]; then
+                                                echo "✓ Webpack and webpack-cli successfully installed explicitly in ${'$'}package_name"
                                             else
-                                                echo "❌ Webpack still not found in ${'$'}package_name after explicit install"
+                                                echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after explicit install (webpack: ${'$'}SETUP_WEBPACK_JS_FOUND, cli: ${'$'}SETUP_WEBPACK_CLI_FOUND)"
                                             fi
                                         fi
                                     else
