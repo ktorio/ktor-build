@@ -346,6 +346,12 @@ EOF
                         echo "kotlin.js.webpack.mode=production" >> gradle.properties
                         echo "systemProp.org.gradle.internal.http.connectionTimeout=300000" >> gradle.properties
                         echo "systemProp.org.gradle.internal.http.socketTimeout=300000" >> gradle.properties
+
+                        echo "# Force npm installation and webpack setup" >> gradle.properties
+                        echo "kotlin.js.npm.install.always=true" >> gradle.properties
+                        echo "kotlin.js.npm.install.force=true" >> gradle.properties
+                        echo "kotlin.js.webpack.install.force=true" >> gradle.properties
+                        echo "kotlin.js.nodejs.download=true" >> gradle.properties
                         """
                     } else ""}
                     """
@@ -781,6 +787,31 @@ EOF
                     echo "  NODE_OPTIONS: ${'$'}NODE_OPTIONS"
                     echo "  UV_THREADPOOL_SIZE: ${'$'}UV_THREADPOOL_SIZE"
                     echo "  NODE_ENV: ${'$'}NODE_ENV"
+
+                    echo "=== ENSURING WEBPACK DEPENDENCIES ==="
+                    echo "Pre-installing Node.js dependencies to ensure webpack is available..."
+
+                    if ./gradlew kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || true; then
+                        echo "✓ NPM dependencies installation completed"
+                    else
+                        echo "⚠ NPM dependencies installation failed or not available, continuing..."
+                    fi
+
+                    if [ -d "build/js/node_modules" ]; then
+                        echo "Found Node.js modules directory: build/js/node_modules"
+                        if [ -f "build/js/node_modules/webpack/bin/webpack.js" ]; then
+                            echo "✓ Webpack found at: build/js/node_modules/webpack/bin/webpack.js"
+                        else
+                            echo "⚠ Webpack not found in build/js/node_modules/webpack/bin/webpack.js"
+                        fi
+                    fi
+
+                    if [ -d "build/js/packages" ]; then
+                        echo "Found packages directory: build/js/packages"
+                        find build/js/packages -name "webpack.js" -type f 2>/dev/null | head -5 | while read webpack_path; do
+                            echo "Found webpack at: ${'$'}webpack_path"
+                        done
+                    fi
                     """
                 } else {
                 """
@@ -942,6 +973,66 @@ EOF
         }
     }
 
+    fun BuildSteps.setupNodeJsAndWebpack(specialHandling: List<SpecialHandling> = emptyList()) {
+        script {
+            name = "Setup Node.js and Webpack Dependencies"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+                echo "=== Setting up Node.js and Webpack Dependencies ==="
+
+                ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                """
+                    echo "=== COMPOSE MULTIPLATFORM NODE.JS SETUP ==="
+                    echo "Ensuring Node.js and webpack are properly set up for Compose Multiplatform"
+
+                    # Set Node.js environment variables
+                    export NODE_OPTIONS="--max-old-space-size=8192 --max-semi-space-size=512"
+                    export NPM_CONFIG_PROGRESS="false"
+                    export NPM_CONFIG_LOGLEVEL="error"
+
+                    echo "Running kotlinNpmInstall to ensure Node.js dependencies..."
+                    if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
+                        echo "✓ kotlinNpmInstall completed successfully"
+                    else
+                        echo "⚠ kotlinNpmInstall failed, trying alternative approach..."
+
+                        for subproject in composeApp shared; do
+                            if [ -d "${'$'}subproject" ]; then
+                                echo "Attempting npm install for ${'$'}subproject..."
+                                ./gradlew :${'$'}subproject:kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache || echo "⚠ npm install failed for ${'$'}subproject"
+                            fi
+                        done
+                    fi
+
+                    echo "Checking webpack installation..."
+                    find . -name "webpack.js" -type f 2>/dev/null | head -10 | while read webpack_path; do
+                        echo "Found webpack at: ${'$'}webpack_path"
+                    done
+
+                    for js_dir in build/js/node_modules build/js/packages/*/node_modules; do
+                        if [ -d "${'$'}js_dir" ]; then
+                            echo "Found Node.js modules directory: ${'$'}js_dir"
+                            if [ -f "${'$'}js_dir/webpack/bin/webpack.js" ]; then
+                                echo "✓ Webpack found at: ${'$'}js_dir/webpack/bin/webpack.js"
+                            fi
+                        fi
+                    done
+
+                    echo "=== Node.js and Webpack Setup Complete ==="
+                    """
+                } else {
+                """
+                    echo "=== NON-COMPOSE MULTIPLATFORM PROJECT ==="
+                    echo "Skipping Node.js and webpack setup for non-Compose Multiplatform project"
+                    """
+                }}
+
+                echo "=== Node.js and Webpack Dependencies Setup Complete ==="
+            """.trimIndent()
+        }
+    }
+
     fun BuildSteps.fixNpmConfigurationResolution() {
         script {
             name = "Fix NPM Configuration Resolution"
@@ -1094,6 +1185,10 @@ data class ExternalSampleConfig(
 
                         if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                             fixNpmConfigurationResolution()
+                        }
+
+                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                            setupNodeJsAndWebpack(specialHandling)
                         }
 
                         if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
