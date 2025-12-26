@@ -352,6 +352,8 @@ EOF
                         echo "kotlin.js.npm.install.force=true" >> gradle.properties
                         echo "kotlin.js.webpack.install.force=true" >> gradle.properties
                         echo "kotlin.js.nodejs.download=true" >> gradle.properties
+                        echo "kotlin.js.webpack.resolve.fallback=true" >> gradle.properties
+                        echo "kotlin.js.npm.resolve.fallback=true" >> gradle.properties
                         """
                     } else ""}
                     """
@@ -791,16 +793,29 @@ EOF
                     echo "=== ENSURING WEBPACK DEPENDENCIES ==="
                     echo "Pre-installing Node.js dependencies to ensure webpack is available..."
 
+                    # Step 1: Try root-level npm install
                     if ./gradlew kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || true; then
-                        echo "✓ NPM dependencies installation completed"
+                        echo "✓ Root NPM dependencies installation completed"
                     else
-                        echo "⚠ NPM dependencies installation failed or not available, continuing..."
+                        echo "⚠ Root NPM dependencies installation failed, trying subproject approach..."
                     fi
+
+                    # Step 2: Try subproject-specific npm installs
+                    for subproject in composeApp shared; do
+                        if [ -d "${'$'}subproject" ]; then
+                            echo "Attempting npm install for ${'$'}subproject..."
+                            ./gradlew :${'$'}subproject:kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || echo "⚠ npm install failed for ${'$'}subproject"
+                        fi
+                    done
+
+                    # Step 3: Check webpack installation in various locations
+                    WEBPACK_FOUND=false
 
                     if [ -d "build/js/node_modules" ]; then
                         echo "Found Node.js modules directory: build/js/node_modules"
                         if [ -f "build/js/node_modules/webpack/bin/webpack.js" ]; then
                             echo "✓ Webpack found at: build/js/node_modules/webpack/bin/webpack.js"
+                            WEBPACK_FOUND=true
                         else
                             echo "⚠ Webpack not found in build/js/node_modules/webpack/bin/webpack.js"
                         fi
@@ -808,9 +823,100 @@ EOF
 
                     if [ -d "build/js/packages" ]; then
                         echo "Found packages directory: build/js/packages"
+
+                        for package_dir in build/js/packages/*; do
+                            if [ -d "${'$'}package_dir" ]; then
+                                package_name=$(basename "${'$'}package_dir")
+                                echo "Checking package: ${'$'}package_name"
+
+                                if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                    echo "✓ Webpack found in ${'$'}package_name: ${'$'}package_dir/node_modules/webpack/bin/webpack.js"
+                                    WEBPACK_FOUND=true
+                                else
+                                    echo "⚠ Webpack not found in ${'$'}package_name, attempting to install..."
+
+                                    if [ -f "${'$'}package_dir/package.json" ]; then
+                                        echo "Running npm install in ${'$'}package_name..."
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install failed for ${'$'}package_name"
+
+                                        # Check again after npm install
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            echo "✓ Webpack successfully installed in ${'$'}package_name"
+                                            WEBPACK_FOUND=true
+                                        else
+                                            echo "❌ Webpack still not found in ${'$'}package_name after npm install"
+                                        fi
+                                    fi
+                                fi
+                            fi
+                        done
+
+                        echo "Searching for webpack.js files in packages directory..."
                         find build/js/packages -name "webpack.js" -type f 2>/dev/null | head -5 | while read webpack_path; do
                             echo "Found webpack at: ${'$'}webpack_path"
                         done
+                    fi
+
+                    # Step 4: Final verification and fallback
+                    if [ "${'$'}WEBPACK_FOUND" = "false" ]; then
+                        echo "❌ WARNING: Webpack not found in expected locations"
+                        echo "This may cause webpack tasks to fail with 'Cannot find node module webpack/bin/webpack.js' error"
+                        echo "Attempting final fallback npm install..."
+
+                        ./gradlew kotlinNpmInstall --info --stacktrace 2>/dev/null || echo "⚠ Final npm install attempt failed"
+
+                        # Step 5: Fallback - try to create symbolic links or copy webpack
+                        echo "=== WEBPACK FALLBACK MECHANISM ==="
+
+                        WEBPACK_SOURCE=""
+                        if [ -f "build/js/node_modules/webpack/bin/webpack.js" ]; then
+                            WEBPACK_SOURCE="build/js/node_modules/webpack"
+                            echo "Found webpack source at: ${'$'}WEBPACK_SOURCE"
+                        else
+                            WEBPACK_PATH=$(find . -name "webpack.js" -path "*/webpack/bin/webpack.js" -type f 2>/dev/null | head -1)
+                            if [ -n "${'$'}WEBPACK_PATH" ]; then
+                                WEBPACK_SOURCE=$(dirname $(dirname "${'$'}WEBPACK_PATH"))
+                                echo "Found webpack source at: ${'$'}WEBPACK_SOURCE"
+                            fi
+                        fi
+
+                        if [ -n "${'$'}WEBPACK_SOURCE" ] && [ -d "${'$'}WEBPACK_SOURCE" ]; then
+                            echo "Attempting to make webpack available in package directories..."
+
+                            for package_dir in build/js/packages/*; do
+                                if [ -d "${'$'}package_dir" ] && [ ! -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                    package_name=$(basename "${'$'}package_dir")
+                                    echo "Creating webpack link for ${'$'}package_name..."
+
+                                    mkdir -p "${'$'}package_dir/node_modules"
+
+                                    if ln -sf "$(realpath "${'$'}WEBPACK_SOURCE")" "${'$'}package_dir/node_modules/webpack" 2>/dev/null; then
+                                        echo "✓ Created symbolic link for webpack in ${'$'}package_name"
+                                        WEBPACK_FOUND=true
+                                    elif cp -r "${'$'}WEBPACK_SOURCE" "${'$'}package_dir/node_modules/webpack" 2>/dev/null; then
+                                        echo "✓ Copied webpack to ${'$'}package_name"
+                                        WEBPACK_FOUND=true
+                                    else
+                                        echo "⚠ Failed to create webpack link/copy for ${'$'}package_name"
+                                    fi
+                                fi
+                            done
+                        fi
+
+                        # One more check
+                        echo "Final webpack search..."
+                        find . -name "webpack.js" -type f 2>/dev/null | head -10 | while read webpack_path; do
+                            echo "Found webpack at: ${'$'}webpack_path"
+                        done
+                    else
+                        echo "✓ Webpack verification completed - webpack found in at least one location"
+                    fi
+
+                    if [ "${'$'}WEBPACK_FOUND" = "true" ]; then
+                        echo "✅ WEBPACK SETUP SUCCESSFUL - webpack should be available for webpack tasks"
+                    else
+                        echo "❌ WEBPACK SETUP INCOMPLETE - webpack tasks may still fail"
+                        echo "Consider checking the project's package.json files and npm dependencies"
                     fi
                     """
                 } else {
@@ -991,30 +1097,65 @@ EOF
                     export NPM_CONFIG_PROGRESS="false"
                     export NPM_CONFIG_LOGLEVEL="error"
 
-                    echo "Running kotlinNpmInstall to ensure Node.js dependencies..."
+                    echo "=== STEP 1: Running root-level kotlinNpmInstall ==="
                     if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
-                        echo "✓ kotlinNpmInstall completed successfully"
+                        echo "✓ Root kotlinNpmInstall completed successfully"
                     else
-                        echo "⚠ kotlinNpmInstall failed, trying alternative approach..."
-
-                        for subproject in composeApp shared; do
-                            if [ -d "${'$'}subproject" ]; then
-                                echo "Attempting npm install for ${'$'}subproject..."
-                                ./gradlew :${'$'}subproject:kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache || echo "⚠ npm install failed for ${'$'}subproject"
-                            fi
-                        done
+                        echo "⚠ Root kotlinNpmInstall failed, continuing with subproject approach..."
                     fi
 
-                    echo "Checking webpack installation..."
+                    echo "=== STEP 2: Running subproject-specific npm installs ==="
+                    for subproject in composeApp shared; do
+                        if [ -d "${'$'}subproject" ]; then
+                            echo "Attempting npm install for ${'$'}subproject..."
+                            ./gradlew :${'$'}subproject:kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache || echo "⚠ npm install failed for ${'$'}subproject"
+                        fi
+                    done
+
+                    echo "=== STEP 3: Ensuring webpack is available in package directories ==="
+                    if [ -d "build/js/packages" ]; then
+                        echo "Found packages directory: build/js/packages"
+
+                        for package_dir in build/js/packages/*; do
+                            if [ -d "${'$'}package_dir" ]; then
+                                package_name=$(basename "${'$'}package_dir")
+                                echo "Processing package: ${'$'}package_name"
+
+                                if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                    echo "✓ Webpack found in ${'$'}package_name: ${'$'}package_dir/node_modules/webpack/bin/webpack.js"
+                                else
+                                    echo "⚠ Webpack not found in ${'$'}package_name, attempting to install..."
+
+                                    if [ -f "${'$'}package_dir/package.json" ]; then
+                                        echo "Found package.json in ${'$'}package_name, running npm install..."
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install failed for ${'$'}package_name"
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            echo "✓ Webpack successfully installed in ${'$'}package_name"
+                                        else
+                                            echo "❌ Webpack still not found in ${'$'}package_name after npm install"
+                                        fi
+                                    fi
+                                fi
+                            fi
+                        done
+                    else
+                        echo "⚠ Packages directory not found, webpack tasks may fail"
+                    fi
+
+                    echo "=== STEP 4: Final webpack verification ==="
+                    echo "Searching for all webpack.js files..."
                     find . -name "webpack.js" -type f 2>/dev/null | head -10 | while read webpack_path; do
                         echo "Found webpack at: ${'$'}webpack_path"
                     done
 
                     for js_dir in build/js/node_modules build/js/packages/*/node_modules; do
                         if [ -d "${'$'}js_dir" ]; then
-                            echo "Found Node.js modules directory: ${'$'}js_dir"
+                            echo "Checking Node.js modules directory: ${'$'}js_dir"
                             if [ -f "${'$'}js_dir/webpack/bin/webpack.js" ]; then
                                 echo "✓ Webpack found at: ${'$'}js_dir/webpack/bin/webpack.js"
+                            else
+                                echo "⚠ Webpack not found at: ${'$'}js_dir/webpack/bin/webpack.js"
                             fi
                         fi
                     done
