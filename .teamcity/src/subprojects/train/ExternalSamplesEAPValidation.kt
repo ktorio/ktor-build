@@ -410,8 +410,16 @@ allprojects {
     gradle.projectsEvaluated {
         configurations.all { config ->
             if (config.name.contains("NpmAggregated") || config.name.contains("npm")) {
-                config.isCanBeResolved = false
-                config.isCanBeConsumed = false
+                try {
+                    if (config.hasProperty('isCanBeResolved')) {
+                        config.isCanBeResolved = false
+                    }
+                    if (config.hasProperty('isCanBeConsumed')) {
+                        config.isCanBeConsumed = false
+                    }
+                } catch (Exception e) {
+                    logger.info("Could not configure NPM configuration " + config.name + ": " + e.message)
+                }
             }
         }
     }
