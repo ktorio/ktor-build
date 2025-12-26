@@ -889,6 +889,34 @@ EOF
                                             WEBPACK_FOUND=true
                                         else
                                             echo "❌ Webpack still not found in ${'$'}package_name after npm install"
+
+                                            echo "Attempting explicit webpack installation in ${'$'}package_name..."
+                                            (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error 2>/dev/null) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
+
+                                            if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                                echo "✓ Webpack successfully installed explicitly in ${'$'}package_name"
+                                                WEBPACK_FOUND=true
+                                            else
+                                                echo "❌ Webpack still not found in ${'$'}package_name after explicit install"
+                                            fi
+                                        fi
+                                    else
+                                        echo "No package.json found in ${'$'}package_name, creating minimal package.json and installing webpack..."
+                                        cat > "${'$'}package_dir/package.json" << 'PACKAGE_EOF'
+{
+  "name": "kotlin-js-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+PACKAGE_EOF
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install with created package.json failed for ${'$'}package_name"
+
+                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                            echo "✓ Webpack successfully installed with created package.json in ${'$'}package_name"
+                                            WEBPACK_FOUND=true
                                         fi
                                     fi
                                 fi
@@ -899,6 +927,63 @@ EOF
                         find build/js/packages -name "webpack.js" -type f 2>/dev/null | head -5 | while read webpack_path; do
                             echo "Found webpack at: ${'$'}webpack_path"
                         done
+                    fi
+
+                    # Step 3.1: Special handling for WASM JS builds
+                    echo "=== WASM JS WEBPACK SETUP ==="
+                    echo "Checking for WASM JS specific webpack requirements..."
+
+                    if ./gradlew tasks --all 2>/dev/null | grep -q "wasmJs"; then
+                        echo "✓ WASM JS tasks detected, ensuring webpack is available for WASM builds"
+
+                        if [ ! -d "build/js/packages" ]; then
+                            echo "Creating packages directory for WASM JS builds..."
+                            mkdir -p "build/js/packages"
+                        fi
+
+                        WASM_PACKAGE_DIR="build/js/packages/composeApp"
+                        if [ ! -d "${'$'}WASM_PACKAGE_DIR" ]; then
+                            echo "Creating composeApp package directory for WASM JS builds..."
+                            mkdir -p "${'$'}WASM_PACKAGE_DIR"
+                        fi
+
+                        if [ ! -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                            echo "Installing webpack for WASM JS builds in ${'$'}WASM_PACKAGE_DIR..."
+
+                            if [ ! -f "${'$'}WASM_PACKAGE_DIR/package.json" ]; then
+                                cat > "${'$'}WASM_PACKAGE_DIR/package.json" << 'WASM_PACKAGE_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+WASM_PACKAGE_EOF
+                                echo "Created package.json for WASM JS builds"
+                            fi
+
+                            (cd "${'$'}WASM_PACKAGE_DIR" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install failed for WASM package"
+
+                            if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                                echo "✅ Webpack successfully installed for WASM JS builds"
+                                WEBPACK_FOUND=true
+                            else
+                                echo "⚠ Webpack installation for WASM JS builds failed, trying explicit install..."
+                                (cd "${'$'}WASM_PACKAGE_DIR" && npm install webpack webpack-cli --no-progress --loglevel=error 2>/dev/null) || echo "⚠ explicit webpack install failed for WASM package"
+
+                                if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                                    echo "✅ Webpack successfully installed explicitly for WASM JS builds"
+                                    WEBPACK_FOUND=true
+                                fi
+                            fi
+                        else
+                            echo "✓ Webpack already available for WASM JS builds"
+                            WEBPACK_FOUND=true
+                        fi
+                    else
+                        echo "⚠ No WASM JS tasks detected, skipping WASM-specific webpack setup"
                     fi
 
                     # Step 4: Final verification and fallback
@@ -933,6 +1018,24 @@ EOF
                         if [ -n "${'$'}WEBPACK_SOURCE" ] && [ -d "${'$'}WEBPACK_SOURCE" ]; then
                             echo "Attempting to make webpack available in package directories..."
 
+                            if [ ! -d "build/js/packages" ]; then
+                                echo "Packages directory doesn't exist, creating basic webpack setup..."
+                                mkdir -p "build/js/packages/composeApp/node_modules"
+                                if [ ! -f "build/js/packages/composeApp/package.json" ]; then
+                                    cat > "build/js/packages/composeApp/package.json" << 'PACKAGE_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+PACKAGE_EOF
+                                    echo "Created basic package.json for composeApp"
+                                fi
+                            fi
+
                             for package_dir in build/js/packages/*; do
                                 if [ -d "${'$'}package_dir" ] && [ ! -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
                                     package_name=$(basename "${'$'}package_dir")
@@ -951,6 +1054,28 @@ EOF
                                     fi
                                 fi
                             done
+                        else
+                            echo "No webpack source found, creating basic package structure and attempting npm install..."
+                            mkdir -p "build/js/packages/composeApp"
+                            if [ ! -f "build/js/packages/composeApp/package.json" ]; then
+                                cat > "build/js/packages/composeApp/package.json" << 'PACKAGE_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+PACKAGE_EOF
+                                echo "Created basic package.json for composeApp"
+                                (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install for created composeApp failed"
+
+                                if [ -f "build/js/packages/composeApp/node_modules/webpack/bin/webpack.js" ]; then
+                                    echo "✓ Webpack successfully installed in created composeApp package"
+                                    WEBPACK_FOUND=true
+                                fi
+                            fi
                         fi
 
                         # One more check
@@ -1288,7 +1413,60 @@ PACKAGE_EOF
                         fi
                     fi
 
-                    echo "=== STEP 4: Final webpack verification ==="
+                    echo "=== STEP 4: WASM JS webpack setup ==="
+                    echo "Checking for WASM JS specific webpack requirements..."
+
+                    if ./gradlew tasks --all 2>/dev/null | grep -q "wasmJs"; then
+                        echo "✓ WASM JS tasks detected, ensuring webpack is available for WASM builds"
+
+                        if [ ! -d "build/js/packages" ]; then
+                            echo "Creating packages directory for WASM JS builds..."
+                            mkdir -p "build/js/packages"
+                        fi
+
+                        WASM_PACKAGE_DIR="build/js/packages/composeApp"
+                        if [ ! -d "${'$'}WASM_PACKAGE_DIR" ]; then
+                            echo "Creating composeApp package directory for WASM JS builds..."
+                            mkdir -p "${'$'}WASM_PACKAGE_DIR"
+                        fi
+
+                        if [ ! -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                            echo "Installing webpack for WASM JS builds in ${'$'}WASM_PACKAGE_DIR..."
+
+                            if [ ! -f "${'$'}WASM_PACKAGE_DIR/package.json" ]; then
+                                cat > "${'$'}WASM_PACKAGE_DIR/package.json" << 'WASM_PACKAGE_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+WASM_PACKAGE_EOF
+                                echo "Created package.json for WASM JS builds"
+                            fi
+
+                            (cd "${'$'}WASM_PACKAGE_DIR" && npm install --no-progress --loglevel=error) || echo "⚠ npm install failed for WASM package"
+
+                            if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                                echo "✅ Webpack successfully installed for WASM JS builds"
+                            else
+                                echo "⚠ Webpack installation for WASM JS builds failed, trying explicit install..."
+                                (cd "${'$'}WASM_PACKAGE_DIR" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ explicit webpack install failed for WASM package"
+
+                                if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                                    echo "✅ Webpack successfully installed explicitly for WASM JS builds"
+                                fi
+                            fi
+                        else
+                            echo "✓ Webpack already available for WASM JS builds"
+                        fi
+                    else
+                        echo "⚠ No WASM JS tasks detected, skipping WASM-specific webpack setup"
+                    fi
+
+                    echo "=== STEP 5: Final webpack verification ==="
                     echo "Searching for all webpack.js files..."
                     find . -name "webpack.js" -type f 2>/dev/null | head -10 | while read webpack_path; do
                         echo "Found webpack at: ${'$'}webpack_path"
