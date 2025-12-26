@@ -567,7 +567,17 @@ EOF
                 echo "KTOR_VERSION: %env.KTOR_VERSION%"
                 echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
 
-                GRADLE_OPTS="--init-script gradle-eap-init.gradle --init-script fix-npm-resolution.gradle --info --stacktrace"
+                ${if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                """
+                    GRADLE_OPTS="--init-script gradle-eap-init.gradle --init-script fix-npm-resolution.gradle --info --stacktrace"
+                    echo "Using both EAP and NPM resolution init scripts for multiplatform project"
+                    """
+                } else {
+                """
+                    GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
+                    echo "Using only EAP init script for non-multiplatform project"
+                    """
+                }}
 
                 ${if (SpecialHandlingUtils.requiresDocker(specialHandling) || SpecialHandlingUtils.requiresDagger(specialHandling)) {
                 """
