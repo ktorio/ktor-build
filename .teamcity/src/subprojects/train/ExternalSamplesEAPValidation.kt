@@ -892,9 +892,17 @@ allprojects {
                     logger.info("Deferring resolution of NPM configuration: " + config.name)
                 }
 
-                if (config.canBeResolved) {
-                    config.isCanBeResolved = true
-                    config.isCanBeConsumed = false
+                try {
+                    if (config.canBeResolved) {
+                        if (config.hasProperty('isCanBeResolved')) {
+                            config.isCanBeResolved = true
+                        }
+                        if (config.hasProperty('isCanBeConsumed')) {
+                            config.isCanBeConsumed = false
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.info("Could not configure NPM configuration " + config.name + ": " + e.message)
                 }
             }
         }
