@@ -194,10 +194,9 @@ allprojects {
     fun createMultiplatformExtensions(): String = """
             force("org.jetbrains.kotlin:kotlin-stdlib-js:%env.KOTLIN_VERSION%")
             force("org.jetbrains.kotlin:kotlin-stdlib-wasm-js:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-js:%env.KOTLIN_VERSION%")
-        }
-    }
-}
+            force("org.jetbrains.kotlin:kotlin-test-js:%env.KOTLIN_VERSION%")"""
+
+    fun createNpmConfigurationFix(): String = """
 
 allprojects {
     afterEvaluate { project ->
@@ -215,7 +214,8 @@ allprojects {
                 }
             }
         }
-    }"""
+    }
+}"""
 
     fun createWebpackTaskConfiguration(specialHandling: List<SpecialHandling>): String = 
         if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
@@ -281,12 +281,21 @@ gradle.beforeProject { project ->
         val multiplatformExtensions = if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
             createMultiplatformExtensions()
         } else ""
+        val npmConfigFix = if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+            createNpmConfigurationFix()
+        } else ""
         val webpackConfig = createWebpackTaskConfiguration(specialHandling)
 
-        return baseConfig.replace(
-            "force(\"org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%\")",
-            "force(\"org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%\")$multiplatformExtensions"
-        ) + "\n\n" + webpackConfig
+        val finalConfig = if (multiplatformExtensions.isNotEmpty()) {
+            baseConfig.replace(
+                "force(\"org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%\")",
+                "force(\"org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%\")\n$multiplatformExtensions"
+            )
+        } else {
+            baseConfig
+        }
+
+        return finalConfig + npmConfigFix + "\n\n" + webpackConfig
     }
 }
 
