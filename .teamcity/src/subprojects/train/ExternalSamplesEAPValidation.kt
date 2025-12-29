@@ -1372,7 +1372,7 @@ JS_BROWSER_PACKAGE_EOF
   }
 }
 REGULAR_PACKAGE_EOF
-                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install with created package.json failed for ${'$'}package_name"
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ npm install with created package.json failed for ${'$'}package_name"
 
                                         if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
                                             echo "✓ Webpack successfully installed with created package.json in ${'$'}package_name"
@@ -1570,6 +1570,19 @@ REGULAR_FALLBACK_EOF
                 set -e
                 echo "=== Setting up Node.js and Webpack Dependencies ==="
 
+                # Set environment variables to prevent webpack interactive prompts
+                export WEBPACK_CLI_SKIP_IMPORT_CHECK=true
+                export WEBPACK_CLI_FORCE_LOAD_ESM_CONFIG=false
+                export CI=true
+                export NODE_ENV=production
+                export npm_config_yes=true
+                export npm_config_audit=false
+                export npm_config_fund=false
+
+                # Install webpack-cli globally to prevent interactive prompts
+                echo "Installing webpack-cli globally to prevent interactive prompts..."
+                npm install -g webpack-cli --yes --no-audit --no-fund --loglevel=error || echo "⚠ Global webpack-cli install failed, continuing..."
+
                 ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                 """
                     echo "=== COMPOSE MULTIPLATFORM NODE.JS SETUP ==="
@@ -1624,7 +1637,7 @@ REGULAR_FALLBACK_EOF
 
                                     if [ -f "${'$'}package_dir/package.json" ]; then
                                         echo "Found package.json in ${'$'}package_name, running npm install..."
-                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install failed for ${'$'}package_name"
+                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ npm install failed for ${'$'}package_name"
 
                                         # Check again after npm install
                                         SETUP_WEBPACK_JS_FOUND=false
@@ -1644,7 +1657,7 @@ REGULAR_FALLBACK_EOF
                                             echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after npm install (webpack: ${'$'}SETUP_WEBPACK_JS_FOUND, cli: ${'$'}SETUP_WEBPACK_CLI_FOUND)"
 
                                             echo "Attempting explicit webpack and webpack-cli installation in ${'$'}package_name..."
-                                            (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
+                                            (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
 
                                             # Final verification
                                             SETUP_WEBPACK_JS_FOUND=false
@@ -1702,7 +1715,7 @@ PACKAGE_EOF
 }
 PACKAGE_EOF
                             echo "Created basic package.json for composeApp"
-                            (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error) || echo "⚠ npm install for created composeApp failed"
+                            (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ npm install for created composeApp failed"
                         fi
                     fi
 
@@ -1757,7 +1770,7 @@ WASM_PACKAGE_EOF
 
                             # Install with explicit --yes flag to prevent interactive prompts
                             echo "Installing webpack and webpack-cli with non-interactive flags..."
-                            (cd "${'$'}WASM_PACKAGE_DIR" && npm install --no-progress --loglevel=error --yes) || echo "⚠ npm install failed for WASM package"
+                            (cd "${'$'}WASM_PACKAGE_DIR" && npm install --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ npm install failed for WASM package"
 
                             # Verify installation
                             WASM_WEBPACK_JS_FOUND=false
@@ -1775,7 +1788,7 @@ WASM_PACKAGE_EOF
                                 echo "✅ Webpack and webpack-cli successfully installed for WASM JS builds"
                             else
                                 echo "⚠ Webpack or webpack-cli installation for WASM JS builds failed (webpack: ${'$'}WASM_WEBPACK_JS_FOUND, cli: ${'$'}WASM_WEBPACK_CLI_FOUND), trying explicit install..."
-                                (cd "${'$'}WASM_PACKAGE_DIR" && npm install webpack webpack-cli --no-progress --loglevel=error --yes) || echo "⚠ explicit webpack install failed for WASM package"
+                                (cd "${'$'}WASM_PACKAGE_DIR" && npm install webpack webpack-cli --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ explicit webpack install failed for WASM package"
 
                                 # Final verification for WASM
                                 WASM_WEBPACK_JS_FOUND=false
@@ -1948,6 +1961,13 @@ data class ExternalSampleConfig(
             param("env.JDK_21", "")
             param("env.TC_CLOUD_TOKEN", "")
             param("env.DAGGER_CONFIGURED", "false")
+            param("env.WEBPACK_CLI_SKIP_IMPORT_CHECK", "true")
+            param("env.WEBPACK_CLI_FORCE_LOAD_ESM_CONFIG", "false")
+            param("env.CI", "true")
+            param("env.NODE_ENV", "production")
+            param("env.npm_config_yes", "true")
+            param("env.npm_config_audit", "false")
+            param("env.npm_config_fund", "false")
         }
 
         requirements {
@@ -1999,6 +2019,19 @@ data class ExternalSampleConfig(
                                     echo "=== Pre-Build Webpack Installation ==="
                                     echo "Installing webpack before build to ensure it's available for jsBrowserProductionWebpack"
 
+                                    # Set environment variables to prevent webpack interactive prompts
+                                    export WEBPACK_CLI_SKIP_IMPORT_CHECK=true
+                                    export WEBPACK_CLI_FORCE_LOAD_ESM_CONFIG=false
+                                    export CI=true
+                                    export NODE_ENV=production
+                                    export npm_config_yes=true
+                                    export npm_config_audit=false
+                                    export npm_config_fund=false
+
+                                    # Install webpack-cli globally to prevent interactive prompts during build
+                                    echo "Installing webpack-cli globally to prevent interactive prompts..."
+                                    npm install -g webpack-cli --yes --no-audit --no-fund --loglevel=error || echo "⚠ Global webpack-cli install failed, continuing..."
+
                                     # Run kotlinNpmInstall first to create the package structure
                                     echo "Running kotlinNpmInstall to create package structure..."
                                     if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
@@ -2034,7 +2067,7 @@ EOF
                                                 fi
 
                                                 # Install webpack and webpack-cli
-                                                (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ webpack install failed for ${'$'}package_name"
+                                                (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ webpack install failed for ${'$'}package_name"
 
                                                 # Verify installation
                                                 if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
@@ -2057,7 +2090,7 @@ EOF
   }
 }
 EOF
-                                        (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error) || echo "⚠ fallback webpack install failed"
+                                        (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ fallback webpack install failed"
 
                                         if [ -f "build/js/packages/composeApp/node_modules/webpack/bin/webpack.js" ]; then
                                             echo "✅ Fallback webpack installation successful"
