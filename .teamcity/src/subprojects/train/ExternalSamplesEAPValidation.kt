@@ -1437,6 +1437,106 @@ REGULAR_FALLBACK_EOF
                         echo "❌ REGULAR JS WEBPACK SETUP INCOMPLETE - jsBrowserProductionWebpack tasks may fail"
                         echo "Consider checking the project's package.json files and npm dependencies"
                     fi
+
+                    # Step 3: Special handling for WASM JS builds in non-Compose projects
+                    echo "=== WASM JS WEBPACK SETUP FOR NON-COMPOSE PROJECTS ==="
+                    echo "Checking for WASM JS specific webpack requirements..."
+
+                    if ./gradlew tasks --all 2>/dev/null | grep -q "wasmJs"; then
+                        echo "✓ WASM JS tasks detected, ensuring webpack is available for WASM builds"
+
+                        if [ ! -d "build/js/packages" ]; then
+                            echo "Creating packages directory for WASM JS builds..."
+                            mkdir -p "build/js/packages"
+                        fi
+
+                        WASM_PACKAGE_DIR="build/js/packages/composeApp"
+                        if [ ! -d "${'$'}WASM_PACKAGE_DIR" ]; then
+                            echo "Creating composeApp package directory for WASM JS builds..."
+                            mkdir -p "${'$'}WASM_PACKAGE_DIR"
+                        fi
+
+                        # Check for both webpack and webpack-cli in WASM package
+                        WASM_WEBPACK_JS_FOUND=false
+                        WASM_WEBPACK_CLI_FOUND=false
+
+                        if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                            WASM_WEBPACK_JS_FOUND=true
+                        fi
+
+                        if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/.bin/webpack" ]; then
+                            WASM_WEBPACK_CLI_FOUND=true
+                        fi
+
+                        if [ "${'$'}WASM_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WASM_WEBPACK_CLI_FOUND" = "true" ]; then
+                            echo "✓ Both webpack and webpack-cli already available for WASM JS builds"
+                        else
+                            echo "Installing webpack and webpack-cli for WASM JS builds in ${'$'}WASM_PACKAGE_DIR..."
+                            echo "Current status - webpack: ${'$'}WASM_WEBPACK_JS_FOUND, webpack-cli: ${'$'}WASM_WEBPACK_CLI_FOUND"
+
+                            if [ ! -f "${'$'}WASM_PACKAGE_DIR/package.json" ]; then
+                                cat > "${'$'}WASM_PACKAGE_DIR/package.json" << 'WASM_PACKAGE_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+WASM_PACKAGE_EOF
+                                echo "Created package.json for WASM JS builds"
+                            fi
+
+                            (cd "${'$'}WASM_PACKAGE_DIR" && npm install --no-progress --loglevel=error --yes 2>/dev/null) || echo "⚠ npm install failed for WASM package"
+
+                            # Verify installation
+                            WASM_WEBPACK_JS_FOUND=false
+                            WASM_WEBPACK_CLI_FOUND=false
+
+                            if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                                WASM_WEBPACK_JS_FOUND=true
+                            fi
+
+                            if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/.bin/webpack" ]; then
+                                WASM_WEBPACK_CLI_FOUND=true
+                            fi
+
+                            if [ "${'$'}WASM_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WASM_WEBPACK_CLI_FOUND" = "true" ]; then
+                                echo "✅ Webpack and webpack-cli successfully installed for WASM JS builds"
+                            else
+                                echo "⚠ Webpack or webpack-cli installation for WASM JS builds failed (webpack: ${'$'}WASM_WEBPACK_JS_FOUND, cli: ${'$'}WASM_WEBPACK_CLI_FOUND), trying explicit install..."
+                                (cd "${'$'}WASM_PACKAGE_DIR" && npm install webpack webpack-cli --no-progress --loglevel=error --yes 2>/dev/null) || echo "⚠ explicit webpack install failed for WASM package"
+
+                                # Final verification for WASM
+                                WASM_WEBPACK_JS_FOUND=false
+                                WASM_WEBPACK_CLI_FOUND=false
+
+                                if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                                    WASM_WEBPACK_JS_FOUND=true
+                                fi
+
+                                if [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}WASM_PACKAGE_DIR/node_modules/.bin/webpack" ]; then
+                                    WASM_WEBPACK_CLI_FOUND=true
+                                fi
+
+                                if [ "${'$'}WASM_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WASM_WEBPACK_CLI_FOUND" = "true" ]; then
+                                    echo "✅ Webpack and webpack-cli successfully installed explicitly for WASM JS builds"
+                                else
+                                    echo "❌ Failed to install webpack or webpack-cli for WASM JS builds (webpack: ${'$'}WASM_WEBPACK_JS_FOUND, cli: ${'$'}WASM_WEBPACK_CLI_FOUND)"
+                                fi
+                            fi
+                        fi
+
+                        # Final WASM JS webpack verification
+                        if [ "${'$'}WASM_WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WASM_WEBPACK_CLI_FOUND" = "true" ]; then
+                            echo "✅ WASM JS WEBPACK SETUP SUCCESSFUL - webpack should be available for wasmJsBrowserProductionWebpack"
+                        else
+                            echo "❌ WASM JS WEBPACK SETUP INCOMPLETE - wasmJsBrowserProductionWebpack may fail with 'Cannot find node module webpack/bin/webpack.js' error"
+                        fi
+                    else
+                        echo "⚠ No WASM JS tasks detected, skipping WASM-specific webpack setup"
+                    fi
                     """
                 }}
 
