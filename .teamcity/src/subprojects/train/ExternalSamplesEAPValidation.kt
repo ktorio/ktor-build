@@ -73,6 +73,7 @@ fun BuildSteps.addDockerAgentLogging() {
 
 object VCSRoots {
     fun createKtorVcsRoot(name: String, url: String): KtorVcsRoot = KtorVcsRoot {
+        id("VCS_${name.replace(" ", "").replace("-", "")}")
         this.name = name
         this.url = url
     }
