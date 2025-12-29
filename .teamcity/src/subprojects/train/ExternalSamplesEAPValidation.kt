@@ -192,9 +192,11 @@ allprojects {
 }"""
 
     fun createMultiplatformExtensions(): String = """
-    force("org.jetbrains.kotlin:kotlin-stdlib-js:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-js:%env.KOTLIN_VERSION%")
             force("org.jetbrains.kotlin:kotlin-stdlib-wasm-js:%env.KOTLIN_VERSION%")
             force("org.jetbrains.kotlin:kotlin-test-js:%env.KOTLIN_VERSION%")
+        }
+    }
 }
 
 allprojects {
