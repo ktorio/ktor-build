@@ -1546,6 +1546,65 @@ WASM_PACKAGE_EOF
                 echo "ANDROID_SDK_ROOT: ${'$'}ANDROID_SDK_ROOT"
                 echo "NODE_OPTIONS: ${'$'}NODE_OPTIONS"
 
+                # CRITICAL: Final webpack verification right before build execution
+                echo "=== FINAL PRE-BUILD WEBPACK VERIFICATION ==="
+                echo "Ensuring webpack is available immediately before Gradle build execution..."
+
+                # Check if this project has WASM JS tasks that need webpack
+                if ./gradlew tasks --all 2>/dev/null | grep -q "wasmJs"; then
+                    echo "✓ WASM JS tasks detected - performing final webpack verification"
+
+                    FINAL_WASM_PACKAGE_DIR="build/js/packages/composeApp"
+                    FINAL_WEBPACK_AVAILABLE=false
+
+                    if [ -f "${'$'}FINAL_WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                        echo "✓ Webpack found at expected location for WASM JS builds"
+                        FINAL_WEBPACK_AVAILABLE=true
+                    else
+                        echo "❌ CRITICAL: Webpack not found at expected location: ${'$'}FINAL_WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js"
+                        echo "This will cause wasmJsBrowserProductionWebpack to fail - attempting emergency webpack installation..."
+
+                        # Emergency webpack installation
+                        mkdir -p "${'$'}FINAL_WASM_PACKAGE_DIR"
+
+                        if [ ! -f "${'$'}FINAL_WASM_PACKAGE_DIR/package.json" ]; then
+                            cat > "${'$'}FINAL_WASM_PACKAGE_DIR/package.json" << 'EMERGENCY_PACKAGE_EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+EMERGENCY_PACKAGE_EOF
+                            echo "Created emergency package.json for WASM JS builds"
+                        fi
+
+                        echo "Running emergency npm install for webpack..."
+                        (cd "${'$'}FINAL_WASM_PACKAGE_DIR" && npm install webpack webpack-cli --no-progress --loglevel=error --yes --no-audit --no-fund) || echo "⚠ Emergency webpack install failed"
+
+                        # Final verification
+                        if [ -f "${'$'}FINAL_WASM_PACKAGE_DIR/node_modules/webpack/bin/webpack.js" ]; then
+                            echo "✅ Emergency webpack installation successful"
+                            FINAL_WEBPACK_AVAILABLE=true
+                        else
+                            echo "❌ CRITICAL: Emergency webpack installation failed"
+                            echo "wasmJsBrowserProductionWebpack will likely fail with 'Cannot find node module webpack/bin/webpack.js' error"
+                        fi
+                    fi
+
+                    if [ "${'$'}FINAL_WEBPACK_AVAILABLE" = "true" ]; then
+                        echo "✅ Final webpack verification successful - wasmJsBrowserProductionWebpack should work"
+                    else
+                        echo "❌ Final webpack verification failed - build may fail on webpack tasks"
+                    fi
+                else
+                    echo "⚠ No WASM JS tasks detected - skipping final webpack verification"
+                fi
+
+                echo "=== Starting Gradle Build Execution ==="
+
                 if timeout 3600 ./gradlew ${'$'}BUILD_TASK ${'$'}GRADLE_OPTS; then
                     echo "✓ Build completed successfully"
                 else
