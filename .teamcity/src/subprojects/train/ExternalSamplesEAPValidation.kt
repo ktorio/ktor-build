@@ -577,13 +577,13 @@ EOF
 
                 ${if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                 """
-                    GRADLE_OPTS="--init-script gradle-eap-init.gradle --init-script fix-npm-resolution.gradle --configuration-cache --info --stacktrace"
-                    echo "Using both EAP and NPM resolution init scripts for multiplatform project with configuration cache enabled"
+                    GRADLE_OPTS="--init-script gradle-eap-init.gradle --init-script fix-npm-resolution.gradle --info --stacktrace"
+                    echo "Using both EAP and NPM resolution init scripts for multiplatform project"
                     """
             } else {
                 """
-                    GRADLE_OPTS="--init-script gradle-eap-init.gradle --configuration-cache --info --stacktrace"
-                    echo "Using only EAP init script for non-multiplatform project with configuration cache enabled"
+                    GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
+                    echo "Using only EAP init script for non-multiplatform project"
                     """
             }}
 
@@ -890,8 +890,8 @@ EOF
 
                 cat > fix-npm-resolution.gradle << 'EOF'
 allprojects {
-    gradle.projectsEvaluated {
-        configurations.configureEach { config ->
+    afterEvaluate { project ->
+        project.configurations.configureEach { config ->
             if (config.name.contains("NpmAggregated") || 
                 config.name.contains("npm") || 
                 config.name.contains("Npm")) {
@@ -899,39 +899,67 @@ allprojects {
                 config.incoming.beforeResolve {
                     logger.info("Deferring resolution of NPM configuration: " + config.name)
                 }
+
+                try {
+                    if (config.canBeResolved) {
+                        if (config.hasProperty('isCanBeResolved')) {
+                            config.isCanBeResolved = true
+                        }
+                        if (config.hasProperty('isCanBeConsumed')) {
+                            config.isCanBeConsumed = false
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.info("Could not configure NPM configuration " + config.name + ": " + e.message)
+                }
+            }
+        }
+
+        project.plugins.withId("org.jetbrains.kotlin.js") {
+            try {
+                project.tasks.withType(Class.forName("org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile")).configureEach { task ->
+                    task.doFirst {
+                        logger.info("Starting Kotlin/JS compilation: " + task.name)
+                    }
+                    task.doLast {
+                        logger.info("Completed Kotlin/JS compilation: " + task.name)
+                    }
+                }
+            } catch (ClassNotFoundException e) {
+                logger.info("Kotlin/JS compile task class not found, skipping JS-specific configuration")
+            }
+        }
+
+        project.plugins.withId("org.jetbrains.kotlin.multiplatform") {
+            try {
+                project.tasks.withType(Class.forName("org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile")).configureEach { task ->
+                    task.doFirst {
+                        logger.info("Starting Kotlin/JS compilation (multiplatform): " + task.name)
+                    }
+                    task.doLast {
+                        logger.info("Completed Kotlin/JS compilation (multiplatform): " + task.name)
+                    }
+                }
+            } catch (ClassNotFoundException e) {
+                logger.info("Kotlin/JS compile task class not found in multiplatform project, skipping JS-specific configuration")
+            }
+        }
+
+        project.tasks.matching { it.name.contains("npm") || it.name.contains("Npm") }.configureEach { task ->
+            task.doFirst {
+                logger.info("Starting NPM task: " + task.name)
+            }
+            try {
+                task.timeout = java.time.Duration.ofMinutes(10)
+            } catch (Exception e) {
+                logger.info("Could not set timeout for NPM task " + task.name + ": " + e.message)
             }
         }
     }
-
-    tasks.configureEach { task ->
-        if (task.name.contains("compileKotlinJs") || task.name.contains("Kotlin2JsCompile")) {
-            task.inputs.property("kotlin.js.compiler.cache.safe", "true")
-        }
-
-        if (task.name.contains("npm") || task.name.contains("Npm")) {
-            task.inputs.property("npm.task.timeout", "10m")
-        }
-    }
-
-    plugins.withId("org.jetbrains.kotlin.js") {
-        project.setProperty("kotlin.js.nodejs.check.fail", "false")
-        project.setProperty("kotlin.js.yarn.check.fail", "false")
-    }
-
-    plugins.withId("org.jetbrains.kotlin.multiplatform") {
-        project.setProperty("kotlin.js.nodejs.check.fail", "false")
-        project.setProperty("kotlin.js.yarn.check.fail", "false")
-    }
-}
-
-gradle.beforeProject { project ->
-    System.setProperty("kotlin.js.npm.lazy", "true")
-    System.setProperty("kotlin.js.nodejs.check.fail", "false")
-    System.setProperty("kotlin.js.yarn.check.fail", "false")
 }
 EOF
 
-                echo "✓ Configuration cache compatible NPM resolution fix script created"
+                echo "✓ NPM configuration resolution fix script created"
                 echo "Contents of fix-npm-resolution.gradle:"
                 cat fix-npm-resolution.gradle
 
