@@ -195,9 +195,11 @@ allprojects {
     force("org.jetbrains.kotlin:kotlin-stdlib-js:%env.KOTLIN_VERSION%")
             force("org.jetbrains.kotlin:kotlin-stdlib-wasm-js:%env.KOTLIN_VERSION%")
             force("org.jetbrains.kotlin:kotlin-test-js:%env.KOTLIN_VERSION%")
+}
 
-    gradle.projectsEvaluated {
-        configurations.all { config ->
+allprojects {
+    afterEvaluate { project ->
+        project.configurations.all { config ->
             if (config.name.contains("NpmAggregated") || config.name.contains("npm")) {
                 try {
                     if (config.hasProperty('isCanBeResolved')) {
