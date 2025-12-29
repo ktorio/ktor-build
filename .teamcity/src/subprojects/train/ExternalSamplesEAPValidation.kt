@@ -974,6 +974,15 @@ EOF
 
                 export ANDROID_SDK_MANAGER_OPTS="--no_https --verbose"
 
+                # Check if project has Kotlin/JS or WASM JS components that need yarn lock handling
+                HAS_JS_COMPONENTS=false
+                if ./gradlew tasks --all 2>/dev/null | grep -q -E "(kotlinNpmInstall|kotlinStoreYarnLock|kotlinUpgradeYarnLock|jsBrowser|wasmJs|compileKotlinJs|compileKotlinWasmJs)"; then
+                    echo "✓ Kotlin/JS or WASM JS components detected - yarn lock handling required"
+                    HAS_JS_COMPONENTS=true
+                else
+                    echo "⚠ No Kotlin/JS or WASM JS components detected"
+                fi
+
                 ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                 """
                     echo "=== COMPOSE MULTIPLATFORM WEBPACK OPTIMIZATION ==="
@@ -1273,6 +1282,14 @@ JS_BROWSER_PACKAGE_EOF
 
                     echo "=== REGULAR JS PROJECT WEBPACK SETUP ==="
                     echo "Ensuring webpack is available for regular JS builds (jsBrowserProductionWebpack, etc.)..."
+
+                    # Handle yarn lock files for JS projects (if they have JS components)
+                    if [ "${'$'}HAS_JS_COMPONENTS" = "true" ]; then
+                        echo "=== YARN LOCK HANDLING FOR JS PROJECT ==="
+                        ${WebpackUtils.setupYarnLockHandling()}
+                    else
+                        echo "⚠ No JS components detected, skipping yarn lock handling"
+                    fi
 
                     # Step 1: Try root-level npm install for regular JS projects
                     echo "Checking if kotlinNpmInstall task exists at root level..."
