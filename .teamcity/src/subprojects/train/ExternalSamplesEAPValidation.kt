@@ -81,11 +81,6 @@ object VCSKtorNativeServer : KtorVcsRoot({
     url = "https://github.com/nomisRev/ktor-native-server.git"
 })
 
-object VCSKtorKoogExample : KtorVcsRoot({
-    name = "Ktor Koog Example"
-    url = "https://github.com/nomisRev/ktor-koog-example.git"
-})
-
 object VCSKtorConfigExample : KtorVcsRoot({
     name = "Ktor Config Example"
     url = "https://github.com/nomisRev/ktor-config-example.git"
@@ -1105,7 +1100,6 @@ object ExternalSamplesEAPValidation : Project({
         param("special.handling.enabled", "true")
         param("compose.multiplatform.support", "true")
         param("testcontainers.cloud.enabled", "true")
-        param("GOOGLE_CLIENT_ID", "placeholder_google_client_id_for_build_validation")
         password("testcontainers-cloud-token", "credentialsJSON:your-testcontainers-cloud-token-id")
     }
 
@@ -1122,7 +1116,6 @@ object ExternalSamplesEAPValidation : Project({
 private fun Project.registerVCSRoots() {
     vcsRoot(VCSKtorAiServer)
     vcsRoot(VCSKtorNativeServer)
-    vcsRoot(VCSKtorKoogExample)
     vcsRoot(VCSKtorConfigExample)
     vcsRoot(VCSKtorWorkshop2025)
     vcsRoot(VCSAmperKtorSample)
@@ -1145,11 +1138,6 @@ private fun createSampleConfigurations(versionResolver: BuildType): List<Externa
     EAPSampleBuilder("Ktor Native Server", VCSKtorNativeServer, versionResolver)
         .withBuildType(ExternalSampleBuildType.GRADLE)
         .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
-        .build(),
-
-    EAPSampleBuilder("Ktor Koog Example", VCSKtorKoogExample, versionResolver)
-        .withBuildType(ExternalSampleBuildType.GRADLE)
-        .withSpecialHandling(SpecialHandling.COMPOSE_MULTIPLATFORM)
         .build(),
 
     EAPSampleBuilder("Ktor Config Example", VCSKtorConfigExample, versionResolver)
