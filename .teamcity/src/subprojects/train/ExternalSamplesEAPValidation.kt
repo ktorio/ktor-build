@@ -807,10 +807,15 @@ EOF
                 echo "KTOR_VERSION: %env.KTOR_VERSION%"
                 echo "KTOR_COMPILER_PLUGIN_VERSION: %env.KTOR_COMPILER_PLUGIN_VERSION%"
 
-                ${if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                 """
                     GRADLE_OPTS="--init-script gradle-eap-init.gradle --init-script fix-npm-resolution.gradle --info --stacktrace"
-                    echo "Using both EAP and NPM resolution init scripts for multiplatform project"
+                    echo "Using both EAP and NPM resolution init scripts for Compose Multiplatform project"
+                    """
+                } else if (SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+                """
+                    GRADLE_OPTS="--init-script gradle-eap-init.gradle --info --stacktrace"
+                    echo "Using only EAP init script for multiplatform project (no JS components detected)"
                     """
                 } else {
                 """
@@ -1964,7 +1969,7 @@ data class ExternalSampleConfig(
                         updateVersionCatalogComprehensive(specialHandling)
                         setupEnhancedGradleRepositories(specialHandling)
 
-                        if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                             fixNpmConfigurationResolution()
                         }
 
@@ -1972,7 +1977,7 @@ data class ExternalSampleConfig(
                             setupNodeJsAndWebpack(specialHandling)
                         }
 
-                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling) || SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                             script {
                                 name = "Pre-Build Webpack Installation"
                                 scriptContent = """
