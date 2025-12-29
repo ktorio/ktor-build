@@ -71,45 +71,52 @@ fun BuildSteps.addDockerAgentLogging() {
     }
 }
 
-object VCSKtorAiServer : KtorVcsRoot({
-    name = "Ktor AI Server"
-    url = "https://github.com/nomisRev/ktor-ai-server.git"
-})
+object VCSRoots {
+    fun createKtorVcsRoot(name: String, url: String): KtorVcsRoot = KtorVcsRoot {
+        this.name = name
+        this.url = url
+    }
+}
 
-object VCSKtorNativeServer : KtorVcsRoot({
-    name = "Ktor Native Server"
-    url = "https://github.com/nomisRev/ktor-native-server.git"
-})
+val VCSKtorAiServer = VCSRoots.createKtorVcsRoot(
+    "Ktor AI Server",
+    "https://github.com/nomisRev/ktor-ai-server.git"
+)
 
-object VCSKtorKoogExample : KtorVcsRoot({
-    name = "Ktor Koog Example"
-    url = "https://github.com/nomisRev/ktor-koog-example.git"
-})
+val VCSKtorNativeServer = VCSRoots.createKtorVcsRoot(
+    "Ktor Native Server",
+    "https://github.com/nomisRev/ktor-native-server.git"
+)
 
-object VCSKtorConfigExample : KtorVcsRoot({
-    name = "Ktor Config Example"
-    url = "https://github.com/nomisRev/ktor-config-example.git"
-})
+val VCSKtorKoogExample = VCSRoots.createKtorVcsRoot(
+    "Ktor Koog Example",
+    "https://github.com/nomisRev/ktor-koog-example.git"
+)
 
-object VCSKtorWorkshop2025 : KtorVcsRoot({
-    name = "Ktor Workshop 2025"
-    url = "https://github.com/nomisRev/ktor-workshop-2025.git"
-})
+val VCSKtorConfigExample = VCSRoots.createKtorVcsRoot(
+    "Ktor Config Example",
+    "https://github.com/nomisRev/ktor-config-example.git"
+)
 
-object VCSAmperKtorSample : KtorVcsRoot({
-    name = "Amper Ktor Sample"
-    url = "https://github.com/nomisRev/amper-ktor-sample.git"
-})
+val VCSKtorWorkshop2025 = VCSRoots.createKtorVcsRoot(
+    "Ktor Workshop 2025",
+    "https://github.com/nomisRev/ktor-workshop-2025.git"
+)
 
-object VCSKtorDIOverview : KtorVcsRoot({
-    name = "Ktor DI Overview"
-    url = "https://github.com/nomisRev/Ktor-DI-Overview.git"
-})
+val VCSAmperKtorSample = VCSRoots.createKtorVcsRoot(
+    "Amper Ktor Sample",
+    "https://github.com/nomisRev/amper-ktor-sample.git"
+)
 
-object VCSKtorFullStackRealWorld : KtorVcsRoot({
-    name = "Ktor Full Stack Real World"
-    url = "https://github.com/nomisRev/ktor-full-stack-real-world.git"
-})
+val VCSKtorDIOverview = VCSRoots.createKtorVcsRoot(
+    "Ktor DI Overview",
+    "https://github.com/nomisRev/Ktor-DI-Overview.git"
+)
+
+val VCSKtorFullStackRealWorld = VCSRoots.createKtorVcsRoot(
+    "Ktor Full Stack Real World",
+    "https://github.com/nomisRev/ktor-full-stack-real-world.git"
+)
 
 data class EAPSampleBuilder(
     val projectName: String,
@@ -153,7 +160,348 @@ object EAPBuildFeatures {
     }
 }
 
+object GradleScriptUtils {
+    fun createBaseRepositoriesConfig(): String = """
+allprojects {
+    repositories {
+        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
+        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
+
+            eachDependency { details ->
+                if (details.requested.group == "org.jetbrains.kotlin") {
+                    details.useVersion("%env.KOTLIN_VERSION%")
+                    details.because("Align Kotlin version with compiler to prevent compilation errors")
+                }
+            }
+        }
+    }
+}"""
+
+    fun createMultiplatformExtensions(): String = """
+    force("org.jetbrains.kotlin:kotlin-stdlib-js:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-stdlib-wasm-js:%env.KOTLIN_VERSION%")
+            force("org.jetbrains.kotlin:kotlin-test-js:%env.KOTLIN_VERSION%")
+
+    gradle.projectsEvaluated {
+        configurations.all { config ->
+            if (config.name.contains("NpmAggregated") || config.name.contains("npm")) {
+                try {
+                    if (config.hasProperty('isCanBeResolved')) {
+                        config.isCanBeResolved = false
+                    }
+                    if (config.hasProperty('isCanBeConsumed')) {
+                        config.isCanBeConsumed = false
+                    }
+                } catch (Exception e) {
+                    logger.info("Could not configure NPM configuration " + config.name + ": " + e.message)
+                }
+            }
+        }
+    }"""
+
+    fun createWebpackTaskConfiguration(specialHandling: List<SpecialHandling>): String = 
+        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+            """
+gradle.beforeProject { project ->
+    project.plugins.withId("org.jetbrains.kotlin.js") {
+        project.kotlin {
+            js {
+                nodejs {
+                    testTask {
+                        useMocha {
+                            timeout = "30s"
+                        }
+                    }
+                }
+                browser {
+                    testTask {
+                        useKarma {
+                            useChromeHeadless()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    project.plugins.withId("org.jetbrains.kotlin.multiplatform") {
+        project.kotlin {
+            targets.configureEach { target ->
+                if (target.name.contains("js") || target.name.contains("wasm")) {
+                    target.compilations.configureEach { compilation ->
+                        logger.info("Configuring compilation for target: " + target.name + ", compilation: " + compilation.name)
+                    }
+                }
+            }
+        }
+    }
+
+    project.tasks.matching { it.name.contains("webpack") || it.name.contains("Webpack") }.configureEach { task ->
+        logger.info("Configuring webpack task timeout: " + task.name)
+        try {
+            task.timeout = java.time.Duration.ofMinutes(15)
+        } catch (Exception e) {
+            logger.info("Could not set timeout for webpack task " + task.name + ": " + e.message)
+        }
+    }
+
+    project.tasks.matching { it.name.contains("jsBrowserProductionWebpack") }.configureEach { task ->
+        logger.info("Configuring production webpack task: " + task.name)
+        try {
+            task.timeout = java.time.Duration.ofMinutes(20)
+            task.systemProperty("webpack.mode", "production")
+            task.systemProperty("webpack.optimization.minimize", "false")
+        } catch (Exception e) {
+            logger.info("Could not configure production webpack task " + task.name + ": " + e.message)
+        }
+    }
+}"""
+        } else ""
+
+    fun createGradleInitScript(specialHandling: List<SpecialHandling>): String {
+        val baseConfig = createBaseRepositoriesConfig()
+        val multiplatformExtensions = if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+            createMultiplatformExtensions()
+        } else ""
+        val webpackConfig = createWebpackTaskConfiguration(specialHandling)
+
+        return baseConfig.replace(
+            "force(\"org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%\")",
+            "force(\"org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%\")$multiplatformExtensions"
+        ) + "\n\n" + webpackConfig
+    }
+}
+
+object SetupScriptUtils {
+    fun createSetupScript(componentName: String, content: String): String = """
+        #!/bin/bash
+        echo "=== Setting up $componentName ==="
+        $content
+        echo "=== $componentName Setup Complete ==="
+    """.trimIndent()
+
+    fun createSimpleSetupScript(componentName: String, description: String = ""): String = 
+        createSetupScript(componentName, if (description.isNotEmpty()) "echo \"$description\"" else "")
+
+    fun createEnvironmentSetupScript(componentName: String, envVars: Map<String, String>): String {
+        val envSetup = envVars.entries.joinToString("\n") { (key, value) -> 
+            "export $key=$value" 
+        }
+        return createSetupScript(componentName, envSetup)
+    }
+}
+
 object ExternalSampleScripts {
+    object WebpackUtils {
+        fun createPackageJson(packageName: String = "kotlin-js-package"): String = """
+{
+  "name": "$packageName",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+        """.trimIndent()
+
+        fun checkWebpackInstallation(packageDir: String, packageName: String): String = """
+            WEBPACK_JS_FOUND=false
+            WEBPACK_CLI_FOUND=false
+
+            if [ -f "$packageDir/node_modules/webpack/bin/webpack.js" ]; then
+                echo "✓ Webpack found in $packageName"
+                WEBPACK_JS_FOUND=true
+            fi
+
+            if [ -f "$packageDir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "$packageDir/node_modules/.bin/webpack" ]; then
+                echo "✓ Webpack CLI found in $packageName"
+                WEBPACK_CLI_FOUND=true
+            fi
+        """.trimIndent()
+
+        fun installWebpackWithVerification(packageDir: String, packageName: String): String = """
+            ${checkWebpackInstallation(packageDir, packageName)}
+
+            if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
+                echo "✓ Both webpack and webpack-cli are already available in $packageName"
+                WEBPACK_FOUND=true
+            else
+                echo "⚠ Webpack or webpack-cli missing in $packageName (webpack: ${'$'}WEBPACK_JS_FOUND, cli: ${'$'}WEBPACK_CLI_FOUND), attempting to install..."
+
+                if [ -f "$packageDir/package.json" ]; then
+                    echo "Running npm install in $packageName..."
+                    (cd "$packageDir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install failed for $packageName"
+                else
+                    echo "No package.json found in $packageName, creating minimal package.json and installing webpack..."
+                    cat > "$packageDir/package.json" << 'PACKAGE_EOF'
+${createPackageJson(packageName)}
+PACKAGE_EOF
+                    (cd "$packageDir" && npm install --no-progress --loglevel=error) || echo "⚠ npm install with created package.json failed for $packageName"
+                fi
+
+                # Verify installation after npm install
+                ${checkWebpackInstallation(packageDir, packageName)}
+
+                if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
+                    echo "✓ Webpack and webpack-cli successfully installed in $packageName"
+                    WEBPACK_FOUND=true
+                else
+                    echo "❌ Webpack or webpack-cli still missing in $packageName after npm install, trying explicit install..."
+                    (cd "$packageDir" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ explicit webpack install failed for $packageName"
+
+                    # Final verification
+                    ${checkWebpackInstallation(packageDir, packageName)}
+
+                    if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
+                        echo "✓ Webpack and webpack-cli successfully installed explicitly in $packageName"
+                        WEBPACK_FOUND=true
+                    else
+                        echo "❌ Webpack or webpack-cli still missing in $packageName after explicit install"
+                    fi
+                fi
+            fi
+        """.trimIndent()
+
+        fun processAllPackages(): String = """
+            if [ -d "build/js/packages" ]; then
+                echo "Found packages directory: build/js/packages"
+
+                for package_dir in build/js/packages/*; do
+                    if [ -d "${'$'}package_dir" ]; then
+                        package_name=$(basename "${'$'}package_dir")
+                        echo "Processing package: ${'$'}package_name"
+                        ${installWebpackWithVerification("${'$'}package_dir", "${'$'}package_name")}
+                    fi
+                done
+            else
+                echo "⚠ Packages directory not found, attempting to create basic webpack setup..."
+                mkdir -p "build/js/packages/composeApp"
+                cat > "build/js/packages/composeApp/package.json" << 'FALLBACK_EOF'
+${createPackageJson("composeApp")}
+FALLBACK_EOF
+                echo "Installing webpack in fallback package..."
+                (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error) || echo "⚠ fallback webpack install failed"
+
+                if [ -f "build/js/packages/composeApp/node_modules/webpack/bin/webpack.js" ]; then
+                    echo "✓ Fallback webpack installation successful"
+                    WEBPACK_FOUND=true
+                fi
+            fi
+        """.trimIndent()
+
+
+        fun setupKotlinNpmInstall(taskName: String = "kotlinNpmInstall"): String = """
+            echo "Checking if $taskName task exists at root level..."
+            if ./gradlew tasks --all 2>/dev/null | grep -q "$taskName"; then
+                echo "✓ $taskName task found at root level, executing..."
+                if ./gradlew $taskName --info --stacktrace --no-daemon --no-build-cache; then
+                    echo "✓ Root $taskName completed successfully"
+                else
+                    echo "⚠ Root $taskName failed, continuing with subproject approach..."
+                fi
+            else
+                echo "⚠ $taskName task not found at root level, skipping root npm install"
+            fi
+        """.trimIndent()
+
+        fun setupSubprojectNpmInstall(subprojects: List<String> = listOf("composeApp", "shared")): String = """
+            for subproject in ${subprojects.joinToString(" ")}; do
+                if [ -d "${'$'}subproject" ]; then
+                    echo "Checking if kotlinNpmInstall task exists for ${'$'}subproject..."
+                    if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
+                        echo "✓ kotlinNpmInstall task found for ${'$'}subproject, executing..."
+                        ./gradlew :${'$'}subproject:kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache || echo "⚠ npm install failed for ${'$'}subproject"
+                    else
+                        echo "⚠ kotlinNpmInstall task not found for ${'$'}subproject, skipping npm install"
+                    fi
+                fi
+            done
+        """.trimIndent()
+
+        fun setupYarnLockHandling(subprojects: List<String> = listOf("composeApp", "shared")): String = """
+            echo "=== YARN LOCK FILE HANDLING ==="
+            echo "Checking for yarn.lock files and handling yarn lock updates..."
+
+            if find . -name "yarn.lock" -type f | head -1 | read yarn_lock_file; then
+                echo "✓ Found yarn.lock file: ${'$'}yarn_lock_file"
+                echo "Checking if kotlinUpgradeYarnLock task exists..."
+
+                if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                    echo "✓ kotlinUpgradeYarnLock task found, running to actualize lock files..."
+                    if ./gradlew kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache; then
+                        echo "✓ Yarn lock files updated successfully"
+                    else
+                        echo "⚠ kotlinUpgradeYarnLock failed, but continuing with build..."
+                    fi
+                else
+                    echo "⚠ kotlinUpgradeYarnLock task not found, skipping yarn lock update"
+                fi
+
+                for subproject in ${subprojects.joinToString(" ")}; do
+                    if [ -d "${'$'}subproject" ]; then
+                        echo "Checking if kotlinUpgradeYarnLock task exists for ${'$'}subproject..."
+                        if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
+                            echo "✓ kotlinUpgradeYarnLock task found for ${'$'}subproject, executing..."
+                            ./gradlew :${'$'}subproject:kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache || echo "⚠ yarn lock update failed for ${'$'}subproject"
+                        else
+                            echo "⚠ kotlinUpgradeYarnLock task not found for ${'$'}subproject, skipping yarn lock update"
+                        fi
+                    fi
+                done
+            else
+                echo "⚠ No yarn.lock files found, skipping yarn lock handling"
+            fi
+        """.trimIndent()
+
+        fun setupNodeEnvironment(): String = """
+            # Set Node.js environment variables
+            export NODE_OPTIONS="--max-old-space-size=8192 --max-semi-space-size=512"
+            export NPM_CONFIG_PROGRESS="false"
+            export NPM_CONFIG_LOGLEVEL="error"
+
+            # Prevent interactive prompts during npm operations
+            export NPM_CONFIG_YES="true"
+            export NPM_CONFIG_AUDIT="false"
+            export NPM_CONFIG_FUND="false"
+            export CI="true"
+
+            export WEBPACK_CLI_FORCE_LOAD_ESM_CONFIG="false"
+            export WEBPACK_SERVE="false"
+            export WEBPACK_DEV_SERVER_HOST="localhost"
+
+            export UV_THREADPOOL_SIZE="128"
+            export NODE_ENV="production"
+
+            echo "Enhanced Node.js settings applied:"
+            echo "  NODE_OPTIONS: ${'$'}NODE_OPTIONS"
+            echo "  UV_THREADPOOL_SIZE: ${'$'}UV_THREADPOOL_SIZE"
+            echo "  NODE_ENV: ${'$'}NODE_ENV"
+        """.trimIndent()
+
+        fun processWebpackInPackages(): String = """
+            ${processAllPackages()}
+
+            echo "Searching for webpack.js files in packages directory..."
+            find build/js/packages -name "webpack.js" -type f 2>/dev/null | head -5 | while read webpack_path; do
+                echo "Found webpack at: ${'$'}webpack_path"
+            done
+        """.trimIndent()
+
+    }
+
     fun BuildSteps.backupConfigFiles() {
         script {
             name = "Backup Configuration Files"
@@ -278,26 +626,17 @@ EOF
     fun BuildSteps.setupAndroidSDK() {
         script {
             name = "Setup Android SDK"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Setting up Android SDK ==="
-                export ANDROID_HOME=/opt/android-sdk
-                export PATH=${'$'}PATH:${'$'}ANDROID_HOME/tools:${'$'}ANDROID_HOME/platform-tools
-                echo "Android SDK configured"
-                echo "=== Android SDK Setup Complete ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createEnvironmentSetupScript("Android SDK", mapOf(
+                "ANDROID_HOME" to "/opt/android-sdk",
+                "PATH" to "\$PATH:\$ANDROID_HOME/tools:\$ANDROID_HOME/platform-tools"
+            )) + "\necho \"Android SDK configured\""
         }
     }
 
     fun BuildSteps.setupDaggerEnvironment() {
         script {
             name = "Setup Dagger Environment"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Setting up Dagger Environment ==="
-                echo "Configuring annotation processing for Dagger"
-                echo "=== Dagger Environment Setup Complete ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createSimpleSetupScript("Dagger Environment", "Configuring annotation processing for Dagger")
         }
     }
 
@@ -397,12 +736,7 @@ EOF
     fun BuildSteps.updateVersionCatalogComprehensive(specialHandling: List<SpecialHandling> = emptyList()) {
         script {
             name = "Update Version Catalog"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Updating Version Catalog ==="
-                echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
-                echo "=== Version Catalog Updated ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createSimpleSetupScript("Version Catalog", "Special handling: ${specialHandling.joinToString(",") { it.name }}")
         }
     }
 
@@ -416,155 +750,15 @@ EOF
                 echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
 
                 ${if (SpecialHandlingUtils.isMultiplatform(specialHandling) || SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
-                """
-                    echo "=== MULTIPLATFORM PROJECT DETECTED ==="
-                    echo "Creating EAP Gradle init script..."
-
-                    cat > gradle-eap-init.gradle << 'EOF'
-allprojects {
-    repositories {
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-
-    gradle.projectsEvaluated {
-        configurations.all { config ->
-            if (config.name.contains("NpmAggregated") || config.name.contains("npm")) {
-                try {
-                    if (config.hasProperty('isCanBeResolved')) {
-                        config.isCanBeResolved = false
-                    }
-                    if (config.hasProperty('isCanBeConsumed')) {
-                        config.isCanBeConsumed = false
-                    }
-                } catch (Exception e) {
-                    logger.info("Could not configure NPM configuration " + config.name + ": " + e.message)
-                }
-            }
-        }
-    }
-
-    configurations.all {
-        resolutionStrategy {
-            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-js:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-wasm-js:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-js:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
-
-            eachDependency { details ->
-                if (details.requested.group == "org.jetbrains.kotlin") {
-                    details.useVersion("%env.KOTLIN_VERSION%")
-                    details.because("Align Kotlin version with compiler to prevent compilation errors")
-                }
-            }
-        }
-    }
-}
-
-gradle.beforeProject { project ->
-    project.plugins.withId("org.jetbrains.kotlin.js") {
-        project.kotlin {
-            js {
-                nodejs {
-                    testTask {
-                        useMocha {
-                            timeout = "30s"
-                        }
-                    }
-                }
-                browser {
-                    testTask {
-                        useKarma {
-                            useChromeHeadless()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    project.plugins.withId("org.jetbrains.kotlin.multiplatform") {
-        project.kotlin {
-            targets.configureEach { target ->
-                if (target.name.contains("js") || target.name.contains("wasm")) {
-                    target.compilations.configureEach { compilation ->
-                        logger.info("Configuring compilation for target: " + target.name + ", compilation: " + compilation.name)
-                    }
-                }
-            }
-        }
-    }
-
-    ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
-    """
-        project.tasks.matching { it.name.contains("webpack") || it.name.contains("Webpack") }.configureEach { task ->
-            logger.info("Configuring webpack task timeout: " + task.name)
-            try {
-                task.timeout = java.time.Duration.ofMinutes(15)
-            } catch (Exception e) {
-                logger.info("Could not set timeout for webpack task " + task.name + ": " + e.message)
-            }
-        }
-
-        project.tasks.matching { it.name.contains("jsBrowserProductionWebpack") }.configureEach { task ->
-            logger.info("Configuring production webpack task: " + task.name)
-            try {
-                task.timeout = java.time.Duration.ofMinutes(20)
-                task.systemProperty("webpack.mode", "production")
-                task.systemProperty("webpack.optimization.minimize", "false")
-            } catch (Exception e) {
-                logger.info("Could not configure production webpack task " + task.name + ": " + e.message)
-            }
-        }
-        """
-    } else ""}
-}
-EOF
-                    """
+                    "echo \"=== MULTIPLATFORM PROJECT DETECTED ===\""
                 } else {
-                """
-                    echo "=== NON-MULTIPLATFORM PROJECT ==="
-                    echo "Creating basic EAP Gradle init script without multiplatform optimizations"
-
-                    cat > gradle-eap-init.gradle << 'EOF'
-allprojects {
-    repositories {
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-
-    configurations.all {
-        resolutionStrategy {
-            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
-
-            eachDependency { details ->
-                if (details.requested.group == "org.jetbrains.kotlin") {
-                    details.useVersion("%env.KOTLIN_VERSION%")
-                    details.because("Align Kotlin version with compiler to prevent compilation errors")
-                }
-            }
-        }
-    }
-}
-EOF
-                    """
+                    "echo \"=== NON-MULTIPLATFORM PROJECT ===\""
                 }}
+                echo "Creating EAP Gradle init script..."
+
+                cat > gradle-eap-init.gradle << 'EOF'
+${GradleScriptUtils.createGradleInitScript(specialHandling)}
+EOF
 
                 echo "✓ EAP init script created successfully"
                 echo "Contents of gradle-eap-init.gradle:"
@@ -578,22 +772,14 @@ EOF
     fun BuildSteps.configureKotlinMultiplatform() {
         script {
             name = "Configure Kotlin Multiplatform"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Configuring Kotlin Multiplatform ==="
-                echo "=== Kotlin Multiplatform Configuration Complete ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createSimpleSetupScript("Kotlin Multiplatform")
         }
     }
 
     fun BuildSteps.handleAmperGradleHybrid() {
         script {
             name = "Handle Amper Gradle Hybrid"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Handling Amper Gradle Hybrid ==="
-                echo "=== Amper Gradle Hybrid Handling Complete ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createSimpleSetupScript("Amper Gradle Hybrid")
         }
     }
 
@@ -774,83 +960,18 @@ EOF
                     echo "=== COMPOSE MULTIPLATFORM WEBPACK OPTIMIZATION ==="
                     echo "Applying enhanced Node.js and webpack settings for Compose Multiplatform"
 
-                    export NODE_OPTIONS="--max-old-space-size=8192 --max-semi-space-size=512"
-                    export NPM_CONFIG_PROGRESS="false"
-                    export NPM_CONFIG_LOGLEVEL="error"
+                    ${WebpackUtils.setupNodeEnvironment()}
 
-                    export WEBPACK_CLI_FORCE_LOAD_ESM_CONFIG="false"
-                    export WEBPACK_SERVE="false"
-                    export WEBPACK_DEV_SERVER_HOST="localhost"
-
-                    export UV_THREADPOOL_SIZE="128"
-                    export NODE_ENV="production"
-
-                    echo "Enhanced Node.js settings applied:"
-                    echo "  NODE_OPTIONS: ${'$'}NODE_OPTIONS"
-                    echo "  UV_THREADPOOL_SIZE: ${'$'}UV_THREADPOOL_SIZE"
-                    echo "  NODE_ENV: ${'$'}NODE_ENV"
-
-                    echo "=== YARN LOCK FILE HANDLING ==="
-                    echo "Checking for yarn.lock files and handling yarn lock updates..."
-
-                    if find . -name "yarn.lock" -type f | head -1 | read yarn_lock_file; then
-                        echo "✓ Found yarn.lock file: ${'$'}yarn_lock_file"
-                        echo "Checking if kotlinUpgradeYarnLock task exists..."
-
-                        if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
-                            echo "✓ kotlinUpgradeYarnLock task found, running to actualize lock files..."
-                            if ./gradlew kotlinUpgradeYarnLock ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null; then
-                                echo "✓ Yarn lock files updated successfully"
-                            else
-                                echo "⚠ kotlinUpgradeYarnLock failed, but continuing with build..."
-                            fi
-                        else
-                            echo "⚠ kotlinUpgradeYarnLock task not found, skipping yarn lock update"
-                        fi
-
-                        for subproject in composeApp shared; do
-                            if [ -d "${'$'}subproject" ]; then
-                                echo "Checking if kotlinUpgradeYarnLock task exists for ${'$'}subproject..."
-                                if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
-                                    echo "✓ kotlinUpgradeYarnLock task found for ${'$'}subproject, executing..."
-                                    ./gradlew :${'$'}subproject:kotlinUpgradeYarnLock ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || echo "⚠ yarn lock update failed for ${'$'}subproject"
-                                else
-                                    echo "⚠ kotlinUpgradeYarnLock task not found for ${'$'}subproject, skipping yarn lock update"
-                                fi
-                            fi
-                        done
-                    else
-                        echo "⚠ No yarn.lock files found, skipping yarn lock handling"
-                    fi
+                    ${WebpackUtils.setupYarnLockHandling()}
 
                     echo "=== ENSURING WEBPACK DEPENDENCIES ==="
                     echo "Pre-installing Node.js dependencies to ensure webpack is available..."
 
                     # Step 1: Try root-level npm install
-                    echo "Checking if kotlinNpmInstall task exists at root level..."
-                    if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
-                        echo "✓ kotlinNpmInstall task found at root level, executing..."
-                        if ./gradlew kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || true; then
-                            echo "✓ Root NPM dependencies installation completed"
-                        else
-                            echo "⚠ Root NPM dependencies installation failed, trying subproject approach..."
-                        fi
-                    else
-                        echo "⚠ kotlinNpmInstall task not found at root level, skipping root npm install"
-                    fi
+                    ${WebpackUtils.setupKotlinNpmInstall()}
 
                     # Step 2: Try subproject-specific npm installs
-                    for subproject in composeApp shared; do
-                        if [ -d "${'$'}subproject" ]; then
-                            echo "Checking if kotlinNpmInstall task exists for ${'$'}subproject..."
-                            if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
-                                echo "✓ kotlinNpmInstall task found for ${'$'}subproject, executing..."
-                                ./gradlew :${'$'}subproject:kotlinNpmInstall ${'$'}GRADLE_OPTS --no-daemon --no-build-cache 2>/dev/null || echo "⚠ npm install failed for ${'$'}subproject"
-                            else
-                                echo "⚠ kotlinNpmInstall task not found for ${'$'}subproject, skipping npm install"
-                            fi
-                        fi
-                    done
+                    ${WebpackUtils.setupSubprojectNpmInstall()}
 
                     # Step 3: Check webpack installation in various locations
                     WEBPACK_FOUND=false
@@ -865,104 +986,7 @@ EOF
                         fi
                     fi
 
-                    if [ -d "build/js/packages" ]; then
-                        echo "Found packages directory: build/js/packages"
-
-                        for package_dir in build/js/packages/*; do
-                            if [ -d "${'$'}package_dir" ]; then
-                                package_name=$(basename "${'$'}package_dir")
-                                echo "Checking package: ${'$'}package_name"
-
-                                WEBPACK_JS_FOUND=false
-                                WEBPACK_CLI_FOUND=false
-
-                                if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                    echo "✓ Webpack found in ${'$'}package_name: ${'$'}package_dir/node_modules/webpack/bin/webpack.js"
-                                    WEBPACK_JS_FOUND=true
-                                fi
-
-                                if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
-                                    echo "✓ Webpack CLI found in ${'$'}package_name"
-                                    WEBPACK_CLI_FOUND=true
-                                fi
-
-                                if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
-                                    echo "✓ Both webpack and webpack-cli are available in ${'$'}package_name"
-                                    WEBPACK_FOUND=true
-                                else
-                                    echo "⚠ Webpack or webpack-cli missing in ${'$'}package_name (webpack: ${'$'}WEBPACK_JS_FOUND, cli: ${'$'}WEBPACK_CLI_FOUND), attempting to install..."
-
-                                    if [ -f "${'$'}package_dir/package.json" ]; then
-                                        echo "Running npm install in ${'$'}package_name..."
-                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install failed for ${'$'}package_name"
-
-                                        # Check again after npm install
-                                        WEBPACK_JS_FOUND=false
-                                        WEBPACK_CLI_FOUND=false
-
-                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                            WEBPACK_JS_FOUND=true
-                                        fi
-
-                                        if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
-                                            WEBPACK_CLI_FOUND=true
-                                        fi
-
-                                        if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
-                                            echo "✓ Webpack and webpack-cli successfully installed in ${'$'}package_name"
-                                            WEBPACK_FOUND=true
-                                        else
-                                            echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after npm install (webpack: ${'$'}WEBPACK_JS_FOUND, cli: ${'$'}WEBPACK_CLI_FOUND)"
-
-                                            echo "Attempting explicit webpack and webpack-cli installation in ${'$'}package_name..."
-                                            (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error 2>/dev/null) || echo "⚠ explicit webpack install failed for ${'$'}package_name"
-
-                                            WEBPACK_JS_FOUND=false
-                                            WEBPACK_CLI_FOUND=false
-
-                                            if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                                WEBPACK_JS_FOUND=true
-                                            fi
-
-                                            if [ -f "${'$'}package_dir/node_modules/webpack-cli/bin/cli.js" ] || [ -f "${'$'}package_dir/node_modules/.bin/webpack" ]; then
-                                                WEBPACK_CLI_FOUND=true
-                                            fi
-
-                                            if [ "${'$'}WEBPACK_JS_FOUND" = "true" ] && [ "${'$'}WEBPACK_CLI_FOUND" = "true" ]; then
-                                                echo "✓ Webpack and webpack-cli successfully installed explicitly in ${'$'}package_name"
-                                                WEBPACK_FOUND=true
-                                            else
-                                                echo "❌ Webpack or webpack-cli still missing in ${'$'}package_name after explicit install (webpack: ${'$'}WEBPACK_JS_FOUND, cli: ${'$'}WEBPACK_CLI_FOUND)"
-                                            fi
-                                        fi
-                                    else
-                                        echo "No package.json found in ${'$'}package_name, creating minimal package.json and installing webpack..."
-                                        cat > "${'$'}package_dir/package.json" << 'PACKAGE_EOF'
-{
-  "name": "kotlin-js-package",
-  "version": "1.0.0",
-  "dependencies": {
-    "webpack": "^5.0.0",
-    "webpack-cli": "^5.0.0"
-  }
-}
-PACKAGE_EOF
-                                        (cd "${'$'}package_dir" && npm install --no-progress --loglevel=error 2>/dev/null) || echo "⚠ npm install with created package.json failed for ${'$'}package_name"
-
-                                        if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
-                                            echo "✓ Webpack successfully installed with created package.json in ${'$'}package_name"
-                                            WEBPACK_FOUND=true
-                                        fi
-                                    fi
-                                fi
-                            fi
-                        done
-
-                        echo "Searching for webpack.js files in packages directory..."
-                        find build/js/packages -name "webpack.js" -type f 2>/dev/null | head -5 | while read webpack_path; do
-                            echo "Found webpack at: ${'$'}webpack_path"
-                        done
-                    fi
+                    ${WebpackUtils.processWebpackInPackages()}
 
                     # Step 3.1: Special handling for WASM JS builds
                     echo "=== WASM JS WEBPACK SETUP ==="
@@ -1436,34 +1460,21 @@ REGULAR_FALLBACK_EOF
     fun BuildSteps.setupAmperRepositories() {
         script {
             name = "Setup Amper Repositories"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Setting up Amper Repositories ==="
-                echo "=== Amper Repositories Setup Complete ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createSimpleSetupScript("Amper Repositories")
         }
     }
 
     fun BuildSteps.updateAmperVersionsEnhanced() {
         script {
             name = "Update Amper Versions Enhanced"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Updating Amper Versions Enhanced ==="
-                echo "=== Amper Versions Enhanced Update Complete ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createSimpleSetupScript("Amper Versions Enhanced")
         }
     }
 
     fun BuildSteps.buildAmperProjectEnhanced() {
         script {
             name = "Build Amper Project Enhanced"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Building Amper Project Enhanced ==="
-                ./gradlew build
-                echo "=== Amper Project Enhanced Build Complete ==="
-            """.trimIndent()
+            scriptContent = SetupScriptUtils.createSetupScript("Amper Project Enhanced", "./gradlew build")
         }
     }
 
@@ -1545,75 +1556,16 @@ REGULAR_FALLBACK_EOF
                     echo "=== COMPOSE MULTIPLATFORM NODE.JS SETUP ==="
                     echo "Ensuring Node.js and webpack are properly set up for Compose Multiplatform"
 
-                    # Set Node.js environment variables
-                    export NODE_OPTIONS="--max-old-space-size=8192 --max-semi-space-size=512"
-                    export NPM_CONFIG_PROGRESS="false"
-                    export NPM_CONFIG_LOGLEVEL="error"
-
-                    # Prevent interactive prompts during npm operations
-                    export NPM_CONFIG_YES="true"
-                    export NPM_CONFIG_AUDIT="false"
-                    export NPM_CONFIG_FUND="false"
-                    export CI="true"
+                    ${WebpackUtils.setupNodeEnvironment()}
 
                     echo "=== STEP 0: Yarn Lock File Handling ==="
-                    echo "Checking for yarn.lock files and handling yarn lock updates..."
-
-                    if find . -name "yarn.lock" -type f | head -1 | read yarn_lock_file; then
-                        echo "✓ Found yarn.lock file: ${'$'}yarn_lock_file"
-                        echo "Checking if kotlinUpgradeYarnLock task exists..."
-
-                        if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
-                            echo "✓ kotlinUpgradeYarnLock task found, running to actualize lock files..."
-                            if ./gradlew kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache; then
-                                echo "✓ Yarn lock files updated successfully"
-                            else
-                                echo "⚠ kotlinUpgradeYarnLock failed, but continuing with build..."
-                            fi
-                        else
-                            echo "⚠ kotlinUpgradeYarnLock task not found, skipping yarn lock update"
-                        fi
-
-                        for subproject in composeApp shared; do
-                            if [ -d "${'$'}subproject" ]; then
-                                echo "Checking if kotlinUpgradeYarnLock task exists for ${'$'}subproject..."
-                                if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinUpgradeYarnLock"; then
-                                    echo "✓ kotlinUpgradeYarnLock task found for ${'$'}subproject, executing..."
-                                    ./gradlew :${'$'}subproject:kotlinUpgradeYarnLock --info --stacktrace --no-daemon --no-build-cache || echo "⚠ yarn lock update failed for ${'$'}subproject"
-                                else
-                                    echo "⚠ kotlinUpgradeYarnLock task not found for ${'$'}subproject, skipping yarn lock update"
-                                fi
-                            fi
-                        done
-                    else
-                        echo "⚠ No yarn.lock files found, skipping yarn lock handling"
-                    fi
+                    ${WebpackUtils.setupYarnLockHandling()}
 
                     echo "=== STEP 1: Running root-level kotlinNpmInstall ==="
-                    echo "Checking if kotlinNpmInstall task exists at root level..."
-                    if ./gradlew tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
-                        echo "✓ kotlinNpmInstall task found at root level, executing..."
-                        if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
-                            echo "✓ Root kotlinNpmInstall completed successfully"
-                        else
-                            echo "⚠ Root kotlinNpmInstall failed, continuing with subproject approach..."
-                        fi
-                    else
-                        echo "⚠ kotlinNpmInstall task not found at root level, skipping root npm install"
-                    fi
+                    ${WebpackUtils.setupKotlinNpmInstall()}
 
                     echo "=== STEP 2: Running subproject-specific npm installs ==="
-                    for subproject in composeApp shared; do
-                        if [ -d "${'$'}subproject" ]; then
-                            echo "Checking if kotlinNpmInstall task exists for ${'$'}subproject..."
-                            if ./gradlew :${'$'}subproject:tasks --all 2>/dev/null | grep -q "kotlinNpmInstall"; then
-                                echo "✓ kotlinNpmInstall task found for ${'$'}subproject, executing..."
-                                ./gradlew :${'$'}subproject:kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache || echo "⚠ npm install failed for ${'$'}subproject"
-                            else
-                                echo "⚠ kotlinNpmInstall task not found for ${'$'}subproject, skipping npm install"
-                            fi
-                        fi
-                    done
+                    ${WebpackUtils.setupSubprojectNpmInstall()}
 
                     echo "=== STEP 3: Ensuring webpack is available in package directories ==="
 
@@ -2017,6 +1969,85 @@ data class ExternalSampleConfig(
 
                         if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
                             setupNodeJsAndWebpack(specialHandling)
+                        }
+
+                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling) || SpecialHandlingUtils.isMultiplatform(specialHandling)) {
+                            script {
+                                name = "Pre-Build Webpack Installation"
+                                scriptContent = """
+                                    #!/bin/bash
+                                    set -e
+                                    echo "=== Pre-Build Webpack Installation ==="
+                                    echo "Installing webpack before build to ensure it's available for jsBrowserProductionWebpack"
+
+                                    # Run kotlinNpmInstall first to create the package structure
+                                    echo "Running kotlinNpmInstall to create package structure..."
+                                    if ./gradlew kotlinNpmInstall --info --stacktrace --no-daemon --no-build-cache; then
+                                        echo "✓ kotlinNpmInstall completed successfully"
+                                    else
+                                        echo "⚠ kotlinNpmInstall failed, but continuing..."
+                                    fi
+
+                                    # Wait a moment for the directory structure to be fully created
+                                    sleep 2
+
+                                    # Now install webpack in all package directories that were created
+                                    if [ -d "build/js/packages" ]; then
+                                        echo "Found packages directory, installing webpack in all packages..."
+                                        for package_dir in build/js/packages/*; do
+                                            if [ -d "${'$'}package_dir" ]; then
+                                                package_name=$(basename "${'$'}package_dir")
+                                                echo "Installing webpack in ${'$'}package_name..."
+
+                                                # Create package.json if it doesn't exist
+                                                if [ ! -f "${'$'}package_dir/package.json" ]; then
+                                                    cat > "${'$'}package_dir/package.json" << 'EOF'
+{
+  "name": "kotlin-js-package",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+EOF
+                                                    echo "Created package.json for ${'$'}package_name"
+                                                fi
+
+                                                # Install webpack and webpack-cli
+                                                (cd "${'$'}package_dir" && npm install webpack webpack-cli --no-progress --loglevel=error) || echo "⚠ webpack install failed for ${'$'}package_name"
+
+                                                # Verify installation
+                                                if [ -f "${'$'}package_dir/node_modules/webpack/bin/webpack.js" ]; then
+                                                    echo "✅ Webpack successfully installed in ${'$'}package_name"
+                                                else
+                                                    echo "❌ Webpack installation failed in ${'$'}package_name"
+                                                fi
+                                            fi
+                                        done
+                                    else
+                                        echo "⚠ No packages directory found, creating basic webpack setup..."
+                                        mkdir -p "build/js/packages/composeApp"
+                                        cat > "build/js/packages/composeApp/package.json" << 'EOF'
+{
+  "name": "composeApp",
+  "version": "1.0.0",
+  "dependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}
+EOF
+                                        (cd "build/js/packages/composeApp" && npm install --no-progress --loglevel=error) || echo "⚠ fallback webpack install failed"
+
+                                        if [ -f "build/js/packages/composeApp/node_modules/webpack/bin/webpack.js" ]; then
+                                            echo "✅ Fallback webpack installation successful"
+                                        fi
+                                    fi
+
+                                    echo "=== Pre-Build Webpack Installation Complete ==="
+                                """.trimIndent()
+                            }
                         }
 
                         if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling) || SpecialHandlingUtils.isMultiplatform(specialHandling)) {
