@@ -49,6 +49,11 @@ object SpecialHandlingUtils {
 
     fun isComposeMultiplatform(specialHandling: List<SpecialHandling>): Boolean =
         specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM)
+
+    fun requiresWebpack(specialHandling: List<SpecialHandling>): Boolean =
+        specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM) ||
+        specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM) ||
+        specialHandling.contains(SpecialHandling.DOCKER_TESTCONTAINERS)
 }
 
 fun BuildSteps.addDockerAgentLogging() {
@@ -1759,10 +1764,10 @@ EMERGENCY_PACKAGE_EOF
                 echo "Installing webpack-cli globally to prevent interactive prompts..."
                 npm install -g webpack-cli --yes --no-audit --no-fund --loglevel=error || echo "⚠ Global webpack-cli install failed, continuing..."
 
-                ${if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                ${if (SpecialHandlingUtils.requiresWebpack(specialHandling)) {
                 """
-                    echo "=== COMPOSE MULTIPLATFORM NODE.JS SETUP ==="
-                    echo "Ensuring Node.js and webpack are properly set up for Compose Multiplatform"
+                    echo "=== WEBPACK NODE.JS SETUP ==="
+                    echo "Ensuring Node.js and webpack are properly set up for projects with JS/WASM targets"
 
                     ${WebpackUtils.setupNodeEnvironment()}
 
@@ -2331,15 +2336,15 @@ data class ExternalSampleConfig(
                         updateVersionCatalogComprehensive(specialHandling)
                         setupEnhancedGradleRepositories(specialHandling)
 
-                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                        if (SpecialHandlingUtils.requiresWebpack(specialHandling)) {
                             fixNpmConfigurationResolution()
                         }
 
-                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                        if (SpecialHandlingUtils.requiresWebpack(specialHandling)) {
                             setupNodeJsAndWebpack(specialHandling)
                         }
 
-                        if (SpecialHandlingUtils.isComposeMultiplatform(specialHandling)) {
+                        if (SpecialHandlingUtils.requiresWebpack(specialHandling)) {
                             script {
                                 name = "Pre-Build Webpack Installation"
                                 scriptContent = """
@@ -2729,7 +2734,7 @@ private fun createVersionResolver(): BuildType = EAPVersionResolver.createVersio
 private fun createSampleConfigurations(versionResolver: BuildType): List<ExternalSampleConfig> = listOf(
     EAPSampleBuilder("Ktor AI Server", VCSKtorAiServer, versionResolver)
         .withBuildType(ExternalSampleBuildType.GRADLE)
-        .withSpecialHandling(SpecialHandling.DOCKER_TESTCONTAINERS)
+        .withSpecialHandling(SpecialHandling.KOTLIN_MULTIPLATFORM)
         .build(),
 
     EAPSampleBuilder("Ktor Native Server", VCSKtorNativeServer, versionResolver)
