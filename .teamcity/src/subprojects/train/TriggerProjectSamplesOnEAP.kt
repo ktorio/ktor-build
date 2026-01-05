@@ -1,7 +1,7 @@
 package subprojects.train
 
+import dsl.addSlackNotifications
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
@@ -393,20 +393,11 @@ object TriggerProjectSamplesOnEAP : Project({
             param("teamcity.build.skipDependencyBuilds", "true")
         }
 
-        features {
-            notifications {
-                notifierSettings = slackNotifier {
-                    connection = "PROJECT_EXT_5"
-                    sendTo = "#ktor-projects-on-eap"
-                    messageFormat = verboseMessageFormat {
-                        addStatusText = true
-                    }
-                }
-                buildFailedToStart = true
-                buildFailed = true
-                buildFinishedSuccessfully = true
-            }
-        }
+        addSlackNotifications(
+            buildFailedToStart = true,
+            buildFailed = true,
+            buildFinishedSuccessfully = true
+        )
 
         triggers {
             finishBuildTrigger {
