@@ -75,8 +75,6 @@ data class ExternalSampleConfig(
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
             param("env.KOTLIN_VERSION", "%dep.${versionResolver.id}.env.KOTLIN_VERSION%")
             param("env.TESTCONTAINERS_MODE", "skip")
-            param("env.JDK_21", "")
-            param("env.TC_CLOUD_TOKEN", "")
             param("env.DAGGER_CONFIGURED", "false")
         }
 
@@ -123,15 +121,12 @@ data class ExternalSampleConfig(
         buildType: ExternalSampleBuildType
     ) {
         if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
+            setupTestcontainersEnvironment()
             addDockerAgentLogging()
         }
 
         backupConfigFiles()
         analyzeProjectStructure(specialHandling)
-
-        if (SpecialHandlingUtils.requiresDocker(specialHandling)) {
-            setupTestcontainersEnvironment()
-        }
 
         if (SpecialHandlingUtils.requiresAndroidSDK(specialHandling)) {
             setupAndroidSDK()
@@ -161,14 +156,6 @@ data class ExternalSampleConfig(
                 echo "=== Setting up Gradle EAP Build ==="
                 echo "Project: $projectName"
                 echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
-                
-                # Add EAP repositories to build.gradle.kts
-                if [ -f "build.gradle.kts" ]; then
-                    echo "Updating build.gradle.kts with EAP repositories"
-                    # Basic repository setup - can be enhanced as needed
-                    echo "Repository configuration would be added here"
-                fi
-                
                 echo "=== Gradle EAP Build Setup Complete ==="
             """.trimIndent()
         }
@@ -176,7 +163,7 @@ data class ExternalSampleConfig(
         gradle {
             name = "Build Gradle Project"
             tasks = "build --info"
-            jdkHome = "%env.JDK_21%"
+            jdkHome = Env.JDK_LTS
         }
     }
 
@@ -194,18 +181,6 @@ data class ExternalSampleConfig(
                 echo "Amper configuration would be added here"
                 
                 echo "=== Amper EAP Build Setup Complete ==="
-            """.trimIndent()
-        }
-
-        script {
-            name = "Build Amper Project"
-            scriptContent = """
-                #!/bin/bash
-                set -e
-                
-                echo "=== Building Amper Project ==="
-                # Amper build commands would go here
-                echo "Amper build complete"
             """.trimIndent()
         }
     }
