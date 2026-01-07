@@ -1,7 +1,7 @@
 package subprojects.train
 
+import dsl.addSlackNotifications
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
@@ -88,20 +88,11 @@ data class ExternalSampleConfig(
             configureBuildSteps(specialHandling, buildType)
         }
 
-        features {
-            notifications {
-                notifierSettings = slackNotifier {
-                    connection = "PROJECT_EXT_5"
-                    sendTo = "#ktor-projects-on-eap"
-                    messageFormat = verboseMessageFormat {
-                        addStatusText = true
-                    }
-                }
-                buildFailed = true
-                buildFinishedSuccessfully = false
-                buildStarted = false
-            }
-        }
+        addSlackNotifications(
+            buildFailedToStart = true,
+            buildFailed = true,
+            buildFinishedSuccessfully = true
+        )
 
         defaultBuildFeatures()
 
