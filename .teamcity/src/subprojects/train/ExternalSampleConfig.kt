@@ -164,7 +164,9 @@ data class ExternalSampleConfig(
         gradle {
             name = "Build Gradle Project"
             tasks = "build --info"
-            tasks = if (SpecialHandlingUtils.requiresDagger(specialHandling)) {
+            tasks = if (SpecialHandlingUtils.requiresDagger(specialHandling) ||
+                SpecialHandlingUtils.requiresDocker(specialHandling)
+            ) {
                 "assemble --info"
             } else {
                 "build --info"
