@@ -75,7 +75,9 @@ data class ExternalSampleConfig(
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
             param("env.KOTLIN_VERSION", "%dep.${versionResolver.id}.env.KOTLIN_VERSION%")
             param("env.TESTCONTAINERS_MODE", "skip")
+            param("env.TC_CLOUD_TOKEN", "placeholder-token")
             param("env.DAGGER_CONFIGURED", "false")
+            param("skip.dagger.tests", if (SpecialHandlingUtils.requiresDagger(specialHandling)) "true" else "false")
         }
 
         requirements {
@@ -163,6 +165,7 @@ data class ExternalSampleConfig(
         gradle {
             name = "Build Gradle Project"
             tasks = "build --info"
+            gradleParams = "%skip.dagger.tests% == true ? -x :dagger:test : "
             jdkHome = Env.JDK_LTS
         }
     }
