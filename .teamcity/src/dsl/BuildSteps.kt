@@ -1,6 +1,7 @@
 package dsl
 
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import org.intellij.lang.annotations.*
 import subprojects.*
@@ -25,6 +26,31 @@ fun BuildType.cancelPreviousBuilds(default: Boolean = true) {
                 isNotWindows()
                 equals("cancelPreviousBuilds", "true")
             }
+        }
+    }
+}
+
+fun BuildType.addSlackNotifications(
+    channel: String = "#ktor-projects-on-eap",
+    connection: String = "PROJECT_EXT_5",
+    buildFailed: Boolean = true,
+    buildFinishedSuccessfully: Boolean = true,
+    buildStarted: Boolean = false,
+    buildFailedToStart: Boolean = false
+) {
+    features {
+        notifications {
+            notifierSettings = slackNotifier {
+                this.connection = connection
+                sendTo = channel
+                messageFormat = verboseMessageFormat {
+                    addStatusText = true
+                }
+            }
+            this.buildFailed = buildFailed
+            this.buildFinishedSuccessfully = buildFinishedSuccessfully
+            this.buildStarted = buildStarted
+            this.buildFailedToStart = buildFailedToStart
         }
     }
 }
