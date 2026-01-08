@@ -186,30 +186,11 @@ data class ExternalSampleConfig(
     }
 
     private fun BuildSteps.backupConfigFiles() {
-        script {
-            name = "Backup Configuration Files"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Backing up configuration files ==="
-                find . -name "gradle.properties" -exec cp {} {}.backup \;
-                find . -name "build.gradle.kts" -exec cp {} {}.backup \;
-                find . -name "libs.versions.toml" -exec cp {} {}.backup \;
-                echo "Configuration files backed up"
-            """.trimIndent()
-        }
+        with(ExternalSampleScripts) { backupConfigFiles() }
     }
 
     private fun BuildSteps.analyzeProjectStructure(specialHandling: List<SpecialHandling> = emptyList()) {
-        script {
-            name = "Analyze Project Structure"
-            scriptContent = """
-                #!/bin/bash
-                echo "=== Project Structure Analysis ==="
-                echo "Special handling: ${specialHandling.joinToString(",") { it.name }}"
-                ls -la
-                echo "=== Analysis Complete ==="
-            """.trimIndent()
-        }
+        with(ExternalSampleScripts) { analyzeProjectStructure(specialHandling) }
     }
 
     private fun BuildSteps.setupTestcontainersEnvironment() {

@@ -26,9 +26,6 @@ object SpecialHandlingUtils {
     fun isMultiplatform(specialHandling: List<SpecialHandling>): Boolean =
         specialHandling.contains(SpecialHandling.KOTLIN_MULTIPLATFORM)
 
-    fun isAmperHybrid(specialHandling: List<SpecialHandling>): Boolean =
-        specialHandling.contains(SpecialHandling.AMPER_GRADLE_HYBRID)
-
     fun isComposeMultiplatform(specialHandling: List<SpecialHandling>): Boolean =
         specialHandling.contains(SpecialHandling.COMPOSE_MULTIPLATFORM)
 }
