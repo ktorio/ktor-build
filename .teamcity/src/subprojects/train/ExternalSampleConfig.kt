@@ -75,6 +75,7 @@ data class ExternalSampleConfig(
             param("env.KTOR_COMPILER_PLUGIN_VERSION", "%dep.${versionResolver.id}.env.KTOR_COMPILER_PLUGIN_VERSION%")
             param("env.KOTLIN_VERSION", "%dep.${versionResolver.id}.env.KOTLIN_VERSION%")
             param("env.TESTCONTAINERS_MODE", "skip")
+            param("env.TC_CLOUD_TOKEN", "placeholder-token")
             param("env.DAGGER_CONFIGURED", "false")
         }
 
