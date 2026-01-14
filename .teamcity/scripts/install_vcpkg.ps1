@@ -5,6 +5,7 @@ if (-not (Test-Path -Path "%env.VCPKG_ROOT%")) {
 
 # Bootstrap vcpkg
 cd "%env.VCPKG_ROOT%"
+git pull
 .\bootstrap-vcpkg.bat -disableMetrics
 
 # Add to PATH

@@ -8,6 +8,7 @@ fi
 
 # Bootstrap vcpkg
 cd "%env.VCPKG_ROOT%"
+git pull
 ./bootstrap-vcpkg.sh -disableMetrics
 
 # Add to PATH
