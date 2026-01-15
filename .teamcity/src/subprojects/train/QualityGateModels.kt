@@ -1,34 +1,5 @@
 package subprojects.train
 
-import java.time.Duration
-import java.time.Instant
-
-/**
- * Core abstraction for quality gates
- */
-interface QualityGate {
-    val name: String
-    val type: QualityGateType
-    val criteria: QualityGateCriteria
-    fun evaluate(context: QualityGateContext): QualityGateResult
-}
-
-/**
- * Quality gate evaluation engine interface
- */
-interface QualityGateEvaluationEngine {
-    fun evaluateAll(gates: List<QualityGate>, context: QualityGateContext): EAPQualityReport
-    fun evaluateSingle(gate: QualityGate, context: QualityGateContext): QualityGateResult
-}
-
-/**
- * Scoring strategy interface
- */
-interface ScoringStrategy {
-    fun calculateScore(result: QualityGateResult, config: ScoringConfiguration): Int
-    fun calculateOverallScore(results: List<QualityGateResult>, config: ScoringConfiguration): Int
-}
-
 /**
  * Quality gate types
  */
@@ -66,92 +37,6 @@ data class PenaltyConfiguration(
     val failurePenalty: Int = 50,
     val criticalIssuePenalty: Int = 20,
     val warningPenalty: Int = 5
-)
-
-/**
- * Represents the status of a quality gate
- */
-enum class QualityGateStatus {
-    PASSED,
-    FAILED,
-    BLOCKED,
-    SKIPPED
-}
-
-/**
- * Severity levels for quality issues
- */
-enum class IssueSeverity {
-    CRITICAL,
-    HIGH,
-    MEDIUM,
-    LOW
-}
-
-/**
- * Represents a specific quality issue found during validation
- */
-data class QualityIssue(
-    val severity: IssueSeverity,
-    val description: String,
-    val affectedComponent: String,
-    val suggestedAction: String,
-    val relatedBuild: String? = null,
-    val errorDetails: String? = null
-)
-
-/**
- * Result of a quality gate execution
- */
-data class QualityGateResult(
-    val gateName: String,
-    val status: QualityGateStatus,
-    val score: Int,
-    val criticalIssues: List<QualityIssue>,
-    val warnings: List<QualityIssue>,
-    val executionTime: Duration,
-    val timestamp: Instant,
-    val eapVersion: String,
-    val buildId: String? = null,
-    val additionalMetrics: Map<String, Any> = emptyMap()
-)
-
-/**
- * Comprehensive report of EAP quality assessment
- */
-data class EAPQualityReport(
-    val version: String,
-    val overallStatus: QualityGateStatus,
-    val overallScore: Int,
-    val externalValidation: QualityGateResult,
-    val internalValidation: QualityGateResult,
-    val recommendations: List<String>,
-    val executionSummary: ExecutionSummary,
-    val nextSteps: List<String> = emptyList()
-)
-
-/**
- * Summary of quality gate execution
- */
-data class ExecutionSummary(
-    val totalExecutionTime: Duration,
-    val samplesValidated: Int,
-    val testsExecuted: Int,
-    val successRate: Double
-)
-
-/**
- * Context information for quality gate execution
- */
-data class QualityGateContext(
-    val eapVersion: String,
-    val triggerBuild: String,
-    val branch: String,
-    val environment: String = "production",
-    val thresholds: QualityGateThresholds = QualityGateThresholds(),
-    val skipConditions: List<String> = emptyList(),
-    val additionalParameters: Map<String, String> = emptyMap(),
-    val configuration: QualityGateConfiguration = QualityGateConfiguration.default()
 )
 
 /**

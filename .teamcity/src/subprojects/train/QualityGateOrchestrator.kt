@@ -41,8 +41,8 @@ object QualityGateOrchestrator {
 
             // Scoring Configuration
             param("quality.gate.scoring.base.score", "100")
-            param("quality.gate.scoring.external.weight", "50")
-            param("quality.gate.scoring.internal.weight", "50")
+            param("quality.gate.scoring.external.weight", "60")
+            param("quality.gate.scoring.internal.weight", "40")
             param("quality.gate.scoring.failure.penalty", "50")
             param("quality.gate.scoring.critical.penalty", "20")
             param("quality.gate.scoring.warning.penalty", "5")
@@ -148,20 +148,17 @@ EOF
 
                 echo "=== Executing Quality Gate Evaluation ==="
 
-                # Create a simple Kotlin file that calls the extracted function
-                cat > QualityGateEvaluator.kt << 'EOF'
-package subprojects.train
-
-fun main() {
-    executeQualityGateEvaluation()
-}
-EOF
-
                 # Set environment variables from TeamCity parameters
                 export EXTERNAL_STATUS="%dep.%quality.gate.external.build.id%.teamcity.build.status%"
                 export EXTERNAL_STATUS_TEXT="%dep.%quality.gate.external.build.id%.teamcity.build.statusText%"
                 export INTERNAL_STATUS="%dep.%quality.gate.internal.build.id%.teamcity.build.status%"
                 export INTERNAL_STATUS_TEXT="%dep.%quality.gate.internal.build.id%.teamcity.build.statusText%"
+                export INTERNAL_VALIDATION_STATUS="%dep.%quality.gate.internal.build.id%.internal.validation.status%"
+                export INTERNAL_TOTAL_TESTS="%dep.%quality.gate.internal.build.id%.internal.validation.total.tests%"
+                export INTERNAL_PASSED_TESTS="%dep.%quality.gate.internal.build.id%.internal.validation.passed.tests%"
+                export INTERNAL_FAILED_TESTS="%dep.%quality.gate.internal.build.id%.internal.validation.failed.tests%"
+                export INTERNAL_CRITICAL_ISSUES="%dep.%quality.gate.internal.build.id%.internal.validation.critical.issues%"
+                export INTERNAL_SUCCESS_RATE="%dep.%quality.gate.internal.build.id%.internal.validation.success.rate%"
                 export KTOR_VERSION="%env.KTOR_VERSION%"
                 export MIN_SCORE="%quality.gate.thresholds.minimum.score%"
                 export MAX_CRITICAL="%quality.gate.thresholds.critical.issues%"
@@ -178,14 +175,113 @@ EOF
 
 @file:DependsOn("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
 
-import subprojects.train.*
-
+// Standalone quality gate evaluation without external dependencies
 fun main() {
     println("=== Starting Quality Gate Evaluation ===")
 
     try {
-        executeQualityGateEvaluation()
+        val externalStatus = System.getenv("EXTERNAL_STATUS") ?: "UNKNOWN"
+        val externalStatusText = System.getenv("EXTERNAL_STATUS_TEXT") ?: ""
+        val internalStatus = System.getenv("INTERNAL_STATUS") ?: "UNKNOWN"
+        val internalStatusText = System.getenv("INTERNAL_STATUS_TEXT") ?: ""
+        val eapVersion = System.getenv("KTOR_VERSION") ?: "unknown"
+        val minScore = System.getenv("MIN_SCORE")?.toIntOrNull() ?: 80
+        val maxCritical = System.getenv("MAX_CRITICAL")?.toIntOrNull() ?: 0
+        val baseScore = System.getenv("BASE_SCORE")?.toIntOrNull() ?: 100
+        val externalWeight = System.getenv("EXTERNAL_WEIGHT")?.toIntOrNull() ?: 50
+        val internalWeight = System.getenv("INTERNAL_WEIGHT")?.toIntOrNull() ?: 50
+
+        println("External validation status: ${'$'}externalStatus")
+        println("Internal validation status: ${'$'}internalStatus")
+        println("EAP Version: ${'$'}eapVersion")
+
+        val externalScore = if (externalStatus == "SUCCESS") {
+            baseScore - 5
+        } else {
+            baseScore - 50
+        }
+
+        val externalCriticalIssues = if (externalStatus != "SUCCESS") {
+            when {
+                externalStatusText.contains("BUILD FAILED", ignoreCase = true) -> 1
+                externalStatusText.contains("compilation", ignoreCase = true) -> 1
+                else -> 0
+            }
+        } else 0
+
+        // Enhanced internal validation scoring using detailed metrics
+        val internalValidationStatus = System.getenv("INTERNAL_VALIDATION_STATUS") ?: "UNKNOWN"
+        val internalTotalTests = System.getenv("INTERNAL_TOTAL_TESTS")?.toIntOrNull() ?: 15
+        val internalPassedTests = System.getenv("INTERNAL_PASSED_TESTS")?.toIntOrNull() ?: 0
+        val internalFailedTests = System.getenv("INTERNAL_FAILED_TESTS")?.toIntOrNull() ?: 0
+        val internalCriticalIssuesCount = System.getenv("INTERNAL_CRITICAL_ISSUES")?.toIntOrNull() ?: 0
+        val internalSuccessRate = System.getenv("INTERNAL_SUCCESS_RATE")?.toDoubleOrNull() ?: 0.0
+
+        val internalScore = when {
+            internalValidationStatus == "SUCCESS" && internalSuccessRate >= 95.0 -> baseScore - 5
+            internalValidationStatus == "SUCCESS" && internalSuccessRate >= 80.0 -> baseScore - 15
+            internalFailedTests > 0 -> baseScore - (internalFailedTests * 10) - 20
+            else -> baseScore - 50
+        }
+
+        val internalCriticalIssues = internalCriticalIssuesCount
+
+        val overallScore = (externalScore * externalWeight + internalScore * internalWeight) / 100
+        val totalCritical = externalCriticalIssues + internalCriticalIssues
+
+        val overallStatus = when {
+            totalCritical > maxCritical -> "FAILED"
+            overallScore < minScore -> "FAILED"
+            externalStatus == "SUCCESS" && internalValidationStatus == "SUCCESS" -> "PASSED"
+            else -> "FAILED"
+        }
+
+        println("=== Quality Gate Evaluation Results ===")
+        println("Overall Status: ${'$'}overallStatus")
+        println("Overall Score: ${'$'}overallScore/100 (weighted: External 60%, Internal 40%)")
+        println("External Validation: ${'$'}{if (externalStatus == "SUCCESS") "PASSED" else "FAILED"} (${'$'}externalScore/100)")
+        println("Internal Validation: ${'$'}{if (internalValidationStatus == "SUCCESS") "PASSED" else "FAILED"} (${'$'}internalScore/100)")
+        println("  - Internal Tests: ${'$'}internalPassedTests/${'$'}internalTotalTests passed (${'$'}internalSuccessRate%)")
+        println("  - Internal Failed Tests: ${'$'}internalFailedTests")
+        println("Total Critical Issues: ${'$'}totalCritical (External: ${'$'}externalCriticalIssues, Internal: ${'$'}internalCriticalIssues)")
+
+        println("##teamcity[setParameter name='quality.gate.overall.status' value='${'$'}overallStatus']")
+        println("##teamcity[setParameter name='quality.gate.overall.score' value='${'$'}overallScore']")
+        println("##teamcity[setParameter name='quality.gate.total.critical' value='${'$'}totalCritical']")
+        println("##teamcity[setParameter name='external.gate.status' value='${'$'}{if (externalStatus == "SUCCESS") "PASSED" else "FAILED"}']")
+        println("##teamcity[setParameter name='external.gate.score' value='${'$'}externalScore']")
+        println("##teamcity[setParameter name='internal.gate.status' value='${'$'}{if (internalStatus == "SUCCESS") "PASSED" else "FAILED"}']")
+        println("##teamcity[setParameter name='internal.gate.score' value='${'$'}internalScore']")
+
+        val recommendations = if (overallStatus == "PASSED") {
+            "EAP version is ready for release"
+        } else {
+            "Address critical issues before release"
+        }
+
+        val nextSteps = if (overallStatus == "PASSED") {
+            "Prepare release notes and documentation"
+        } else {
+            "Fix identified issues and re-run validation"
+        }
+
+        println("##teamcity[setParameter name='quality.gate.recommendations' value='${'$'}recommendations']")
+        println("##teamcity[setParameter name='quality.gate.next.steps' value='${'$'}nextSteps']")
+
+        if (overallStatus == "PASSED") {
+            println("✅ All quality gates passed")
+        } else {
+            println("❌ Quality gates failed")
+        }
+
         println("=== Quality Gate Evaluation Completed Successfully ===")
+
+        if (overallStatus == "PASSED") {
+            kotlin.system.exitProcess(0)
+        } else {
+            kotlin.system.exitProcess(1)
+        }
+
     } catch (e: Exception) {
         println("ERROR: Quality gate evaluation failed: ${'$'}{e.message}")
         e.printStackTrace()
@@ -211,7 +307,6 @@ EOF
                     fi
                 else
                     echo "⚠️ Kotlin runtime not available, but implementation is ready"
-                    echo "The executeQualityGateEvaluation() function contains the complete implementation"
                     echo "In a proper deployment environment with Kotlin runtime, this would execute the code"
 
                     echo "✅ Implementation is available and ready for execution"
@@ -262,24 +357,42 @@ Next Steps: %quality.gate.next.steps%
 $([[ "%quality.gate.overall.status%" == "FAILED" ]] && echo "Failure Reasons: %quality.gate.failure.reasons%" || echo "")
 EOF
 
-                # Generate JSON report for programmatic access
-                cat > quality-gate-reports/quality-report.json <<'EOF'
+                # Generate JSON report
+                # Set default values for numeric fields to prevent empty parameter issues
+                OVERALL_SCORE="${'$'}{%quality.gate.overall.score%:-0}"
+                TOTAL_CRITICAL="${'$'}{%quality.gate.total.critical%:-0}"
+                EXTERNAL_SCORE="${'$'}{%external.gate.score%:-0}"
+                INTERNAL_SCORE="${'$'}{%internal.gate.score%:-0}"
+                MIN_SCORE="${'$'}{%quality.gate.thresholds.minimum.score%:-80}"
+                CRITICAL_THRESHOLD="${'$'}{%quality.gate.thresholds.critical.issues%:-0}"
+
+                # Escape string values to prevent JSON syntax errors from quotes/special chars
+                EAP_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/"/\\"/g')
+                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" | sed 's/"/\\"/g')
+                EXTERNAL_STATUS=$(echo "%external.gate.status%" | sed 's/"/\\"/g')
+                INTERNAL_STATUS=$(echo "%internal.gate.status%" | sed 's/"/\\"/g')
+                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" | sed 's/"/\\"/g')
+                NEXT_STEPS=$(echo "%quality.gate.next.steps%" | sed 's/"/\\"/g')
+
+                TIMESTAMP=$(date -Iseconds)
+
+                cat > quality-gate-reports/quality-report.json <<EOF
 {
-    "eapVersion": "%env.KTOR_VERSION%",
-    "timestamp": "$(date -Iseconds)",
+    "eapVersion": "${'$'}EAP_VERSION",
+    "timestamp": "${'$'}TIMESTAMP",
     "architecture": "modular",
-    "overallStatus": "%quality.gate.overall.status%",
-    "overallScore": %quality.gate.overall.score%,
-    "totalCriticalIssues": %quality.gate.total.critical%,
+    "overallStatus": "${'$'}OVERALL_STATUS",
+    "overallScore": ${'$'}OVERALL_SCORE,
+    "totalCriticalIssues": ${'$'}TOTAL_CRITICAL,
     "qualityGates": {
         "externalValidation": {
-            "status": "%external.gate.status%",
-            "score": %external.gate.score%,
+            "status": "${'$'}EXTERNAL_STATUS",
+            "score": ${'$'}EXTERNAL_SCORE,
             "implementation": "ExternalValidationQualityGate"
         },
         "internalValidation": {
-            "status": "%internal.gate.status%",
-            "score": %internal.gate.score%,
+            "status": "${'$'}INTERNAL_STATUS",
+            "score": ${'$'}INTERNAL_SCORE,
             "implementation": "InternalValidationQualityGate"
         }
     },
@@ -287,12 +400,12 @@ EOF
         "scoringStrategy": "WeightedScoringStrategy",
         "evaluationEngine": "DefaultQualityGateEvaluationEngine",
         "thresholds": {
-            "minimumScore": %quality.gate.thresholds.minimum.score%,
-            "criticalIssues": %quality.gate.thresholds.critical.issues%
+            "minimumScore": ${'$'}MIN_SCORE,
+            "criticalIssues": ${'$'}CRITICAL_THRESHOLD
         }
     },
-    "recommendations": "%quality.gate.recommendations%",
-    "nextSteps": "%quality.gate.next.steps%",
+    "recommendations": "${'$'}RECOMMENDATIONS",
+    "nextSteps": "${'$'}NEXT_STEPS",
     "readyForRelease": $([[ "%quality.gate.overall.status%" == "PASSED" ]] && echo "true" || echo "false")
 }
 EOF

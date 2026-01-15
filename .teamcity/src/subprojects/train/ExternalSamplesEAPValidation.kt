@@ -46,10 +46,13 @@ object ExternalSamplesEAPValidation : Project({
     val compositeBuild = createCompositeBuild(versionResolver, buildTypes)
     buildType(compositeBuild)
 
+    val internalValidationBuild = InternalValidation.createInternalValidationBuild(versionResolver)
+    buildType(internalValidationBuild)
+
     // Add Quality Gate Orchestrator
     val qualityGateOrchestrator = QualityGateOrchestrator.createQualityGateOrchestrator(
         externalValidationBuild = compositeBuild,
-        internalValidationBuild = compositeBuild,
+        internalValidationBuild = internalValidationBuild,
         versionResolver = versionResolver
     )
     buildType(qualityGateOrchestrator)
