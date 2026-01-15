@@ -363,6 +363,21 @@ object TriggerProjectSamplesOnEAP : Project({
     description = "Validate samples against EAP versions of Ktor"
     params {
         param("ktor.eap.version", "KTOR_VERSION")
+
+        // Quality Gate Parameters for Internal Validation
+        param("quality.gate.enabled", "true")
+        param("quality.gate.type", "INTERNAL_VALIDATION")
+        param("quality.gate.thresholds.minimum.score", "85")
+        param("quality.gate.thresholds.critical.issues", "0")
+        param("quality.gate.thresholds.warning.issues", "3")
+        param("quality.gate.notification.enhanced", "true")
+
+        // Notification configuration
+        param("quality.gate.notification.channel.main", "#ktor-projects-on-eap")
+        param("quality.gate.notification.channel.alerts", "#ktor-projects-on-eap")
+
+        // Execution timeout configuration
+        param("quality.gate.execution.timeout.minutes", "30")
     }
 
     val versionResolver = EAPVersionResolver.createVersionResolver(
@@ -393,11 +408,7 @@ object TriggerProjectSamplesOnEAP : Project({
             param("teamcity.build.skipDependencyBuilds", "true")
         }
 
-        addSlackNotifications(
-            buildFailedToStart = true,
-            buildFailed = true,
-            buildFinishedSuccessfully = true
-        )
+        addSlackNotifications()
 
         triggers {
             finishBuildTrigger {
