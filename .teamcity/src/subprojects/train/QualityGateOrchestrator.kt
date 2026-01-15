@@ -327,7 +327,7 @@ EOF
                 echo "=== Generating Enhanced Reports using Modular Architecture ==="
 
                 # Generate comprehensive report using new report generator
-                cat > quality-gate-reports/comprehensive-report.txt <<'EOF'
+                cat > quality-gate-reports/comprehensive-report.txt <<EOF
 EAP Quality Gate Report (Modular Architecture) - %env.KTOR_VERSION%
 ================================================================
 Generated: $(date -Iseconds)
