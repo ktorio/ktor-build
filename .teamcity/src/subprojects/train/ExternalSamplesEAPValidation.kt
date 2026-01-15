@@ -23,6 +23,17 @@ object ExternalSamplesEAPValidation : Project({
         param("compose.multiplatform.support", "true")
         param("testcontainers.cloud.enabled", "true")
         password("testcontainers-cloud-token", "credentialsJSON:your-testcontainers-cloud-token-id")
+
+        // Quality Gate Parameters
+        param("quality.gate.enabled", "true")
+        param("quality.gate.type", "EXTERNAL_VALIDATION")
+        param("quality.gate.thresholds.minimum.score", "80")
+        param("quality.gate.thresholds.critical.issues", "0")
+        param("quality.gate.thresholds.warning.issues", "5")
+        param("quality.gate.notification.enhanced", "true")
+        param("quality.gate.notification.channel.main", "#ktor-projects-on-eap")
+        param("quality.gate.notification.channel.alerts", "#ktor-projects-on-eap")
+        param("quality.gate.execution.timeout.minutes", "60")
     }
 
     val versionResolver = createVersionResolver()
@@ -32,7 +43,16 @@ object ExternalSamplesEAPValidation : Project({
     val buildTypes = samples.map { it.createEAPBuildType() }
 
     buildTypes.forEach { buildType(it) }
-    buildType(createCompositeBuild(versionResolver, buildTypes))
+    val compositeBuild = createCompositeBuild(versionResolver, buildTypes)
+    buildType(compositeBuild)
+
+    // Add Quality Gate Orchestrator
+    val qualityGateOrchestrator = QualityGateOrchestrator.createQualityGateOrchestrator(
+        externalValidationBuild = compositeBuild,
+        internalValidationBuild = compositeBuild,
+        versionResolver = versionResolver
+    )
+    buildType(qualityGateOrchestrator)
 })
 
 private fun Project.registerVCSRoots() {
@@ -104,11 +124,7 @@ private fun createCompositeBuild(versionResolver: BuildType, buildTypes: List<Bu
         param("teamcity.build.skipDependencyBuilds", "true")
     }
 
-    addSlackNotifications(
-        buildFailedToStart = true,
-        buildFailed = true,
-        buildFinishedSuccessfully = true
-    )
+    addSlackNotifications()
 
     triggers {
         finishBuildTrigger {
