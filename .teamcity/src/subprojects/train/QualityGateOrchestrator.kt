@@ -166,7 +166,7 @@ EOF
 
                 echo "Executing quality gate evaluation..."
 
-                cat > QualityGateEvaluator.kts << 'EOF'
+                cat > QualityGateEvaluator.kts << EOF
 #!/usr/bin/env kotlin
 
 @file:DependsOn("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
@@ -419,8 +419,8 @@ EOF
             scriptContent = """
                 #!/bin/bash
 
-                STATUS="%quality.gate.overall.status%"
-                SCORE="%quality.gate.overall.score%"
+                STATUS="${'$'}{%quality.gate.overall.status%:-UNKNOWN}"
+                SCORE="${'$'}{%quality.gate.overall.score%:-0}"
                 VERSION="%env.KTOR_VERSION%"
 
                 echo "=== Final Quality Gate Decision ==="
