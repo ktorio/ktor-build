@@ -84,12 +84,12 @@ object QualityGateOrchestrator {
             }
 
             snapshot(externalValidationBuild) {
-                onDependencyFailure = FailureAction.CANCEL
+                onDependencyFailure = FailureAction.IGNORE
                 synchronizeRevisions = false
             }
 
             snapshot(internalValidationBuild) {
-                onDependencyFailure = FailureAction.CANCEL
+                onDependencyFailure = FailureAction.IGNORE
                 synchronizeRevisions = false
             }
 
@@ -167,10 +167,25 @@ EOF
                 echo "##teamcity[setParameter name='quality.gate.next.steps' value='Awaiting evaluation results']"
 
                 # Set environment variables from TeamCity parameters
-                export EXTERNAL_STATUS="%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.status%"
-                export EXTERNAL_STATUS_TEXT="%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.statusText%"
-                export INTERNAL_STATUS="%dep.KtorEAPInternalValidation.teamcity.build.status%"
-                export INTERNAL_STATUS_TEXT="%dep.KtorEAPInternalValidation.teamcity.build.statusText%"
+                # Use parameter expansion with default values to avoid implicit requirements
+                echo "Checking dependency build statuses..."
+
+                # Try to get external validation status, default to UNKNOWN if not available
+                EXTERNAL_STATUS_RAW="${'$'}{%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.status%:-UNKNOWN}"
+                EXTERNAL_STATUS_TEXT_RAW="${'$'}{%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.statusText%:-External validation build not available}"
+
+                # Try to get internal validation status, default to UNKNOWN if not available  
+                INTERNAL_STATUS_RAW="${'$'}{%dep.KtorEAPInternalValidation.teamcity.build.status%:-UNKNOWN}"
+                INTERNAL_STATUS_TEXT_RAW="${'$'}{%dep.KtorEAPInternalValidation.teamcity.build.statusText%:-Internal validation build not available}"
+
+                # Export the values
+                export EXTERNAL_STATUS="${'$'}EXTERNAL_STATUS_RAW"
+                export EXTERNAL_STATUS_TEXT="${'$'}EXTERNAL_STATUS_TEXT_RAW"
+                export INTERNAL_STATUS="${'$'}INTERNAL_STATUS_RAW"
+                export INTERNAL_STATUS_TEXT="${'$'}INTERNAL_STATUS_TEXT_RAW"
+
+                echo "External validation status: ${'$'}EXTERNAL_STATUS"
+                echo "Internal validation status: ${'$'}INTERNAL_STATUS"
 
                 # Read internal validation results from artifacts
                 echo "Reading internal validation results from artifacts..."
