@@ -9,7 +9,7 @@ import subprojects.VCSCore
 import dsl.addSlackNotifications
 
 object InternalValidation {
-    
+
     /**
      * Creates an internal validation build type for quality gates
      */
@@ -25,7 +25,7 @@ object InternalValidation {
         params {
             defaultGradleParams()
             param("env.KTOR_VERSION", "%dep.${versionResolver.id}.env.KTOR_VERSION%")
-            
+
             // Quality Gate Parameters
             param("quality.gate.enabled", "true")
             param("quality.gate.type", "INTERNAL_VALIDATION")
@@ -45,34 +45,37 @@ object InternalValidation {
                 scriptContent = """
                     #!/bin/bash
                     set -e
-                    
+
                     echo "=== EAP Internal Validation ==="
                     echo "EAP Version: %env.KTOR_VERSION%"
                     echo "Expected Internal Samples: %quality.gate.internal.samples.expected%"
                     echo "Timestamp: $(date -Iseconds)"
-                    
+
+                    # Create reports directory for artifact collection
+                    mkdir -p internal-validation-reports
+
                     # Simulate internal test suite execution
                     # In a real implementation, this would run actual internal tests
                     echo "Running internal test suites..."
-                    
+
                     # Simulate test execution with configurable success rate
                     TOTAL_TESTS=15
                     PASSED_TESTS=15
                     FAILED_TESTS=0
                     CRITICAL_ISSUES=0
                     WARNING_ISSUES=0
-                    
+
                     echo "Internal Test Results:"
                     echo "- Total Tests: ${'$'}TOTAL_TESTS"
                     echo "- Passed: ${'$'}PASSED_TESTS"
                     echo "- Failed: ${'$'}FAILED_TESTS"
                     echo "- Critical Issues: ${'$'}CRITICAL_ISSUES"
                     echo "- Warning Issues: ${'$'}WARNING_ISSUES"
-                    
+
                     # Calculate success rate
                     SUCCESS_RATE=$(echo "scale=2; ${'$'}PASSED_TESTS * 100 / ${'$'}TOTAL_TESTS" | bc -l)
                     echo "- Success Rate: ${'$'}SUCCESS_RATE%"
-                    
+
                     # Set TeamCity parameters for quality gate evaluation
                     echo "##teamcity[setParameter name='internal.validation.total.tests' value='${'$'}TOTAL_TESTS']"
                     echo "##teamcity[setParameter name='internal.validation.passed.tests' value='${'$'}PASSED_TESTS']"
@@ -80,7 +83,47 @@ object InternalValidation {
                     echo "##teamcity[setParameter name='internal.validation.critical.issues' value='${'$'}CRITICAL_ISSUES']"
                     echo "##teamcity[setParameter name='internal.validation.warning.issues' value='${'$'}WARNING_ISSUES']"
                     echo "##teamcity[setParameter name='internal.validation.success.rate' value='${'$'}SUCCESS_RATE']"
-                    
+
+                    # Generate internal validation reports
+                    cat > internal-validation-reports/internal-validation-summary.txt <<EOF
+Internal Validation Report - %env.KTOR_VERSION%
+===============================================
+Generated: $(date -Iseconds)
+
+Test Results:
+- Total Tests: ${'$'}TOTAL_TESTS
+- Passed Tests: ${'$'}PASSED_TESTS
+- Failed Tests: ${'$'}FAILED_TESTS
+- Success Rate: ${'$'}SUCCESS_RATE%
+
+Issues:
+- Critical Issues: ${'$'}CRITICAL_ISSUES
+- Warning Issues: ${'$'}WARNING_ISSUES
+
+Overall Status: $([[ ${'$'}FAILED_TESTS -eq 0 && ${'$'}CRITICAL_ISSUES -eq 0 ]] && echo "PASSED" || echo "FAILED")
+EOF
+
+                    # Generate JSON report for programmatic access
+                    cat > internal-validation-reports/internal-validation-results.json <<EOF
+{
+    "eapVersion": "%env.KTOR_VERSION%",
+    "timestamp": "$(date -Iseconds)",
+    "testResults": {
+        "totalTests": ${'$'}TOTAL_TESTS,
+        "passedTests": ${'$'}PASSED_TESTS,
+        "failedTests": ${'$'}FAILED_TESTS,
+        "successRate": ${'$'}SUCCESS_RATE
+    },
+    "issues": {
+        "criticalIssues": ${'$'}CRITICAL_ISSUES,
+        "warningIssues": ${'$'}WARNING_ISSUES
+    },
+    "overallStatus": "$([[ ${'$'}FAILED_TESTS -eq 0 && ${'$'}CRITICAL_ISSUES -eq 0 ]] && echo "PASSED" || echo "FAILED")"
+}
+EOF
+
+                    echo "Internal validation reports generated in internal-validation-reports/"
+
                     # Determine overall status
                     if [ ${'$'}FAILED_TESTS -eq 0 ] && [ ${'$'}CRITICAL_ISSUES -eq 0 ]; then
                         echo "✅ Internal validation passed"
@@ -114,9 +157,6 @@ object InternalValidation {
             executionTimeoutMin = 60
         }
 
-        requirements {
-            contains("teamcity.agent.name", "linux")
-        }
 
         artifactRules = "internal-validation-reports => internal-validation-reports.zip"
     }
