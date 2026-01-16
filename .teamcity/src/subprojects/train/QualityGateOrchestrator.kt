@@ -338,7 +338,7 @@ try {
 } catch (e: Exception) {
     println("CRITICAL ERROR: Quality gate evaluation failed: ${'$'}{e.message}")
     e.printStackTrace()
-    
+
     // Set error state parameters
     println("##teamcity[setParameter name='quality.gate.overall.status' value='ERROR']")
     println("##teamcity[setParameter name='quality.gate.overall.score' value='0']")
@@ -350,7 +350,7 @@ try {
     println("##teamcity[setParameter name='quality.gate.recommendations' value='Fix evaluation system: ${'$'}{e.message}']")
     println("##teamcity[setParameter name='quality.gate.next.steps' value='Check logs, fix system issues, and retry evaluation']")
     println("##teamcity[setParameter name='quality.gate.failure.reasons' value='System error: ${'$'}{e.message}']")
-    
+
     kotlin.system.exitProcess(1)
 }
 EOF
@@ -364,48 +364,149 @@ EOF
                 else
                     KOTLIN_EXIT_CODE=$?
                     echo "❌ Quality gate evaluation failed with exit code: ${'$'}KOTLIN_EXIT_CODE"
-                    
+
                     # Ensure parameters are set even on failure
                     echo "##teamcity[setParameter name='quality.gate.overall.status' value='FAILED']"
                     echo "##teamcity[setParameter name='quality.gate.overall.score' value='0']"
-                    
+
                     exit ${'$'}KOTLIN_EXIT_CODE
                 fi
             else
                 echo "⚠️ Kotlin runtime not available, using bash fallback evaluation"
-                
+
                 # Bash fallback calculation
-                EXTERNAL_SCORE=50
-                INTERNAL_SCORE=50
-                
-                if [ "${'$'}EXTERNAL_STATUS" = "SUCCESS" ]; then
-                    EXTERNAL_SCORE=95
+
+                # Calculate external score using same logic as Kotlin
+                case "${'$'}EXTERNAL_STATUS" in
+                    "SUCCESS")
+                        EXTERNAL_SCORE=$(( BASE_SCORE - 5 ))  # 95
+                        ;;
+                    "FAILURE")
+                        EXTERNAL_SCORE=$(( BASE_SCORE - 50 )) # 50
+                        ;;
+                    *)
+                        EXTERNAL_SCORE=$(( BASE_SCORE - 30 )) # 70 for UNKNOWN
+                        ;;
+                esac
+
+                # Calculate external critical issues
+                EXTERNAL_CRITICAL_ISSUES=0
+                if [ "${'$'}EXTERNAL_STATUS" != "SUCCESS" ]; then
+                    if echo "${'$'}EXTERNAL_STATUS_TEXT" | grep -qi "BUILD FAILED\|compilation"; then
+                        EXTERNAL_CRITICAL_ISSUES=1
+                    elif [ "${'$'}EXTERNAL_STATUS" = "FAILURE" ]; then
+                        EXTERNAL_CRITICAL_ISSUES=1
+                    fi
                 fi
-                
-                if [ "${'$'}INTERNAL_STATUS" = "SUCCESS" ]; then
-                    INTERNAL_SCORE=95
+
+                # Calculate internal score using enhanced logic
+                INTERNAL_VALIDATION_STATUS="${'$'}{INTERNAL_VALIDATION_STATUS:-${'$'}INTERNAL_STATUS}"
+                INTERNAL_SUCCESS_RATE="${'$'}{INTERNAL_SUCCESS_RATE:-0.0}"
+                INTERNAL_FAILED_TESTS="${'$'}{INTERNAL_FAILED_TESTS:-0}"
+                INTERNAL_CRITICAL_ISSUES="${'$'}{INTERNAL_CRITICAL_ISSUES:-0}"
+
+                if [ "${'$'}INTERNAL_VALIDATION_STATUS" = "SUCCESS" ] && [ $(echo "${'$'}INTERNAL_SUCCESS_RATE >= 95.0" | bc -l) -eq 1 ]; then
+                    INTERNAL_SCORE=$(( BASE_SCORE - 5 ))  # 95
+                elif [ "${'$'}INTERNAL_VALIDATION_STATUS" = "SUCCESS" ] && [ $(echo "${'$'}INTERNAL_SUCCESS_RATE >= 80.0" | bc -l) -eq 1 ]; then
+                    INTERNAL_SCORE=$(( BASE_SCORE - 15 )) # 85
+                elif [ "${'$'}INTERNAL_STATUS" = "SUCCESS" ]; then
+                    INTERNAL_SCORE=$(( BASE_SCORE - 10 )) # 90
+                elif [ "${'$'}INTERNAL_FAILED_TESTS" -gt 0 ]; then
+                    # Calculate penalty based on failed tests
+                    PENALTY=$(( INTERNAL_FAILED_TESTS * 10 + 20 ))
+                    INTERNAL_SCORE=$(( BASE_SCORE - PENALTY ))
+                    if [ ${'$'}INTERNAL_SCORE -lt 0 ]; then
+                        INTERNAL_SCORE=0
+                    fi
+                elif [ "${'$'}INTERNAL_STATUS" = "FAILURE" ]; then
+                    INTERNAL_SCORE=$(( BASE_SCORE - 50 )) # 50
+                else
+                    INTERNAL_SCORE=$(( BASE_SCORE - 30 )) # 70 for UNKNOWN
                 fi
-                
+
+                # Calculate total critical issues
+                TOTAL_CRITICAL=$(( EXTERNAL_CRITICAL_ISSUES + INTERNAL_CRITICAL_ISSUES ))
+
+                # Calculate weighted overall score
                 OVERALL_SCORE=$(( (EXTERNAL_SCORE * EXTERNAL_WEIGHT + INTERNAL_SCORE * INTERNAL_WEIGHT) / 100 ))
-                
-                if [ ${'$'}OVERALL_SCORE -ge ${'$'}MIN_SCORE ] && [ "${'$'}EXTERNAL_STATUS" = "SUCCESS" ] && [ "${'$'}INTERNAL_STATUS" = "SUCCESS" ]; then
+
+                # Determine overall status using same logic as Kotlin
+                if [ ${'$'}TOTAL_CRITICAL -gt ${'$'}MAX_CRITICAL ]; then
+                    OVERALL_STATUS="FAILED"
+                elif [ ${'$'}OVERALL_SCORE -lt ${'$'}MIN_SCORE ]; then
+                    OVERALL_STATUS="FAILED"
+                elif [ "${'$'}EXTERNAL_STATUS" = "SUCCESS" ] && [ "${'$'}INTERNAL_VALIDATION_STATUS" = "SUCCESS" ]; then
+                    OVERALL_STATUS="PASSED"
+                elif [ "${'$'}EXTERNAL_STATUS" = "SUCCESS" ] && [ "${'$'}INTERNAL_STATUS" = "SUCCESS" ]; then
                     OVERALL_STATUS="PASSED"
                 else
                     OVERALL_STATUS="FAILED"
                 fi
-                
+
+                # Generate recommendations and next steps
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                    RECOMMENDATIONS="EAP version ${'$'}KTOR_VERSION is ready for release"
+                    NEXT_STEPS="Prepare release notes and documentation for EAP ${'$'}KTOR_VERSION"
+                    FAILURE_REASONS=""
+                elif [ ${'$'}TOTAL_CRITICAL -gt 0 ]; then
+                    RECOMMENDATIONS="Address ${'$'}TOTAL_CRITICAL critical issues before release"
+                    CRITICAL_LOCATION=""
+                    if [ ${'$'}EXTERNAL_CRITICAL_ISSUES -gt 0 ] && [ ${'$'}INTERNAL_CRITICAL_ISSUES -gt 0 ]; then
+                        CRITICAL_LOCATION="external and internal"
+                    elif [ ${'$'}EXTERNAL_CRITICAL_ISSUES -gt 0 ]; then
+                        CRITICAL_LOCATION="external"
+                    elif [ ${'$'}INTERNAL_CRITICAL_ISSUES -gt 0 ]; then
+                        CRITICAL_LOCATION="internal"
+                    fi
+                    NEXT_STEPS="Fix critical issues in ${'$'}CRITICAL_LOCATION validation"
+                    FAILURE_REASONS="Too many critical issues (${'$'}TOTAL_CRITICAL > ${'$'}MAX_CRITICAL)"
+                elif [ ${'$'}OVERALL_SCORE -lt ${'$'}MIN_SCORE ]; then
+                    RECOMMENDATIONS="Improve quality score from ${'$'}OVERALL_SCORE to at least ${'$'}MIN_SCORE"
+                    NEXT_STEPS="Fix identified issues and re-run validation"
+                    FAILURE_REASONS="Score too low (${'$'}OVERALL_SCORE < ${'$'}MIN_SCORE)"
+                else
+                    RECOMMENDATIONS="Review failed validations and address issues"
+                    NEXT_STEPS="Fix identified issues and re-run validation"
+                    FAILURE_REASONS=""
+                    if [ "${'$'}EXTERNAL_STATUS" != "SUCCESS" ]; then
+                        FAILURE_REASONS="External validation failed"
+                    fi
+                    if [ "${'$'}INTERNAL_STATUS" != "SUCCESS" ]; then
+                        if [ -n "${'$'}FAILURE_REASONS" ]; then
+                            FAILURE_REASONS="${'$'}FAILURE_REASONS; Internal validation failed"
+                        else
+                            FAILURE_REASONS="Internal validation failed"
+                        fi
+                    fi
+                fi
+
+                echo "=== Bash Fallback Quality Gate Evaluation Results ==="
+                echo "Overall Status: ${'$'}OVERALL_STATUS"
+                echo "Overall Score: ${'$'}OVERALL_SCORE/100 (weighted: External ${'$'}EXTERNAL_WEIGHT%, Internal ${'$'}INTERNAL_WEIGHT%)"
+                echo "External Validation: $([[ "${'$'}EXTERNAL_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED") (${'$'}EXTERNAL_SCORE/100)"
+                echo "Internal Validation: $([[ "${'$'}INTERNAL_VALIDATION_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED") (${'$'}INTERNAL_SCORE/100)"
+                echo "Total Critical Issues: ${'$'}TOTAL_CRITICAL (External: ${'$'}EXTERNAL_CRITICAL_ISSUES, Internal: ${'$'}INTERNAL_CRITICAL_ISSUES)"
+
+                # Set all TeamCity parameters with calculated values
                 echo "##teamcity[setParameter name='quality.gate.overall.status' value='${'$'}OVERALL_STATUS']"
                 echo "##teamcity[setParameter name='quality.gate.overall.score' value='${'$'}OVERALL_SCORE']"
-                echo "##teamcity[setParameter name='quality.gate.total.critical' value='0']"
-                echo "##teamcity[setParameter name='external.gate.status' value='${'$'}EXTERNAL_STATUS']"
+                echo "##teamcity[setParameter name='quality.gate.total.critical' value='${'$'}TOTAL_CRITICAL']"
+                echo "##teamcity[setParameter name='external.gate.status' value='$([[ "${'$'}EXTERNAL_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED")']"
                 echo "##teamcity[setParameter name='external.gate.score' value='${'$'}EXTERNAL_SCORE']"
-                echo "##teamcity[setParameter name='internal.gate.status' value='${'$'}INTERNAL_STATUS']"
+                echo "##teamcity[setParameter name='internal.gate.status' value='$([[ "${'$'}INTERNAL_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED")']"
                 echo "##teamcity[setParameter name='internal.gate.score' value='${'$'}INTERNAL_SCORE']"
-                echo "##teamcity[setParameter name='quality.gate.recommendations' value='Evaluation completed using fallback method']"
-                echo "##teamcity[setParameter name='quality.gate.next.steps' value='Consider installing Kotlin runtime for enhanced evaluation']"
-                
+                echo "##teamcity[setParameter name='quality.gate.recommendations' value='${'$'}RECOMMENDATIONS']"
+                echo "##teamcity[setParameter name='quality.gate.next.steps' value='${'$'}NEXT_STEPS']"
+                echo "##teamcity[setParameter name='quality.gate.failure.reasons' value='${'$'}FAILURE_REASONS']"
+
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                    echo "✅ All quality gates passed (bash fallback)"
+                else
+                    echo "❌ Quality gates failed: ${'$'}FAILURE_REASONS (bash fallback)"
+                fi
+
                 echo "✅ Fallback evaluation completed"
-            fi
+            fi</SEARCH>
 
             echo "=== Quality Gate Evaluation Complete ==="
         """.trimIndent()
