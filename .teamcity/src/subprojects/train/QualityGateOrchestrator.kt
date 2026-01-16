@@ -92,6 +92,11 @@ object QualityGateOrchestrator {
                 onDependencyFailure = FailureAction.CANCEL
                 synchronizeRevisions = false
             }
+
+            artifacts(internalValidationBuild) {
+                buildRule = lastSuccessful()
+                artifactRules = "internal-validation-reports.zip => internal-validation-reports"
+            }
         }
 
         addSlackNotifications()
@@ -161,23 +166,54 @@ EOF
                 echo "##teamcity[setParameter name='quality.gate.recommendations' value='Quality gate evaluation in progress']"
                 echo "##teamcity[setParameter name='quality.gate.next.steps' value='Awaiting evaluation results']"
 
-                # Set environment variables from TeamCity parameters with fallback values
-                export EXTERNAL_STATUS="${'$'}{%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.status%:-UNKNOWN}"
-                export EXTERNAL_STATUS_TEXT="${'$'}{%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.statusText%:-}"
-                export INTERNAL_STATUS="${'$'}{%dep.KtorEAPInternalValidation.teamcity.build.status%:-UNKNOWN}"
-                export INTERNAL_STATUS_TEXT="${'$'}{%dep.KtorEAPInternalValidation.teamcity.build.statusText%:-}"
-                export INTERNAL_VALIDATION_STATUS="${'$'}{%dep.KtorEAPInternalValidation.internal.validation.status%:-UNKNOWN}"
-                export INTERNAL_TOTAL_TESTS="${'$'}{%dep.KtorEAPInternalValidation.internal.validation.total.tests%:-15}"
-                export INTERNAL_PASSED_TESTS="${'$'}{%dep.KtorEAPInternalValidation.internal.validation.passed.tests%:-0}"
-                export INTERNAL_FAILED_TESTS="${'$'}{%dep.KtorEAPInternalValidation.internal.validation.failed.tests%:-0}"
-                export INTERNAL_CRITICAL_ISSUES="${'$'}{%dep.KtorEAPInternalValidation.internal.validation.critical.issues%:-0}"
-                export INTERNAL_SUCCESS_RATE="${'$'}{%dep.KtorEAPInternalValidation.internal.validation.success.rate%:-0.0}"
-                export KTOR_VERSION="${'$'}{%env.KTOR_VERSION%:-unknown}"
-                export MIN_SCORE="${'$'}{%quality.gate.thresholds.minimum.score%:-80}"
-                export MAX_CRITICAL="${'$'}{%quality.gate.thresholds.critical.issues%:-0}"
-                export BASE_SCORE="${'$'}{%quality.gate.scoring.base.score%:-100}"
-                export EXTERNAL_WEIGHT="${'$'}{%quality.gate.scoring.external.weight%:-60}"
-                export INTERNAL_WEIGHT="${'$'}{%quality.gate.scoring.internal.weight%:-40}"
+                # Set environment variables from TeamCity parameters
+                export EXTERNAL_STATUS="%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.status%"
+                export EXTERNAL_STATUS_TEXT="%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.statusText%"
+                export INTERNAL_STATUS="%dep.KtorEAPInternalValidation.teamcity.build.status%"
+                export INTERNAL_STATUS_TEXT="%dep.KtorEAPInternalValidation.teamcity.build.statusText%"
+
+                # Read internal validation results from artifacts
+                echo "Reading internal validation results from artifacts..."
+                if [ -f "internal-validation-reports/internal-validation-results.json" ]; then
+                    echo "Found internal validation results file"
+                    # Extract values from JSON using basic parsing (avoiding jq dependency)
+                    INTERNAL_VALIDATION_STATUS=$(grep -o '"overallStatus"[[:space:]]*:[[:space:]]*"[^"]*"' internal-validation-reports/internal-validation-results.json | cut -d'"' -f4)
+                    INTERNAL_TOTAL_TESTS=$(grep -o '"totalTests"[[:space:]]*:[[:space:]]*[0-9]*' internal-validation-reports/internal-validation-results.json | grep -o '[0-9]*')
+                    INTERNAL_PASSED_TESTS=$(grep -o '"passedTests"[[:space:]]*:[[:space:]]*[0-9]*' internal-validation-reports/internal-validation-results.json | grep -o '[0-9]*')
+                    INTERNAL_FAILED_TESTS=$(grep -o '"failedTests"[[:space:]]*:[[:space:]]*[0-9]*' internal-validation-reports/internal-validation-results.json | grep -o '[0-9]*')
+                    INTERNAL_CRITICAL_ISSUES=$(grep -o '"criticalIssues"[[:space:]]*:[[:space:]]*[0-9]*' internal-validation-reports/internal-validation-results.json | grep -o '[0-9]*')
+                    INTERNAL_SUCCESS_RATE=$(grep -o '"successRate"[[:space:]]*:[[:space:]]*[0-9.]*' internal-validation-reports/internal-validation-results.json | grep -o '[0-9.]*')
+
+                    # Validate that all required values were extracted
+                    if [ -z "${'$'}INTERNAL_VALIDATION_STATUS" ] || [ -z "${'$'}INTERNAL_TOTAL_TESTS" ] || [ -z "${'$'}INTERNAL_PASSED_TESTS" ] || [ -z "${'$'}INTERNAL_FAILED_TESTS" ] || [ -z "${'$'}INTERNAL_CRITICAL_ISSUES" ] || [ -z "${'$'}INTERNAL_SUCCESS_RATE" ]; then
+                        set_error_state "Failed to parse internal validation results from JSON file"
+                        exit 1
+                    fi
+
+                    echo "Parsed internal validation results:"
+                    echo "  Status: ${'$'}INTERNAL_VALIDATION_STATUS"
+                    echo "  Total Tests: ${'$'}INTERNAL_TOTAL_TESTS"
+                    echo "  Passed Tests: ${'$'}INTERNAL_PASSED_TESTS"
+                    echo "  Failed Tests: ${'$'}INTERNAL_FAILED_TESTS"
+                    echo "  Critical Issues: ${'$'}INTERNAL_CRITICAL_ISSUES"
+                    echo "  Success Rate: ${'$'}INTERNAL_SUCCESS_RATE"
+                else
+                    set_error_state "Internal validation results file not found - cannot proceed without validation data"
+                    exit 1
+                fi
+
+                export INTERNAL_VALIDATION_STATUS
+                export INTERNAL_TOTAL_TESTS
+                export INTERNAL_PASSED_TESTS
+                export INTERNAL_FAILED_TESTS
+                export INTERNAL_CRITICAL_ISSUES
+                export INTERNAL_SUCCESS_RATE
+                export KTOR_VERSION="%env.KTOR_VERSION%"
+                export MIN_SCORE="%quality.gate.thresholds.minimum.score%"
+                export MAX_CRITICAL="%quality.gate.thresholds.critical.issues%"
+                export BASE_SCORE="%quality.gate.scoring.base.score%"
+                export EXTERNAL_WEIGHT="%quality.gate.scoring.external.weight%"
+                export INTERNAL_WEIGHT="%quality.gate.scoring.internal.weight%"
 
                 echo "Dependency statuses - External: ${'$'}EXTERNAL_STATUS, Internal: ${'$'}INTERNAL_STATUS"
 
@@ -213,25 +249,25 @@ EOF
 println("=== Starting Quality Gate Evaluation ===")
 
 try {
-    // Initialize all variables
-    val externalStatus = System.getenv("EXTERNAL_STATUS") ?: "UNKNOWN"
+    // Initialize all variables - fail if any required environment variable is missing
+    val externalStatus = System.getenv("EXTERNAL_STATUS") ?: throw IllegalStateException("EXTERNAL_STATUS environment variable is required")
     val externalStatusText = System.getenv("EXTERNAL_STATUS_TEXT") ?: ""
-    val internalStatus = System.getenv("INTERNAL_STATUS") ?: "UNKNOWN"
+    val internalStatus = System.getenv("INTERNAL_STATUS") ?: throw IllegalStateException("INTERNAL_STATUS environment variable is required")
     val internalStatusText = System.getenv("INTERNAL_STATUS_TEXT") ?: ""
-    val eapVersion = System.getenv("KTOR_VERSION") ?: "unknown"
-    val minScore = System.getenv("MIN_SCORE")?.toIntOrNull() ?: 80
-    val maxCritical = System.getenv("MAX_CRITICAL")?.toIntOrNull() ?: 0
-    val baseScore = System.getenv("BASE_SCORE")?.toIntOrNull() ?: 100
-    val externalWeight = System.getenv("EXTERNAL_WEIGHT")?.toIntOrNull() ?: 60
-    val internalWeight = System.getenv("INTERNAL_WEIGHT")?.toIntOrNull() ?: 40
+    val eapVersion = System.getenv("KTOR_VERSION") ?: throw IllegalStateException("KTOR_VERSION environment variable is required")
+    val minScore = System.getenv("MIN_SCORE")?.toIntOrNull() ?: throw IllegalStateException("MIN_SCORE environment variable is required and must be a valid integer")
+    val maxCritical = System.getenv("MAX_CRITICAL")?.toIntOrNull() ?: throw IllegalStateException("MAX_CRITICAL environment variable is required and must be a valid integer")
+    val baseScore = System.getenv("BASE_SCORE")?.toIntOrNull() ?: throw IllegalStateException("BASE_SCORE environment variable is required and must be a valid integer")
+    val externalWeight = System.getenv("EXTERNAL_WEIGHT")?.toIntOrNull() ?: throw IllegalStateException("EXTERNAL_WEIGHT environment variable is required and must be a valid integer")
+    val internalWeight = System.getenv("INTERNAL_WEIGHT")?.toIntOrNull() ?: throw IllegalStateException("INTERNAL_WEIGHT environment variable is required and must be a valid integer")
 
-    // Enhanced internal validation scoring using detailed metrics
-    val internalValidationStatus = System.getenv("INTERNAL_VALIDATION_STATUS") ?: internalStatus
-    val internalTotalTests = System.getenv("INTERNAL_TOTAL_TESTS")?.toIntOrNull() ?: 15
-    val internalPassedTests = System.getenv("INTERNAL_PASSED_TESTS")?.toIntOrNull() ?: 0
-    val internalFailedTests = System.getenv("INTERNAL_FAILED_TESTS")?.toIntOrNull() ?: 0
-    val internalCriticalIssues = System.getenv("INTERNAL_CRITICAL_ISSUES")?.toIntOrNull() ?: 0
-    val internalSuccessRate = System.getenv("INTERNAL_SUCCESS_RATE")?.toDoubleOrNull() ?: 0.0
+    // Enhanced internal validation scoring using detailed metrics - fail if any required data is missing
+    val internalValidationStatus = System.getenv("INTERNAL_VALIDATION_STATUS") ?: throw IllegalStateException("INTERNAL_VALIDATION_STATUS environment variable is required")
+    val internalTotalTests = System.getenv("INTERNAL_TOTAL_TESTS")?.toIntOrNull() ?: throw IllegalStateException("INTERNAL_TOTAL_TESTS environment variable is required and must be a valid integer")
+    val internalPassedTests = System.getenv("INTERNAL_PASSED_TESTS")?.toIntOrNull() ?: throw IllegalStateException("INTERNAL_PASSED_TESTS environment variable is required and must be a valid integer")
+    val internalFailedTests = System.getenv("INTERNAL_FAILED_TESTS")?.toIntOrNull() ?: throw IllegalStateException("INTERNAL_FAILED_TESTS environment variable is required and must be a valid integer")
+    val internalCriticalIssues = System.getenv("INTERNAL_CRITICAL_ISSUES")?.toIntOrNull() ?: throw IllegalStateException("INTERNAL_CRITICAL_ISSUES environment variable is required and must be a valid integer")
+    val internalSuccessRate = System.getenv("INTERNAL_SUCCESS_RATE")?.toDoubleOrNull() ?: throw IllegalStateException("INTERNAL_SUCCESS_RATE environment variable is required and must be a valid number")
 
     // Calculate external score
     val externalScore = when (externalStatus) {
@@ -411,12 +447,6 @@ EOF
                         fi
                     fi
 
-                    # Calculate internal score using enhanced logic
-                    INTERNAL_VALIDATION_STATUS="${'$'}{INTERNAL_VALIDATION_STATUS:-${'$'}INTERNAL_STATUS}"
-                    INTERNAL_SUCCESS_RATE="${'$'}{INTERNAL_SUCCESS_RATE:-0.0}"
-                    INTERNAL_FAILED_TESTS="${'$'}{INTERNAL_FAILED_TESTS:-0}"
-                    INTERNAL_CRITICAL_ISSUES="${'$'}{INTERNAL_CRITICAL_ISSUES:-0}"
-
                     # Use bc if available for floating point comparison, otherwise use integer comparison
                     if command -v bc >/dev/null 2>&1; then
                         SUCCESS_RATE_CHECK_95=$(echo "${'$'}INTERNAL_SUCCESS_RATE >= 95.0" | bc -l)
@@ -577,13 +607,13 @@ $([[ "%quality.gate.overall.status%" == "FAILED" ]] && echo "Failure Reasons: %q
 EOF
 
                 # Generate JSON report
-                # Set default values for numeric fields to prevent empty parameter issues
-                OVERALL_SCORE="${'$'}{%quality.gate.overall.score%:-0}"
-                TOTAL_CRITICAL="${'$'}{%quality.gate.total.critical%:-0}"
-                EXTERNAL_SCORE="${'$'}{%external.gate.score%:-0}"
-                INTERNAL_SCORE="${'$'}{%internal.gate.score%:-0}"
-                MIN_SCORE="${'$'}{%quality.gate.thresholds.minimum.score%:-80}"
-                CRITICAL_THRESHOLD="${'$'}{%quality.gate.thresholds.critical.issues%:-0}"
+                # Get values from TeamCity parameters
+                OVERALL_SCORE="%quality.gate.overall.score%"
+                TOTAL_CRITICAL="%quality.gate.total.critical%"
+                EXTERNAL_SCORE="%external.gate.score%"
+                INTERNAL_SCORE="%internal.gate.score%"
+                MIN_SCORE="%quality.gate.thresholds.minimum.score%"
+                CRITICAL_THRESHOLD="%quality.gate.thresholds.critical.issues%"
 
                 # Escape string values to prevent JSON syntax errors from quotes/special chars
                 EAP_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/"/\\"/g')
@@ -642,8 +672,8 @@ EOF
             scriptContent = """
                 #!/bin/bash
 
-                STATUS="${'$'}{%quality.gate.overall.status%:-UNKNOWN}"
-                SCORE="${'$'}{%quality.gate.overall.score%:-0}"
+                STATUS="%quality.gate.overall.status%"
+                SCORE="%quality.gate.overall.score%"
                 VERSION="%env.KTOR_VERSION%"
 
                 echo "=== Final Quality Gate Decision ==="
