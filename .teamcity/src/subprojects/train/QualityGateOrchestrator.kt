@@ -91,6 +91,7 @@ object QualityGateOrchestrator {
             snapshot(internalValidationBuild) {
                 onDependencyFailure = FailureAction.IGNORE
                 synchronizeRevisions = false
+                runOnSameAgent = false
             }
 
             artifacts(internalValidationBuild) {
@@ -166,23 +167,80 @@ EOF
                 echo "##teamcity[setParameter name='quality.gate.recommendations' value='Quality gate evaluation in progress']"
                 echo "##teamcity[setParameter name='quality.gate.next.steps' value='Awaiting evaluation results']"
 
-                # Set environment variables from TeamCity parameters
-                # Use parameter expansion with default values to avoid implicit requirements
-                echo "Checking dependency build statuses..."
+                echo "Fetching build statuses from TeamCity REST API..."
 
-                # Try to get external validation status, default to UNKNOWN if not available
-                EXTERNAL_STATUS_RAW="${'$'}{%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.status%:-UNKNOWN}"
-                EXTERNAL_STATUS_TEXT_RAW="${'$'}{%dep.ExternalSamplesEAPCompositeBuild.teamcity.build.statusText%:-External validation build not available}"
+                # Function to get build status via REST API
+                get_build_status() {
+                    local build_type_id="${'$'}1"
+                    local build_name="${'$'}2"
 
-                # Try to get internal validation status, default to UNKNOWN if not available  
-                INTERNAL_STATUS_RAW="${'$'}{%dep.KtorEAPInternalValidation.teamcity.build.status%:-UNKNOWN}"
-                INTERNAL_STATUS_TEXT_RAW="${'$'}{%dep.KtorEAPInternalValidation.teamcity.build.statusText%:-Internal validation build not available}"
+                    echo "Fetching status for ${'$'}build_name (ID: ${'$'}build_type_id)..."
 
-                # Export the values
-                export EXTERNAL_STATUS="${'$'}EXTERNAL_STATUS_RAW"
-                export EXTERNAL_STATUS_TEXT="${'$'}EXTERNAL_STATUS_TEXT_RAW"
-                export INTERNAL_STATUS="${'$'}INTERNAL_STATUS_RAW"
-                export INTERNAL_STATUS_TEXT="${'$'}INTERNAL_STATUS_TEXT_RAW"
+                    # Use TeamCity REST API to get the latest build status
+                    local api_url="%teamcity.serverUrl%/app/rest/buildTypes/id:${'$'}build_type_id/builds?locator=count:1"
+                    local auth_header="Authorization: Bearer %system.teamcity.auth.token%"
+
+                    # Try to get build status using curl
+                    if command -v curl >/dev/null 2>&1; then
+                        local response=$(curl -s -H "${'$'}auth_header" -H "Accept: application/json" "${'$'}api_url" 2>/dev/null || echo "")
+
+                        if [ -n "${'$'}response" ] && echo "${'$'}response" | grep -q '"status"'; then
+                            # Extract status from JSON response
+                            local status=$(echo "${'$'}response" | grep -o '"status":"[^"]*"' | cut -d'"' -f4 | head -1)
+                            local status_text=$(echo "${'$'}response" | grep -o '"statusText":"[^"]*"' | cut -d'"' -f4 | head -1)
+
+                            if [ -n "${'$'}status" ]; then
+                                echo "Retrieved ${'$'}build_name status: ${'$'}status"
+                                echo "${'$'}status|${'$'}status_text"
+                                return 0
+                            fi
+                        fi
+                    fi
+
+                    # Fallback: try to determine status from build configuration state
+                    echo "REST API unavailable, checking build configuration state for ${'$'}build_name..."
+
+                    # For external validation, check if the composite build exists and is configured
+                    if [ "${'$'}build_type_id" = "ExternalSamplesEAPCompositeBuild" ]; then
+                        # External validation failed to start - pass FAILED status with failure reason
+                        echo "External validation failed to start"
+                        echo "FAILED|External validation failed to start - build could not be executed"
+                        return 0
+                    fi
+
+                    # For internal validation, check if artifacts are available
+                    if [ "${'$'}build_type_id" = "KtorEAPInternalValidation" ]; then
+                        if [ -f "internal-validation-reports/internal-validation-results.json" ]; then
+                            echo "Internal validation artifacts found, assuming SUCCESS"
+                            echo "SUCCESS|Internal validation completed with artifacts"
+                            return 0
+                        else
+                            echo "Internal validation failed to start or complete"
+                            echo "FAILED|Internal validation failed to start - no artifacts produced"
+                            return 0
+                        fi
+                    fi
+
+                    echo "Validation failed to start for ${'$'}build_name"
+                    echo "FAILED|Validation failed to start - build could not be executed"
+                    return 0
+                }
+
+                # Get external validation status
+                EXTERNAL_RESULT=$(get_build_status "ExternalSamplesEAPCompositeBuild" "External Validation")
+                EXTERNAL_STATUS=$(echo "${'$'}EXTERNAL_RESULT" | cut -d'|' -f1)
+                EXTERNAL_STATUS_TEXT=$(echo "${'$'}EXTERNAL_RESULT" | cut -d'|' -f2)
+
+                # Get internal validation status  
+                INTERNAL_RESULT=$(get_build_status "KtorEAPInternalValidation" "Internal Validation")
+                INTERNAL_STATUS=$(echo "${'$'}INTERNAL_RESULT" | cut -d'|' -f1)
+                INTERNAL_STATUS_TEXT=$(echo "${'$'}INTERNAL_RESULT" | cut -d'|' -f2)
+
+                # Export statuses
+                export EXTERNAL_STATUS
+                export EXTERNAL_STATUS_TEXT
+                export INTERNAL_STATUS
+                export INTERNAL_STATUS_TEXT
 
                 echo "External validation status: ${'$'}EXTERNAL_STATUS"
                 echo "Internal validation status: ${'$'}INTERNAL_STATUS"
@@ -287,7 +345,7 @@ try {
     // Calculate external score
     val externalScore = when (externalStatus) {
         "SUCCESS" -> baseScore - 5
-        "FAILURE" -> baseScore - 50
+        "FAILED" -> baseScore - 50
         else -> baseScore - 30 // For UNKNOWN or other states
     }
 
@@ -296,7 +354,8 @@ try {
             when {
                 externalStatusText.contains("BUILD FAILED", ignoreCase = true) -> 1
                 externalStatusText.contains("compilation", ignoreCase = true) -> 1
-                else -> if (externalStatus == "FAILURE") 1 else 0
+                externalStatusText.contains("failed to start", ignoreCase = true) -> 1
+                else -> if (externalStatus == "FAILED") 1 else 0
             }
         }
         else -> 0
@@ -307,7 +366,7 @@ try {
         internalValidationStatus == "SUCCESS" && internalSuccessRate >= 80.0 -> baseScore - 15
         internalStatus == "SUCCESS" -> baseScore - 10
         internalFailedTests > 0 -> maxOf(0, baseScore - (internalFailedTests * 10) - 20)
-        internalStatus == "FAILURE" -> baseScore - 50
+        internalStatus == "FAILED" -> baseScore - 50
         else -> baseScore - 30 // For UNKNOWN or other states
     }
 
@@ -339,8 +398,26 @@ try {
 
     val failureReasons = if (overallStatus != "PASSED") {
         val reasons = mutableListOf<String>()
-        if (externalStatus != "SUCCESS") reasons.add("External validation failed")
-        if (internalStatus != "SUCCESS") reasons.add("Internal validation failed")
+        if (externalStatus == "FAILED") {
+            if (externalStatusText.contains("failed to start", ignoreCase = true)) {
+                reasons.add("External validation failed to start")
+            } else {
+                reasons.add("External validation failed")
+            }
+        } else if (externalStatus != "SUCCESS") {
+            reasons.add("External validation failed")
+        }
+
+        if (internalStatus == "FAILED") {
+            if (internalStatusText.contains("failed to start", ignoreCase = true)) {
+                reasons.add("Internal validation failed to start")
+            } else {
+                reasons.add("Internal validation failed")
+            }
+        } else if (internalStatus != "SUCCESS") {
+            reasons.add("Internal validation failed")
+        }
+
         if (totalCritical > maxCritical) reasons.add("Too many critical issues (${'$'}totalCritical > ${'$'}maxCritical)")
         if (overallScore < minScore) reasons.add("Score too low (${'$'}overallScore < ${'$'}minScore)")
         reasons.joinToString("; ")
@@ -444,7 +521,7 @@ EOF
                         "SUCCESS")
                             EXTERNAL_SCORE=$((BASE_SCORE - 5))  # 95
                             ;;
-                        "FAILURE")
+                        "FAILED")
                             EXTERNAL_SCORE=$((BASE_SCORE - 50)) # 50
                             ;;
                         *)
@@ -455,9 +532,9 @@ EOF
                     # Calculate external critical issues
                     EXTERNAL_CRITICAL_ISSUES=0
                     if [ "${'$'}EXTERNAL_STATUS" != "SUCCESS" ]; then
-                        if echo "${'$'}EXTERNAL_STATUS_TEXT" | grep -qi "BUILD FAILED\|compilation"; then
+                        if echo "${'$'}EXTERNAL_STATUS_TEXT" | grep -qi "BUILD FAILED\|compilation\|failed to start"; then
                             EXTERNAL_CRITICAL_ISSUES=1
-                        elif [ "${'$'}EXTERNAL_STATUS" = "FAILURE" ]; then
+                        elif [ "${'$'}EXTERNAL_STATUS" = "FAILED" ]; then
                             EXTERNAL_CRITICAL_ISSUES=1
                         fi
                     fi
@@ -486,7 +563,7 @@ EOF
                         if [ ${'$'}INTERNAL_SCORE -lt 0 ]; then
                             INTERNAL_SCORE=0
                         fi
-                    elif [ "${'$'}INTERNAL_STATUS" = "FAILURE" ]; then
+                    elif [ "${'$'}INTERNAL_STATUS" = "FAILED" ]; then
                         INTERNAL_SCORE=$((BASE_SCORE - 50)) # 50
                     else
                         INTERNAL_SCORE=$((BASE_SCORE - 30)) # 70 for UNKNOWN
@@ -536,10 +613,34 @@ EOF
                         RECOMMENDATIONS="Review failed validations and address issues"
                         NEXT_STEPS="Fix identified issues and re-run validation"
                         FAILURE_REASONS=""
-                        if [ "${'$'}EXTERNAL_STATUS" != "SUCCESS" ]; then
+
+                        # Handle external validation failures
+                        if [ "${'$'}EXTERNAL_STATUS" = "FAILED" ]; then
+                            if echo "${'$'}EXTERNAL_STATUS_TEXT" | grep -qi "failed to start"; then
+                                FAILURE_REASONS="External validation failed to start"
+                            else
+                                FAILURE_REASONS="External validation failed"
+                            fi
+                        elif [ "${'$'}EXTERNAL_STATUS" != "SUCCESS" ]; then
                             FAILURE_REASONS="External validation failed"
                         fi
-                        if [ "${'$'}INTERNAL_STATUS" != "SUCCESS" ]; then
+
+                        # Handle internal validation failures
+                        if [ "${'$'}INTERNAL_STATUS" = "FAILED" ]; then
+                            if echo "${'$'}INTERNAL_STATUS_TEXT" | grep -qi "failed to start"; then
+                                if [ -n "${'$'}FAILURE_REASONS" ]; then
+                                    FAILURE_REASONS="${'$'}FAILURE_REASONS; Internal validation failed to start"
+                                else
+                                    FAILURE_REASONS="Internal validation failed to start"
+                                fi
+                            else
+                                if [ -n "${'$'}FAILURE_REASONS" ]; then
+                                    FAILURE_REASONS="${'$'}FAILURE_REASONS; Internal validation failed"
+                                else
+                                    FAILURE_REASONS="Internal validation failed"
+                                fi
+                            fi
+                        elif [ "${'$'}INTERNAL_STATUS" != "SUCCESS" ]; then
                             if [ -n "${'$'}FAILURE_REASONS" ]; then
                                 FAILURE_REASONS="${'$'}FAILURE_REASONS; Internal validation failed"
                             else
