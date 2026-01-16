@@ -100,10 +100,6 @@ object QualityGateOrchestrator {
             executionTimeoutMin = 60
         }
 
-        requirements {
-            contains("teamcity.agent.name", "linux")
-        }
-
         artifactRules = "quality-gate-reports => quality-gate-reports.zip"
     }
 
