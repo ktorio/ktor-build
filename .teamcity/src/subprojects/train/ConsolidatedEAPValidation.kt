@@ -107,14 +107,14 @@ object ConsolidatedEAPValidation {
             param("quality.gate.external.samples.expected", "7")
             param("quality.gate.internal.samples.expected", "15")
 
-            // External validation parameters with default values to prevent agent compatibility issues
+            // External validation parameters with default
             param("external.validation.total.samples", "0")
             param("external.validation.successful.samples", "0")
             param("external.validation.failed.samples", "0")
             param("external.validation.success.rate", "0.0")
             param("external.validation.status", "PENDING")
 
-            // Internal validation parameters with default values to prevent agent compatibility issues
+            // Internal validation parameters with default
             param("internal.validation.total.tests", "0")
             param("internal.validation.passed.tests", "0")
             param("internal.validation.failed.tests", "0")
@@ -155,8 +155,12 @@ object ConsolidatedEAPValidation {
                 failureMessage = "Critical error in EAP validation"
                 stopBuildOnFailure = true
             }
-            // Removed quality gates failure condition to allow full report generation
-            // Quality gate status will be reported but won't stop the build
+            failOnText {
+                conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                pattern = "❌ Consolidated EAP validation failed!"
+                failureMessage = "EAP quality gates did not meet release criteria"
+                stopBuildOnFailure = false
+            }
             executionTimeoutMin = 120
         }
 
@@ -1272,13 +1276,9 @@ EOF
 
             VERSION="%env.KTOR_VERSION%"
 
-            # Set detailed build status text for Slack notifications
-            STATUS_TEXT="EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100) | Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests | Critical: ${'$'}TOTAL_CRITICAL"
+            # Set simple build status text for TeamCity
+            STATUS_TEXT="EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
             echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
-            
-            # Set build parameters for Slack notification access
-            echo "##teamcity[setParameter name='slack.report.summary' value='${'$'}STATUS_TEXT']"
-            echo "##teamcity[setParameter name='slack.report.details' value='External: ${'$'}EXTERNAL_GATE_STATUS (${'$'}EXTERNAL_GATE_SCORE/100), Internal: ${'$'}INTERNAL_GATE_STATUS (${'$'}INTERNAL_GATE_SCORE/100), Recommendations: ${'$'}RECOMMENDATIONS']"
 
             echo "=== Final Consolidated EAP Validation Results ==="
             echo "EAP Version: ${'$'}VERSION"
@@ -1299,9 +1299,108 @@ EOF
             fi
 
             # Always exit successfully to ensure full report generation and artifact publishing
-            # Quality gate status is captured in reports and TeamCity parameters for reference
             echo "Full report generated successfully regardless of quality gate status"
             exit 0
+        """.trimIndent()
+        }
+
+        script {
+            name = "Send Enhanced Slack Notification"
+            executionMode = BuildStep.ExecutionMode.ALWAYS
+            scriptContent = """
+            #!/bin/bash
+            
+            # Read all the quality gate data
+            OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
+            OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
+            TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
+            
+            EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
+            EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
+            EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
+            EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
+            EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
+            
+            INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
+            INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
+            INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
+            INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
+            INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
+            
+            RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
+            
+            # Choose emojis and color based on status
+            if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                MAIN_EMOJI="🎉"
+                STATUS_EMOJI="✅"
+                COLOR="good"
+            else
+                MAIN_EMOJI="⚠️"
+                STATUS_EMOJI="❌"
+                COLOR="danger"
+            fi
+            
+            # External validation emoji
+            if [ "${'$'}EXTERNAL_GATE_STATUS" = "PASSED" ]; then
+                EXT_EMOJI="✅"
+            else
+                EXT_EMOJI="❌"
+            fi
+            
+            # Internal validation emoji  
+            if [ "${'$'}INTERNAL_GATE_STATUS" = "PASSED" ]; then
+                INT_EMOJI="✅"
+            else
+                INT_EMOJI="❌"
+            fi
+            
+            # Critical issues indicator
+            if [ ${'$'}TOTAL_CRITICAL -eq 0 ]; then
+                CRITICAL_EMOJI="✅"
+            else
+                CRITICAL_EMOJI="🚨"
+            fi
+            
+            # Create enhanced Slack message using TeamCity service messages
+            cat > slack_message.txt << 'SLACK_EOF'
+${'$'}{MAIN_EMOJI} *Ktor EAP Validation Report - %env.KTOR_VERSION%*
+
+${'$'}{STATUS_EMOJI} *Overall Status:* `${'$'}{OVERALL_STATUS}`
+📊 *Score:* `${'$'}{OVERALL_SCORE}/100`
+${'$'}{CRITICAL_EMOJI} *Critical Issues:* `${'$'}{TOTAL_CRITICAL}`
+
+*📋 Validation Results:*
+${'$'}{EXT_EMOJI} **External Samples:** `${'$'}{EXTERNAL_SUCCESSFUL_SAMPLES}/${'$'}{EXTERNAL_TOTAL_SAMPLES}` passed (`${'$'}{EXTERNAL_GATE_SCORE}/100`)
+${'$'}{INT_EMOJI} **Internal Tests:** `${'$'}{INTERNAL_PASSED_TESTS}/${'$'}{INTERNAL_TOTAL_TESTS}` passed (`${'$'}{INTERNAL_GATE_SCORE}/100`)
+
+💡 **Recommendations:** ${'$'}{RECOMMENDATIONS}
+
+🔗 <% buildConfigurationHomePageUrl %>|View Full Report>
+SLACK_EOF
+            
+            # Replace variables in the message
+            sed -i "s/\${'$'}{MAIN_EMOJI}/${'$'}MAIN_EMOJI/g" slack_message.txt
+            sed -i "s/\${'$'}{STATUS_EMOJI}/${'$'}STATUS_EMOJI/g" slack_message.txt  
+            sed -i "s/\${'$'}{EXT_EMOJI}/${'$'}EXT_EMOJI/g" slack_message.txt
+            sed -i "s/\${'$'}{INT_EMOJI}/${'$'}INT_EMOJI/g" slack_message.txt
+            sed -i "s/\${'$'}{CRITICAL_EMOJI}/${'$'}CRITICAL_EMOJI/g" slack_message.txt
+            sed -i "s/\${'$'}{OVERALL_STATUS}/${'$'}OVERALL_STATUS/g" slack_message.txt
+            sed -i "s/\${'$'}{OVERALL_SCORE}/${'$'}OVERALL_SCORE/g" slack_message.txt
+            sed -i "s/\${'$'}{TOTAL_CRITICAL}/${'$'}TOTAL_CRITICAL/g" slack_message.txt
+            sed -i "s/\${'$'}{EXTERNAL_SUCCESSFUL_SAMPLES}/${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/g" slack_message.txt
+            sed -i "s/\${'$'}{EXTERNAL_TOTAL_SAMPLES}/${'$'}EXTERNAL_TOTAL_SAMPLES/g" slack_message.txt
+            sed -i "s/\${'$'}{EXTERNAL_GATE_SCORE}/${'$'}EXTERNAL_GATE_SCORE/g" slack_message.txt
+            sed -i "s/\${'$'}{INTERNAL_PASSED_TESTS}/${'$'}INTERNAL_PASSED_TESTS/g" slack_message.txt
+            sed -i "s/\${'$'}{INTERNAL_TOTAL_TESTS}/${'$'}INTERNAL_TOTAL_TESTS/g" slack_message.txt
+            sed -i "s/\${'$'}{INTERNAL_GATE_SCORE}/${'$'}INTERNAL_GATE_SCORE/g" slack_message.txt
+            sed -i "s/\${'$'}{RECOMMENDATIONS}/${'$'}RECOMMENDATIONS/g" slack_message.txt
+            
+            MESSAGE_CONTENT=$(cat slack_message.txt)
+            
+            # Send notification using TeamCity service message for Slack
+            echo "##teamcity[notification notifierName='slackNotifier' connectionId='PROJECT_EXT_5' message='${'$'}MESSAGE_CONTENT']"
+            
+            echo "Enhanced Slack notification sent with quality gate details"
         """.trimIndent()
         }
     }
