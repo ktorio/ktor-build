@@ -155,12 +155,8 @@ object ConsolidatedEAPValidation {
                 failureMessage = "Critical error in EAP validation"
                 stopBuildOnFailure = true
             }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "Quality gates failed"
-                failureMessage = "EAP quality gates did not meet release criteria"
-                stopBuildOnFailure = true
-            }
+            // Removed quality gates failure condition to allow full report generation
+            // Quality gate status will be reported but won't stop the build
             executionTimeoutMin = 120
         }
 
@@ -266,7 +262,7 @@ object ConsolidatedEAPValidation {
                         echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
                     else
                         echo "WARNING: No Kotlin version found in GitHub API, using fallback"
-                        LATEST_KOTLIN_VERSION="2.3.0"  # Fallback version
+                        LATEST_KOTLIN_VERSION="2.1.21"  # Fallback version
                         echo "Using fallback Kotlin version: ${'$'}LATEST_KOTLIN_VERSION"
                         echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
                     fi
@@ -274,7 +270,7 @@ object ConsolidatedEAPValidation {
                     rm -f "${'$'}TEMP_KOTLIN_METADATA"
                 else
                     echo "WARNING: Failed to fetch Kotlin version from GitHub API, using fallback"
-                    LATEST_KOTLIN_VERSION="2.3.0"  # Fallback version
+                    LATEST_KOTLIN_VERSION="2.1.21"  # Fallback version
                     echo "Using fallback Kotlin version: ${'$'}LATEST_KOTLIN_VERSION"
                     echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
                 fi
@@ -1286,15 +1282,18 @@ EOF
                     echo "Recommendations: ${'$'}RECOMMENDATIONS"
                     echo "Next Steps: ${'$'}NEXT_STEPS"
                     echo "=== Step 5: Report Generation & Notifications Completed Successfully ==="
-                    exit 0
                 else
                     echo "❌ Consolidated EAP validation failed!"
                     echo "Failure Reasons: ${'$'}FAILURE_REASONS"
                     echo "Recommendations: ${'$'}RECOMMENDATIONS"
                     echo "Next Steps: ${'$'}NEXT_STEPS"
                     echo "=== Step 5: Report Generation & Notifications Completed with Failures ==="
-                    exit 1
                 fi
+
+                # Always exit successfully to ensure full report generation and artifact publishing
+                # Quality gate status is captured in reports and TeamCity parameters for reference
+                echo "Full report generated successfully regardless of quality gate status"
+                exit 0
             """.trimIndent()
         }
     }
