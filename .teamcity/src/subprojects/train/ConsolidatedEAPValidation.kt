@@ -1276,9 +1276,22 @@ EOF
 
             VERSION="%env.KTOR_VERSION%"
 
-            # Set simple build status text for TeamCity
-            STATUS_TEXT="EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
+            # Set main build status
+            if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                MAIN_EMOJI="✅"
+            else
+                MAIN_EMOJI="❌"
+            fi
+
+            # Create enhanced build status text with key metrics
+            STATUS_TEXT="${'$'}MAIN_EMOJI EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100) | Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS | Critical: ${'$'}TOTAL_CRITICAL"
             echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
+
+            # Store detailed info in build parameters for potential custom notification templates
+            echo "##teamcity[setParameter name='quality.gate.slack.status.emoji' value='${'$'}MAIN_EMOJI']"
+            echo "##teamcity[setParameter name='quality.gate.slack.external.emoji' value='$([[ "${'$'}EXTERNAL_GATE_STATUS" == "PASSED" ]] && echo "✅" || echo "❌")']"
+            echo "##teamcity[setParameter name='quality.gate.slack.internal.emoji' value='$([[ "${'$'}INTERNAL_GATE_STATUS" == "PASSED" ]] && echo "✅" || echo "❌")']"
+            echo "##teamcity[setParameter name='quality.gate.slack.critical.emoji' value='$([[ "${'$'}TOTAL_CRITICAL" -eq "0" ]] && echo "✅" || echo "🚨")']"
 
             echo "=== Final Consolidated EAP Validation Results ==="
             echo "EAP Version: ${'$'}VERSION"
@@ -1305,10 +1318,18 @@ EOF
         }
 
         script {
-            name = "Send Enhanced Slack Notification"
+            name = "Send Detailed Slack Report"
             executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptContent = """
             #!/bin/bash
+            
+            # Check if Slack webhook is configured
+            SLACK_WEBHOOK="%system.slack.webhook.url%"
+            if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%""system.slack.webhook.url%" ]; then
+                echo "Slack webhook not configured, skipping detailed notification"
+                echo "To enable detailed Slack notifications, set system.slack.webhook.url parameter"
+                exit 0
+            fi
             
             # Read all the quality gate data
             OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
@@ -1319,88 +1340,124 @@ EOF
             EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
             EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
             EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
-            EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
             
             INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
             INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
             INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
             INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
-            INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
             
             RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
             
-            # Choose emojis and color based on status
+            # Choose emojis based on status
             if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
                 MAIN_EMOJI="🎉"
-                STATUS_EMOJI="✅"
                 COLOR="good"
             else
                 MAIN_EMOJI="⚠️"
-                STATUS_EMOJI="❌"
                 COLOR="danger"
             fi
             
-            # External validation emoji
+            EXT_EMOJI="❌"
             if [ "${'$'}EXTERNAL_GATE_STATUS" = "PASSED" ]; then
                 EXT_EMOJI="✅"
-            else
-                EXT_EMOJI="❌"
             fi
             
-            # Internal validation emoji  
+            INT_EMOJI="❌"
             if [ "${'$'}INTERNAL_GATE_STATUS" = "PASSED" ]; then
                 INT_EMOJI="✅"
-            else
-                INT_EMOJI="❌"
             fi
             
-            # Critical issues indicator
-            if [ ${'$'}TOTAL_CRITICAL -eq 0 ]; then
+            CRITICAL_EMOJI="🚨"
+            if [ "${'$'}TOTAL_CRITICAL" -eq 0 ]; then
                 CRITICAL_EMOJI="✅"
-            else
-                CRITICAL_EMOJI="🚨"
             fi
             
-            # Create enhanced Slack message using TeamCity service messages
-            cat > slack_message.txt << 'SLACK_EOF'
-${'$'}{MAIN_EMOJI} *Ktor EAP Validation Report - %env.KTOR_VERSION%*
-
-${'$'}{STATUS_EMOJI} *Overall Status:* `${'$'}{OVERALL_STATUS}`
-📊 *Score:* `${'$'}{OVERALL_SCORE}/100`
-${'$'}{CRITICAL_EMOJI} *Critical Issues:* `${'$'}{TOTAL_CRITICAL}`
-
-*📋 Validation Results:*
-${'$'}{EXT_EMOJI} **External Samples:** `${'$'}{EXTERNAL_SUCCESSFUL_SAMPLES}/${'$'}{EXTERNAL_TOTAL_SAMPLES}` passed (`${'$'}{EXTERNAL_GATE_SCORE}/100`)
-${'$'}{INT_EMOJI} **Internal Tests:** `${'$'}{INTERNAL_PASSED_TESTS}/${'$'}{INTERNAL_TOTAL_TESTS}` passed (`${'$'}{INTERNAL_GATE_SCORE}/100`)
-
-💡 **Recommendations:** ${'$'}{RECOMMENDATIONS}
-
-🔗 <% buildConfigurationHomePageUrl %>|View Full Report>
-SLACK_EOF
+            # Build URL
+            BUILD_URL="%teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%"
             
-            # Replace variables in the message
-            sed -i "s/\${'$'}{MAIN_EMOJI}/${'$'}MAIN_EMOJI/g" slack_message.txt
-            sed -i "s/\${'$'}{STATUS_EMOJI}/${'$'}STATUS_EMOJI/g" slack_message.txt  
-            sed -i "s/\${'$'}{EXT_EMOJI}/${'$'}EXT_EMOJI/g" slack_message.txt
-            sed -i "s/\${'$'}{INT_EMOJI}/${'$'}INT_EMOJI/g" slack_message.txt
-            sed -i "s/\${'$'}{CRITICAL_EMOJI}/${'$'}CRITICAL_EMOJI/g" slack_message.txt
-            sed -i "s/\${'$'}{OVERALL_STATUS}/${'$'}OVERALL_STATUS/g" slack_message.txt
-            sed -i "s/\${'$'}{OVERALL_SCORE}/${'$'}OVERALL_SCORE/g" slack_message.txt
-            sed -i "s/\${'$'}{TOTAL_CRITICAL}/${'$'}TOTAL_CRITICAL/g" slack_message.txt
-            sed -i "s/\${'$'}{EXTERNAL_SUCCESSFUL_SAMPLES}/${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/g" slack_message.txt
-            sed -i "s/\${'$'}{EXTERNAL_TOTAL_SAMPLES}/${'$'}EXTERNAL_TOTAL_SAMPLES/g" slack_message.txt
-            sed -i "s/\${'$'}{EXTERNAL_GATE_SCORE}/${'$'}EXTERNAL_GATE_SCORE/g" slack_message.txt
-            sed -i "s/\${'$'}{INTERNAL_PASSED_TESTS}/${'$'}INTERNAL_PASSED_TESTS/g" slack_message.txt
-            sed -i "s/\${'$'}{INTERNAL_TOTAL_TESTS}/${'$'}INTERNAL_TOTAL_TESTS/g" slack_message.txt
-            sed -i "s/\${'$'}{INTERNAL_GATE_SCORE}/${'$'}INTERNAL_GATE_SCORE/g" slack_message.txt
-            sed -i "s/\${'$'}{RECOMMENDATIONS}/${'$'}RECOMMENDATIONS/g" slack_message.txt
+            # Create JSON payload for Slack webhook
+            cat > slack_payload.json << EOF
+{
+    "attachments": [
+        {
+            "color": "${'$'}COLOR",
+            "blocks": [
+                {
+                    "type": "header",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "${'$'}MAIN_EMOJI Ktor EAP Validation Report - %env.KTOR_VERSION%"
+                    }
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Overall Status:*\n${'$'}OVERALL_STATUS"
+                        },
+                        {
+                            "type": "mrkdwn", 
+                            "text": "*Score:*\n${'$'}OVERALL_SCORE/100"
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": "*Critical Issues:*\n${'$'}CRITICAL_EMOJI ${'$'}TOTAL_CRITICAL"
+                        }
+                    ]
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*📋 Validation Results:*"
+                    }
+                },
+                {
+                    "type": "section",
+                    "fields": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "${'$'}EXT_EMOJI *External Samples:*\n\`${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES\` passed (\`${'$'}EXTERNAL_GATE_SCORE/100\`)"
+                        },
+                        {
+                            "type": "mrkdwn",
+                            "text": "${'$'}INT_EMOJI *Internal Tests:*\n\`${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS\` passed (\`${'$'}INTERNAL_GATE_SCORE/100\`)"
+                        }
+                    ]
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "*💡 Recommendations:*\n${'$'}RECOMMENDATIONS"
+                    }
+                },
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "🔗 View Full Report"
+                            },
+                            "url": "${'$'}BUILD_URL"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
+EOF
             
-            MESSAGE_CONTENT=$(cat slack_message.txt)
+            # Send to Slack webhook
+            curl -X POST -H 'Content-type: application/json' \
+                --data @slack_payload.json \
+                "${'$'}SLACK_WEBHOOK"
             
-            # Send notification using TeamCity service message for Slack
-            echo "##teamcity[notification notifierName='slackNotifier' connectionId='PROJECT_EXT_5' message='${'$'}MESSAGE_CONTENT']"
-            
-            echo "Enhanced Slack notification sent with quality gate details"
+            echo "Detailed Slack notification sent to webhook"
         """.trimIndent()
         }
     }
