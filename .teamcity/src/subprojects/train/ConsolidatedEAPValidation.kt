@@ -636,7 +636,7 @@ EOF
                         # Update Kotlin DSL build file
                         sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
                         sed -i.bak "s/val ktor_version: String by project/val ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/kotlin(\"[^\"]*\")/kotlin(\"%env.KOTLIN_VERSION%\")/g" build.gradle.kts 2>> "${'$'}report_file" || true
+                        sed -i.bak "s/kotlin_version = \"[^\"]*\"/kotlin_version = \"%env.KOTLIN_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
                     elif [ -f "build.gradle" ]; then
                         # Update Groovy build file
                         sed -i.bak "s/ktor_version = '[^']*'/ktor_version = '%env.KTOR_VERSION%'/g" build.gradle 2>> "${'$'}report_file" || true
