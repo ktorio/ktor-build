@@ -164,8 +164,7 @@ object ConsolidatedEAPValidation {
             name = "Step 1: Version Resolution"
             scriptContent = """
                 #!/bin/bash
-                # Don't use 'set -e' - we want to collect as much data as possible
-
+                
                 echo "=== Step 1: Version Resolution ==="
                 echo "Fetching latest EAP versions for Ktor framework, compiler plugin, and Kotlin"
 
@@ -626,12 +625,21 @@ EOF
             echo "Ktor Compiler Plugin Version: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
             echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
 
+            # Validate Kotlin version format and fix if needed
+            if [[ "${'$'}KOTLIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]]; then
+                echo "⚠️  Invalid Kotlin version format: ${'$'}KOTLIN_VERSION (looks like build number)"
+                # Extract base version (e.g., 2.1.22 from 2.1.22-332)
+                KOTLIN_VERSION=$(echo "${'$'}KOTLIN_VERSION" | sed 's/-[0-9]*$//')
+                echo "🔧 Using corrected Kotlin version: ${'$'}KOTLIN_VERSION"
+            fi
+
             # Create reports directory with absolute path
             REPORTS_DIR="${'$'}PWD/internal-validation-reports"
             mkdir -p "${'$'}REPORTS_DIR"
             
             # Store the absolute path in environment
             echo "REPORTS_DIR=${'$'}REPORTS_DIR" > build-env.properties
+            echo "KOTLIN_VERSION=${'$'}KOTLIN_VERSION" >> build-env.properties
 
             # Create EAP Gradle init script with correct Groovy syntax
             echo "Creating EAP Gradle init script..."
@@ -650,19 +658,62 @@ allprojects {
 }
 EOF
 
-                echo "EAP init script created successfully"
-            """.trimIndent()
+            # Create Maven settings with EAP repositories
+            echo "Creating Maven settings for EAP repositories..."
+            mkdir -p ~/.m2
+            cat > ~/.m2/settings.xml <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
+                              http://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <profiles>
+        <profile>
+            <id>ktor-eap</id>
+            <repositories>
+                <repository>
+                    <id>ktor-eap-repo</id>
+                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </repository>
+                <repository>
+                    <id>compose-dev-repo</id>
+                    <url>https://maven.pkg.jetbrains.space/public/p/compose/dev</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>ktor-eap-plugins</id>
+                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
+    </profiles>
+    <activeProfiles>
+        <activeProfile>ktor-eap</activeProfile>
+    </activeProfiles>
+</settings>
+EOF
+
+            echo "EAP configuration created successfully"
+        """.trimIndent()
         }
 
         script {
-            name = "Step 3: Internal Test Suites - Validate Sample Projects"
+            name = "Step 3: Internal Test Suites - Regular Samples"
             scriptContent = """
             #!/bin/bash
             
             source build-env.properties
             
-            echo "=== Validating Internal Sample Projects against EAP versions (PARALLEL) ==="
+            echo "=== Validating Regular Sample Projects against EAP versions (PARALLEL) ==="
             echo "Using reports directory: ${'$'}REPORTS_DIR"
+            echo "Using Kotlin version: ${'$'}KOTLIN_VERSION"
             
             # Set maximum parallel jobs
             MAX_PARALLEL_JOBS=4
@@ -685,8 +736,9 @@ EOF
                 
                 # Determine build command based on build system
                 if [ -f "pom.xml" ]; then
-                    # Maven build
-                    if timeout 300 mvn clean test -q > "${'$'}log_file" 2>&1; then
+                    # Maven build - use corrected Kotlin version
+                    echo "🔧 Maven sample detected, using Kotlin version: ${'$'}KOTLIN_VERSION"
+                    if timeout 300 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1; then
                         echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                         echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                     else
@@ -711,6 +763,7 @@ EOF
             export -f validate_sample
             export REPORTS_DIR
             export PWD
+            export KOTLIN_VERSION
             
             # Initialize result files
             touch "${'$'}REPORTS_DIR/successful-samples.log"
@@ -723,20 +776,108 @@ EOF
             SAMPLE_DIRS=$(find . -maxdepth 1 -type d -name "*" ! -name "." ! -name "..*" ! -name ".*" | head -30)
             
             # Run samples in parallel using xargs
-            echo "${'$'}SAMPLE_DIRS" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "{}"'
+            if [ -n "${'$'}SAMPLE_DIRS" ]; then
+                echo "${'$'}SAMPLE_DIRS" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "{}"'
+            else
+                echo "ℹ️  No regular sample directories found in current VCS root"
+                echo "📁 Current directory: $(pwd)"
+                echo "📁 Directory contents:"
+                ls -la | head -10
+            fi
             
+            echo "=== Regular samples validation completed ==="
+        """.trimIndent()
+        }
+
+        script {
+            name = "Step 3: Build Plugin Samples"
+            scriptContent = """
+            #!/bin/bash
+            
+            source build-env.properties
+            
+            echo "=== Step 3c: Build Plugin Samples Validation ==="
+            echo "Checking out and validating build plugin samples from separate repository"
+            
+            # Create a temporary directory for build plugin samples
+            BUILD_PLUGIN_DIR="${'$'}PWD/ktor-build-plugins"
+            mkdir -p "${'$'}BUILD_PLUGIN_DIR"
+            
+            # Clone the ktor-build-plugins repository (or use existing checkout)
+            if [ ! -d "${'$'}BUILD_PLUGIN_DIR/.git" ]; then
+                echo "🔄 Cloning ktor-build-plugins repository..."
+                git clone --depth 1 https://github.com/ktorio/ktor-build-plugins.git "${'$'}BUILD_PLUGIN_DIR"
+            else
+                echo "🔄 Using existing ktor-build-plugins checkout, pulling latest..."
+                cd "${'$'}BUILD_PLUGIN_DIR"
+                git pull origin main
+                cd -
+            fi
+            
+            # Function to validate build plugin sample
+            validate_build_plugin_sample() {
+                local sample_name="$1"
+                local sample_dir="${'$'}BUILD_PLUGIN_DIR/samples/${'$'}sample_name"
+                local log_file="${'$'}REPORTS_DIR/build-plugin-${'$'}sample_name.log"
+                
+                echo "🔄 [BUILD PLUGIN] Starting validation of sample: ${'$'}sample_name"
+                
+                if [ ! -d "${'$'}sample_dir" ]; then
+                    echo "⚠️  Build plugin sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
+                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
+                    return 0
+                fi
+                
+                cd "${'$'}sample_dir"
+                
+                # Build plugin samples are always Gradle projects
+                echo "🔧 Building plugin sample: ${'$'}sample_name"
+                if timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../../../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
+                    echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
+                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
+                else
+                    echo "❌ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
+                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
+                fi
+                
+                cd - > /dev/null
+            }
+            
+            # Export function for parallel execution
+            export -f validate_build_plugin_sample
+            export BUILD_PLUGIN_DIR
+            export REPORTS_DIR
+            export PWD
+            
+            # List of known build plugin samples
+            BUILD_PLUGIN_SAMPLES=(
+                "ktor-docker-sample"
+                "ktor-fatjar-sample"
+                "ktor-native-image-sample"
+                "ktor-openapi-sample"
+            )
+            
+            # Validate build plugin samples in parallel
             echo "=== Processing Build Plugin Samples (PARALLEL) ==="
             
-            # Check for build plugin samples directory
-            if [ -d "build-plugin-samples" ]; then
-                cd build-plugin-samples
-                BUILD_PLUGIN_DIRS=$(find . -maxdepth 1 -type d -name "*" ! -name "." ! -name "..*" ! -name ".*")
-                echo "${'$'}BUILD_PLUGIN_DIRS" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "build-plugin-samples/{}"'
-                cd ..
-            fi
+            # Use printf to create proper input for xargs
+            printf '%s\n' "${'$'}{BUILD_PLUGIN_SAMPLES[@]}" | xargs -n 1 -P 4 -I {} bash -c 'validate_build_plugin_sample "{}"'
             
             # Wait for all background jobs to complete
             wait
+            
+            echo "=== Build plugin samples validation completed ==="
+        """.trimIndent()
+        }
+
+        script {
+            name = "Step 3: Generate Internal Test Suites Summary"
+            scriptContent = """
+            #!/bin/bash
+            
+            source build-env.properties
+            
+            echo "=== Generating Internal Test Suites Summary ==="
             
             # Generate summary
             SUCCESSFUL_COUNT=$(wc -l < "${'$'}REPORTS_DIR/successful-samples.log" 2>/dev/null || echo "0")
@@ -756,6 +897,25 @@ EOF
             echo "Failed: ${'$'}FAILED_COUNT"
             echo "Skipped: ${'$'}SKIPPED_COUNT"
             echo "Success rate: ${'$'}SUCCESS_RATE%"
+            
+            if [ -s "${'$'}REPORTS_DIR/successful-samples.log" ]; then
+                echo ""
+                echo "✅ Successful samples:"
+                cat "${'$'}REPORTS_DIR/successful-samples.log" | sed 's/^/  - /'
+            fi
+            
+            if [ -s "${'$'}REPORTS_DIR/failed-samples.log" ]; then
+                echo ""
+                echo "❌ Failed samples:"
+                cat "${'$'}REPORTS_DIR/failed-samples.log" | sed 's/^/  - /'
+            fi
+            
+            if [ -s "${'$'}REPORTS_DIR/skipped-samples.log" ]; then
+                echo ""
+                echo "⚠️  Skipped samples:"
+                cat "${'$'}REPORTS_DIR/skipped-samples.log" | sed 's/^/  - /'
+            fi
+            
             echo "=== Step 3: Internal Sample Validation Completed ==="
         """.trimIndent()
         }
@@ -772,8 +932,7 @@ EOF
             executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptContent = """
                 #!/bin/bash
-                # Don't use 'set -e' - we want to complete evaluation even if some data is missing
-
+                
                 echo "=== Step 4: Quality Gate Evaluation ==="
                 echo "Evaluating all validation results against quality gate criteria"
 
@@ -1267,7 +1426,6 @@ ${'$'}STATUS_LINE3"
             }
             scriptContent = """
                 #!/bin/bash
-                # Don't use 'set -e' - notification failures shouldn't break the build
                 
                 echo "=== Sending detailed Slack webhook notification ==="
                 
