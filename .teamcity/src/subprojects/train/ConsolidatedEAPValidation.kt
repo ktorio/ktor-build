@@ -309,165 +309,165 @@ EOF
         script {
             name = "Step 2: External Samples Validation (Parallel)"
             scriptContent = """
-                #!/bin/bash
+            #!/bin/bash
 
-                echo "=== Step 2: External Samples Validation (Parallel) ==="
-                echo "Validating external GitHub samples against EAP versions"
-                echo "EAP Version: %env.KTOR_VERSION%"
-                echo "Timestamp: $(date -Iseconds)"
+            echo "=== Step 2: External Samples Validation (Parallel) ==="
+            echo "Validating external GitHub samples against EAP versions"
+            echo "EAP Version: %env.KTOR_VERSION%"
+            echo "Timestamp: $(date -Iseconds)"
 
-                # Create reports directory
-                mkdir -p external-validation-reports
+            # Create reports directory
+            mkdir -p external-validation-reports
 
-                # Enhanced external samples configuration based on working solution
-                declare -A SAMPLE_REPOS=(
-                    ["ktor-ai-server"]="https://github.com/nomisRev/ktor-ai-server.git"
-                    ["ktor-native-server"]="https://github.com/nomisRev/ktor-native-server.git"
-                    ["ktor-config-example"]="https://github.com/nomisRev/ktor-config-example.git"
-                    ["ktor-workshop-2025"]="https://github.com/nomisRev/ktor-workshop-2025.git"
-                    ["amper-ktor-sample"]="https://github.com/nomisRev/amper-ktor-sample.git"
-                    ["ktor-di-overview"]="https://github.com/nomisRev/Ktor-DI-Overview.git"
-                    ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
-                )
+            # Enhanced external samples configuration based on working solution
+            declare -A SAMPLE_REPOS=(
+                ["ktor-ai-server"]="https://github.com/nomisRev/ktor-ai-server.git"
+                ["ktor-native-server"]="https://github.com/nomisRev/ktor-native-server.git"
+                ["ktor-config-example"]="https://github.com/nomisRev/ktor-config-example.git"
+                ["ktor-workshop-2025"]="https://github.com/nomisRev/ktor-workshop-2025.git"
+                ["amper-ktor-sample"]="https://github.com/nomisRev/amper-ktor-sample.git"
+                ["ktor-di-overview"]="https://github.com/nomisRev/Ktor-DI-Overview.git"
+                ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
+            )
 
-                # Special handling configuration for each sample
-                declare -A SAMPLE_SPECIAL_HANDLING=(
-                    ["ktor-ai-server"]="DOCKER_TESTCONTAINERS"
-                    ["ktor-native-server"]="KOTLIN_MULTIPLATFORM"
-                    ["ktor-config-example"]="DOCKER_TESTCONTAINERS"
-                    ["ktor-workshop-2025"]="DOCKER_TESTCONTAINERS"
-                    ["amper-ktor-sample"]="AMPER_GRADLE_HYBRID"
-                    ["ktor-di-overview"]="DAGGER_ANNOTATION_PROCESSING"
-                    ["ktor-full-stack-real-world"]="KOTLIN_MULTIPLATFORM,DOCKER_TESTCONTAINERS,COMPOSE_MULTIPLATFORM,DAGGER_ANNOTATION_PROCESSING"
-                )
+            # Special handling configuration for each sample
+            declare -A SAMPLE_SPECIAL_HANDLING=(
+                ["ktor-ai-server"]="DOCKER_TESTCONTAINERS"
+                ["ktor-native-server"]="KOTLIN_MULTIPLATFORM"
+                ["ktor-config-example"]="DOCKER_TESTCONTAINERS"
+                ["ktor-workshop-2025"]="DOCKER_TESTCONTAINERS"
+                ["amper-ktor-sample"]="AMPER_GRADLE_HYBRID"
+                ["ktor-di-overview"]="DAGGER_ANNOTATION_PROCESSING"
+                ["ktor-full-stack-real-world"]="KOTLIN_MULTIPLATFORM,DOCKER_TESTCONTAINERS,COMPOSE_MULTIPLATFORM,DAGGER_ANNOTATION_PROCESSING"
+            )
 
-                # Build type configuration
-                declare -A SAMPLE_BUILD_TYPE=(
-                    ["ktor-ai-server"]="GRADLE"
-                    ["ktor-native-server"]="GRADLE"
-                    ["ktor-config-example"]="GRADLE"
-                    ["ktor-workshop-2025"]="GRADLE"
-                    ["amper-ktor-sample"]="AMPER"
-                    ["ktor-di-overview"]="GRADLE"
-                    ["ktor-full-stack-real-world"]="GRADLE"
-                )
+            # Build type configuration
+            declare -A SAMPLE_BUILD_TYPE=(
+                ["ktor-ai-server"]="GRADLE"
+                ["ktor-native-server"]="GRADLE"
+                ["ktor-config-example"]="GRADLE"
+                ["ktor-workshop-2025"]="GRADLE"
+                ["amper-ktor-sample"]="AMPER"
+                ["ktor-di-overview"]="GRADLE"
+                ["ktor-full-stack-real-world"]="GRADLE"
+            )
 
-                echo "Validating ${'$'}{#SAMPLE_REPOS[@]} external samples in parallel..."
+            echo "Validating ${'$'}{#SAMPLE_REPOS[@]} external samples in parallel..."
 
-                # Enhanced validation function with special handling
-                validate_sample_enhanced() {
-                    local sample_name="$1"
-                    local repo_url="${'$'}{SAMPLE_REPOS[${'$'}sample_name]}"
-                    local special_handling="${'$'}{SAMPLE_SPECIAL_HANDLING[${'$'}sample_name]}"
-                    local build_type="${'$'}{SAMPLE_BUILD_TYPE[${'$'}sample_name]}"
-                    local sample_dir="samples/${'$'}sample_name"
-                    local report_file="$(pwd)/external-validation-reports/${'$'}sample_name-validation.txt"
+            # Enhanced validation function with special handling
+            validate_sample_enhanced() {
+                local sample_name="$1"
+                local repo_url="${'$'}{SAMPLE_REPOS[${'$'}sample_name]}"
+                local special_handling="${'$'}{SAMPLE_SPECIAL_HANDLING[${'$'}sample_name]}"
+                local build_type="${'$'}{SAMPLE_BUILD_TYPE[${'$'}sample_name]}"
+                local sample_dir="samples/${'$'}sample_name"
+                local report_file="$(pwd)/external-validation-reports/${'$'}sample_name-validation.txt"
 
-                    echo "=== Validating ${'$'}sample_name ===" > "${'$'}report_file"
-                    echo "Started: $(date -Iseconds)" >> "${'$'}report_file"
-                    echo "EAP Version: %env.KTOR_VERSION%" >> "${'$'}report_file"
-                    echo "Repository: ${'$'}repo_url" >> "${'$'}report_file"
-                    echo "Build Type: ${'$'}build_type" >> "${'$'}report_file"
-                    echo "Special Handling: ${'$'}special_handling" >> "${'$'}report_file"
-                    echo "" >> "${'$'}report_file"
+                echo "=== Validating ${'$'}sample_name ===" > "${'$'}report_file"
+                echo "Started: $(date -Iseconds)" >> "${'$'}report_file"
+                echo "EAP Version: %env.KTOR_VERSION%" >> "${'$'}report_file"
+                echo "Repository: ${'$'}repo_url" >> "${'$'}report_file"
+                echo "Build Type: ${'$'}build_type" >> "${'$'}report_file"
+                echo "Special Handling: ${'$'}special_handling" >> "${'$'}report_file"
+                echo "" >> "${'$'}report_file"
 
-                    # Clone the sample repository
-                    echo "Cloning sample repository..." >> "${'$'}report_file"
-                    if git clone "${'$'}repo_url" "${'$'}sample_dir" 2>> "${'$'}report_file"; then
-                        echo "Successfully cloned ${'$'}sample_name" >> "${'$'}report_file"
-                    else
-                        echo "Status: FAILED" >> "${'$'}report_file"
-                        echo "Error: Failed to clone repository ${'$'}repo_url" >> "${'$'}report_file"
-                        return 1
-                    fi
+                # Clone the sample repository
+                echo "Cloning sample repository..." >> "${'$'}report_file"
+                if git clone "${'$'}repo_url" "${'$'}sample_dir" 2>> "${'$'}report_file"; then
+                    echo "Successfully cloned ${'$'}sample_name" >> "${'$'}report_file"
+                else
+                    echo "Status: FAILED" >> "${'$'}report_file"
+                    echo "Error: Failed to clone repository ${'$'}repo_url" >> "${'$'}report_file"
+                    return 1
+                fi
 
-                    cd "${'$'}sample_dir" || {
-                        echo "Status: FAILED" >> "${'$'}report_file"
-                        echo "Error: Failed to enter sample directory" >> "${'$'}report_file"
-                        return 1
-                    }
+                cd "${'$'}sample_dir" || {
+                    echo "Status: FAILED" >> "${'$'}report_file"
+                    echo "Error: Failed to enter sample directory" >> "${'$'}report_file"
+                    return 1
+                }
 
-                    # Backup configuration files
-                    echo "Backing up configuration files..." >> "${'$'}report_file"
-                    find . -name "gradle.properties" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                    find . -name "build.gradle.kts" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                    find . -name "libs.versions.toml" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
+                # Backup configuration files
+                echo "Backing up configuration files..." >> "${'$'}report_file"
+                find . -name "gradle.properties" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
+                find . -name "build.gradle.kts" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
+                find . -name "libs.versions.toml" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
 
-                    # Analyze project structure
-                    echo "Analyzing project structure..." >> "${'$'}report_file"
-                    echo "Special handling: ${'$'}special_handling" >> "${'$'}report_file"
-                    ls -la >> "${'$'}report_file"
+                # Analyze project structure
+                echo "Analyzing project structure..." >> "${'$'}report_file"
+                echo "Special handling: ${'$'}special_handling" >> "${'$'}report_file"
+                ls -la >> "${'$'}report_file"
 
-                    # Setup environment based on special handling
-                    if [[ "${'$'}special_handling" == *"DOCKER_TESTCONTAINERS"* ]]; then
-                        echo "Setting up Testcontainers environment..." >> "${'$'}report_file"
-                        # Skip Docker tests for now to avoid compatibility issues
-                        GRADLE_OPTS="--no-daemon --stacktrace -x test -x check"
-                        echo "Docker project detected - skipping tests to avoid compatibility issues" >> "${'$'}report_file"
-                    elif [[ "${'$'}special_handling" == *"DAGGER_ANNOTATION_PROCESSING"* ]]; then
-                        echo "Setting up Dagger environment..." >> "${'$'}report_file"
-                        GRADLE_OPTS="--no-daemon --stacktrace -x test -x check -Dkapt.verbose=true"
-                        echo "Dagger project detected - skipping tests to avoid annotation processing issues" >> "${'$'}report_file"
-                    else
-                        GRADLE_OPTS="--no-daemon --stacktrace"
-                    fi
+                # Setup environment based on special handling
+                if [[ "${'$'}special_handling" == *"DOCKER_TESTCONTAINERS"* ]]; then
+                    echo "Setting up Testcontainers environment..." >> "${'$'}report_file"
+                    # Skip Docker tests for now to avoid compatibility issues
+                    GRADLE_OPTS="--no-daemon --stacktrace -x test -x check"
+                    echo "Docker project detected - skipping tests to avoid compatibility issues" >> "${'$'}report_file"
+                elif [[ "${'$'}special_handling" == *"DAGGER_ANNOTATION_PROCESSING"* ]]; then
+                    echo "Setting up Dagger environment..." >> "${'$'}report_file"
+                    GRADLE_OPTS="--no-daemon --stacktrace -x test -x check -Dkapt.verbose=true"
+                    echo "Dagger project detected - skipping tests to avoid annotation processing issues" >> "${'$'}report_file"
+                else
+                    GRADLE_OPTS="--no-daemon --stacktrace"
+                fi
 
-                    # Update gradle.properties with enhanced configuration
-                    echo "Updating gradle.properties..." >> "${'$'}report_file"
-                    if [ ! -f "gradle.properties" ]; then
-                        touch gradle.properties
-                    fi
+                # Update gradle.properties with enhanced configuration
+                echo "Updating gradle.properties..." >> "${'$'}report_file"
+                if [ ! -f "gradle.properties" ]; then
+                    touch gradle.properties
+                fi
 
-                    # Add EAP version configuration
-                    echo "" >> gradle.properties
-                    echo "# EAP Version Configuration" >> gradle.properties
-                    echo "ktor_version=%env.KTOR_VERSION%" >> gradle.properties
-                    echo "kotlin_version=%env.KOTLIN_VERSION%" >> gradle.properties
+                # Add EAP version configuration
+                echo "" >> gradle.properties
+                echo "# EAP Version Configuration" >> gradle.properties
+                echo "ktor_version=%env.KTOR_VERSION%" >> gradle.properties
+                echo "kotlin_version=%env.KOTLIN_VERSION%" >> gradle.properties
 
-                    # Add performance optimizations
-                    echo "# Gradle performance optimizations" >> gradle.properties
-                    echo "org.gradle.configureondemand=true" >> gradle.properties
-                    echo "org.gradle.parallel=true" >> gradle.properties
-                    echo "org.gradle.caching=true" >> gradle.properties
-                    echo "org.gradle.daemon=true" >> gradle.properties
-                    echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC" >> gradle.properties
+                # Add performance optimizations
+                echo "# Gradle performance optimizations" >> gradle.properties
+                echo "org.gradle.configureondemand=true" >> gradle.properties
+                echo "org.gradle.parallel=true" >> gradle.properties
+                echo "org.gradle.caching=true" >> gradle.properties
+                echo "org.gradle.daemon=true" >> gradle.properties
+                echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC" >> gradle.properties
 
-                    # Special handling for multiplatform projects
-                    if [[ "${'$'}special_handling" == *"KOTLIN_MULTIPLATFORM"* ]] || [[ "${'$'}special_handling" == *"COMPOSE_MULTIPLATFORM"* ]]; then
-                        echo "Applying multiplatform-specific configuration..." >> "${'$'}report_file"
-                        echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
-                        echo "kotlin.native.version=%env.KOTLIN_VERSION%" >> gradle.properties
-                        echo "kotlin.js.nodejs.check.fail=false" >> gradle.properties
-                        echo "kotlin.js.yarn.check.fail=false" >> gradle.properties
-                        echo "kotlin.js.npm.lazy=true" >> gradle.properties
-                        echo "kotlin.js.compiler=ir" >> gradle.properties
-                        echo "kotlin.js.generate.executable.default=false" >> gradle.properties
-                        echo "kotlin.wasm.experimental=true" >> gradle.properties
-                    fi
+                # Special handling for multiplatform projects
+                if [[ "${'$'}special_handling" == *"KOTLIN_MULTIPLATFORM"* ]] || [[ "${'$'}special_handling" == *"COMPOSE_MULTIPLATFORM"* ]]; then
+                    echo "Applying multiplatform-specific configuration..." >> "${'$'}report_file"
+                    echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
+                    echo "kotlin.native.version=%env.KOTLIN_VERSION%" >> gradle.properties
+                    echo "kotlin.js.nodejs.check.fail=false" >> gradle.properties
+                    echo "kotlin.js.yarn.check.fail=false" >> gradle.properties
+                    echo "kotlin.js.npm.lazy=true" >> gradle.properties
+                    echo "kotlin.js.compiler=ir" >> gradle.properties
+                    echo "kotlin.js.generate.executable.default=false" >> gradle.properties
+                    echo "kotlin.wasm.experimental=true" >> gradle.properties
+                fi
 
-                    # Update version catalog if it exists
-                    if [ -f "gradle/libs.versions.toml" ]; then
-                        echo "Updating version catalog..." >> "${'$'}report_file"
-                        sed -i.bak "s/ktor = \"[^\"]*\"/ktor = \"%env.KTOR_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/kotlin = \"[^\"]*\"/kotlin = \"%env.KOTLIN_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
-                    fi
+                # Update version catalog if it exists
+                if [ -f "gradle/libs.versions.toml" ]; then
+                    echo "Updating version catalog..." >> "${'$'}report_file"
+                    sed -i.bak "s/ktor = \"[^\"]*\"/ktor = \"%env.KTOR_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
+                    sed -i.bak "s/kotlin = \"[^\"]*\"/kotlin = \"%env.KOTLIN_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
+                fi
 
-                    # Update build files
-                    echo "Updating build files..." >> "${'$'}report_file"
-                    if [ -f "build.gradle.kts" ]; then
-                        # Update Kotlin DSL build file
-                        sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/val ktor_version: String by project/val ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                        sed -i.bak 's/\(kotlin("[^"]*") *version *"\)[^"]*"/\1%env.KOTLIN_VERSION%"/g' build.gradle.kts 2>> "${'$'}report_file" || true
-                    elif [ -f "build.gradle" ]; then
-                        # Update Groovy build file
-                        sed -i.bak "s/ktor_version = '[^']*'/ktor_version = '%env.KTOR_VERSION%'/g" build.gradle 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle 2>> "${'$'}report_file" || true
-                    fi
+                # Update build files
+                echo "Updating build files..." >> "${'$'}report_file"
+                if [ -f "build.gradle.kts" ]; then
+                    # Update Kotlin DSL build file
+                    sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
+                    sed -i.bak "s/val ktor_version: String by project/val ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
+                    sed -i.bak "s/kotlin_version = \"[^\"]*\"/kotlin_version = \"%env.KOTLIN_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
+                elif [ -f "build.gradle" ]; then
+                    # Update Groovy build file
+                    sed -i.bak "s/ktor_version = '[^']*'/ktor_version = '%env.KTOR_VERSION%'/g" build.gradle 2>> "${'$'}report_file" || true
+                    sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle 2>> "${'$'}report_file" || true
+                fi
 
-                    # Create EAP init script for enhanced repository configuration
-                    echo "Creating EAP init script..." >> "${'$'}report_file"
-                    cat > gradle-eap-init.gradle << 'EOF'
+                # Create EAP init script for enhanced repository configuration
+                echo "Creating EAP init script..." >> "${'$'}report_file"
+                cat > gradle-eap-init.gradle << 'EOF'
 allprojects {
     repositories {
         maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
@@ -497,278 +497,99 @@ allprojects {
 }
 EOF
 
-                    # Add init script to gradle options
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS --init-script gradle-eap-init.gradle"
+                # Add init script to gradle options
+                GRADLE_OPTS="${'$'}GRADLE_OPTS --init-script gradle-eap-init.gradle"
 
-                    echo "Final gradle.properties content:" >> "${'$'}report_file"
-                    cat gradle.properties >> "${'$'}report_file"
+                echo "Final gradle.properties content:" >> "${'$'}report_file"
+                cat gradle.properties >> "${'$'}report_file"
 
-                    # Build based on build type
-                    if [ "${'$'}build_type" = "AMPER" ]; then
-                        echo "Building Amper project..." >> "${'$'}report_file"
-                        # For Amper projects, use simpler build approach
-                        if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                            echo "Status: SUCCESS" >> "${'$'}report_file"
-                            echo "Amper build successful" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 0
-                        else
-                            echo "Status: FAILED" >> "${'$'}report_file"
-                            echo "Error: Amper build failed" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 1
-                        fi
+                # Build based on build type
+                if [ "${'$'}build_type" = "AMPER" ]; then
+                    echo "Building Amper project..." >> "${'$'}report_file"
+                    # For Amper projects, use simpler build approach
+                    if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
+                        echo "Status: SUCCESS" >> "${'$'}report_file"
+                        echo "Amper build successful" >> "${'$'}report_file"
+                        cd - > /dev/null
+                        return 0
                     else
-                        # Standard Gradle build
-                        echo "Building Gradle project..." >> "${'$'}report_file"
-                        echo "Gradle options: ${'$'}GRADLE_OPTS" >> "${'$'}report_file"
-
-                        # Clean first
-                        echo "Cleaning project..." >> "${'$'}report_file"
-                        ./gradlew clean ${'$'}GRADLE_OPTS 2>> "${'$'}report_file" || echo "Clean failed, continuing..." >> "${'$'}report_file"
-
-                        # Build the project
-                        if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                            echo "Build successful" >> "${'$'}report_file"
-
-                            # Run tests only if not skipped due to special handling
-                            if [[ "${'$'}GRADLE_OPTS" != *"-x test"* ]]; then
-                                echo "Running tests..." >> "${'$'}report_file"
-                                if ./gradlew test ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                                    echo "Status: SUCCESS" >> "${'$'}report_file"
-                                    echo "All tests passed" >> "${'$'}report_file"
-                                    cd - > /dev/null
-                                    return 0
-                                else
-                                    echo "Status: FAILED" >> "${'$'}report_file"
-                                    echo "Error: Tests failed" >> "${'$'}report_file"
-                                    cd - > /dev/null
-                                    return 1
-                                fi
-                            else
-                                echo "Status: SUCCESS" >> "${'$'}report_file"
-                                echo "Build successful (tests skipped due to special handling)" >> "${'$'}report_file"
-                                cd - > /dev/null
-                                return 0
-                            fi
-                        else
-                            echo "Status: FAILED" >> "${'$'}report_file"
-                            echo "Error: Build failed" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 1
-                        fi
-                    fi
-                }</SEARCH>
-<REPLACE>                    cd "${'$'}sample_dir" || {
                         echo "Status: FAILED" >> "${'$'}report_file"
-                        echo "Error: Failed to enter sample directory" >> "${'$'}report_file"
+                        echo "Error: Amper build failed" >> "${'$'}report_file"
+                        cd - > /dev/null
                         return 1
-                    }
-
-                    # Backup configuration files
-                    echo "Backing up configuration files..." >> "${'$'}report_file"
-                    find . -name "gradle.properties" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                    find . -name "build.gradle.kts" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                    find . -name "libs.versions.toml" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-
-                    # Analyze project structure
-                    echo "Analyzing project structure..." >> "${'$'}report_file"
-                    echo "Special handling: ${'$'}special_handling" >> "${'$'}report_file"
-                    ls -la >> "${'$'}report_file"
-
-                    # Setup environment based on special handling
-                    if [[ "${'$'}special_handling" == *"DOCKER_TESTCONTAINERS"* ]]; then
-                        echo "Setting up Testcontainers environment..." >> "${'$'}report_file"
-                        # Skip Docker tests for now to avoid compatibility issues
-                        GRADLE_OPTS="--no-daemon --stacktrace -x test -x check"
-                        echo "Docker project detected - skipping tests to avoid compatibility issues" >> "${'$'}report_file"
-                    elif [[ "${'$'}special_handling" == *"DAGGER_ANNOTATION_PROCESSING"* ]]; then
-                        echo "Setting up Dagger environment..." >> "${'$'}report_file"
-                        GRADLE_OPTS="--no-daemon --stacktrace -x test -x check -Dkapt.verbose=true"
-                        echo "Dagger project detected - skipping tests to avoid annotation processing issues" >> "${'$'}report_file"
-                    else
-                        GRADLE_OPTS="--no-daemon --stacktrace"
                     fi
+                else
+                    # Standard Gradle build
+                    echo "Building Gradle project..." >> "${'$'}report_file"
+                    echo "Gradle options: ${'$'}GRADLE_OPTS" >> "${'$'}report_file"
 
-                    # Update gradle.properties with enhanced configuration
-                    echo "Updating gradle.properties..." >> "${'$'}report_file"
-                    if [ ! -f "gradle.properties" ]; then
-                        touch gradle.properties
-                    fi
+                    # Clean first
+                    echo "Cleaning project..." >> "${'$'}report_file"
+                    ./gradlew clean ${'$'}GRADLE_OPTS 2>> "${'$'}report_file" || echo "Clean failed, continuing..." >> "${'$'}report_file"
 
-                    # Add EAP version configuration
-                    echo "" >> gradle.properties
-                    echo "# EAP Version Configuration" >> gradle.properties
-                    echo "ktor_version=%env.KTOR_VERSION%" >> gradle.properties
-                    echo "kotlin_version=%env.KOTLIN_VERSION%" >> gradle.properties
+                    # Build the project
+                    if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
+                        echo "Build successful" >> "${'$'}report_file"
 
-                    # Add performance optimizations
-                    echo "# Gradle performance optimizations" >> gradle.properties
-                    echo "org.gradle.configureondemand=true" >> gradle.properties
-                    echo "org.gradle.parallel=true" >> gradle.properties
-                    echo "org.gradle.caching=true" >> gradle.properties
-                    echo "org.gradle.daemon=true" >> gradle.properties
-                    echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC" >> gradle.properties
-
-                    # Special handling for multiplatform projects
-                    if [[ "${'$'}special_handling" == *"KOTLIN_MULTIPLATFORM"* ]] || [[ "${'$'}special_handling" == *"COMPOSE_MULTIPLATFORM"* ]]; then
-                        echo "Applying multiplatform-specific configuration..." >> "${'$'}report_file"
-                        echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
-                        echo "kotlin.native.version=%env.KOTLIN_VERSION%" >> gradle.properties
-                        echo "kotlin.js.nodejs.check.fail=false" >> gradle.properties
-                        echo "kotlin.js.yarn.check.fail=false" >> gradle.properties
-                        echo "kotlin.js.npm.lazy=true" >> gradle.properties
-                        echo "kotlin.js.compiler=ir" >> gradle.properties
-                        echo "kotlin.js.generate.executable.default=false" >> gradle.properties
-                        echo "kotlin.wasm.experimental=true" >> gradle.properties
-                    fi
-
-                    # Update version catalog if it exists
-                    if [ -f "gradle/libs.versions.toml" ]; then
-                        echo "Updating version catalog..." >> "${'$'}report_file"
-                        sed -i.bak "s/ktor = \"[^\"]*\"/ktor = \"%env.KTOR_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/kotlin = \"[^\"]*\"/kotlin = \"%env.KOTLIN_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
-                    fi
-
-                    # Update build files
-                    echo "Updating build files..." >> "${'$'}report_file"
-                    if [ -f "build.gradle.kts" ]; then
-                        # Update Kotlin DSL build file
-                        sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/val ktor_version: String by project/val ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/kotlin_version = \"[^\"]*\"/kotlin_version = \"%env.KOTLIN_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                    elif [ -f "build.gradle" ]; then
-                        # Update Groovy build file
-                        sed -i.bak "s/ktor_version = '[^']*'/ktor_version = '%env.KTOR_VERSION%'/g" build.gradle 2>> "${'$'}report_file" || true
-                        sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle 2>> "${'$'}report_file" || true
-                    fi
-
-                    # Create EAP init script for enhanced repository configuration
-                    echo "Creating EAP init script..." >> "${'$'}report_file"
-                    cat > gradle-eap-init.gradle << 'EOF'
-allprojects {
-    repositories {
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-
-    configurations.all {
-        resolutionStrategy {
-            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
-
-            eachDependency { details ->
-                if (details.requested.group == "org.jetbrains.kotlin") {
-                    details.useVersion("%env.KOTLIN_VERSION%")
-                    details.because("Align Kotlin version with compiler to prevent compilation errors")
-                }
-            }
-        }
-    }
-}
-EOF
-
-                    # Add init script to gradle options
-                    GRADLE_OPTS="${'$'}GRADLE_OPTS --init-script gradle-eap-init.gradle"
-
-                    echo "Final gradle.properties content:" >> "${'$'}report_file"
-                    cat gradle.properties >> "${'$'}report_file"
-
-                    # Build based on build type
-                    if [ "${'$'}build_type" = "AMPER" ]; then
-                        echo "Building Amper project..." >> "${'$'}report_file"
-                        # For Amper projects, use simpler build approach
-                        if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                            echo "Status: SUCCESS" >> "${'$'}report_file"
-                            echo "Amper build successful" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 0
-                        else
-                            echo "Status: FAILED" >> "${'$'}report_file"
-                            echo "Error: Amper build failed" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 1
-                        fi
-                    else
-                        # Standard Gradle build
-                        echo "Building Gradle project..." >> "${'$'}report_file"
-                        echo "Gradle options: ${'$'}GRADLE_OPTS" >> "${'$'}report_file"
-
-                        # Clean first
-                        echo "Cleaning project..." >> "${'$'}report_file"
-                        ./gradlew clean ${'$'}GRADLE_OPTS 2>> "${'$'}report_file" || echo "Clean failed, continuing..." >> "${'$'}report_file"
-
-                        # Build the project
-                        if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                            echo "Build successful" >> "${'$'}report_file"
-
-                            # Run tests only if not skipped due to special handling
-                            if [[ "${'$'}GRADLE_OPTS" != *"-x test"* ]]; then
-                                echo "Running tests..." >> "${'$'}report_file"
-                                if ./gradlew test ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                                    echo "Status: SUCCESS" >> "${'$'}report_file"
-                                    echo "All tests passed" >> "${'$'}report_file"
-                                    cd - > /dev/null
-                                    return 0
-                                else
-                                    echo "Status: FAILED" >> "${'$'}report_file"
-                                    echo "Error: Tests failed" >> "${'$'}report_file"
-                                    cd - > /dev/null
-                                    return 1
-                                fi
-                            else
+                        # Run tests only if not skipped due to special handling
+                        if [[ "${'$'}GRADLE_OPTS" != *"-x test"* ]]; then
+                            echo "Running tests..." >> "${'$'}report_file"
+                            if ./gradlew test ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
                                 echo "Status: SUCCESS" >> "${'$'}report_file"
-                                echo "Build successful (tests skipped due to special handling)" >> "${'$'}report_file"
+                                echo "All tests passed" >> "${'$'}report_file"
                                 cd - > /dev/null
                                 return 0
+                            else
+                                echo "Status: FAILED" >> "${'$'}report_file"
+                                echo "Error: Tests failed" >> "${'$'}report_file"
+                                cd - > /dev/null
+                                return 1
                             fi
                         else
-                            echo "Status: FAILED" >> "${'$'}report_file"
-                            echo "Error: Build failed" >> "${'$'}report_file"
+                            echo "Status: SUCCESS" >> "${'$'}report_file"
+                            echo "Build successful (tests skipped due to special handling)" >> "${'$'}report_file"
                             cd - > /dev/null
-                            return 1
+                            return 0
                         fi
-                    fi
-                }
-
-                # Run validations in parallel
-                declare -a PIDS=()
-                declare -a RESULTS=()
-
-                for sample in "${'$'}{!SAMPLE_REPOS[@]}"; do
-                    validate_sample_enhanced "${'$'}sample" &
-                    PIDS+=($!)
-                done
-
-                # Wait for all validations to complete and collect results
-                TOTAL_SAMPLES=${'$'}{#SAMPLE_REPOS[@]}
-                SUCCESSFUL_SAMPLES=0
-                FAILED_SAMPLES=0
-
-                # Wait for all background processes and collect results
-                for pid in "${'$'}{PIDS[@]}"; do
-                    wait ${'$'}pid
-                    if [ $? -eq 0 ]; then
-                        SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
-                        echo "✅ Sample validation succeeded"
                     else
-                        FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
-                        echo "❌ Sample validation failed"
+                        echo "Status: FAILED" >> "${'$'}report_file"
+                        echo "Error: Build failed" >> "${'$'}report_file"
+                        cd - > /dev/null
+                        return 1
                     fi
-                done
+                fi
+            }
 
-                # Calculate success rate
-                SUCCESS_RATE=$(echo "scale=2; ${'$'}SUCCESSFUL_SAMPLES * 100 / ${'$'}TOTAL_SAMPLES" | bc -l)
+            # Run validations in parallel
+            declare -a PIDS=()
 
-                # Generate external validation summary
-                cat > external-validation-reports/external-validation-summary.txt <<EOF
+            for sample in "${'$'}{!SAMPLE_REPOS[@]}"; do
+                validate_sample_enhanced "${'$'}sample" &
+                PIDS+=($!)
+            done
+
+            # Wait for all validations to complete and collect results
+            TOTAL_SAMPLES=${'$'}{#SAMPLE_REPOS[@]}
+            SUCCESSFUL_SAMPLES=0
+            FAILED_SAMPLES=0
+
+            # Wait for all background processes and collect results
+            for pid in "${'$'}{PIDS[@]}"; do
+                wait ${'$'}pid
+                if [ $? -eq 0 ]; then
+                    SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
+                    echo "✅ Sample validation succeeded"
+                else
+                    FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
+                    echo "❌ Sample validation failed"
+                fi
+            done
+
+            # Calculate success rate
+            SUCCESS_RATE=$(echo "scale=2; ${'$'}SUCCESSFUL_SAMPLES * 100 / ${'$'}TOTAL_SAMPLES" | bc -l)
+
+            # Generate external validation summary
+            cat > external-validation-reports/external-validation-summary.txt <<EOF
 External Samples Validation Report
 ==================================
 Generated: $(date -Iseconds)
@@ -783,8 +604,8 @@ Results:
 Status: $([[ ${'$'}FAILED_SAMPLES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")
 EOF
 
-                # Generate JSON report for programmatic access
-                cat > external-validation-reports/external-validation-results.json <<EOF
+            # Generate JSON report for programmatic access
+            cat > external-validation-reports/external-validation-results.json <<EOF
 {
     "eapVersion": "%env.KTOR_VERSION%",
     "timestamp": "$(date -Iseconds)",
@@ -797,32 +618,32 @@ EOF
 }
 EOF
 
-                # Set TeamCity parameters for quality gate evaluation
-                echo "##teamcity[setParameter name='external.validation.total.samples' value='${'$'}TOTAL_SAMPLES']"
-                echo "##teamcity[setParameter name='external.validation.successful.samples' value='${'$'}SUCCESSFUL_SAMPLES']"
-                echo "##teamcity[setParameter name='external.validation.failed.samples' value='${'$'}FAILED_SAMPLES']"
-                echo "##teamcity[setParameter name='external.validation.success.rate' value='${'$'}SUCCESS_RATE']"
-                echo "##teamcity[setParameter name='external.validation.status' value='$([[ ${'$'}FAILED_SAMPLES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")']"
+            # Set TeamCity parameters for quality gate evaluation
+            echo "##teamcity[setParameter name='external.validation.total.samples' value='${'$'}TOTAL_SAMPLES']"
+            echo "##teamcity[setParameter name='external.validation.successful.samples' value='${'$'}SUCCESSFUL_SAMPLES']"
+            echo "##teamcity[setParameter name='external.validation.failed.samples' value='${'$'}FAILED_SAMPLES']"
+            echo "##teamcity[setParameter name='external.validation.success.rate' value='${'$'}SUCCESS_RATE']"
+            echo "##teamcity[setParameter name='external.validation.status' value='$([[ ${'$'}FAILED_SAMPLES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")']"
 
-                echo "=== Step 2: External Samples Validation Completed ==="
-                echo "Total Samples: ${'$'}TOTAL_SAMPLES"
-                echo "Successful: ${'$'}SUCCESSFUL_SAMPLES"
-                echo "Failed: ${'$'}FAILED_SAMPLES"
-                echo "Success Rate: ${'$'}SUCCESS_RATE%"
+            echo "=== Step 2: External Samples Validation Completed ==="
+            echo "Total Samples: ${'$'}TOTAL_SAMPLES"
+            echo "Successful: ${'$'}SUCCESSFUL_SAMPLES"
+            echo "Failed: ${'$'}FAILED_SAMPLES"
+            echo "Success Rate: ${'$'}SUCCESS_RATE%"
 
-                # External validation is required - track failures for quality gate evaluation
-                # This ensures external validation is not optional and failures are properly evaluated
-                if [ ${'$'}FAILED_SAMPLES -gt 0 ]; then
-                    echo "❌ External validation failed: ${'$'}FAILED_SAMPLES out of ${'$'}TOTAL_SAMPLES samples failed"
-                    echo "External validation is required and failures will be evaluated by quality gate"
-                    echo "FAILURE|External validation status could not be determined - required dependency failed"
-                else
-                    echo "✅ External validation passed: All ${'$'}SUCCESSFUL_SAMPLES samples succeeded"
-                fi
+            # External validation is required - track failures for quality gate evaluation
+            # This ensures external validation is not optional and failures are properly evaluated
+            if [ ${'$'}FAILED_SAMPLES -gt 0 ]; then
+                echo "❌ External validation failed: ${'$'}FAILED_SAMPLES out of ${'$'}TOTAL_SAMPLES samples failed"
+                echo "External validation is required and failures will be evaluated by quality gate"
+                echo "FAILURE|External validation status could not be determined - required dependency failed"
+            else
+                echo "✅ External validation passed: All ${'$'}SUCCESSFUL_SAMPLES samples succeeded"
+            fi
 
-                # Continue to quality gate evaluation to make final determination
-                exit 0
-            """.trimIndent()
+            # Continue to quality gate evaluation to make final determination
+            exit 0
+        """.trimIndent()
         }
     }
 
