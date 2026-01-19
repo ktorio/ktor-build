@@ -1133,46 +1133,46 @@ EOF
             name = "Step 5: Report Generation & Notifications"
             executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptContent = """
-                #!/bin/bash
+            #!/bin/bash
 
-                echo "=== Step 5: Report Generation & Notifications ==="
-                echo "Generating comprehensive reports and sending notifications"
-                echo "EAP Version: %env.KTOR_VERSION%"
-                echo "Timestamp: $(date -Iseconds)"
+            echo "=== Step 5: Report Generation & Notifications ==="
+            echo "Generating comprehensive reports and sending notifications"
+            echo "EAP Version: %env.KTOR_VERSION%"
+            echo "Timestamp: $(date -Iseconds)"
 
-                # Read runtime parameter values
-                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
-                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
-                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
+            # Read runtime parameter values
+            OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
+            OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
+            TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
 
-                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
-                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
-                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
+            EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
+            EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
+            EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
+            EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
+            EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
+            EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
 
-                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
-                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
-                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
-                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
-                INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
-                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
+            INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
+            INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
+            INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
+            INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
+            INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
+            INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
 
-                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
-                NEXT_STEPS=$(echo "%quality.gate.next.steps%" 2>/dev/null || echo "Review validation results")
-                FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" 2>/dev/null || echo "")
+            RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
+            NEXT_STEPS=$(echo "%quality.gate.next.steps%" 2>/dev/null || echo "Review validation results")
+            FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" 2>/dev/null || echo "")
 
-                # Read quality gate configuration parameters to avoid agent compatibility issues
-                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
-                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
-                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
-                CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
+            # Read quality gate configuration parameters to avoid agent compatibility issues
+            EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
+            INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
+            MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
+            CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
 
-                echo "Overall Status: ${'$'}OVERALL_STATUS"
+            echo "Overall Status: ${'$'}OVERALL_STATUS"
 
-                # Generate comprehensive report
-                cat > quality-gate-reports/consolidated-eap-validation-report.txt <<EOF
+            # Generate comprehensive report
+            cat > quality-gate-reports/consolidated-eap-validation-report.txt <<EOF
 Consolidated EAP Validation Report - %env.KTOR_VERSION%
 ======================================================
 Generated: $(date -Iseconds)
@@ -1214,8 +1214,8 @@ Next Steps: ${'$'}NEXT_STEPS
 $([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo "Failure Reasons: ${'$'}FAILURE_REASONS" || echo "")
 EOF
 
-                # Generate JSON report
-                cat > quality-gate-reports/consolidated-validation-results.json <<EOF
+            # Generate JSON report
+            cat > quality-gate-reports/consolidated-validation-results.json <<EOF
 {
     "eapVersion": "%env.KTOR_VERSION%",
     "timestamp": "$(date -Iseconds)",
@@ -1264,37 +1264,45 @@ EOF
 }
 EOF
 
-                echo "Comprehensive reports generated"
-                echo "##teamcity[publishArtifacts 'version-resolution-reports => version-resolution-reports.zip']"
-                echo "##teamcity[publishArtifacts 'external-validation-reports => external-validation-reports.zip']"
-                echo "##teamcity[publishArtifacts 'internal-validation-reports => internal-validation-reports.zip']"
-                echo "##teamcity[publishArtifacts 'quality-gate-reports => quality-gate-reports.zip']"
+            echo "Comprehensive reports generated"
+            echo "##teamcity[publishArtifacts 'version-resolution-reports => version-resolution-reports.zip']"
+            echo "##teamcity[publishArtifacts 'external-validation-reports => external-validation-reports.zip']"
+            echo "##teamcity[publishArtifacts 'internal-validation-reports => internal-validation-reports.zip']"
+            echo "##teamcity[publishArtifacts 'quality-gate-reports => quality-gate-reports.zip']"
 
-                VERSION="%env.KTOR_VERSION%"
+            VERSION="%env.KTOR_VERSION%"
 
-                echo "=== Final Consolidated EAP Validation Results ==="
-                echo "EAP Version: ${'$'}VERSION"
-                echo "Overall Status: ${'$'}OVERALL_STATUS"
-                echo "Overall Score: ${'$'}OVERALL_SCORE/100"
+            # Set detailed build status text for Slack notifications
+            STATUS_TEXT="EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100) | Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests | Critical: ${'$'}TOTAL_CRITICAL"
+            echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
+            
+            # Set build parameters for Slack notification access
+            echo "##teamcity[setParameter name='slack.report.summary' value='${'$'}STATUS_TEXT']"
+            echo "##teamcity[setParameter name='slack.report.details' value='External: ${'$'}EXTERNAL_GATE_STATUS (${'$'}EXTERNAL_GATE_SCORE/100), Internal: ${'$'}INTERNAL_GATE_STATUS (${'$'}INTERNAL_GATE_SCORE/100), Recommendations: ${'$'}RECOMMENDATIONS']"
 
-                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                    echo "✅ Consolidated EAP validation passed!"
-                    echo "Recommendations: ${'$'}RECOMMENDATIONS"
-                    echo "Next Steps: ${'$'}NEXT_STEPS"
-                    echo "=== Step 5: Report Generation & Notifications Completed Successfully ==="
-                else
-                    echo "❌ Consolidated EAP validation failed!"
-                    echo "Failure Reasons: ${'$'}FAILURE_REASONS"
-                    echo "Recommendations: ${'$'}RECOMMENDATIONS"
-                    echo "Next Steps: ${'$'}NEXT_STEPS"
-                    echo "=== Step 5: Report Generation & Notifications Completed with Failures ==="
-                fi
+            echo "=== Final Consolidated EAP Validation Results ==="
+            echo "EAP Version: ${'$'}VERSION"
+            echo "Overall Status: ${'$'}OVERALL_STATUS"
+            echo "Overall Score: ${'$'}OVERALL_SCORE/100"
 
-                # Always exit successfully to ensure full report generation and artifact publishing
-                # Quality gate status is captured in reports and TeamCity parameters for reference
-                echo "Full report generated successfully regardless of quality gate status"
-                exit 0
-            """.trimIndent()
+            if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                echo "✅ Consolidated EAP validation passed!"
+                echo "Recommendations: ${'$'}RECOMMENDATIONS"
+                echo "Next Steps: ${'$'}NEXT_STEPS"
+                echo "=== Step 5: Report Generation & Notifications Completed Successfully ==="
+            else
+                echo "❌ Consolidated EAP validation failed!"
+                echo "Failure Reasons: ${'$'}FAILURE_REASONS"
+                echo "Recommendations: ${'$'}RECOMMENDATIONS"
+                echo "Next Steps: ${'$'}NEXT_STEPS"
+                echo "=== Step 5: Report Generation & Notifications Completed with Failures ==="
+            fi
+
+            # Always exit successfully to ensure full report generation and artifact publishing
+            # Quality gate status is captured in reports and TeamCity parameters for reference
+            echo "Full report generated successfully regardless of quality gate status"
+            exit 0
+        """.trimIndent()
         }
     }
 }
