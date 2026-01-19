@@ -250,7 +250,7 @@ object ConsolidatedEAPValidation {
                         echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
                     else
                         echo "WARNING: No Kotlin version found in GitHub API, using fallback"
-                        LATEST_KOTLIN_VERSION="1.9.22"  # Fallback version
+                        LATEST_KOTLIN_VERSION="2.3.0"  # Fallback version
                         echo "Using fallback Kotlin version: ${'$'}LATEST_KOTLIN_VERSION"
                         echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
                     fi
@@ -258,7 +258,7 @@ object ConsolidatedEAPValidation {
                     rm -f "${'$'}TEMP_KOTLIN_METADATA"
                 else
                     echo "WARNING: Failed to fetch Kotlin version from GitHub API, using fallback"
-                    LATEST_KOTLIN_VERSION="1.9.22"  # Fallback version
+                    LATEST_KOTLIN_VERSION="2.3.0"  # Fallback version
                     echo "Using fallback Kotlin version: ${'$'}LATEST_KOTLIN_VERSION"
                     echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
                 fi
@@ -321,7 +321,7 @@ EOF
                 validate_sample() {
                     local sample_name="$1"
                     local sample_dir="samples/${'$'}sample_name"
-                    local report_file="external-validation-reports/${'$'}sample_name-validation.txt"
+                    local report_file="$(pwd)/external-validation-reports/${'$'}sample_name-validation.txt"
 
                     echo "=== Validating ${'$'}sample_name ===" > "${'$'}report_file"
                     echo "Started: $(date -Iseconds)" >> "${'$'}report_file"
