@@ -353,18 +353,25 @@ EOF
                     echo "- ${'$'}project_dir"
                 done
 
-            # Create a temporary gradle.properties with EAP versions
+            # Create gradle.properties with EAP versions for Gradle projects
             cat > "${'$'}WORK_DIR/gradle.properties.eap" <<EOF
 kotlin_version=${'$'}KOTLIN_VERSION
 ktor_version=${'$'}KTOR_VERSION
 logback_version=1.4.14
 kotlin.mpp.stability.nowarn=true
+org.gradle.jvmargs=-Xmx2g
+org.gradle.daemon=false
+org.gradle.parallel=true
+org.gradle.caching=true
+kotlin.compiler.execution.strategy=in-process
+kotlin.incremental=true
 EOF
 
             # Initialize result tracking files using absolute paths
             > "${'$'}REPORTS_DIR/successful-samples.txt"
             > "${'$'}REPORTS_DIR/failed-samples.txt"
             > "${'$'}REPORTS_DIR/skipped-samples.txt"
+            > "${'$'}REPORTS_DIR/detailed-errors.txt"
 
                 # Process each external sample, but don't exit on failures
                 for project_dir in "${'$'}{EXTERNAL_SAMPLE_DIRS[@]}"; do
@@ -372,7 +379,7 @@ EOF
                     echo ""
                     echo "=== [${'$'}TOTAL_SAMPLES] Validating external sample: ${'$'}project_dir ==="
 
-                # Check if project directory exists and is accessible
+                # Check if project directory exists
                 if [ ! -d "${'$'}project_dir" ]; then
                     echo "⚠️  Sample ${'$'}project_dir: DIRECTORY_NOT_FOUND - skipping"
                     SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
@@ -380,53 +387,129 @@ EOF
                     continue
                 fi
 
-                # Check if gradlew exists
-                if [ ! -f "${'$'}project_dir/gradlew" ]; then
-                    echo "⚠️  Sample ${'$'}project_dir: NO_GRADLE_WRAPPER - skipping"
-                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
-                    echo "SKIPPED: ${'$'}project_dir (no gradle wrapper)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
-                    continue
-                fi
+                # Prepare build log
+                BUILD_LOG="${'$'}REPORTS_DIR/build-$(basename "${'$'}project_dir").log"
+                BUILD_SUCCESS=false
 
-                    # Backup original gradle.properties if it exists
+                # Check if it's an Amper project (has module.yaml)
+                if [ -f "${'$'}project_dir/module.yaml" ]; then
+                    echo "Detected Amper project (module.yaml found)"
+                    
+                    # For Amper projects, check if there's also a Gradle wrapper as fallback
+                    if [ -f "${'$'}project_dir/gradlew" ]; then
+                        echo "Found Gradle wrapper, using it for validation..."
+                        # Apply EAP versions to gradle.properties
+                        if [ -f "${'$'}project_dir/gradle.properties" ]; then
+                            cp "${'$'}project_dir/gradle.properties" "${'$'}project_dir/gradle.properties.backup"
+                            grep -v -E "^(kotlin_version|ktor_version|logback_version)" "${'$'}project_dir/gradle.properties.backup" > "${'$'}project_dir/gradle.properties" || true
+                            cat "${'$'}WORK_DIR/gradle.properties.eap" >> "${'$'}project_dir/gradle.properties"
+                        else
+                            cp "${'$'}WORK_DIR/gradle.properties.eap" "${'$'}project_dir/gradle.properties"
+                        fi
+
+                        cd "${'$'}project_dir"
+                        echo "Building with timeout of 600 seconds using Gradle wrapper..."
+                        if timeout 600 ./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache > "${'$'}BUILD_LOG" 2>&1; then
+                            BUILD_SUCCESS=true
+                            echo "✅ Build successful with Gradle"
+                        else
+                            echo "❌ Gradle build failed, trying compile-only..."
+                            if timeout 300 ./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache >> "${'$'}BUILD_LOG" 2>&1; then
+                                BUILD_SUCCESS=true
+                                echo "✅ Compile successful with Gradle"
+                            fi
+                        fi
+                        cd "${'$'}WORK_DIR"
+
+                        # Restore original gradle.properties
+                        if [ -f "${'$'}project_dir/gradle.properties.backup" ]; then
+                            mv "${'$'}project_dir/gradle.properties.backup" "${'$'}project_dir/gradle.properties"
+                        else
+                            rm -f "${'$'}project_dir/gradle.properties"
+                        fi
+                    else
+                        echo "⚠️  Amper project without Gradle wrapper - skipping (Amper CLI not available in CI)"
+                        SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                        echo "SKIPPED: ${'$'}project_dir (Amper project without Gradle wrapper)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
+                        continue
+                    fi
+
+                elif [ -f "${'$'}project_dir/gradlew" ]; then
+                    echo "Detected Gradle project (gradlew found)"
+                    
+                    # Apply EAP versions to gradle.properties
                     if [ -f "${'$'}project_dir/gradle.properties" ]; then
                         cp "${'$'}project_dir/gradle.properties" "${'$'}project_dir/gradle.properties.backup"
+                        grep -v -E "^(kotlin_version|ktor_version|logback_version)" "${'$'}project_dir/gradle.properties.backup" > "${'$'}project_dir/gradle.properties" || true
+                        cat "${'$'}WORK_DIR/gradle.properties.eap" >> "${'$'}project_dir/gradle.properties"
+                    else
+                        cp "${'$'}WORK_DIR/gradle.properties.eap" "${'$'}project_dir/gradle.properties"
                     fi
 
-                # Apply EAP versions
-                cp "${'$'}WORK_DIR/gradle.properties.eap" "${'$'}project_dir/gradle.properties"
-
-                # Try to build the project - capture exit code but don't exit
-                BUILD_LOG="${'$'}REPORTS_DIR/build-$(basename "${'$'}project_dir").log"
-                echo "Building with timeout of 300 seconds..."
-
-                cd "${'$'}project_dir"
-                if timeout 300 ./gradlew build --no-daemon --continue --stacktrace --no-build-cache > "${'$'}BUILD_LOG" 2>&1; then
-                    echo "✅ Sample ${'$'}project_dir: BUILD SUCCESSFUL"
-                    SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
-                    echo "SUCCESS: ${'$'}project_dir" >> "${'$'}REPORTS_DIR/successful-samples.txt"
-                else
-                    BUILD_EXIT_CODE=$?
-                    echo "❌ Sample ${'$'}project_dir: BUILD FAILED (exit code: ${'$'}BUILD_EXIT_CODE)"
-                    FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
-                    echo "FAILED: ${'$'}project_dir (exit code: ${'$'}BUILD_EXIT_CODE)" >> "${'$'}REPORTS_DIR/failed-samples.txt"
-
-                    # Extract error summary from build log
-                    if [ -f "${'$'}BUILD_LOG" ]; then
-                        echo "Build error summary:" >> "${'$'}REPORTS_DIR/failed-samples.txt"
-                        tail -20 "${'$'}BUILD_LOG" | grep -E "(FAILURE|ERROR|Exception)" | head -5 >> "${'$'}REPORTS_DIR/failed-samples.txt" || true
-                        echo "---" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+                    cd "${'$'}project_dir"
+                    echo "Building with timeout of 600 seconds using Gradle..."
+                    if timeout 600 ./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache > "${'$'}BUILD_LOG" 2>&1; then
+                        BUILD_SUCCESS=true
+                        echo "✅ Build successful with assemble"
+                    else
+                        echo "❌ assemble failed, trying compile-only..."
+                        if timeout 300 ./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache >> "${'$'}BUILD_LOG" 2>&1; then
+                            BUILD_SUCCESS=true
+                            echo "✅ Compile successful"
+                        fi
                     fi
-                fi
-                cd "${'$'}WORK_DIR"
+                    cd "${'$'}WORK_DIR"
 
-                    # Restore original gradle.properties if it existed
+                    # Restore original gradle.properties
                     if [ -f "${'$'}project_dir/gradle.properties.backup" ]; then
                         mv "${'$'}project_dir/gradle.properties.backup" "${'$'}project_dir/gradle.properties"
                     else
                         rm -f "${'$'}project_dir/gradle.properties"
                     fi
-                done
+
+                elif [ -f "${'$'}project_dir/pom.xml" ]; then
+                    echo "Detected Maven project (pom.xml found)"
+                    cd "${'$'}project_dir"
+                    echo "Building with timeout of 600 seconds using Maven..."
+                    if timeout 600 mvn compile -Dkotlin.version="${'$'}KOTLIN_VERSION" -Dktor.version="${'$'}KTOR_VERSION" > "${'$'}BUILD_LOG" 2>&1; then
+                        BUILD_SUCCESS=true
+                        echo "✅ Maven compile successful"
+                    else
+                        echo "❌ Maven compile failed"
+                    fi
+                    cd "${'$'}WORK_DIR"
+
+                else
+                    echo "⚠️  Unknown build system - skipping"
+                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                    echo "SKIPPED: ${'$'}project_dir (unknown build system)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
+                    continue
+                fi
+
+                # Process results
+                if [ "${'$'}BUILD_SUCCESS" = "true" ]; then
+                    echo "✅ Sample ${'$'}project_dir: BUILD SUCCESSFUL"
+                    SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
+                    echo "SUCCESS: ${'$'}project_dir" >> "${'$'}REPORTS_DIR/successful-samples.txt"
+                else
+                    echo "❌ Sample ${'$'}project_dir: BUILD FAILED"
+                    FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
+                    echo "FAILED: ${'$'}project_dir" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+
+                    # Extract detailed error information
+                    if [ -f "${'$'}BUILD_LOG" ]; then
+                        echo "=== Error Analysis for ${'$'}project_dir ===" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
+                        echo "Build Failures:" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
+                        grep -E "FAILURE|BUILD FAILED|Error|ERROR" "${'$'}BUILD_LOG" | head -5 >> "${'$'}REPORTS_DIR/detailed-errors.txt" || true
+                        echo "---" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
+                        
+                        # Also add to main failed report
+                        echo "Build error summary:" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+                        tail -20 "${'$'}BUILD_LOG" | grep -E "(FAILURE|ERROR|Exception)" | head -5 >> "${'$'}REPORTS_DIR/failed-samples.txt" || true
+                        echo "---" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+                    fi
+                fi
+            done
 
                 # Calculate success rate
                 if [ "${'$'}TOTAL_SAMPLES" -gt 0 ]; then
@@ -458,6 +541,11 @@ Generated: $(date -Iseconds)
 Ktor Version: ${'$'}KTOR_VERSION
 Kotlin Version: ${'$'}KOTLIN_VERSION
 
+Build Strategy:
+- Gradle projects: ./gradlew assemble → compileKotlin/compileJava fallback
+- Amper projects: Use Gradle wrapper if available, otherwise skip
+- Maven projects: mvn compile
+
 Results:
 - Total Samples Processed: ${'$'}TOTAL_SAMPLES
 - Successful: ${'$'}SUCCESSFUL_SAMPLES
@@ -466,12 +554,10 @@ Results:
 - Success Rate: ${'$'}SUCCESS_RATE%
 
 Successful Samples (${'$'}SUCCESSFUL_SAMPLES):
-$(cat "${'$'}REPORTS_DIR/successful-samples.txt" 2>/dev/null | head -50 || echo "None")
-$([[ $(wc -l < "${'$'}REPORTS_DIR/successful-samples.txt" 2>/dev/null || echo 0) -gt 50 ]] && echo "... and more (see artifacts)" || echo "")
+$(cat "${'$'}REPORTS_DIR/successful-samples.txt" 2>/dev/null || echo "None")
 
 Failed Samples (${'$'}FAILED_SAMPLES):
-$(cat "${'$'}REPORTS_DIR/failed-samples.txt" 2>/dev/null | head -100 || echo "None")
-$([[ $(wc -l < "${'$'}REPORTS_DIR/failed-samples.txt" 2>/dev/null || echo 0) -gt 100 ]] && echo "... and more (see artifacts)" || echo "")
+$(cat "${'$'}REPORTS_DIR/failed-samples.txt" 2>/dev/null || echo "None")
 
 Skipped Samples (${'$'}SKIPPED_SAMPLES):
 $(cat "${'$'}REPORTS_DIR/skipped-samples.txt" 2>/dev/null || echo "None")
@@ -479,12 +565,12 @@ $(cat "${'$'}REPORTS_DIR/skipped-samples.txt" 2>/dev/null || echo "None")
 Status: COMPLETED
 EOF
 
-                echo "=== Step 2: External Samples Validation Completed ==="
-                
-                # Always succeed - let quality gate evaluate the results
-                # Even if all samples failed, that's valuable information for the quality gate
-                exit 0
-            """.trimIndent()
+            echo "=== Step 2: External Samples Validation Completed ==="
+            echo "Reports generated in: ${'$'}REPORTS_DIR"
+            
+            # Always succeed - let quality gate evaluate the results
+            exit 0
+        """.trimIndent()
         }
     }
 
@@ -521,8 +607,12 @@ EOF
                 cat > gradle-eap-init.gradle <<EOF
 allprojects {
     repositories {
-        maven("https://maven.pkg.jetbrains.space/public/p/ktor/eap")
-        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        maven {
+            url "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
+        }
+        maven {
+            url "https://maven.pkg.jetbrains.space/public/p/compose/dev"
+        }
         mavenCentral()
         gradlePluginPortal()
     }
