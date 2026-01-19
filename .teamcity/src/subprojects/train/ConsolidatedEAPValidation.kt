@@ -509,10 +509,20 @@ EOF
 
                 echo "=== Step 3: Processing Internal Test Results ==="
                 
-                # Get current parameter values or use fallback defaults
-                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
-                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
-                BUILD_STATUS=$(echo "%teamcity.build.status%" | sed 's/^%teamcity\.build\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                # Handle teamcity.build.status safely - it may not be available during static analysis
+                BUILD_STATUS="UNKNOWN"
+                if [ -n "${'$'}{teamcity_build_status:-}" ]; then
+                    BUILD_STATUS="${'$'}teamcity_build_status"
+                elif [ -n "${'$'}TEAMCITY_BUILD_STATUS" ]; then
+                    BUILD_STATUS="${'$'}TEAMCITY_BUILD_STATUS"
+                else
+                    # Try to determine from context - this is a fallback approach
+                    if [ -d "build/test-results" ] && find build/test-results -name "*.xml" -type f | head -1 | xargs grep -q 'failures="0".*errors="0"' 2>/dev/null; then
+                        BUILD_STATUS="SUCCESS"
+                    elif [ -d "build/test-results" ]; then
+                        BUILD_STATUS="FAILURE" 
+                    fi
+                fi
                 
                 echo "Analyzing internal test suite results"
                 echo "Ktor Version: ${'$'}KTOR_VERSION"
@@ -906,7 +916,6 @@ EOF
             executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptContent = """
                 #!/bin/bash
-                # Don't use 'set -e' - we want to generate as complete a report as possible
 
                 echo "=== Step 5: Report Generation & Notifications ==="
                 echo "Generating comprehensive reports and sending notifications"
@@ -916,9 +925,28 @@ EOF
                 KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
                 KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
                 KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | sed 's/^%env\.KTOR_COMPILER_PLUGIN_VERSION%$//' || echo "")
-                BUILD_VCS_NUMBER=$(echo "%build.vcs.number%" | sed 's/^%build\.vcs\.number%$/unknown/' || echo "unknown")
-                AGENT_NAME=$(echo "%agent.name%" | sed 's/^%agent\.name%$/unknown/' || echo "unknown")
                 
+                # Handle built-in TeamCity parameters safely
+                BUILD_VCS_NUMBER="unknown"
+                if [ -n "${'$'}{teamcity_build_vcs_number:-}" ]; then
+                    BUILD_VCS_NUMBER="${'$'}teamcity_build_vcs_number"
+                elif [ -n "${'$'}TEAMCITY_BUILD_VCS_NUMBER" ]; then
+                    BUILD_VCS_NUMBER="${'$'}TEAMCITY_BUILD_VCS_NUMBER"
+                elif [ -n "${'$'}{BUILD_VCS_NUMBER:-}" ]; then
+                    BUILD_VCS_NUMBER="${'$'}BUILD_VCS_NUMBER"
+                fi
+    
+                AGENT_NAME="unknown"
+                if [ -n "${'$'}{teamcity_agent_name:-}" ]; then
+                    AGENT_NAME="${'$'}teamcity_agent_name"
+                elif [ -n "${'$'}TEAMCITY_AGENT_NAME" ]; then
+                    AGENT_NAME="${'$'}TEAMCITY_AGENT_NAME"
+                elif [ -n "${'$'}{AGENT_NAME:-}" ]; then
+                    AGENT_NAME="${'$'}AGENT_NAME"
+                elif [ -n "${'$'}HOSTNAME" ]; then
+                    AGENT_NAME="${'$'}HOSTNAME"
+                fi
+
                 OVERALL_STATUS=$(echo "%quality.gate.overall.status%" | sed 's/^%quality\.gate\.overall\.status%$/UNKNOWN/' || echo "UNKNOWN")
                 OVERALL_SCORE=$(echo "%quality.gate.overall.score%" | sed 's/^%quality\.gate\.overall\.score%$/0/' || echo "0")
                 TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" | sed 's/^%quality\.gate\.total\.critical%$/0/' || echo "0")
