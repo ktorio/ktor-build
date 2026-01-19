@@ -106,6 +106,22 @@ object ConsolidatedEAPValidation {
             // Sample Counts for Validation
             param("quality.gate.external.samples.expected", "7")
             param("quality.gate.internal.samples.expected", "15")
+
+            // External validation parameters with default values to prevent agent compatibility issues
+            param("external.validation.total.samples", "0")
+            param("external.validation.successful.samples", "0")
+            param("external.validation.failed.samples", "0")
+            param("external.validation.success.rate", "0.0")
+            param("external.validation.status", "PENDING")
+
+            // Internal validation parameters with default values to prevent agent compatibility issues
+            param("internal.validation.total.tests", "0")
+            param("internal.validation.passed.tests", "0")
+            param("internal.validation.failed.tests", "0")
+            param("internal.validation.critical.issues", "0")
+            param("internal.validation.warning.issues", "0")
+            param("internal.validation.success.rate", "0.0")
+            param("internal.validation.status", "PENDING")
         }
 
         steps {
@@ -780,8 +796,38 @@ EOF
                 echo "=== Step 5: Report Generation & Notifications ==="
                 echo "Generating comprehensive reports and sending notifications"
                 echo "EAP Version: %env.KTOR_VERSION%"
-                echo "Overall Status: %quality.gate.overall.status%"
                 echo "Timestamp: $(date -Iseconds)"
+
+                # Read runtime parameter values
+                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
+                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
+                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
+
+                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
+                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
+                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
+
+                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
+                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
+                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
+                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
+                INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
+                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
+
+                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
+                NEXT_STEPS=$(echo "%quality.gate.next.steps%" 2>/dev/null || echo "Review validation results")
+                FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" 2>/dev/null || echo "")
+
+                # Read quality gate configuration parameters to avoid agent compatibility issues
+                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
+                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
+                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
+                CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
+
+                echo "Overall Status: ${'$'}OVERALL_STATUS"
 
                 # Generate comprehensive report
                 cat > quality-gate-reports/consolidated-eap-validation-report.txt <<EOF
@@ -791,10 +837,10 @@ Generated: $(date -Iseconds)
 Architecture: Consolidated Single Build
 
 Overall Assessment:
-- Status: %quality.gate.overall.status%
-- Score: %quality.gate.overall.score%/100 (weighted)
-- Critical Issues: %quality.gate.total.critical%
-- Ready for Release: $([[ "%quality.gate.overall.status%" == "PASSED" ]] && echo "YES" || echo "NO")
+- Status: ${'$'}OVERALL_STATUS
+- Score: ${'$'}OVERALL_SCORE/100 (weighted)
+- Critical Issues: ${'$'}TOTAL_CRITICAL
+- Ready for Release: $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "YES" || echo "NO")
 
 Step Results:
 Step 1 - Version Resolution: SUCCESS
@@ -802,28 +848,28 @@ Step 1 - Version Resolution: SUCCESS
   - Ktor Compiler Plugin: %env.KTOR_COMPILER_PLUGIN_VERSION%
   - Kotlin: %env.KOTLIN_VERSION%
 
-Step 2 - External Samples Validation: %external.gate.status% (%external.gate.score%/100)
-  - Total Samples: %external.validation.total.samples%
-  - Successful: %external.validation.successful.samples%
-  - Failed: %external.validation.failed.samples%
-  - Success Rate: %external.validation.success.rate%%
+Step 2 - External Samples Validation: ${'$'}EXTERNAL_GATE_STATUS (${'$'}EXTERNAL_GATE_SCORE/100)
+  - Total Samples: ${'$'}EXTERNAL_TOTAL_SAMPLES
+  - Successful: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES
+  - Failed: ${'$'}EXTERNAL_FAILED_SAMPLES
+  - Success Rate: ${'$'}EXTERNAL_SUCCESS_RATE%
 
-Step 3 - Internal Test Suites: %internal.gate.status% (%internal.gate.score%/100)
-  - Total Tests: %internal.validation.total.tests%
-  - Passed: %internal.validation.passed.tests%
-  - Failed: %internal.validation.failed.tests%
-  - Success Rate: %internal.validation.success.rate%%
+Step 3 - Internal Test Suites: ${'$'}INTERNAL_GATE_STATUS (${'$'}INTERNAL_GATE_SCORE/100)
+  - Total Tests: ${'$'}INTERNAL_TOTAL_TESTS
+  - Passed: ${'$'}INTERNAL_PASSED_TESTS
+  - Failed: ${'$'}INTERNAL_FAILED_TESTS
+  - Success Rate: ${'$'}INTERNAL_SUCCESS_RATE%
 
 Step 4 - Quality Gate Evaluation: COMPLETED
-  - Scoring Strategy: Weighted (External %quality.gate.scoring.external.weight%%, Internal %quality.gate.scoring.internal.weight%%)
-  - Minimum Score Threshold: %quality.gate.thresholds.minimum.score%
-  - Critical Issues Threshold: %quality.gate.thresholds.critical.issues%
+  - Scoring Strategy: Weighted (External ${'$'}EXTERNAL_WEIGHT%, Internal ${'$'}INTERNAL_WEIGHT%)
+  - Minimum Score Threshold: ${'$'}MINIMUM_SCORE
+  - Critical Issues Threshold: ${'$'}CRITICAL_ISSUES_THRESHOLD
 
 Step 5 - Report Generation & Notifications: IN PROGRESS
 
-Recommendations: %quality.gate.recommendations%
-Next Steps: %quality.gate.next.steps%
-$([[ "%quality.gate.overall.status%" == "FAILED" ]] && echo "Failure Reasons: %quality.gate.failure.reasons%" || echo "")
+Recommendations: ${'$'}RECOMMENDATIONS
+Next Steps: ${'$'}NEXT_STEPS
+$([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo "Failure Reasons: ${'$'}FAILURE_REASONS" || echo "")
 EOF
 
                 # Generate JSON report
@@ -832,9 +878,9 @@ EOF
     "eapVersion": "%env.KTOR_VERSION%",
     "timestamp": "$(date -Iseconds)",
     "architecture": "consolidated",
-    "overallStatus": "%quality.gate.overall.status%",
-    "overallScore": %quality.gate.overall.score%,
-    "totalCriticalIssues": %quality.gate.total.critical%,
+    "overallStatus": "${'$'}OVERALL_STATUS",
+    "overallScore": ${'$'}OVERALL_SCORE,
+    "totalCriticalIssues": ${'$'}TOTAL_CRITICAL,
     "steps": {
         "versionResolution": {
             "status": "SUCCESS",
@@ -843,36 +889,36 @@ EOF
             "kotlinVersion": "%env.KOTLIN_VERSION%"
         },
         "externalSamplesValidation": {
-            "status": "%external.gate.status%",
-            "score": %external.gate.score%,
-            "totalSamples": %external.validation.total.samples%,
-            "successfulSamples": %external.validation.successful.samples%,
-            "failedSamples": %external.validation.failed.samples%,
-            "successRate": %external.validation.success.rate%
+            "status": "${'$'}EXTERNAL_GATE_STATUS",
+            "score": ${'$'}EXTERNAL_GATE_SCORE,
+            "totalSamples": ${'$'}EXTERNAL_TOTAL_SAMPLES,
+            "successfulSamples": ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES,
+            "failedSamples": ${'$'}EXTERNAL_FAILED_SAMPLES,
+            "successRate": ${'$'}EXTERNAL_SUCCESS_RATE
         },
         "internalTestSuites": {
-            "status": "%internal.gate.status%",
-            "score": %internal.gate.score%,
-            "totalTests": %internal.validation.total.tests%,
-            "passedTests": %internal.validation.passed.tests%,
-            "failedTests": %internal.validation.failed.tests%,
-            "successRate": %internal.validation.success.rate%
+            "status": "${'$'}INTERNAL_GATE_STATUS",
+            "score": ${'$'}INTERNAL_GATE_SCORE,
+            "totalTests": ${'$'}INTERNAL_TOTAL_TESTS,
+            "passedTests": ${'$'}INTERNAL_PASSED_TESTS,
+            "failedTests": ${'$'}INTERNAL_FAILED_TESTS,
+            "successRate": ${'$'}INTERNAL_SUCCESS_RATE
         },
         "qualityGateEvaluation": {
             "status": "COMPLETED",
             "scoringStrategy": "weighted",
             "thresholds": {
-                "minimumScore": %quality.gate.thresholds.minimum.score%,
-                "criticalIssues": %quality.gate.thresholds.critical.issues%
+                "minimumScore": ${'$'}MINIMUM_SCORE,
+                "criticalIssues": ${'$'}CRITICAL_ISSUES_THRESHOLD
             }
         },
         "reportGeneration": {
             "status": "IN_PROGRESS"
         }
     },
-    "recommendations": "%quality.gate.recommendations%",
-    "nextSteps": "%quality.gate.next.steps%",
-    "readyForRelease": $([[ "%quality.gate.overall.status%" == "PASSED" ]] && echo "true" || echo "false")
+    "recommendations": "${'$'}RECOMMENDATIONS",
+    "nextSteps": "${'$'}NEXT_STEPS",
+    "readyForRelease": $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "true" || echo "false")
 }
 EOF
 
@@ -882,26 +928,24 @@ EOF
                 echo "##teamcity[publishArtifacts 'internal-validation-reports => internal-validation-reports.zip']"
                 echo "##teamcity[publishArtifacts 'quality-gate-reports => quality-gate-reports.zip']"
 
-                STATUS="%quality.gate.overall.status%"
-                SCORE="%quality.gate.overall.score%"
                 VERSION="%env.KTOR_VERSION%"
 
                 echo "=== Final Consolidated EAP Validation Results ==="
                 echo "EAP Version: ${'$'}VERSION"
-                echo "Overall Status: ${'$'}STATUS"
-                echo "Overall Score: ${'$'}SCORE/100"
+                echo "Overall Status: ${'$'}OVERALL_STATUS"
+                echo "Overall Score: ${'$'}OVERALL_SCORE/100"
 
-                if [ "${'$'}STATUS" = "PASSED" ]; then
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
                     echo "✅ Consolidated EAP validation passed!"
-                    echo "Recommendations: %quality.gate.recommendations%"
-                    echo "Next Steps: %quality.gate.next.steps%"
+                    echo "Recommendations: ${'$'}RECOMMENDATIONS"
+                    echo "Next Steps: ${'$'}NEXT_STEPS"
                     echo "=== Step 5: Report Generation & Notifications Completed Successfully ==="
                     exit 0
                 else
                     echo "❌ Consolidated EAP validation failed!"
-                    echo "Failure Reasons: %quality.gate.failure.reasons%"
-                    echo "Recommendations: %quality.gate.recommendations%"
-                    echo "Next Steps: %quality.gate.next.steps%"
+                    echo "Failure Reasons: ${'$'}FAILURE_REASONS"
+                    echo "Recommendations: ${'$'}RECOMMENDATIONS"
+                    echo "Next Steps: ${'$'}NEXT_STEPS"
                     echo "=== Step 5: Report Generation & Notifications Completed with Failures ==="
                     exit 1
                 fi
