@@ -312,25 +312,33 @@ EOF
                     ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
                 )
 
-            # Clone external sample repositories
-            echo "Cloning external sample repositories..."
+            # Clone external sample repositories in parallel
+            echo "Cloning external sample repositories in parallel..."
+            clone_pids=()
             for sample_name in "${'$'}{!EXTERNAL_SAMPLES[@]}"; do
                 sample_url="${'$'}{EXTERNAL_SAMPLES[${'$'}sample_name]}"
                 target_dir="${'$'}SAMPLES_DIR/${'$'}sample_name"
-
+                
+                (
                     echo "Cloning ${'$'}sample_name from ${'$'}sample_url to ${'$'}target_dir"
-
                     if [ -d "${'$'}target_dir" ]; then
-                        echo "Directory ${'$'}target_dir already exists, removing it first"
                         rm -rf "${'$'}target_dir"
                     fi
-
-                    if git clone --depth 1 "${'$'}sample_url" "${'$'}target_dir"; then
+                    
+                    if git clone --depth 1 "${'$'}sample_url" "${'$'}target_dir" >/dev/null 2>&1; then
                         echo "✅ Successfully cloned ${'$'}sample_name"
                     else
                         echo "❌ Failed to clone ${'$'}sample_name"
                     fi
-                done
+                ) &
+                clone_pids+=($!)
+            done
+            
+            # Wait for all clones to complete
+            for clone_pid in "${'$'}{clone_pids[@]}"; do
+                wait "${'$'}clone_pid"
+            done
+            echo "All repositories cloned"
 
             # Define external sample project directories using absolute paths
             EXTERNAL_SAMPLE_DIRS=(
@@ -343,15 +351,10 @@ EOF
                 "${'$'}SAMPLES_DIR/ktor-full-stack-real-world"
             )
 
-                TOTAL_SAMPLES=0
-                SUCCESSFUL_SAMPLES=0
-                FAILED_SAMPLES=0
-                SKIPPED_SAMPLES=0
-
-                echo "External sample projects to validate:"
-                for project_dir in "${'$'}{EXTERNAL_SAMPLE_DIRS[@]}"; do
-                    echo "- ${'$'}project_dir"
-                done
+            echo "External sample projects to validate:"
+            for project_dir in "${'$'}{EXTERNAL_SAMPLE_DIRS[@]}"; do
+                echo "- ${'$'}project_dir"
+            done
 
             # Create gradle.properties with EAP versions for Gradle projects
             cat > "${'$'}WORK_DIR/gradle.properties.eap" <<EOF
@@ -373,23 +376,29 @@ EOF
             > "${'$'}REPORTS_DIR/skipped-samples.txt"
             > "${'$'}REPORTS_DIR/detailed-errors.txt"
 
-                # Process each external sample, but don't exit on failures
-                for project_dir in "${'$'}{EXTERNAL_SAMPLE_DIRS[@]}"; do
-                    TOTAL_SAMPLES=$((TOTAL_SAMPLES + 1))
+            # Process all samples in parallel using a simpler approach
+            echo ""
+            echo "=== Starting parallel validation of ${'$'}{#EXTERNAL_SAMPLE_DIRS[@]} samples ==="
+            
+            build_pids=()
+            sample_index=1
+            
+            for project_dir in "${'$'}{EXTERNAL_SAMPLE_DIRS[@]}"; do
+                sample_name=$(basename "${'$'}project_dir")
+                (
                     echo ""
-                    echo "=== [${'$'}TOTAL_SAMPLES] Validating external sample: ${'$'}project_dir ==="
+                    echo "=== [${'$'}sample_index] Validating external sample: ${'$'}project_dir ==="
 
-                # Check if project directory exists
-                if [ ! -d "${'$'}project_dir" ]; then
-                    echo "⚠️  Sample ${'$'}project_dir: DIRECTORY_NOT_FOUND - skipping"
-                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
-                    echo "SKIPPED: ${'$'}project_dir (directory not found)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
-                    continue
-                fi
+                    # Check if project directory exists
+                    if [ ! -d "${'$'}project_dir" ]; then
+                        echo "⚠️  Sample ${'$'}project_dir: DIRECTORY_NOT_FOUND - skipping"
+                        echo "SKIPPED: ${'$'}project_dir (directory not found)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
+                        exit 2  # skipped
+                    fi
 
-                # Prepare build log
-                BUILD_LOG="${'$'}REPORTS_DIR/build-$(basename "${'$'}project_dir").log"
-                BUILD_SUCCESS=false
+                    # Prepare build log
+                    BUILD_LOG="${'$'}REPORTS_DIR/build-${'$'}sample_name.log"
+                    BUILD_SUCCESS=false
 
                 # Check if it's an Amper project (has module.yaml)
                 if [ -f "${'$'}project_dir/module.yaml" ]; then
@@ -421,18 +430,17 @@ EOF
                         fi
                         cd "${'$'}WORK_DIR"
 
-                        # Restore original gradle.properties
-                        if [ -f "${'$'}project_dir/gradle.properties.backup" ]; then
-                            mv "${'$'}project_dir/gradle.properties.backup" "${'$'}project_dir/gradle.properties"
+                            # Restore original gradle.properties
+                            if [ -f "${'$'}project_dir/gradle.properties.backup" ]; then
+                                mv "${'$'}project_dir/gradle.properties.backup" "${'$'}project_dir/gradle.properties"
+                            else
+                                rm -f "${'$'}project_dir/gradle.properties"
+                            fi
                         else
-                            rm -f "${'$'}project_dir/gradle.properties"
+                            echo "⚠️  Amper project without Gradle wrapper - skipping (Amper CLI not available in CI)"
+                            echo "SKIPPED: ${'$'}project_dir (Amper project without Gradle wrapper)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
+                            exit 2  # skipped
                         fi
-                    else
-                        echo "⚠️  Amper project without Gradle wrapper - skipping (Amper CLI not available in CI)"
-                        SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
-                        echo "SKIPPED: ${'$'}project_dir (Amper project without Gradle wrapper)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
-                        continue
-                    fi
 
                 elif [ -f "${'$'}project_dir/gradlew" ]; then
                     echo "Detected Gradle project (gradlew found)"
@@ -479,36 +487,57 @@ EOF
                     fi
                     cd "${'$'}WORK_DIR"
 
-                else
-                    echo "⚠️  Unknown build system - skipping"
-                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
-                    echo "SKIPPED: ${'$'}project_dir (unknown build system)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
-                    continue
-                fi
-
-                # Process results
-                if [ "${'$'}BUILD_SUCCESS" = "true" ]; then
-                    echo "✅ Sample ${'$'}project_dir: BUILD SUCCESSFUL"
-                    SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
-                    echo "SUCCESS: ${'$'}project_dir" >> "${'$'}REPORTS_DIR/successful-samples.txt"
-                else
-                    echo "❌ Sample ${'$'}project_dir: BUILD FAILED"
-                    FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
-                    echo "FAILED: ${'$'}project_dir" >> "${'$'}REPORTS_DIR/failed-samples.txt"
-
-                    # Extract detailed error information
-                    if [ -f "${'$'}BUILD_LOG" ]; then
-                        echo "=== Error Analysis for ${'$'}project_dir ===" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
-                        echo "Build Failures:" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
-                        grep -E "FAILURE|BUILD FAILED|Error|ERROR" "${'$'}BUILD_LOG" | head -5 >> "${'$'}REPORTS_DIR/detailed-errors.txt" || true
-                        echo "---" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
-                        
-                        # Also add to main failed report
-                        echo "Build error summary:" >> "${'$'}REPORTS_DIR/failed-samples.txt"
-                        tail -20 "${'$'}BUILD_LOG" | grep -E "(FAILURE|ERROR|Exception)" | head -5 >> "${'$'}REPORTS_DIR/failed-samples.txt" || true
-                        echo "---" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+                    else
+                        echo "⚠️  Unknown build system - skipping"
+                        echo "SKIPPED: ${'$'}project_dir (unknown build system)" >> "${'$'}REPORTS_DIR/skipped-samples.txt"
+                        exit 2  # skipped
                     fi
-                fi
+
+                    # Process results
+                    if [ "${'$'}BUILD_SUCCESS" = "true" ]; then
+                        echo "✅ Sample ${'$'}project_dir: BUILD SUCCESSFUL"
+                        echo "SUCCESS: ${'$'}project_dir" >> "${'$'}REPORTS_DIR/successful-samples.txt"
+                        exit 0  # success
+                    else
+                        echo "❌ Sample ${'$'}project_dir: BUILD FAILED"
+                        echo "FAILED: ${'$'}project_dir" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+
+                        # Extract detailed error information
+                        if [ -f "${'$'}BUILD_LOG" ]; then
+                            echo "=== Error Analysis for ${'$'}project_dir ===" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
+                            echo "Build Failures:" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
+                            grep -E "FAILURE|BUILD FAILED|Error|ERROR" "${'$'}BUILD_LOG" | head -5 >> "${'$'}REPORTS_DIR/detailed-errors.txt" || true
+                            echo "---" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
+                            
+                            # Also add to main failed report
+                            echo "Build error summary:" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+                            tail -20 "${'$'}BUILD_LOG" | grep -E "(FAILURE|ERROR|Exception)" | head -5 >> "${'$'}REPORTS_DIR/failed-samples.txt" || true
+                            echo "---" >> "${'$'}REPORTS_DIR/failed-samples.txt"
+                        fi
+                        exit 1  # failed
+                    fi
+                ) &
+                build_pids+=($!)
+                sample_index=$((sample_index + 1))
+            done
+
+            # Wait for all builds to complete and collect results
+            TOTAL_SAMPLES=0
+            SUCCESSFUL_SAMPLES=0
+            FAILED_SAMPLES=0
+            SKIPPED_SAMPLES=0
+
+            echo "Waiting for all builds to complete..."
+            for build_pid in "${'$'}{build_pids[@]}"; do
+                wait "${'$'}build_pid"
+                result_code=$?
+                TOTAL_SAMPLES=$((TOTAL_SAMPLES + 1))
+                
+                case "${'$'}result_code" in
+                    0) SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1)) ;;
+                    1) FAILED_SAMPLES=$((FAILED_SAMPLES + 1)) ;;
+                    2) SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1)) ;;
+                esac
             done
 
                 # Calculate success rate
@@ -554,13 +583,13 @@ Results:
 - Success Rate: ${'$'}SUCCESS_RATE%
 
 Successful Samples (${'$'}SUCCESSFUL_SAMPLES):
-$(cat "${'$'}REPORTS_DIR/successful-samples.txt" 2>/dev/null || echo "None")
+$(cat "${'$'}REPORTS_DIR/successful-samples.txt" 2>/dev/null | sort || echo "None")
 
 Failed Samples (${'$'}FAILED_SAMPLES):
-$(cat "${'$'}REPORTS_DIR/failed-samples.txt" 2>/dev/null || echo "None")
+$(cat "${'$'}REPORTS_DIR/failed-samples.txt" 2>/dev/null | sort || echo "None")
 
 Skipped Samples (${'$'}SKIPPED_SAMPLES):
-$(cat "${'$'}REPORTS_DIR/skipped-samples.txt" 2>/dev/null || echo "None")
+$(cat "${'$'}REPORTS_DIR/skipped-samples.txt" 2>/dev/null | sort || echo "None")
 
 Status: COMPLETED
 EOF
