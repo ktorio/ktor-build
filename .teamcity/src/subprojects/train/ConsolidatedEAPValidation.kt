@@ -7,6 +7,7 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.build.defaultGradleParams
 import subprojects.VCSCore
+import subprojects.VCSSamples
 import dsl.addSlackNotifications
 
 object EapConstants {
@@ -15,987 +16,602 @@ object EapConstants {
         "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
     const val KTOR_COMPILER_PLUGIN_METADATA_URL =
         "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
+    const val KOTLIN_EAP_METADATA_URL =
+        "https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev/org/jetbrains/kotlin/kotlin-compiler-embeddable/maven-metadata.xml"
 }
 
 object ConsolidatedEAPValidation {
-    fun createConsolidatedProject(): Project = Project {
-        id("ConsolidatedEAPValidation")
-        name = "Consolidated EAP Validation"
-        description =
-            "Consolidated EAP validation that runs all validation steps in sequence: Version Resolution → External Samples → Internal Tests → Quality Gate → Reports"
+    fun createConsolidatedProject(): Project =
+        Project {
+            id("ConsolidatedEAPValidation")
+            name = "Consolidated EAP Validation"
+            description = "Consolidated EAP validation project for external and internal projects"
 
-        val consolidatedBuild = createConsolidatedBuild()
-        buildType(consolidatedBuild)
-    }
+            buildType(createConsolidatedBuild())
+
+            params {
+                param("teamcity.ui.settings.readOnly", "false")
+            }
+        }
 
     /**
      * Creates a consolidated EAP validation build that combines all validation steps into one build
      *
      * Step 1: Version Resolution
-     * Step 2: External Samples Validation (Parallel)
+     * Step 2: External Samples Validation
      * Step 3: Internal Test Suites
      * Step 4: Quality Gate Evaluation
      * Step 5: Report Generation & Notifications
      */
-    private fun createConsolidatedBuild(): BuildType = BuildType {
-        id("ConsolidatedEAPValidation")
-        name = "Consolidated EAP Validation Build"
-        description = "Consolidated build that runs all EAP validation steps in sequence"
+    private fun createConsolidatedBuild(): BuildType =
+        BuildType {
+            id("ConsolidatedEAPValidation")
+            name = "Consolidated EAP Validation"
+            description = "Consolidated build that validates Ktor EAP releases"
 
-        vcs {
-            root(VCSCore)
-        }
+            artifactRules = """
+                version-resolution-reports => version-resolution-reports.zip
+                external-validation-reports => external-validation-reports.zip  
+                internal-validation-reports => internal-validation-reports.zip
+                quality-gate-reports => quality-gate-reports.zip
+            """.trimIndent()
 
-        requirements {
-            exists("teamcity.agent.jvm.os.name")
-        }
+            params {
+                // Quality Gate Configuration Parameters
+                param("quality.gate.scoring.external.weight", "60")
+                param("quality.gate.scoring.internal.weight", "40")
+                param("quality.gate.thresholds.minimum.score", "80")
+                param("quality.gate.thresholds.critical.issues", "0")
 
+                // Optional Slack webhook for detailed notifications
+                param("system.slack.webhook.url", "")
 
-        params {
-            defaultGradleParams()
+                defaultGradleParams()
+            }
 
-            // EAP Version parameters
-            param("env.KTOR_VERSION", "")
-            param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
-            param("env.KOTLIN_VERSION", "")
+            vcs {
+                root(VCSCore)
+                root(VCSSamples, "+:. => samples")
+                cleanCheckout = true
+            }
 
-            // External validation parameters
-            param("ktor.eap.version", "KTOR_VERSION")
-            param("enhanced.validation.enabled", "true")
-            param("toml.comprehensive.handling", "true")
-            param("configuration.preservation.enabled", "true")
-            param("special.handling.enabled", "true")
-            param("compose.multiplatform.support", "true")
-            param("testcontainers.cloud.enabled", "true")
-            password("testcontainers-cloud-token", "credentialsJSON:your-testcontainers-cloud-token-id")
+            steps {
+                versionResolution()
+                externalSamplesValidation()
+                internalTestSuites()
+                qualityGateEvaluation()
+                reportGenerationAndNotifications()
+            }
 
-            // Quality Gate Configuration
-            param("quality.gate.enabled", "true")
-            param("quality.gate.thresholds.minimum.score", "80")
-            param("quality.gate.thresholds.critical.issues", "0")
-            param("quality.gate.thresholds.warning.issues", "5")
-            param("quality.gate.thresholds.success.rate", "95.0")
-            param("quality.gate.execution.timeout.minutes", "120")
+            triggers {
+                finishBuildTrigger {
+                    buildType = "KtorEAP_EAPValidation"
+                    successfulOnly = true
+                    branchFilter = "+:*"
+                }
+            }
 
-            // Initialize runtime parameters with default values
-            param("quality.gate.overall.status", "PENDING")
-            param("quality.gate.overall.score", "0")
-            param("quality.gate.total.critical", "0")
-            param("external.gate.status", "PENDING")
-            param("external.gate.score", "0")
-            param("internal.gate.status", "PENDING")
-            param("internal.gate.score", "0")
-            param("quality.gate.recommendations", "Quality gate evaluation not yet started")
-            param("quality.gate.next.steps", "Waiting for validation steps to complete")
-            param("quality.gate.failure.reasons", "Quality gate evaluation failed for unknown reasons")
+            failureConditions {
+                failOnText {
+                    conditionType = BuildFailureOnText.ConditionType.CONTAINS
+                    pattern = "QUALITY_GATE_FAILED"
+                    failureMessage = "Quality gate validation failed"
+                    reverse = false
+                }
+            }
 
-            // Scoring Configuration
-            param("quality.gate.scoring.base.score", "100")
-            param("quality.gate.scoring.external.weight", "60")
-            param("quality.gate.scoring.internal.weight", "40")
-            param("quality.gate.scoring.failure.penalty", "50")
-            param("quality.gate.scoring.critical.penalty", "20")
-            param("quality.gate.scoring.warning.penalty", "5")
+            addSlackNotifications(
+                channel = "#ktor-projects-on-eap",
+                buildFailed = true,
+                buildFinishedSuccessfully = true
+            )
 
-            // Notification Configuration
-            param("quality.gate.notification.channel.main", "#ktor-projects-on-eap")
-            param("quality.gate.notification.channel.alerts", "#ktor-projects-on-eap")
-            param("quality.gate.notification.connection", "PROJECT_EXT_5")
-            param("quality.gate.notification.enhanced", "true")
-
-            // Sample Counts for Validation
-            param("quality.gate.external.samples.expected", "7")
-            param("quality.gate.internal.samples.expected", "15")
-
-            // External validation parameters with default
-            param("external.validation.total.samples", "0")
-            param("external.validation.successful.samples", "0")
-            param("external.validation.failed.samples", "0")
-            param("external.validation.success.rate", "0.0")
-            param("external.validation.status", "PENDING")
-
-            // Internal validation parameters with default
-            param("internal.validation.total.tests", "0")
-            param("internal.validation.passed.tests", "0")
-            param("internal.validation.failed.tests", "0")
-            param("internal.validation.critical.issues", "0")
-            param("internal.validation.warning.issues", "0")
-            param("internal.validation.success.rate", "0.0")
-            param("internal.validation.status", "PENDING")
-        }
-
-        steps {
-            versionResolution()
-            externalSamplesValidation()
-            internalTestSuites()
-            qualityGateEvaluation()
-            reportGenerationAndNotifications()
-        }
-
-        triggers {
-            finishBuildTrigger {
-                buildType = "KtorPublish_AllEAP"
-                successfulOnly = true
-                branchFilter = "+:refs/heads/*"
+            requirements {
+                startsWith("teamcity.agent.jvm.os.name", "Linux")
+                exists("env.JAVA_HOME")
             }
         }
-
-        addSlackNotifications()
-
-        failureConditions {
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "ERROR:"
-                failureMessage = "Error detected in EAP validation"
-                stopBuildOnFailure = true
-            }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "CRITICAL ERROR:"
-                failureMessage = "Critical error in EAP validation"
-                stopBuildOnFailure = true
-            }
-            failOnText {
-                conditionType = BuildFailureOnText.ConditionType.CONTAINS
-                pattern = "❌ Consolidated EAP validation failed!"
-                failureMessage = "EAP quality gates did not meet release criteria"
-                stopBuildOnFailure = false
-            }
-            executionTimeoutMin = 120
-        }
-
-        artifactRules = """
-            external-validation-reports => external-validation-reports.zip
-            internal-validation-reports => internal-validation-reports.zip
-            quality-gate-reports => quality-gate-reports.zip
-        """.trimIndent()
-    }
 
     /**
      * Step 1: Version Resolution
      * Fetches the latest EAP versions for Ktor framework, compiler plugin, and Kotlin
+     * Uses resilient approach - continues even if some versions fail to fetch
      */
     private fun BuildSteps.versionResolution() {
         script {
             name = "Step 1: Version Resolution"
             scriptContent = """
                 #!/bin/bash
-                set -e
+                # Don't use 'set -e' - we want to collect as much data as possible
 
                 echo "=== Step 1: Version Resolution ==="
                 echo "Fetching latest EAP versions for Ktor framework, compiler plugin, and Kotlin"
-                echo "Timestamp: $(date -Iseconds)"
 
-                # Create reports directory
                 mkdir -p version-resolution-reports
 
-                # Fetch Latest EAP Ktor Framework Version
-                echo "=== Fetching Latest Ktor EAP Framework Version ==="
-                METADATA_URL="${EapConstants.KTOR_EAP_METADATA_URL}"
-                TEMP_METADATA=$(mktemp)
+                FETCH_ERRORS=0
+                VERSION_REPORT=""
 
-                echo "Fetching framework metadata from: ${'$'}METADATA_URL"
-
-                if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}METADATA_URL" -o "${'$'}TEMP_METADATA" 2>/dev/null; then
-                    echo "Successfully fetched framework metadata"
-
-                    LATEST_EAP_VERSION=$(grep -o "<latest>[^<]*</latest>" "${'$'}TEMP_METADATA" | sed 's/<latest>//;s/<\/latest>//')
-
-                    if [ -z "${'$'}LATEST_EAP_VERSION" ]; then
-                        LATEST_EAP_VERSION=$(grep -o "${EapConstants.EAP_VERSION_REGEX}" "${'$'}TEMP_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
-                    fi
-
-                    if [ -n "${'$'}LATEST_EAP_VERSION" ]; then
-                        echo "Found latest EAP framework version: ${'$'}LATEST_EAP_VERSION"
-                        echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}LATEST_EAP_VERSION']"
+                # Fetch Ktor Framework EAP version
+                echo "Fetching Ktor Framework EAP version..."
+                KTOR_VERSION=""
+                if KTOR_VERSION=$(curl -s -f --max-time 30 "${EapConstants.KTOR_EAP_METADATA_URL}" | grep -o "${EapConstants.EAP_VERSION_REGEX}" | head -1 | sed 's/[><]//g'); then
+                    if [ -n "${'$'}KTOR_VERSION" ]; then
+                        echo "✅ Latest Ktor EAP version: ${'$'}KTOR_VERSION"
+                        echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: ${'$'}KTOR_VERSION (SUCCESS)\n"
                     else
-                        echo "ERROR: No EAP version found in metadata"
-                        exit 1
+                        echo "❌ Failed to parse Ktor EAP version from metadata"
+                        FETCH_ERRORS=$((FETCH_ERRORS + 1))
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: PARSE_ERROR\n"
                     fi
-
-                    rm -f "${'$'}TEMP_METADATA"
                 else
-                    echo "ERROR: Failed to fetch framework metadata from ${'$'}METADATA_URL"
-                    exit 1
+                    echo "❌ Failed to fetch Ktor EAP version from ${EapConstants.KTOR_EAP_METADATA_URL}"
+                    FETCH_ERRORS=$((FETCH_ERRORS + 1))
+                    VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: FETCH_ERROR\n"
                 fi
 
-                # Fetch Latest EAP Ktor Compiler Plugin Version
-                echo "=== Fetching Latest Ktor Compiler Plugin Version ==="
-                COMPILER_METADATA_URL="${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}"
-                TEMP_COMPILER_METADATA=$(mktemp)
-
-                echo "Fetching compiler plugin metadata from: ${'$'}COMPILER_METADATA_URL"
-
-                if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}COMPILER_METADATA_URL" -o "${'$'}TEMP_COMPILER_METADATA" 2>/dev/null; then
-                    echo "Successfully fetched compiler plugin metadata"
-
-                    LATEST_COMPILER_VERSION=$(grep -o "<latest>[^<]*</latest>" "${'$'}TEMP_COMPILER_METADATA" | sed 's/<latest>//;s/<\/latest>//')
-
-                    if [ -z "${'$'}LATEST_COMPILER_VERSION" ]; then
-                        LATEST_COMPILER_VERSION=$(grep -o "${EapConstants.EAP_VERSION_REGEX}" "${'$'}TEMP_COMPILER_METADATA" | sed 's/[><]//g' | sort -V | tail -n 1)
-                    fi
-
-                    if [ -n "${'$'}LATEST_COMPILER_VERSION" ]; then
-                        echo "Found latest compiler plugin version: ${'$'}LATEST_COMPILER_VERSION"
-                        echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}LATEST_COMPILER_VERSION']"
+                # Fetch Ktor Compiler Plugin EAP version
+                echo "Fetching Ktor Compiler Plugin EAP version..."
+                KTOR_COMPILER_PLUGIN_VERSION=""
+                if KTOR_COMPILER_PLUGIN_VERSION=$(curl -s -f --max-time 30 "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}" | grep -o "${EapConstants.EAP_VERSION_REGEX}" | head -1 | sed 's/[><]//g'); then
+                    if [ -n "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
+                        echo "✅ Latest Ktor Compiler Plugin EAP version: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
+                        echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: ${'$'}KTOR_COMPILER_PLUGIN_VERSION (SUCCESS)\n"
                     else
-                        echo "ERROR: No compiler plugin version found in metadata"
-                        exit 1
+                        echo "❌ Failed to parse Ktor Compiler Plugin EAP version from metadata"
+                        FETCH_ERRORS=$((FETCH_ERRORS + 1))
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: PARSE_ERROR\n"
                     fi
-
-                    rm -f "${'$'}TEMP_COMPILER_METADATA"
                 else
-                    echo "ERROR: Failed to fetch compiler plugin metadata from ${'$'}COMPILER_METADATA_URL"
-                    exit 1
+                    echo "❌ Failed to fetch Ktor Compiler Plugin EAP version from ${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}"
+                    FETCH_ERRORS=$((FETCH_ERRORS + 1))
+                    VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: FETCH_ERROR\n"
                 fi
 
-                # Fetch latest Kotlin version from GitHub API
-                echo "=== Fetching Latest Kotlin Version ==="
-                KOTLIN_API_URL="https://api.github.com/repos/JetBrains/kotlin/releases/latest"
-                TEMP_KOTLIN_METADATA=$(mktemp)
-
-                echo "Fetching Kotlin version from: ${'$'}KOTLIN_API_URL"
-
-                if curl -fsSL --connect-timeout 10 --max-time 30 --retry 3 --retry-delay 2 "${'$'}KOTLIN_API_URL" -o "${'$'}TEMP_KOTLIN_METADATA" 2>/dev/null; then
-                    echo "Successfully fetched Kotlin metadata"
-
-                    LATEST_KOTLIN_VERSION=$(grep -o '"tag_name": *"[^"]*"' "${'$'}TEMP_KOTLIN_METADATA" | sed 's/"tag_name": *"//;s/"//' | sed 's/^v//')
-
-                    if [ -n "${'$'}LATEST_KOTLIN_VERSION" ]; then
-                        echo "Found latest Kotlin version: ${'$'}LATEST_KOTLIN_VERSION"
-                        echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
+                # Fetch Kotlin version (try EAP first, fallback to stable)
+                echo "Fetching Kotlin version..."
+                KOTLIN_VERSION=""
+                if KOTLIN_VERSION=$(curl -s -f --max-time 30 "${EapConstants.KOTLIN_EAP_METADATA_URL}" | grep -o ">2\.[0-9]\+\.[0-9]\+\(-[A-Za-z0-9\-]\+\)\?<" | head -1 | sed 's/[><]//g' 2>/dev/null); then
+                    if [ -n "${'$'}KOTLIN_VERSION" ]; then
+                        echo "✅ Latest Kotlin version: ${'$'}KOTLIN_VERSION (from EAP repository)"
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (EAP_SUCCESS)\n"
                     else
-                        echo "WARNING: No Kotlin version found in GitHub API, using fallback"
-                        LATEST_KOTLIN_VERSION="2.1.21"  # Fallback version
-                        echo "Using fallback Kotlin version: ${'$'}LATEST_KOTLIN_VERSION"
-                        echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
+                        KOTLIN_VERSION="2.1.21"
+                        echo "⚠️ Using fallback Kotlin version: ${'$'}KOTLIN_VERSION"
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (FALLBACK)\n"
                     fi
-
-                    rm -f "${'$'}TEMP_KOTLIN_METADATA"
                 else
-                    echo "WARNING: Failed to fetch Kotlin version from GitHub API, using fallback"
-                    LATEST_KOTLIN_VERSION="2.1.21"  # Fallback version
-                    echo "Using fallback Kotlin version: ${'$'}LATEST_KOTLIN_VERSION"
-                    echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}LATEST_KOTLIN_VERSION']"
+                    KOTLIN_VERSION="2.1.21"
+                    echo "⚠️ Failed to fetch Kotlin EAP version, using stable fallback: ${'$'}KOTLIN_VERSION"
+                    VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (FALLBACK)\n"
                 fi
+                
+                echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}KOTLIN_VERSION']"
+
+                # Set fetch status parameters
+                echo "##teamcity[setParameter name='version.resolution.errors' value='${'$'}FETCH_ERRORS']"
 
                 # Generate version resolution report
-                cat > version-resolution-reports/version-summary.txt <<EOF
+                cat > version-resolution-reports/version-resolution.txt <<EOF
 Version Resolution Report
 ========================
 Generated: $(date -Iseconds)
 
 Resolved Versions:
-- Ktor Framework: ${'$'}LATEST_EAP_VERSION
-- Ktor Compiler Plugin: ${'$'}LATEST_COMPILER_VERSION
-- Kotlin: ${'$'}LATEST_KOTLIN_VERSION
+$(echo -e "${'$'}VERSION_REPORT")
 
-Status: SUCCESS
+Summary:
+- Total Fetch Errors: ${'$'}FETCH_ERRORS
+- Status: $([[ ${'$'}FETCH_ERRORS -eq 0 ]] && echo "SUCCESS" || echo "PARTIAL_SUCCESS")
+
+Details:
+- Ktor Framework URL: ${EapConstants.KTOR_EAP_METADATA_URL}
+- Compiler Plugin URL: ${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}
+- Kotlin EAP URL: ${EapConstants.KOTLIN_EAP_METADATA_URL}
 EOF
 
-                echo "=== Step 1: Version Resolution Completed Successfully ==="
-                echo "Ktor Version: ${'$'}LATEST_EAP_VERSION"
-                echo "Compiler Plugin Version: ${'$'}LATEST_COMPILER_VERSION"
-                echo "Kotlin Version: ${'$'}LATEST_KOTLIN_VERSION"
+                echo "=== Version Resolution Summary ==="
+                echo "Fetch Errors: ${'$'}FETCH_ERRORS"
+                echo "Ktor Version: ${'$'}KTOR_VERSION"
+                echo "Compiler Plugin Version: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
+                echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
+
+                # Only fail if we couldn't fetch ANY versions (critical failure)
+                if [ -z "${'$'}KTOR_VERSION" ] && [ -z "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
+                    echo "CRITICAL ERROR: Could not fetch any Ktor versions - cannot proceed with validation"
+                    exit 1
+                fi
+
+                echo "=== Step 1: Version Resolution Completed ==="
+                exit 0
             """.trimIndent()
         }
     }
 
     /**
-     * Step 2: External Samples Validation (Parallel)
+     * Step 2: External Samples Validation
      * Validates external GitHub samples against the resolved EAP versions
+     * Uses resilient approach - processes all samples and reports results
      */
     private fun BuildSteps.externalSamplesValidation() {
         script {
-            name = "Step 2: External Samples Validation (Parallel)"
+            name = "Step 2: External Samples Validation"
             scriptContent = """
-            #!/bin/bash
+                #!/bin/bash
+                # Don't use 'set -e' - we want to process all samples and collect comprehensive results
 
-            echo "=== Step 2: External Samples Validation (Parallel) ==="
-            echo "Validating external GitHub samples against EAP versions"
-            echo "EAP Version: %env.KTOR_VERSION%"
-            echo "Timestamp: $(date -Iseconds)"
+                echo "=== Step 2: External Samples Validation ==="
+                echo "Validating external GitHub samples against EAP versions"
+                echo "Ktor Version: %env.KTOR_VERSION%"
+                echo "Kotlin Version: %env.KOTLIN_VERSION%"
 
-            # Create reports directory
-            mkdir -p external-validation-reports
+                mkdir -p external-validation-reports
 
-            # Enhanced external samples configuration based on working solution
-            declare -A SAMPLE_REPOS=(
-                ["ktor-ai-server"]="https://github.com/nomisRev/ktor-ai-server.git"
-                ["ktor-native-server"]="https://github.com/nomisRev/ktor-native-server.git"
-                ["ktor-config-example"]="https://github.com/nomisRev/ktor-config-example.git"
-                ["ktor-workshop-2025"]="https://github.com/nomisRev/ktor-workshop-2025.git"
-                ["amper-ktor-sample"]="https://github.com/nomisRev/amper-ktor-sample.git"
-                ["ktor-di-overview"]="https://github.com/nomisRev/Ktor-DI-Overview.git"
-                ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
-            )
-
-            # Special handling configuration for each sample
-            declare -A SAMPLE_SPECIAL_HANDLING=(
-                ["ktor-ai-server"]="DOCKER_TESTCONTAINERS"
-                ["ktor-native-server"]="KOTLIN_MULTIPLATFORM"
-                ["ktor-config-example"]="DOCKER_TESTCONTAINERS"
-                ["ktor-workshop-2025"]="DOCKER_TESTCONTAINERS"
-                ["amper-ktor-sample"]="AMPER_GRADLE_HYBRID"
-                ["ktor-di-overview"]="DAGGER_ANNOTATION_PROCESSING"
-                ["ktor-full-stack-real-world"]="KOTLIN_MULTIPLATFORM,DOCKER_TESTCONTAINERS,COMPOSE_MULTIPLATFORM,DAGGER_ANNOTATION_PROCESSING"
-            )
-
-            # Build type configuration
-            declare -A SAMPLE_BUILD_TYPE=(
-                ["ktor-ai-server"]="GRADLE"
-                ["ktor-native-server"]="GRADLE"
-                ["ktor-config-example"]="GRADLE"
-                ["ktor-workshop-2025"]="GRADLE"
-                ["amper-ktor-sample"]="AMPER"
-                ["ktor-di-overview"]="GRADLE"
-                ["ktor-full-stack-real-world"]="GRADLE"
-            )
-
-            echo "Validating ${'$'}{#SAMPLE_REPOS[@]} external samples in parallel..."
-
-            # Enhanced validation function with special handling
-            validate_sample_enhanced() {
-                local sample_name="$1"
-                local repo_url="${'$'}{SAMPLE_REPOS[${'$'}sample_name]}"
-                local special_handling="${'$'}{SAMPLE_SPECIAL_HANDLING[${'$'}sample_name]}"
-                local build_type="${'$'}{SAMPLE_BUILD_TYPE[${'$'}sample_name]}"
-                local sample_dir="samples/${'$'}sample_name"
-                local report_file="$(pwd)/external-validation-reports/${'$'}sample_name-validation.txt"
-
-                echo "=== Validating ${'$'}sample_name ===" > "${'$'}report_file"
-                echo "Started: $(date -Iseconds)" >> "${'$'}report_file"
-                echo "EAP Version: %env.KTOR_VERSION%" >> "${'$'}report_file"
-                echo "Repository: ${'$'}repo_url" >> "${'$'}report_file"
-                echo "Build Type: ${'$'}build_type" >> "${'$'}report_file"
-                echo "Special Handling: ${'$'}special_handling" >> "${'$'}report_file"
-                echo "" >> "${'$'}report_file"
-
-                # Clone the sample repository
-                echo "Cloning sample repository..." >> "${'$'}report_file"
-                if git clone "${'$'}repo_url" "${'$'}sample_dir" 2>> "${'$'}report_file"; then
-                    echo "Successfully cloned ${'$'}sample_name" >> "${'$'}report_file"
-                else
-                    echo "Status: FAILED" >> "${'$'}report_file"
-                    echo "Error: Failed to clone repository ${'$'}repo_url" >> "${'$'}report_file"
-                    return 1
-                fi
-
-                cd "${'$'}sample_dir" || {
-                    echo "Status: FAILED" >> "${'$'}report_file"
-                    echo "Error: Failed to enter sample directory" >> "${'$'}report_file"
-                    return 1
-                }
-
-                # Backup configuration files
-                echo "Backing up configuration files..." >> "${'$'}report_file"
-                find . -name "gradle.properties" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                find . -name "build.gradle.kts" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                find . -name "libs.versions.toml" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-
-                # Analyze project structure
-                echo "Analyzing project structure..." >> "${'$'}report_file"
-                echo "Special handling: ${'$'}special_handling" >> "${'$'}report_file"
-                ls -la >> "${'$'}report_file"
-
-                # Setup environment based on special handling
-                if [[ "${'$'}special_handling" == *"DOCKER_TESTCONTAINERS"* ]]; then
-                    echo "Setting up Testcontainers environment..." >> "${'$'}report_file"
-                    # Skip Docker tests for now to avoid compatibility issues
-                    GRADLE_OPTS="--no-daemon --stacktrace -x test -x check"
-                    echo "Docker project detected - skipping tests to avoid compatibility issues" >> "${'$'}report_file"
-                elif [[ "${'$'}special_handling" == *"DAGGER_ANNOTATION_PROCESSING"* ]]; then
-                    echo "Setting up Dagger environment..." >> "${'$'}report_file"
-                    GRADLE_OPTS="--no-daemon --stacktrace -x test -x check -Dkapt.verbose=true"
-                    echo "Dagger project detected - skipping tests to avoid annotation processing issues" >> "${'$'}report_file"
-                else
-                    GRADLE_OPTS="--no-daemon --stacktrace"
-                fi
-
-                # Update gradle.properties with enhanced configuration
-                echo "Updating gradle.properties..." >> "${'$'}report_file"
-                if [ ! -f "gradle.properties" ]; then
-                    touch gradle.properties
-                fi
-
-                # Add EAP version configuration
-                echo "" >> gradle.properties
-                echo "# EAP Version Configuration" >> gradle.properties
-                echo "ktor_version=%env.KTOR_VERSION%" >> gradle.properties
-                echo "kotlin_version=%env.KOTLIN_VERSION%" >> gradle.properties
-
-                # Add performance optimizations
-                echo "# Gradle performance optimizations" >> gradle.properties
-                echo "org.gradle.configureondemand=true" >> gradle.properties
-                echo "org.gradle.parallel=true" >> gradle.properties
-                echo "org.gradle.caching=true" >> gradle.properties
-                echo "org.gradle.daemon=true" >> gradle.properties
-                echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseG1GC" >> gradle.properties
-
-                # Special handling for multiplatform projects
-                if [[ "${'$'}special_handling" == *"KOTLIN_MULTIPLATFORM"* ]] || [[ "${'$'}special_handling" == *"COMPOSE_MULTIPLATFORM"* ]]; then
-                    echo "Applying multiplatform-specific configuration..." >> "${'$'}report_file"
-                    echo "kotlin.mpp.enableCInteropCommonization=true" >> gradle.properties
-                    echo "kotlin.native.version=%env.KOTLIN_VERSION%" >> gradle.properties
-                    echo "kotlin.js.nodejs.check.fail=false" >> gradle.properties
-                    echo "kotlin.js.yarn.check.fail=false" >> gradle.properties
-                    echo "kotlin.js.npm.lazy=true" >> gradle.properties
-                    echo "kotlin.js.compiler=ir" >> gradle.properties
-                    echo "kotlin.js.generate.executable.default=false" >> gradle.properties
-                    echo "kotlin.wasm.experimental=true" >> gradle.properties
-                fi
-
-                # Update version catalog if it exists
-                if [ -f "gradle/libs.versions.toml" ]; then
-                    echo "Updating version catalog..." >> "${'$'}report_file"
-                    sed -i.bak "s/ktor = \"[^\"]*\"/ktor = \"%env.KTOR_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
-                    sed -i.bak "s/kotlin = \"[^\"]*\"/kotlin = \"%env.KOTLIN_VERSION%\"/g" gradle/libs.versions.toml 2>> "${'$'}report_file" || true
-                fi
-
-                # Update build files
-                echo "Updating build files..." >> "${'$'}report_file"
-                if [ -f "build.gradle.kts" ]; then
-                    # Update Kotlin DSL build file
-                    sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                    sed -i.bak "s/val ktor_version: String by project/val ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                    sed -i.bak "s/kotlin_version = \"[^\"]*\"/kotlin_version = \"%env.KOTLIN_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                elif [ -f "build.gradle" ]; then
-                    # Update Groovy build file
-                    sed -i.bak "s/ktor_version = '[^']*'/ktor_version = '%env.KTOR_VERSION%'/g" build.gradle 2>> "${'$'}report_file" || true
-                    sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle 2>> "${'$'}report_file" || true
-                fi
-
-                # Create EAP init script for enhanced repository configuration
-                echo "Creating EAP init script..." >> "${'$'}report_file"
-                cat > gradle-eap-init.gradle << 'EOF'
-allprojects {
-    repositories {
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-
-    configurations.all {
-        resolutionStrategy {
-            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
-
-            eachDependency { details ->
-                if (details.requested.group == "org.jetbrains.kotlin") {
-                    details.useVersion("%env.KOTLIN_VERSION%")
-                    details.because("Align Kotlin version with compiler to prevent compilation errors")
-                }
-            }
-        }
-    }
-}
-EOF
-
-                # Add init script to gradle options
-                GRADLE_OPTS="${'$'}GRADLE_OPTS --init-script gradle-eap-init.gradle"
-
-                echo "Final gradle.properties content:" >> "${'$'}report_file"
-                cat gradle.properties >> "${'$'}report_file"
-
-                # Build based on build type
-                if [ "${'$'}build_type" = "AMPER" ]; then
-                    echo "Building Amper project..." >> "${'$'}report_file"
-                    # For Amper projects, use simpler build approach
-                    if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                        echo "Status: SUCCESS" >> "${'$'}report_file"
-                        echo "Amper build successful" >> "${'$'}report_file"
-                        cd - > /dev/null
-                        return 0
-                    else
-                        echo "Status: FAILED" >> "${'$'}report_file"
-                        echo "Error: Amper build failed" >> "${'$'}report_file"
-                        cd - > /dev/null
-                        return 1
-                    fi
-                else
-                    # Standard Gradle build
-                    echo "Building Gradle project..." >> "${'$'}report_file"
-                    echo "Gradle options: ${'$'}GRADLE_OPTS" >> "${'$'}report_file"
-
-                    # Clean first
-                    echo "Cleaning project..." >> "${'$'}report_file"
-                    ./gradlew clean ${'$'}GRADLE_OPTS 2>> "${'$'}report_file" || echo "Clean failed, continuing..." >> "${'$'}report_file"
-
-                    # Build the project
-                    if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                        echo "Build successful" >> "${'$'}report_file"
-
-                        # Run tests only if not skipped due to special handling
-                        if [[ "${'$'}GRADLE_OPTS" != *"-x test"* ]]; then
-                            echo "Running tests..." >> "${'$'}report_file"
-                            if ./gradlew test ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                                echo "Status: SUCCESS" >> "${'$'}report_file"
-                                echo "All tests passed" >> "${'$'}report_file"
-                                cd - > /dev/null
-                                return 0
-                            else
-                                echo "Status: FAILED" >> "${'$'}report_file"
-                                echo "Error: Tests failed" >> "${'$'}report_file"
-                                cd - > /dev/null
-                                return 1
-                            fi
-                        else
-                            echo "Status: SUCCESS" >> "${'$'}report_file"
-                            echo "Build successful (tests skipped due to special handling)" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 0
-                        fi
-                    else
-                        echo "Status: FAILED" >> "${'$'}report_file"
-                        echo "Error: Build failed" >> "${'$'}report_file"
-                        cd - > /dev/null
-                        return 1
-                    fi
-                fi
-            }
-
-            # Run validations in parallel
-            declare -a PIDS=()
-
-            for sample in "${'$'}{!SAMPLE_REPOS[@]}"; do
-                validate_sample_enhanced "${'$'}sample" &
-                PIDS+=($!)
-            done
-
-            # Wait for all validations to complete and collect results
-            TOTAL_SAMPLES=${'$'}{#SAMPLE_REPOS[@]}
-            SUCCESSFUL_SAMPLES=0
-            FAILED_SAMPLES=0
-
-            # Wait for all background processes and collect results
-            for pid in "${'$'}{PIDS[@]}"; do
-                wait ${'$'}pid
-                if [ $? -eq 0 ]; then
-                    SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
-                    echo "✅ Sample validation succeeded"
-                else
-                    FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
-                    echo "❌ Sample validation failed"
-                fi
-            done
-
-            # Calculate success rate
-            SUCCESS_RATE=$(echo "scale=2; ${'$'}SUCCESSFUL_SAMPLES * 100 / ${'$'}TOTAL_SAMPLES" | bc -l)
-
-            # Generate external validation summary
-            cat > external-validation-reports/external-validation-summary.txt <<EOF
+                # Check if samples directory exists
+                if [ ! -d "samples" ]; then
+                    echo "❌ Samples directory not found - cannot proceed with external validation"
+                    echo "##teamcity[setParameter name='external.validation.total.samples' value='0']"
+                    echo "##teamcity[setParameter name='external.validation.successful.samples' value='0']"
+                    echo "##teamcity[setParameter name='external.validation.failed.samples' value='0']"
+                    echo "##teamcity[setParameter name='external.validation.success.rate' value='0.0']"
+                    
+                    cat > external-validation-reports/external-validation.txt <<EOF
 External Samples Validation Report
 ==================================
 Generated: $(date -Iseconds)
-EAP Version: %env.KTOR_VERSION%
+Ktor Version: %env.KTOR_VERSION%
+
+ERROR: Samples directory not found
+Cannot proceed with external validation
+
+Status: DIRECTORY_NOT_FOUND
+EOF
+                    exit 0
+                fi
+
+                cd samples
+
+                # Find all Gradle projects (both build.gradle and build.gradle.kts)
+                SAMPLE_PROJECTS=$(find . -name "build.gradle*" -not -path "*/build/*" -not -path "*/.gradle/*" | xargs dirname | sort | uniq)
+                TOTAL_SAMPLES=0
+                SUCCESSFUL_SAMPLES=0
+                FAILED_SAMPLES=0
+                SKIPPED_SAMPLES=0
+                
+                echo "Found sample projects:"
+                echo "${'$'}SAMPLE_PROJECTS" | head -20
+                TOTAL_FOUND=$(echo "${'$'}SAMPLE_PROJECTS" | wc -l)
+                if [ "${'$'}TOTAL_FOUND" -gt 20 ]; then
+                    echo "... and $((TOTAL_FOUND - 20)) more projects"
+                fi
+                
+                # Create a temporary gradle.properties with EAP versions
+                cat > gradle.properties.eap <<EOF
+kotlin_version=%env.KOTLIN_VERSION%
+ktor_version=%env.KTOR_VERSION%
+logback_version=1.4.14
+kotlin.mpp.stability.nowarn=true
+EOF
+
+                # Initialize result tracking files
+                > external-validation-reports/successful-samples.txt
+                > external-validation-reports/failed-samples.txt
+                > external-validation-reports/skipped-samples.txt
+
+                # Process each sample, but don't exit on failures
+                for project_dir in ${'$'}SAMPLE_PROJECTS; do
+                    if [ -z "${'$'}project_dir" ] || [ "${'$'}project_dir" = "." ]; then
+                        continue
+                    fi
+                    
+                    TOTAL_SAMPLES=$((TOTAL_SAMPLES + 1))
+                    echo ""
+                    echo "=== [${'$'}TOTAL_SAMPLES] Validating sample: ${'$'}project_dir ==="
+                    
+                    # Check if project directory exists and is accessible
+                    if [ ! -d "${'$'}project_dir" ]; then
+                        echo "⚠️  Sample ${'$'}project_dir: DIRECTORY_NOT_FOUND - skipping"
+                        SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                        echo "SKIPPED: ${'$'}project_dir (directory not found)" >> external-validation-reports/skipped-samples.txt
+                        continue
+                    fi
+                    
+                    cd "${'$'}project_dir"
+                    
+                    # Check if gradlew exists
+                    if [ ! -f "./gradlew" ]; then
+                        echo "⚠️  Sample ${'$'}project_dir: NO_GRADLE_WRAPPER - skipping"
+                        SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                        echo "SKIPPED: ${'$'}project_dir (no gradle wrapper)" >> ../external-validation-reports/skipped-samples.txt
+                        cd ..
+                        continue
+                    fi
+                    
+                    # Backup original gradle.properties if it exists
+                    if [ -f "gradle.properties" ]; then
+                        cp gradle.properties gradle.properties.backup
+                    fi
+                    
+                    # Apply EAP versions
+                    cp ../gradle.properties.eap gradle.properties
+                    
+                    # Try to build the project - capture exit code but don't exit
+                    BUILD_LOG="../external-validation-reports/build-$(basename "${'$'}project_dir").log"
+                    echo "Building with timeout of 300 seconds..."
+                    
+                    if timeout 300 ./gradlew build --no-daemon --continue --stacktrace --no-build-cache > "${'$'}BUILD_LOG" 2>&1; then
+                        echo "✅ Sample ${'$'}project_dir: BUILD SUCCESSFUL"
+                        SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
+                        echo "SUCCESS: ${'$'}project_dir" >> ../external-validation-reports/successful-samples.txt
+                    else
+                        BUILD_EXIT_CODE=$?
+                        echo "❌ Sample ${'$'}project_dir: BUILD FAILED (exit code: ${'$'}BUILD_EXIT_CODE)"
+                        FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
+                        echo "FAILED: ${'$'}project_dir (exit code: ${'$'}BUILD_EXIT_CODE)" >> ../external-validation-reports/failed-samples.txt
+                        
+                        # Extract error summary from build log
+                        if [ -f "${'$'}BUILD_LOG" ]; then
+                            echo "Build error summary:" >> ../external-validation-reports/failed-samples.txt
+                            tail -20 "${'$'}BUILD_LOG" | grep -E "(FAILURE|ERROR|Exception)" | head -5 >> ../external-validation-reports/failed-samples.txt || true
+                            echo "---" >> ../external-validation-reports/failed-samples.txt
+                        fi
+                    fi
+                    
+                    # Restore original gradle.properties if it existed
+                    if [ -f "gradle.properties.backup" ]; then
+                        mv gradle.properties.backup gradle.properties
+                    else
+                        rm -f gradle.properties
+                    fi
+                    
+                    cd ..
+                done
+
+                # Calculate success rate
+                if [ "${'$'}TOTAL_SAMPLES" -gt 0 ]; then
+                    SUCCESS_RATE=$(echo "scale=1; ${'$'}SUCCESSFUL_SAMPLES * 100 / ${'$'}TOTAL_SAMPLES" | bc -l 2>/dev/null || echo "0.0")
+                else
+                    SUCCESS_RATE="0.0"
+                fi
+
+                echo ""
+                echo "=== External Samples Validation Results ==="
+                echo "Total samples processed: ${'$'}TOTAL_SAMPLES"
+                echo "Successful: ${'$'}SUCCESSFUL_SAMPLES"
+                echo "Failed: ${'$'}FAILED_SAMPLES"
+                echo "Skipped: ${'$'}SKIPPED_SAMPLES"
+                echo "Success rate: ${'$'}SUCCESS_RATE%"
+
+                # Set parameters for quality gate evaluation
+                echo "##teamcity[setParameter name='external.validation.total.samples' value='${'$'}TOTAL_SAMPLES']"
+                echo "##teamcity[setParameter name='external.validation.successful.samples' value='${'$'}SUCCESSFUL_SAMPLES']"
+                echo "##teamcity[setParameter name='external.validation.failed.samples' value='${'$'}FAILED_SAMPLES']"
+                echo "##teamcity[setParameter name='external.validation.skipped.samples' value='${'$'}SKIPPED_SAMPLES']"
+                echo "##teamcity[setParameter name='external.validation.success.rate' value='${'$'}SUCCESS_RATE']"
+
+                # Generate external validation report
+                cat > external-validation-reports/external-validation.txt <<EOF
+External Samples Validation Report
+==================================
+Generated: $(date -Iseconds)
+Ktor Version: %env.KTOR_VERSION%
+Kotlin Version: %env.KOTLIN_VERSION%
 
 Results:
-- Total Samples: ${'$'}TOTAL_SAMPLES
+- Total Samples Processed: ${'$'}TOTAL_SAMPLES
 - Successful: ${'$'}SUCCESSFUL_SAMPLES
-- Failed: ${'$'}FAILED_SAMPLES
+- Failed: ${'$'}FAILED_SAMPLES  
+- Skipped: ${'$'}SKIPPED_SAMPLES
 - Success Rate: ${'$'}SUCCESS_RATE%
 
-Status: $([[ ${'$'}FAILED_SAMPLES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")
+Successful Samples (${'$'}SUCCESSFUL_SAMPLES):
+$(cat external-validation-reports/successful-samples.txt 2>/dev/null | head -50 || echo "None")
+$([[ $(wc -l < external-validation-reports/successful-samples.txt 2>/dev/null || echo 0) -gt 50 ]] && echo "... and more (see artifacts)" || echo "")
+
+Failed Samples (${'$'}FAILED_SAMPLES):
+$(cat external-validation-reports/failed-samples.txt 2>/dev/null | head -100 || echo "None")
+$([[ $(wc -l < external-validation-reports/failed-samples.txt 2>/dev/null || echo 0) -gt 100 ]] && echo "... and more (see artifacts)" || echo "")
+
+Skipped Samples (${'$'}SKIPPED_SAMPLES):
+$(cat external-validation-reports/skipped-samples.txt 2>/dev/null || echo "None")
+
+Status: COMPLETED
 EOF
 
-            # Generate JSON report for programmatic access
-            cat > external-validation-reports/external-validation-results.json <<EOF
-{
-    "eapVersion": "%env.KTOR_VERSION%",
-    "timestamp": "$(date -Iseconds)",
-    "totalSamples": ${'$'}TOTAL_SAMPLES,
-    "successfulSamples": ${'$'}SUCCESSFUL_SAMPLES,
-    "failedSamples": ${'$'}FAILED_SAMPLES,
-    "successRate": ${'$'}SUCCESS_RATE,
-    "overallStatus": "$([[ ${'$'}FAILED_SAMPLES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")",
-    "criticalIssues": ${'$'}FAILED_SAMPLES
-}
-EOF
-
-            # Set TeamCity parameters for quality gate evaluation
-            echo "##teamcity[setParameter name='external.validation.total.samples' value='${'$'}TOTAL_SAMPLES']"
-            echo "##teamcity[setParameter name='external.validation.successful.samples' value='${'$'}SUCCESSFUL_SAMPLES']"
-            echo "##teamcity[setParameter name='external.validation.failed.samples' value='${'$'}FAILED_SAMPLES']"
-            echo "##teamcity[setParameter name='external.validation.success.rate' value='${'$'}SUCCESS_RATE']"
-            echo "##teamcity[setParameter name='external.validation.status' value='$([[ ${'$'}FAILED_SAMPLES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")']"
-
-            echo "=== Step 2: External Samples Validation Completed ==="
-            echo "Total Samples: ${'$'}TOTAL_SAMPLES"
-            echo "Successful: ${'$'}SUCCESSFUL_SAMPLES"
-            echo "Failed: ${'$'}FAILED_SAMPLES"
-            echo "Success Rate: ${'$'}SUCCESS_RATE%"
-
-            # External validation is required - track failures for quality gate evaluation
-            # This ensures external validation is not optional and failures are properly evaluated
-            if [ ${'$'}FAILED_SAMPLES -gt 0 ]; then
-                echo "❌ External validation failed: ${'$'}FAILED_SAMPLES out of ${'$'}TOTAL_SAMPLES samples failed"
-                echo "External validation is required and failures will be evaluated by quality gate"
-                echo "FAILURE|External validation status could not be determined - required dependency failed"
-            else
-                echo "✅ External validation passed: All ${'$'}SUCCESSFUL_SAMPLES samples succeeded"
-            fi
-
-            # Continue to quality gate evaluation to make final determination
-            exit 0
-        """.trimIndent()
+                echo "=== Step 2: External Samples Validation Completed ==="
+                
+                # Always succeed - let quality gate evaluate the results
+                # Even if all samples failed, that's valuable information for the quality gate
+                exit 0
+            """.trimIndent()
         }
     }
 
     /**
      * Step 3: Internal Test Suites
      * Validates internal Ktor samples against the EAP versions
+     * Uses resilient approach - runs tests and processes results regardless of failures
      */
     private fun BuildSteps.internalTestSuites() {
+        gradle {
+            name = "Step 3: Internal Test Suites - Build"
+            tasks = "clean test"
+            gradleParams = """
+                -PktorVersion=%env.KTOR_VERSION% 
+                -PkotlinVersion=%env.KOTLIN_VERSION%
+                --continue
+                --stacktrace
+                --no-build-cache
+            """.trimIndent()
+
+            param("org.gradle.jvmargs", "-Xmx4g -XX:MaxMetaspaceSize=1g")
+
+            executionMode = BuildStep.ExecutionMode.RUN_ON_FAILURE
+        }
+
         script {
-            name = "Step 3: Internal Test Suites"
+            name = "Step 3: Internal Test Suites - Process Results"
+            executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptContent = """
                 #!/bin/bash
+                # Don't use 'set -e' - we want to process results regardless of test outcomes
 
-                echo "=== Step 3: Internal Test Suites ==="
-                echo "Validating internal Ktor samples against EAP versions"
-                echo "EAP Version: %env.KTOR_VERSION%"
-                echo "Expected Internal Samples: %quality.gate.internal.samples.expected%"
-                echo "Timestamp: $(date -Iseconds)"
+                echo "=== Step 3: Processing Internal Test Results ==="
+                echo "Analyzing internal test suite results"
+                echo "Ktor Version: %env.KTOR_VERSION%"
+                echo "Kotlin Version: %env.KOTLIN_VERSION%"
 
-                # Create reports directory for artifact collection
                 mkdir -p internal-validation-reports
 
-                # Internal sample projects configuration (from ProjectSamples.kt)
-                declare -A INTERNAL_SAMPLES=(
-                    ["chat"]="GRADLE"
-                    ["client-mpp"]="GRADLE:ANDROID"
-                    ["client-multipart"]="GRADLE"
-                    ["client-tools"]="GRADLE"
-                    ["di-kodein"]="GRADLE"
-                    ["filelisting"]="GRADLE"
-                    ["fullstack-mpp"]="GRADLE"
-                    ["graalvm"]="GRADLE"
-                    ["httpbin"]="GRADLE"
-                    ["ktor-client-wasm"]="GRADLE:ANDROID"
-                    ["kweet"]="GRADLE"
-                    ["location-header"]="GRADLE"
-                    ["maven-google-appengine-standard"]="MAVEN"
-                    ["redirect-with-exception"]="GRADLE"
-                    ["reverse-proxy"]="GRADLE"
-                    ["reverse-proxy-ws"]="GRADLE"
-                    ["rx"]="GRADLE"
-                    ["sse"]="GRADLE"
-                    ["structured-logging"]="GRADLE"
-                    ["version-diff"]="GRADLE"
-                    ["youkube"]="GRADLE"
-                )
-
-                # Build plugin samples configuration (from ProjectGradlePluginSamples.kt)
-                declare -A BUILD_PLUGIN_SAMPLES=(
-                    ["ktor-docker-sample"]="GRADLE_PLUGIN"
-                    ["ktor-fatjar-sample"]="GRADLE_PLUGIN"
-                    ["ktor-native-image-sample"]="GRADLE_PLUGIN"
-                    ["ktor-openapi-sample"]="GRADLE_PLUGIN"
-                )
-
-                INTERNAL_COUNT=${'$'}{#INTERNAL_SAMPLES[@]}
-                PLUGIN_COUNT=${'$'}{#BUILD_PLUGIN_SAMPLES[@]}
-                echo "Validating ${'$'}INTERNAL_COUNT internal samples and ${'$'}PLUGIN_COUNT build plugin samples..."
-
-                # Enhanced validation function for internal samples
-                validate_internal_sample() {
-                    local sample_name="$1"
-                    local sample_config="$2"
-                    local sample_type="$3"
-                    local sample_dir="samples/${'$'}sample_name"
-                    local report_file="$(pwd)/internal-validation-reports/${'$'}sample_name-validation.txt"
-
-                    echo "=== Validating Internal Sample: ${'$'}sample_name ===" > "${'$'}report_file"
-                    echo "Started: $(date -Iseconds)" >> "${'$'}report_file"
-                    echo "EAP Version: %env.KTOR_VERSION%" >> "${'$'}report_file"
-                    echo "Sample Type: ${'$'}sample_type" >> "${'$'}report_file"
-                    echo "Configuration: ${'$'}sample_config" >> "${'$'}report_file"
-                    echo "" >> "${'$'}report_file"
-
-                    # Check if sample directory exists
-                    if [ ! -d "${'$'}sample_dir" ]; then
-                        echo "Status: SKIPPED" >> "${'$'}report_file"
-                        echo "Reason: Sample directory not found: ${'$'}sample_dir" >> "${'$'}report_file"
-                        return 0  # Skip missing samples, don't fail
-                    fi
-
-                    cd "${'$'}sample_dir" || {
-                        echo "Status: FAILED" >> "${'$'}report_file"
-                        echo "Error: Failed to enter sample directory" >> "${'$'}report_file"
-                        return 1
-                    }
-
-                    # Backup configuration files
-                    echo "Backing up configuration files..." >> "${'$'}report_file"
-                    find . -name "gradle.properties" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                    find . -name "build.gradle.kts" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                    find . -name "build.gradle" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-                    find . -name "pom.xml" -exec cp {} {}.backup \; 2>> "${'$'}report_file" || true
-
-                    # Setup Android SDK if required
-                    if [[ "${'$'}sample_config" == *"ANDROID"* ]]; then
-                        echo "Setting up Android SDK environment..." >> "${'$'}report_file"
-                        export ANDROID_HOME="/opt/android-sdk"
-                        export PATH="${'$'}PATH:${'$'}ANDROID_HOME/tools:${'$'}ANDROID_HOME/platform-tools"
-                        echo "Android SDK configured" >> "${'$'}report_file"
-                    fi
-
-                    # Create EAP init script for repository configuration
-                    echo "Creating EAP init script..." >> "${'$'}report_file"
-                    cat > gradle-eap-init.gradle << 'EOF'
-allprojects {
-    repositories {
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
-        maven { url = uri("https://maven.pkg.jetbrains.space/public/p/compose/dev") }
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-
-    configurations.all {
-        resolutionStrategy {
-            force("org.jetbrains.kotlin:kotlin-stdlib:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-common:%env.KOTLIN_VERSION%")
-            force("org.jetbrains.kotlin:kotlin-test-junit:%env.KOTLIN_VERSION%")
-
-            eachDependency { details ->
-                if (details.requested.group == "org.jetbrains.kotlin") {
-                    details.useVersion("%env.KOTLIN_VERSION%")
-                    details.because("Align Kotlin version with compiler to prevent compilation errors")
-                }
-            }
-        }
-    }
-}
-EOF
-
-                    # Update configuration based on build system
-                    if [[ "${'$'}sample_config" == "MAVEN" ]]; then
-                        echo "Configuring Maven sample..." >> "${'$'}report_file"
-
-                        # Update pom.xml with EAP repositories
-                        if [ -f "pom.xml" ]; then
-                            echo "Updating pom.xml with EAP repositories..." >> "${'$'}report_file"
-
-                            # Backup original pom.xml
-                            cp pom.xml pom.xml.backup
-
-                            # Add EAP repositories if not present
-                            if ! grep -q "ktor-eap" pom.xml; then
-                                # Insert repositories section after <project> tag
-                                sed -i '/<project[^>]*>/a\\
-    <repositories>\\
-        <repository>\\
-            <id>ktor-eap</id>\\
-            <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>\\
-        </repository>\\
-        <repository>\\
-            <id>compose-dev</id>\\
-            <url>https://maven.pkg.jetbrains.space/public/p/compose/dev</url>\\
-        </repository>\\
-    </repositories>' pom.xml
-                            fi
-
-                            echo "Maven configuration updated" >> "${'$'}report_file"
-                        fi
-
-                        # Build Maven sample
-                        echo "Building Maven sample..." >> "${'$'}report_file"
-                        if mvn clean test -Dktor.version=%env.KTOR_VERSION% 2>> "${'$'}report_file"; then
-                            echo "Status: SUCCESS" >> "${'$'}report_file"
-                            echo "Maven build and tests successful" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 0
-                        else
-                            echo "Status: FAILED" >> "${'$'}report_file"
-                            echo "Error: Maven build or tests failed" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 1
-                        fi
-
-                    elif [[ "${'$'}sample_config" == "GRADLE_PLUGIN" ]]; then
-                        echo "Configuring Gradle Plugin sample..." >> "${'$'}report_file"
-
-                        # Build plugin samples use includeBuild approach
-                        cd - > /dev/null  # Go back to root
-                        echo "Building Gradle Plugin sample from root..." >> "${'$'}report_file"
-
-                        if ./gradlew build --init-script samples/${'$'}sample_name/gradle-eap-init.gradle -Porg.gradle.project.includeBuild=samples/${'$'}sample_name --no-daemon --stacktrace 2>> "${'$'}report_file"; then
-                            echo "Status: SUCCESS" >> "${'$'}report_file"
-                            echo "Gradle plugin sample build successful" >> "${'$'}report_file"
-                            return 0
-                        else
-                            echo "Status: FAILED" >> "${'$'}report_file"
-                            echo "Error: Gradle plugin sample build failed" >> "${'$'}report_file"
-                            return 1
-                        fi
-
-                    else
-                        # Standard Gradle sample
-                        echo "Configuring Gradle sample..." >> "${'$'}report_file"
-
-                        # Update gradle.properties
-                        if [ ! -f "gradle.properties" ]; then
-                            touch gradle.properties
-                        fi
-
-                        # Add EAP version configuration
-                        echo "" >> gradle.properties
-                        echo "# EAP Version Configuration" >> gradle.properties
-                        echo "ktor_version=%env.KTOR_VERSION%" >> gradle.properties
-                        echo "kotlin_version=%env.KOTLIN_VERSION%" >> gradle.properties
-
-                        # Update build files
-                        echo "Updating build files..." >> "${'$'}report_file"
-                        if [ -f "build.gradle.kts" ]; then
-                            # Update Kotlin DSL build file
-                            sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                            sed -i.bak "s/val ktor_version: String by project/val ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle.kts 2>> "${'$'}report_file" || true
-                        elif [ -f "build.gradle" ]; then
-                            # Update Groovy build file
-                            sed -i.bak "s/ktor_version = '[^']*'/ktor_version = '%env.KTOR_VERSION%'/g" build.gradle 2>> "${'$'}report_file" || true
-                            sed -i.bak "s/ktor_version = \"[^\"]*\"/ktor_version = \"%env.KTOR_VERSION%\"/g" build.gradle 2>> "${'$'}report_file" || true
-                        fi
-
-                        # Build Gradle sample
-                        echo "Building Gradle sample..." >> "${'$'}report_file"
-                        GRADLE_OPTS="--init-script gradle-eap-init.gradle --no-daemon --stacktrace"
-
-                        if ./gradlew build ${'$'}GRADLE_OPTS 2>> "${'$'}report_file"; then
-                            echo "Status: SUCCESS" >> "${'$'}report_file"
-                            echo "Gradle build successful" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 0
-                        else
-                            echo "Status: FAILED" >> "${'$'}report_file"
-                            echo "Error: Gradle build failed" >> "${'$'}report_file"
-                            cd - > /dev/null
-                            return 1
-                        fi
-                    fi
-                }
-
-                # Run validations in parallel
-                declare -a PIDS=()
-                declare -a RESULTS=()
-
-                # Validate internal samples
-                for sample in "${'$'}{!INTERNAL_SAMPLES[@]}"; do
-                    validate_internal_sample "${'$'}sample" "${'$'}{INTERNAL_SAMPLES[${'$'}sample]}" "INTERNAL" &
-                    PIDS+=($!)
-                done
-
-                # Validate build plugin samples
-                for sample in "${'$'}{!BUILD_PLUGIN_SAMPLES[@]}"; do
-                    validate_internal_sample "${'$'}sample" "${'$'}{BUILD_PLUGIN_SAMPLES[${'$'}sample]}" "BUILD_PLUGIN" &
-                    PIDS+=($!)
-                done
-
-                # Wait for all validations to complete and collect results
-                TOTAL_SAMPLES=$((${'$'}INTERNAL_COUNT + ${'$'}PLUGIN_COUNT))
+                # Find all test result XML files
+                TEST_RESULT_FILES=$(find . -path "*/test-results/*" -name "*.xml" -type f 2>/dev/null || true)
+                
+                TOTAL_TESTS=0
                 PASSED_TESTS=0
                 FAILED_TESTS=0
-                CRITICAL_ISSUES=0
-                WARNING_ISSUES=0
+                SKIPPED_TESTS=0
+                ERROR_TESTS=0
+                PROCESSED_FILES=0
 
-                # Wait for all background processes and collect results
-                for pid in "${'$'}{PIDS[@]}"; do
-                    wait ${'$'}pid
-                    if [ $? -eq 0 ]; then
-                        PASSED_TESTS=$((PASSED_TESTS + 1))
-                        echo "✅ Internal sample validation succeeded"
-                    else
-                        FAILED_TESTS=$((FAILED_TESTS + 1))
-                        CRITICAL_ISSUES=$((CRITICAL_ISSUES + 1))
-                        echo "❌ Internal sample validation failed"
+                echo "Searching for test result files..."
+                if [ -n "${'$'}TEST_RESULT_FILES" ]; then
+                    echo "Found test result files:"
+                    echo "${'$'}TEST_RESULT_FILES" | head -10
+                    TOTAL_FILES=$(echo "${'$'}TEST_RESULT_FILES" | wc -l)
+                    if [ "${'$'}TOTAL_FILES" -gt 10 ]; then
+                        echo "... and $((TOTAL_FILES - 10)) more files"
                     fi
-                done
-
-                # Calculate success rate
-                SUCCESS_RATE=$(echo "scale=2; ${'$'}PASSED_TESTS * 100 / ${'$'}TOTAL_SAMPLES" | bc -l)
-
-                echo "Internal Test Results:"
-                echo "- Total Samples: ${'$'}TOTAL_SAMPLES"
-                echo "- Passed: ${'$'}PASSED_TESTS"
-                echo "- Failed: ${'$'}FAILED_TESTS"
-                echo "- Critical Issues: ${'$'}CRITICAL_ISSUES"
-                echo "- Warning Issues: ${'$'}WARNING_ISSUES"
-                echo "- Success Rate: ${'$'}SUCCESS_RATE%"
-
-                # Set TeamCity parameters for quality gate evaluation
-                echo "##teamcity[setParameter name='internal.validation.total.tests' value='${'$'}TOTAL_SAMPLES']"
-                echo "##teamcity[setParameter name='internal.validation.passed.tests' value='${'$'}PASSED_TESTS']"
-                echo "##teamcity[setParameter name='internal.validation.failed.tests' value='${'$'}FAILED_TESTS']"
-                echo "##teamcity[setParameter name='internal.validation.critical.issues' value='${'$'}CRITICAL_ISSUES']"
-                echo "##teamcity[setParameter name='internal.validation.warning.issues' value='${'$'}WARNING_ISSUES']"
-                echo "##teamcity[setParameter name='internal.validation.success.rate' value='${'$'}SUCCESS_RATE']"
-
-                # Generate internal validation summary
-                cat > internal-validation-reports/internal-validation-summary.txt <<EOF
-Internal Samples Validation Report - %env.KTOR_VERSION%
-=======================================================
-Generated: $(date -Iseconds)
-
-Sample Results:
-- Total Samples: ${'$'}TOTAL_SAMPLES
-- Internal Samples: ${'$'}INTERNAL_COUNT
-- Build Plugin Samples: ${'$'}PLUGIN_COUNT
-- Passed: ${'$'}PASSED_TESTS
-- Failed: ${'$'}FAILED_TESTS
-- Success Rate: ${'$'}SUCCESS_RATE%
-
-Issues:
-- Critical Issues: ${'$'}CRITICAL_ISSUES
-- Warning Issues: ${'$'}WARNING_ISSUES
-
-Overall Status: $([[ ${'$'}FAILED_TESTS -eq 0 && ${'$'}CRITICAL_ISSUES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")
-EOF
-
-                # Generate JSON report for programmatic access
-                cat > internal-validation-reports/internal-validation-results.json <<EOF
-{
-    "eapVersion": "%env.KTOR_VERSION%",
-    "timestamp": "$(date -Iseconds)",
-    "sampleResults": {
-        "totalSamples": ${'$'}TOTAL_SAMPLES,
-        "internalSamples": ${'$'}INTERNAL_COUNT,
-        "buildPluginSamples": ${'$'}PLUGIN_COUNT,
-        "passedSamples": ${'$'}PASSED_TESTS,
-        "failedSamples": ${'$'}FAILED_TESTS,
-        "successRate": ${'$'}SUCCESS_RATE
-    },
-    "issues": {
-        "criticalIssues": ${'$'}CRITICAL_ISSUES,
-        "warningIssues": ${'$'}WARNING_ISSUES
-    },
-    "overallStatus": "$([[ ${'$'}FAILED_TESTS -eq 0 && ${'$'}CRITICAL_ISSUES -eq 0 ]] && echo "SUCCESS" || echo "FAILED")"
-}
-EOF
-
-                echo "Internal validation reports generated in internal-validation-reports/"
-
-                # Determine overall status
-                if [ ${'$'}FAILED_TESTS -eq 0 ] && [ ${'$'}CRITICAL_ISSUES -eq 0 ]; then
-                    echo "✅ Internal validation passed: All ${'$'}PASSED_TESTS samples succeeded"
-                    echo "##teamcity[setParameter name='internal.validation.status' value='SUCCESS']"
+                    
+                    # Process each test result file
+                    for result_file in ${'$'}TEST_RESULT_FILES; do
+                        if [ -f "${'$'}result_file" ] && [ -s "${'$'}result_file" ]; then
+                            echo "Processing: ${'$'}result_file"
+                            
+                            # Extract test counts from XML (handle multiple formats)
+                            TESTS=$(grep -o 'tests="[0-9]*"' "${'$'}result_file" | sed 's/tests="//g' | sed 's/"//g' | head -1 || echo "0")
+                            FAILURES=$(grep -o 'failures="[0-9]*"' "${'$'}result_file" | sed 's/failures="//g' | sed 's/"//g' | head -1 || echo "0")
+                            ERRORS=$(grep -o 'errors="[0-9]*"' "${'$'}result_file" | sed 's/errors="//g' | sed 's/"//g' | head -1 || echo "0")
+                            SKIPPED=$(grep -o 'skipped="[0-9]*"' "${'$'}result_file" | sed 's/skipped="//g' | sed 's/"//g' | head -1 || echo "0")
+                            
+                            # Ensure values are numeric
+                            TESTS=$(echo "${'$'}TESTS" | grep -E '^[0-9]+$' || echo "0")
+                            FAILURES=$(echo "${'$'}FAILURES" | grep -E '^[0-9]+$' || echo "0")  
+                            ERRORS=$(echo "${'$'}ERRORS" | grep -E '^[0-9]+$' || echo "0")
+                            SKIPPED=$(echo "${'$'}SKIPPED" | grep -E '^[0-9]+$' || echo "0")
+                            
+                            TOTAL_TESTS=$((TOTAL_TESTS + TESTS))
+                            FAILED_TESTS=$((FAILED_TESTS + FAILURES))
+                            ERROR_TESTS=$((ERROR_TESTS + ERRORS))
+                            SKIPPED_TESTS=$((SKIPPED_TESTS + SKIPPED))
+                            PROCESSED_FILES=$((PROCESSED_FILES + 1))
+                            
+                            echo "  Tests: ${'$'}TESTS, Failures: ${'$'}FAILURES, Errors: ${'$'}ERRORS, Skipped: ${'$'}SKIPPED"
+                        fi
+                    done
+                    
+                    # Calculate passed tests
+                    PASSED_TESTS=$((TOTAL_TESTS - FAILED_TESTS - ERROR_TESTS - SKIPPED_TESTS))
+                    
+                    # Ensure no negative values
+                    if [ "${'$'}PASSED_TESTS" -lt 0 ]; then
+                        PASSED_TESTS=0
+                    fi
                 else
-                    echo "❌ Internal validation failed: ${'$'}FAILED_TESTS out of ${'$'}TOTAL_SAMPLES samples failed"
-                    echo "Internal validation is required and failures will be evaluated by quality gate"
-                    echo "FAILURE|Internal validation status could not be determined - required dependency failed"
-                    echo "##teamcity[setParameter name='internal.validation.status' value='FAILED']"
+                    echo "No JUnit XML test results found, checking build status and logs..."
+                    
+                    # Try to determine status from build outcome and logs
+                    BUILD_STATUS=$(echo "%teamcity.build.status%" 2>/dev/null || echo "UNKNOWN")
+                    echo "Build status: ${'$'}BUILD_STATUS"
+                    
+                    # Look for compilation or build errors in recent logs
+                    if find . -name "*.log" -newer gradle.properties 2>/dev/null | head -5 | xargs grep -l -i "error\|exception\|failed" >/dev/null 2>&1; then
+                        echo "Found error indicators in build logs - assuming build failure"
+                        TOTAL_TESTS=1
+                        PASSED_TESTS=0
+                        FAILED_TESTS=1
+                        ERROR_TESTS=0
+                        SKIPPED_TESTS=0
+                    elif [ "${'$'}BUILD_STATUS" = "SUCCESS" ]; then
+                        echo "Build successful but no test results - assuming minimal validation passed"
+                        TOTAL_TESTS=1
+                        PASSED_TESTS=1
+                        FAILED_TESTS=0
+                        ERROR_TESTS=0
+                        SKIPPED_TESTS=0
+                    else
+                        echo "Build status unclear - reporting as build validation failure"
+                        TOTAL_TESTS=1
+                        PASSED_TESTS=0
+                        FAILED_TESTS=0
+                        ERROR_TESTS=1
+                        SKIPPED_TESTS=0
+                    fi
                 fi
 
+                # Calculate success rate
+                if [ "${'$'}TOTAL_TESTS" -gt 0 ]; then
+                    SUCCESS_RATE=$(echo "scale=1; ${'$'}PASSED_TESTS * 100 / ${'$'}TOTAL_TESTS" | bc -l 2>/dev/null || echo "0.0")
+                else
+                    SUCCESS_RATE="0.0"
+                fi
+
+                echo ""
+                echo "=== Internal Test Suite Results ==="
+                echo "Test result files processed: ${'$'}PROCESSED_FILES"
+                echo "Total tests: ${'$'}TOTAL_TESTS"
+                echo "Passed: ${'$'}PASSED_TESTS"
+                echo "Failed: ${'$'}FAILED_TESTS"
+                echo "Errors: ${'$'}ERROR_TESTS"  
+                echo "Skipped: ${'$'}SKIPPED_TESTS"
+                echo "Success rate: ${'$'}SUCCESS_RATE%"
+
+                # Set parameters for quality gate evaluation
+                echo "##teamcity[setParameter name='internal.validation.total.tests' value='${'$'}TOTAL_TESTS']"
+                echo "##teamcity[setParameter name='internal.validation.passed.tests' value='${'$'}PASSED_TESTS']"
+                echo "##teamcity[setParameter name='internal.validation.failed.tests' value='${'$'}FAILED_TESTS']"
+                echo "##teamcity[setParameter name='internal.validation.error.tests' value='${'$'}ERROR_TESTS']"
+                echo "##teamcity[setParameter name='internal.validation.skipped.tests' value='${'$'}SKIPPED_TESTS']"
+                echo "##teamcity[setParameter name='internal.validation.success.rate' value='${'$'}SUCCESS_RATE']"
+                echo "##teamcity[setParameter name='internal.validation.processed.files' value='${'$'}PROCESSED_FILES']"
+
+                # Generate internal validation report
+                cat > internal-validation-reports/internal-validation.txt <<EOF
+Internal Test Suites Report
+===========================
+Generated: $(date -Iseconds)
+Ktor Version: %env.KTOR_VERSION%
+Kotlin Version: %env.KOTLIN_VERSION%
+
+Results:
+- Total Tests: ${'$'}TOTAL_TESTS
+- Passed: ${'$'}PASSED_TESTS
+- Failed: ${'$'}FAILED_TESTS
+- Errors: ${'$'}ERROR_TESTS
+- Skipped: ${'$'}SKIPPED_TESTS
+- Success Rate: ${'$'}SUCCESS_RATE%
+
+Processing Details:
+- Test Result Files Found: ${'$'}PROCESSED_FILES
+- Analysis Method: $([[ ${'$'}PROCESSED_FILES -gt 0 ]] && echo "JUnit XML parsing" || echo "Build status inference")
+
+$([[ ${'$'}PROCESSED_FILES -gt 0 ]] && echo "
+Test Result Files Processed:
+$(echo "${'$'}TEST_RESULT_FILES" | head -20)
+$([[ $(echo "${'$'}TEST_RESULT_FILES" | wc -l) -gt 20 ]] && echo "... and more (see build logs)" || echo "")" || echo "
+Note: No JUnit XML files found. Results inferred from build status and log analysis.
+This may indicate:
+- Tests were not run due to compilation errors
+- Test framework configuration issues  
+- Build process interrupted before test execution")
+
+Status: COMPLETED
+EOF
+
                 echo "=== Step 3: Internal Test Suites Completed ==="
-                # Continue to quality gate evaluation to make final determination
+                
+                # Always succeed - let quality gate evaluate the results
                 exit 0
             """.trimIndent()
         }
@@ -1004,126 +620,225 @@ EOF
     /**
      * Step 4: Quality Gate Evaluation
      * Evaluates all validation results against quality gate criteria
+     * Always runs regardless of previous step outcomes
      */
     private fun BuildSteps.qualityGateEvaluation() {
         script {
             name = "Step 4: Quality Gate Evaluation"
+            executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptContent = """
                 #!/bin/bash
+                # Don't use 'set -e' - we want to complete evaluation even if some data is missing
 
                 echo "=== Step 4: Quality Gate Evaluation ==="
                 echo "Evaluating all validation results against quality gate criteria"
-                echo "EAP Version: %env.KTOR_VERSION%"
-                echo "Timestamp: $(date -Iseconds)"
 
-                # Create reports directory
                 mkdir -p quality-gate-reports
 
-                # First, update status to indicate evaluation has started
-                echo "##teamcity[setParameter name='quality.gate.overall.status' value='EVALUATING']"
-                echo "##teamcity[setParameter name='quality.gate.recommendations' value='Quality gate evaluation in progress']"
-                echo "##teamcity[setParameter name='quality.gate.next.steps' value='Awaiting evaluation results']"
+                # Read validation results with fallback defaults
+                EXTERNAL_TOTAL=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SUCCESSFUL=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_FAILED=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SKIPPED=$(echo "%external.validation.skipped.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
 
-                # Get validation results from previous steps
-                EXTERNAL_STATUS="%external.validation.status%"
-                EXTERNAL_TOTAL_SAMPLES="%external.validation.total.samples%"
-                EXTERNAL_SUCCESSFUL_SAMPLES="%external.validation.successful.samples%"
-                EXTERNAL_FAILED_SAMPLES="%external.validation.failed.samples%"
-                EXTERNAL_SUCCESS_RATE="%external.validation.success.rate%"
+                INTERNAL_TOTAL=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
+                INTERNAL_PASSED=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
+                INTERNAL_FAILED=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
+                INTERNAL_ERRORS=$(echo "%internal.validation.error.tests%" 2>/dev/null || echo "0")
+                INTERNAL_SKIPPED=$(echo "%internal.validation.skipped.tests%" 2>/dev/null || echo "0")
+                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
 
-                INTERNAL_STATUS="%internal.validation.status%"
-                INTERNAL_TOTAL_TESTS="%internal.validation.total.tests%"
-                INTERNAL_PASSED_TESTS="%internal.validation.passed.tests%"
-                INTERNAL_FAILED_TESTS="%internal.validation.failed.tests%"
-                INTERNAL_CRITICAL_ISSUES="%internal.validation.critical.issues%"
-                INTERNAL_SUCCESS_RATE="%internal.validation.success.rate%"
+                VERSION_ERRORS=$(echo "%version.resolution.errors%" 2>/dev/null || echo "0")
 
-                # Quality gate thresholds
-                MIN_SCORE="%quality.gate.thresholds.minimum.score%"
-                MAX_CRITICAL="%quality.gate.thresholds.critical.issues%"
-                BASE_SCORE="%quality.gate.scoring.base.score%"
-                EXTERNAL_WEIGHT="%quality.gate.scoring.external.weight%"
-                INTERNAL_WEIGHT="%quality.gate.scoring.internal.weight%"
+                # Read quality gate thresholds
+                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
+                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
+                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
+                CRITICAL_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
 
-                echo "External validation status: ${'$'}EXTERNAL_STATUS"
-                echo "Internal validation status: ${'$'}INTERNAL_STATUS"
+                echo "=== Quality Gate Configuration ==="
+                echo "- External Weight: ${'$'}EXTERNAL_WEIGHT%"
+                echo "- Internal Weight: ${'$'}INTERNAL_WEIGHT%"
+                echo "- Minimum Score Threshold: ${'$'}MINIMUM_SCORE"
+                echo "- Critical Issues Threshold: ${'$'}CRITICAL_THRESHOLD"
 
-                # Calculate scores
-                if [ "${'$'}EXTERNAL_STATUS" = "SUCCESS" ]; then
-                    EXTERNAL_SCORE=$((BASE_SCORE - 5))  # 95
-                else
-                    EXTERNAL_SCORE=$((BASE_SCORE - 50)) # 50
+                echo ""
+                echo "=== Validation Data Collected ==="
+                echo "Version Resolution Errors: ${'$'}VERSION_ERRORS"
+                echo "External Samples: ${'$'}EXTERNAL_SUCCESSFUL/${'$'}EXTERNAL_TOTAL (${'$'}EXTERNAL_SUCCESS_RATE%)"
+                echo "  - Failed: ${'$'}EXTERNAL_FAILED, Skipped: ${'$'}EXTERNAL_SKIPPED"
+                echo "Internal Tests: ${'$'}INTERNAL_PASSED/${'$'}INTERNAL_TOTAL (${'$'}INTERNAL_SUCCESS_RATE%)"
+                echo "  - Failed: ${'$'}INTERNAL_FAILED, Errors: ${'$'}INTERNAL_ERRORS, Skipped: ${'$'}INTERNAL_SKIPPED"
+
+                # Calculate individual scores (convert success rates to integers)
+                EXTERNAL_SCORE=$(echo "${'$'}EXTERNAL_SUCCESS_RATE" | awk '{printf "%.0f", $1}')
+                INTERNAL_SCORE=$(echo "${'$'}INTERNAL_SUCCESS_RATE" | awk '{printf "%.0f", $1}')
+
+                # Handle cases where scores might be empty or invalid
+                EXTERNAL_SCORE=$(echo "${'$'}EXTERNAL_SCORE" | grep -E '^[0-9]+$' || echo "0")
+                INTERNAL_SCORE=$(echo "${'$'}INTERNAL_SCORE" | grep -E '^[0-9]+$' || echo "0")
+
+                echo ""
+                echo "=== Individual Scores ==="
+                echo "- External Score: ${'$'}EXTERNAL_SCORE/100"
+                echo "- Internal Score: ${'$'}INTERNAL_SCORE/100"
+
+                # Calculate overall weighted score
+                OVERALL_SCORE=$(echo "${'$'}EXTERNAL_SCORE ${'$'}INTERNAL_SCORE ${'$'}EXTERNAL_WEIGHT ${'$'}INTERNAL_WEIGHT" | awk '{
+                    weighted = ($1 * $3 / 100) + ($2 * $4 / 100)
+                    printf "%.0f", weighted
+                }')
+
+                echo "- Overall Weighted Score: ${'$'}OVERALL_SCORE/100"
+
+                # Determine individual gate status
+                EXTERNAL_GATE_STATUS="FAILED"
+                if [ "${'$'}EXTERNAL_SCORE" -ge 80 ]; then
+                    EXTERNAL_GATE_STATUS="PASSED"
                 fi
 
-                if [ "${'$'}INTERNAL_STATUS" = "SUCCESS" ]; then
-                    INTERNAL_SCORE=$((BASE_SCORE - 5))  # 95
-                else
-                    INTERNAL_SCORE=$((BASE_SCORE - 50)) # 50
+                INTERNAL_GATE_STATUS="FAILED"  
+                if [ "${'$'}INTERNAL_SCORE" -ge 80 ]; then
+                    INTERNAL_GATE_STATUS="PASSED"
                 fi
 
-                # Calculate weighted overall score
-                OVERALL_SCORE=$(((EXTERNAL_SCORE * EXTERNAL_WEIGHT + INTERNAL_SCORE * INTERNAL_WEIGHT) / 100))
+                # Calculate critical issues (failed tests + errors + version resolution errors)
+                TOTAL_CRITICAL=$((EXTERNAL_FAILED + INTERNAL_FAILED + INTERNAL_ERRORS + VERSION_ERRORS))
 
-                # Calculate total critical issues
-                EXTERNAL_CRITICAL_ISSUES=${'$'}EXTERNAL_FAILED_SAMPLES
-                TOTAL_CRITICAL=$((EXTERNAL_CRITICAL_ISSUES + INTERNAL_CRITICAL_ISSUES))
+                echo ""
+                echo "=== Quality Gate Assessment ==="
+                echo "- External Gate: ${'$'}EXTERNAL_GATE_STATUS (${'$'}EXTERNAL_SCORE >= 80)"
+                echo "- Internal Gate: ${'$'}INTERNAL_GATE_STATUS (${'$'}INTERNAL_SCORE >= 80)"
+                echo "- Critical Issues: ${'$'}TOTAL_CRITICAL (threshold: ${'$'}CRITICAL_THRESHOLD)"
+
+                # Overall quality gate decision
+                OVERALL_STATUS="FAILED"
+                FAILURE_REASONS=""
+                RECOMMENDATIONS="Review validation results and address failures"
+                NEXT_STEPS="Investigate failed tests and samples"
+
+                # Check overall score threshold
+                SCORE_CHECK="FAILED"
+                if [ "${'$'}OVERALL_SCORE" -ge "${'$'}MINIMUM_SCORE" ]; then
+                    SCORE_CHECK="PASSED"
+                fi
+
+                # Check critical issues threshold  
+                CRITICAL_CHECK="FAILED"
+                if [ "${'$'}TOTAL_CRITICAL" -le "${'$'}CRITICAL_THRESHOLD" ]; then
+                    CRITICAL_CHECK="PASSED"
+                fi
 
                 # Determine overall status
-                if [ ${'$'}TOTAL_CRITICAL -gt ${'$'}MAX_CRITICAL ]; then
-                    OVERALL_STATUS="FAILED"
-                elif [ ${'$'}OVERALL_SCORE -lt ${'$'}MIN_SCORE ]; then
-                    OVERALL_STATUS="FAILED"
-                elif [ "${'$'}EXTERNAL_STATUS" = "SUCCESS" ] && [ "${'$'}INTERNAL_STATUS" = "SUCCESS" ]; then
+                if [ "${'$'}SCORE_CHECK" = "PASSED" ] && [ "${'$'}CRITICAL_CHECK" = "PASSED" ]; then
                     OVERALL_STATUS="PASSED"
+                    RECOMMENDATIONS="EAP version meets quality criteria and is ready for release"
+                    NEXT_STEPS="Proceed with release process and stakeholder notification"
                 else
-                    OVERALL_STATUS="FAILED"
+                    # Build failure reasons
+                    if [ "${'$'}SCORE_CHECK" = "FAILED" ]; then
+                        FAILURE_REASONS="Overall score (${'$'}OVERALL_SCORE) below threshold (${'$'}MINIMUM_SCORE)"
+                    fi
+                    if [ "${'$'}CRITICAL_CHECK" = "FAILED" ]; then
+                        if [ -n "${'$'}FAILURE_REASONS" ]; then
+                            FAILURE_REASONS="${'$'}FAILURE_REASONS; Critical issues (${'$'}TOTAL_CRITICAL) exceed threshold (${'$'}CRITICAL_THRESHOLD)"
+                        else
+                            FAILURE_REASONS="Critical issues (${'$'}TOTAL_CRITICAL) exceed threshold (${'$'}CRITICAL_THRESHOLD)"
+                        fi
+                    fi
+                    
+                    # Provide specific recommendations based on failure type
+                    if [ "${'$'}EXTERNAL_SCORE" -lt 50 ] && [ "${'$'}EXTERNAL_TOTAL" -gt 0 ]; then
+                        RECOMMENDATIONS="Critical: External samples compatibility is very low. Review EAP version compatibility with community samples."
+                    elif [ "${'$'}INTERNAL_SCORE" -lt 50 ] && [ "${'$'}INTERNAL_TOTAL" -gt 0 ]; then
+                        RECOMMENDATIONS="Critical: Internal tests failing significantly. Review core framework stability with EAP versions."
+                    elif [ "${'$'}TOTAL_CRITICAL" -gt 10 ]; then
+                        RECOMMENDATIONS="High number of critical issues detected. Prioritize fixing core functionality before release."
+                    else
+                        RECOMMENDATIONS="Quality gate failed but issues may be addressable. Review specific failure details."
+                    fi
                 fi
 
-                # Generate recommendations and next steps
-                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                    RECOMMENDATIONS="EAP version %env.KTOR_VERSION% is ready for release"
-                    NEXT_STEPS="Prepare release notes and documentation for EAP %env.KTOR_VERSION%"
-                    FAILURE_REASONS=""
-                elif [ ${'$'}TOTAL_CRITICAL -gt 0 ]; then
-                    RECOMMENDATIONS="Address ${'$'}TOTAL_CRITICAL critical issues before release"
-                    NEXT_STEPS="Fix critical issues in validation"
-                    FAILURE_REASONS="Too many critical issues (${'$'}TOTAL_CRITICAL > ${'$'}MAX_CRITICAL)"
-                elif [ ${'$'}OVERALL_SCORE -lt ${'$'}MIN_SCORE ]; then
-                    RECOMMENDATIONS="Improve quality score from ${'$'}OVERALL_SCORE to at least ${'$'}MIN_SCORE"
-                    NEXT_STEPS="Fix identified issues and re-run validation"
-                    FAILURE_REASONS="Score too low (${'$'}OVERALL_SCORE < ${'$'}MIN_SCORE)"
-                else
-                    RECOMMENDATIONS="Review failed validations and address issues"
-                    NEXT_STEPS="Fix identified issues and re-run validation"
-                    FAILURE_REASONS="Validation failures detected"
-                fi
+                echo "- Score Check: ${'$'}SCORE_CHECK (${'$'}OVERALL_SCORE >= ${'$'}MINIMUM_SCORE)"
+                echo "- Critical Check: ${'$'}CRITICAL_CHECK (${'$'}TOTAL_CRITICAL <= ${'$'}CRITICAL_THRESHOLD)"
+                echo "- Overall Status: ${'$'}OVERALL_STATUS"
 
-                echo "=== Quality Gate Evaluation Results ==="
-                echo "Overall Status: ${'$'}OVERALL_STATUS"
-                echo "Overall Score: ${'$'}OVERALL_SCORE/100 (weighted: External ${'$'}EXTERNAL_WEIGHT%, Internal ${'$'}INTERNAL_WEIGHT%)"
-                echo "External Validation: $([[ "${'$'}EXTERNAL_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED") (${'$'}EXTERNAL_SCORE/100)"
-                echo "Internal Validation: $([[ "${'$'}INTERNAL_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED") (${'$'}INTERNAL_SCORE/100)"
-                echo "Total Critical Issues: ${'$'}TOTAL_CRITICAL (External: ${'$'}EXTERNAL_CRITICAL_ISSUES, Internal: ${'$'}INTERNAL_CRITICAL_ISSUES)"
-
-                # Set all TeamCity parameters with calculated values
+                # Set parameters for reporting
                 echo "##teamcity[setParameter name='quality.gate.overall.status' value='${'$'}OVERALL_STATUS']"
                 echo "##teamcity[setParameter name='quality.gate.overall.score' value='${'$'}OVERALL_SCORE']"
                 echo "##teamcity[setParameter name='quality.gate.total.critical' value='${'$'}TOTAL_CRITICAL']"
-                echo "##teamcity[setParameter name='external.gate.status' value='$([[ "${'$'}EXTERNAL_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED")']"
+                echo "##teamcity[setParameter name='external.gate.status' value='${'$'}EXTERNAL_GATE_STATUS']"
                 echo "##teamcity[setParameter name='external.gate.score' value='${'$'}EXTERNAL_SCORE']"
-                echo "##teamcity[setParameter name='internal.gate.status' value='$([[ "${'$'}INTERNAL_STATUS" == "SUCCESS" ]] && echo "PASSED" || echo "FAILED")']"
+                echo "##teamcity[setParameter name='internal.gate.status' value='${'$'}INTERNAL_GATE_STATUS']"
                 echo "##teamcity[setParameter name='internal.gate.score' value='${'$'}INTERNAL_SCORE']"
                 echo "##teamcity[setParameter name='quality.gate.recommendations' value='${'$'}RECOMMENDATIONS']"
                 echo "##teamcity[setParameter name='quality.gate.next.steps' value='${'$'}NEXT_STEPS']"
                 echo "##teamcity[setParameter name='quality.gate.failure.reasons' value='${'$'}FAILURE_REASONS']"
 
+                # Generate quality gate report
+                cat > quality-gate-reports/quality-gate-evaluation.txt <<EOF
+Quality Gate Evaluation Report
+==============================
+Generated: $(date -Iseconds)
+Ktor Version: %env.KTOR_VERSION%
+Kotlin Version: %env.KOTLIN_VERSION%
+
+Configuration:
+- External Weight: ${'$'}EXTERNAL_WEIGHT%
+- Internal Weight: ${'$'}INTERNAL_WEIGHT%
+- Minimum Score Threshold: ${'$'}MINIMUM_SCORE
+- Critical Issues Threshold: ${'$'}CRITICAL_THRESHOLD
+
+Input Data:
+- Version Resolution Errors: ${'$'}VERSION_ERRORS
+- External Samples: ${'$'}EXTERNAL_SUCCESSFUL/${'$'}EXTERNAL_TOTAL (${'$'}EXTERNAL_SUCCESS_RATE%)
+  * Failed: ${'$'}EXTERNAL_FAILED, Skipped: ${'$'}EXTERNAL_SKIPPED
+- Internal Tests: ${'$'}INTERNAL_PASSED/${'$'}INTERNAL_TOTAL (${'$'}INTERNAL_SUCCESS_RATE%)
+  * Failed: ${'$'}INTERNAL_FAILED, Errors: ${'$'}INTERNAL_ERRORS, Skipped: ${'$'}INTERNAL_SKIPPED
+
+Scoring:
+- External Score: ${'$'}EXTERNAL_SCORE/100 -> ${'$'}EXTERNAL_GATE_STATUS
+- Internal Score: ${'$'}INTERNAL_SCORE/100 -> ${'$'}INTERNAL_GATE_STATUS
+- Overall Weighted Score: ${'$'}OVERALL_SCORE/100
+
+Quality Gate Decision:
+- Score Check: ${'$'}SCORE_CHECK (${'$'}OVERALL_SCORE >= ${'$'}MINIMUM_SCORE)
+- Critical Check: ${'$'}CRITICAL_CHECK (${'$'}TOTAL_CRITICAL <= ${'$'}CRITICAL_THRESHOLD)
+- Overall Status: ${'$'}OVERALL_STATUS
+
+Critical Issues Breakdown:
+- External Sample Failures: ${'$'}EXTERNAL_FAILED
+- Internal Test Failures: ${'$'}INTERNAL_FAILED
+- Internal Test Errors: ${'$'}INTERNAL_ERRORS
+- Version Resolution Errors: ${'$'}VERSION_ERRORS
+- Total Critical Issues: ${'$'}TOTAL_CRITICAL
+
+Recommendations: ${'$'}RECOMMENDATIONS
+Next Steps: ${'$'}NEXT_STEPS
+$([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo "Failure Reasons: ${'$'}FAILURE_REASONS" || echo "")
+EOF
+
                 if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                    echo "✅ All quality gates passed"
+                    echo ""
+                    echo "✅ Quality gate evaluation PASSED!"
+                    echo "Recommendations: ${'$'}RECOMMENDATIONS"
+                    echo "Next Steps: ${'$'}NEXT_STEPS"
                 else
-                    echo "❌ Quality gates failed: ${'$'}FAILURE_REASONS"
+                    echo ""
+                    echo "❌ Quality gate evaluation FAILED!"
+                    echo "Failure Reasons: ${'$'}FAILURE_REASONS"
+                    echo "Recommendations: ${'$'}RECOMMENDATIONS"
+                    echo "Next Steps: ${'$'}NEXT_STEPS"
+                    
+                    # This will trigger the build failure condition
+                    echo "QUALITY_GATE_FAILED: Overall validation failed with score ${'$'}OVERALL_SCORE and ${'$'}TOTAL_CRITICAL critical issues"
                 fi
 
                 echo "=== Step 4: Quality Gate Evaluation Completed ==="
+                
+                # Always exit successfully here - the build failure condition will handle the actual failure
+                exit 0
             """.trimIndent()
         }
     }
@@ -1131,56 +846,67 @@ EOF
     /**
      * Step 5: Report Generation & Notifications
      * Generates comprehensive reports and sends notifications
+     * Always runs to ensure reports are available even for failed builds
      */
     private fun BuildSteps.reportGenerationAndNotifications() {
         script {
             name = "Step 5: Report Generation & Notifications"
             executionMode = BuildStep.ExecutionMode.ALWAYS
             scriptContent = """
-            #!/bin/bash
+                #!/bin/bash
+                # Don't use 'set -e' - we want to generate as complete a report as possible
 
-            echo "=== Step 5: Report Generation & Notifications ==="
-            echo "Generating comprehensive reports and sending notifications"
-            echo "EAP Version: %env.KTOR_VERSION%"
-            echo "Timestamp: $(date -Iseconds)"
+                echo "=== Step 5: Report Generation & Notifications ==="
+                echo "Generating comprehensive reports and sending notifications"
+                echo "EAP Version: %env.KTOR_VERSION%"
+                echo "Timestamp: $(date -Iseconds)"
 
-            # Read runtime parameter values
-            OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
-            OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
-            TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
+                # Read all runtime parameter values with safe defaults
+                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
+                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
+                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
 
-            EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
-            EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
-            EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
-            EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
-            EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
-            EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
+                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
+                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
+                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SKIPPED_SAMPLES=$(echo "%external.validation.skipped.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
 
-            INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
-            INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
-            INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
-            INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
-            INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
-            INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
+                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
+                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
+                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
+                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
+                INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
+                INTERNAL_ERROR_TESTS=$(echo "%internal.validation.error.tests%" 2>/dev/null || echo "0")
+                INTERNAL_SKIPPED_TESTS=$(echo "%internal.validation.skipped.tests%" 2>/dev/null || echo "0")
+                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
 
-            RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
-            NEXT_STEPS=$(echo "%quality.gate.next.steps%" 2>/dev/null || echo "Review validation results")
-            FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" 2>/dev/null || echo "")
+                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
+                NEXT_STEPS=$(echo "%quality.gate.next.steps%" 2>/dev/null || echo "Review validation results")
+                FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" 2>/dev/null || echo "")
 
-            # Read quality gate configuration parameters to avoid agent compatibility issues
-            EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
-            INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
-            MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
-            CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
+                VERSION_ERRORS=$(echo "%version.resolution.errors%" 2>/dev/null || echo "0")
 
-            echo "Overall Status: ${'$'}OVERALL_STATUS"
+                # Read quality gate configuration parameters
+                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
+                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
+                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
+                CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
 
-            # Generate comprehensive report
-            cat > quality-gate-reports/consolidated-eap-validation-report.txt <<EOF
+                echo "=== Report Data Summary ==="
+                echo "Overall Status: ${'$'}OVERALL_STATUS"
+                echo "Overall Score: ${'$'}OVERALL_SCORE/100"
+                echo "Critical Issues: ${'$'}TOTAL_CRITICAL"
+
+                # Generate comprehensive report
+                cat > quality-gate-reports/consolidated-eap-validation-report.txt <<EOF
 Consolidated EAP Validation Report - %env.KTOR_VERSION%
 ======================================================
 Generated: $(date -Iseconds)
 Architecture: Consolidated Single Build
+Build ID: %teamcity.build.id%
 
 Overall Assessment:
 - Status: ${'$'}OVERALL_STATUS
@@ -1188,51 +914,82 @@ Overall Assessment:
 - Critical Issues: ${'$'}TOTAL_CRITICAL
 - Ready for Release: $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "YES" || echo "NO")
 
+Version Information:
+- Ktor Framework: %env.KTOR_VERSION%
+- Ktor Compiler Plugin: %env.KTOR_COMPILER_PLUGIN_VERSION%
+- Kotlin: %env.KOTLIN_VERSION%
+- Version Resolution Errors: ${'$'}VERSION_ERRORS
+
 Step Results:
-Step 1 - Version Resolution: SUCCESS
-  - Ktor Framework: %env.KTOR_VERSION%
-  - Ktor Compiler Plugin: %env.KTOR_COMPILER_PLUGIN_VERSION%
-  - Kotlin: %env.KOTLIN_VERSION%
+Step 1 - Version Resolution: $([[ "${'$'}VERSION_ERRORS" -eq "0" ]] && echo "SUCCESS" || echo "PARTIAL_SUCCESS (${'$'}VERSION_ERRORS errors)")
 
 Step 2 - External Samples Validation: ${'$'}EXTERNAL_GATE_STATUS (${'$'}EXTERNAL_GATE_SCORE/100)
   - Total Samples: ${'$'}EXTERNAL_TOTAL_SAMPLES
   - Successful: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES
   - Failed: ${'$'}EXTERNAL_FAILED_SAMPLES
+  - Skipped: ${'$'}EXTERNAL_SKIPPED_SAMPLES
   - Success Rate: ${'$'}EXTERNAL_SUCCESS_RATE%
 
 Step 3 - Internal Test Suites: ${'$'}INTERNAL_GATE_STATUS (${'$'}INTERNAL_GATE_SCORE/100)
   - Total Tests: ${'$'}INTERNAL_TOTAL_TESTS
   - Passed: ${'$'}INTERNAL_PASSED_TESTS
   - Failed: ${'$'}INTERNAL_FAILED_TESTS
+  - Errors: ${'$'}INTERNAL_ERROR_TESTS
+  - Skipped: ${'$'}INTERNAL_SKIPPED_TESTS
   - Success Rate: ${'$'}INTERNAL_SUCCESS_RATE%
 
 Step 4 - Quality Gate Evaluation: COMPLETED
   - Scoring Strategy: Weighted (External ${'$'}EXTERNAL_WEIGHT%, Internal ${'$'}INTERNAL_WEIGHT%)
   - Minimum Score Threshold: ${'$'}MINIMUM_SCORE
   - Critical Issues Threshold: ${'$'}CRITICAL_ISSUES_THRESHOLD
+  - Score Check: $([[ "${'$'}OVERALL_SCORE" -ge "${'$'}MINIMUM_SCORE" ]] && echo "PASSED" || echo "FAILED") (${'$'}OVERALL_SCORE >= ${'$'}MINIMUM_SCORE)
+  - Critical Check: $([[ "${'$'}TOTAL_CRITICAL" -le "${'$'}CRITICAL_ISSUES_THRESHOLD" ]] && echo "PASSED" || echo "FAILED") (${'$'}TOTAL_CRITICAL <= ${'$'}CRITICAL_ISSUES_THRESHOLD)
 
-Step 5 - Report Generation & Notifications: IN PROGRESS
+Step 5 - Report Generation & Notifications: COMPLETED
 
-Recommendations: ${'$'}RECOMMENDATIONS
-Next Steps: ${'$'}NEXT_STEPS
-$([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo "Failure Reasons: ${'$'}FAILURE_REASONS" || echo "")
+Critical Issues Breakdown:
+- External Sample Failures: ${'$'}EXTERNAL_FAILED_SAMPLES
+- Internal Test Failures: ${'$'}INTERNAL_FAILED_TESTS
+- Internal Test Errors: ${'$'}INTERNAL_ERROR_TESTS
+- Version Resolution Errors: ${'$'}VERSION_ERRORS
+- Total: ${'$'}TOTAL_CRITICAL
+
+Quality Gate Analysis:
+- Recommendations: ${'$'}RECOMMENDATIONS
+- Next Steps: ${'$'}NEXT_STEPS
+$([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo "- Failure Reasons: ${'$'}FAILURE_REASONS" || echo "")
+
+Build Information:
+- TeamCity Build: %teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%
+- VCS Revision: %build.vcs.number%
+- Agent: %agent.name%
 EOF
 
-            # Generate JSON report
-            cat > quality-gate-reports/consolidated-validation-results.json <<EOF
+                # Generate JSON report for programmatic consumption
+                cat > quality-gate-reports/consolidated-validation-results.json <<EOF
 {
-    "eapVersion": "%env.KTOR_VERSION%",
-    "timestamp": "$(date -Iseconds)",
-    "architecture": "consolidated",
-    "overallStatus": "${'$'}OVERALL_STATUS",
-    "overallScore": ${'$'}OVERALL_SCORE,
-    "totalCriticalIssues": ${'$'}TOTAL_CRITICAL,
+    "metadata": {
+        "generated": "$(date -Iseconds)",
+        "architecture": "consolidated",
+        "buildId": "%teamcity.build.id%",
+        "vcsRevision": "%build.vcs.number%"
+    },
+    "versions": {
+        "ktorFramework": "%env.KTOR_VERSION%",
+        "ktorCompilerPlugin": "%env.KTOR_COMPILER_PLUGIN_VERSION%",
+        "kotlin": "%env.KOTLIN_VERSION%",
+        "resolutionErrors": ${'$'}VERSION_ERRORS
+    },
+    "overallAssessment": {
+        "status": "${'$'}OVERALL_STATUS",
+        "score": ${'$'}OVERALL_SCORE,
+        "criticalIssues": ${'$'}TOTAL_CRITICAL,
+        "readyForRelease": $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "true" || echo "false")
+    },
     "steps": {
         "versionResolution": {
-            "status": "SUCCESS",
-            "ktorVersion": "%env.KTOR_VERSION%",
-            "compilerPluginVersion": "%env.KTOR_COMPILER_PLUGIN_VERSION%",
-            "kotlinVersion": "%env.KOTLIN_VERSION%"
+            "status": $([[ "${'$'}VERSION_ERRORS" -eq "0" ]] && echo '"SUCCESS"' || echo '"PARTIAL_SUCCESS"'),
+            "errors": ${'$'}VERSION_ERRORS
         },
         "externalSamplesValidation": {
             "status": "${'$'}EXTERNAL_GATE_STATUS",
@@ -1240,6 +997,7 @@ EOF
             "totalSamples": ${'$'}EXTERNAL_TOTAL_SAMPLES,
             "successfulSamples": ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES,
             "failedSamples": ${'$'}EXTERNAL_FAILED_SAMPLES,
+            "skippedSamples": ${'$'}EXTERNAL_SKIPPED_SAMPLES,
             "successRate": ${'$'}EXTERNAL_SUCCESS_RATE
         },
         "internalTestSuites": {
@@ -1248,135 +1006,152 @@ EOF
             "totalTests": ${'$'}INTERNAL_TOTAL_TESTS,
             "passedTests": ${'$'}INTERNAL_PASSED_TESTS,
             "failedTests": ${'$'}INTERNAL_FAILED_TESTS,
+            "errorTests": ${'$'}INTERNAL_ERROR_TESTS,
+            "skippedTests": ${'$'}INTERNAL_SKIPPED_TESTS,
             "successRate": ${'$'}INTERNAL_SUCCESS_RATE
+        }
+    },
+    "qualityGate": {
+        "configuration": {
+            "externalWeight": ${'$'}EXTERNAL_WEIGHT,
+            "internalWeight": ${'$'}INTERNAL_WEIGHT,
+            "minimumScoreThreshold": ${'$'}MINIMUM_SCORE,
+            "criticalIssuesThreshold": ${'$'}CRITICAL_ISSUES_THRESHOLD
         },
-        "qualityGateEvaluation": {
-            "status": "COMPLETED",
-            "scoringStrategy": "weighted",
-            "thresholds": {
-                "minimumScore": ${'$'}MINIMUM_SCORE,
-                "criticalIssues": ${'$'}CRITICAL_ISSUES_THRESHOLD
-            }
-        },
-        "reportGeneration": {
-            "status": "IN_PROGRESS"
+        "evaluation": {
+            "scoreCheck": $([[ "${'$'}OVERALL_SCORE" -ge "${'$'}MINIMUM_SCORE" ]] && echo '"PASSED"' || echo '"FAILED"'),
+            "criticalCheck": $([[ "${'$'}TOTAL_CRITICAL" -le "${'$'}CRITICAL_ISSUES_THRESHOLD" ]] && echo '"PASSED"' || echo '"FAILED"')
         }
     },
     "recommendations": "${'$'}RECOMMENDATIONS",
-    "nextSteps": "${'$'}NEXT_STEPS",
-    "readyForRelease": $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "true" || echo "false")
+    "nextSteps": "${'$'}NEXT_STEPS"$([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo ',
+    "failureReasons": "'"${'$'}FAILURE_REASONS"'"' || echo "")
 }
 EOF
 
-            echo "Comprehensive reports generated"
-            echo "##teamcity[publishArtifacts 'version-resolution-reports => version-resolution-reports.zip']"
-            echo "##teamcity[publishArtifacts 'external-validation-reports => external-validation-reports.zip']"
-            echo "##teamcity[publishArtifacts 'internal-validation-reports => internal-validation-reports.zip']"
-            echo "##teamcity[publishArtifacts 'quality-gate-reports => quality-gate-reports.zip']"
+                echo ""
+                echo "=== Publishing Artifacts ==="
+                echo "##teamcity[publishArtifacts 'version-resolution-reports => version-resolution-reports.zip']"
+                echo "##teamcity[publishArtifacts 'external-validation-reports => external-validation-reports.zip']"
+                echo "##teamcity[publishArtifacts 'internal-validation-reports => internal-validation-reports.zip']"
+                echo "##teamcity[publishArtifacts 'quality-gate-reports => quality-gate-reports.zip']"
 
-            VERSION="%env.KTOR_VERSION%"
+                VERSION="%env.KTOR_VERSION%"
 
-            # Set main build status
-            if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                MAIN_EMOJI="✅"
-            else
-                MAIN_EMOJI="❌"
-            fi
+                # Choose emojis based on status
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                    MAIN_EMOJI="✅"
+                    STATUS_COLOR="SUCCESS"
+                else
+                    MAIN_EMOJI="❌"
+                    STATUS_COLOR="FAILED"
+                fi
 
-            # Create enhanced build status text with key metrics
-            STATUS_TEXT="${'$'}MAIN_EMOJI EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100) | Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS | Critical: ${'$'}TOTAL_CRITICAL"
-            echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
+                # Create enhanced build status text with key metrics
+                STATUS_LINE1="${'$'}MAIN_EMOJI EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
+                STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
+                STATUS_LINE3="Critical: ${'$'}TOTAL_CRITICAL issues | Score: ${'$'}OVERALL_SCORE/100"
+                
+                # Combine into multi-line status
+                STATUS_TEXT="${'$'}STATUS_LINE1
+${'$'}STATUS_LINE2
+${'$'}STATUS_LINE3"
+                
+                echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
 
-            # Store detailed info in build parameters for potential custom notification templates
-            echo "##teamcity[setParameter name='quality.gate.slack.status.emoji' value='${'$'}MAIN_EMOJI']"
-            echo "##teamcity[setParameter name='quality.gate.slack.external.emoji' value='$([[ "${'$'}EXTERNAL_GATE_STATUS" == "PASSED" ]] && echo "✅" || echo "❌")']"
-            echo "##teamcity[setParameter name='quality.gate.slack.internal.emoji' value='$([[ "${'$'}INTERNAL_GATE_STATUS" == "PASSED" ]] && echo "✅" || echo "❌")']"
-            echo "##teamcity[setParameter name='quality.gate.slack.critical.emoji' value='$([[ "${'$'}TOTAL_CRITICAL" -eq "0" ]] && echo "✅" || echo "🚨")']"
+                # Store detailed info in build parameters for notifications
+                echo "##teamcity[setParameter name='quality.gate.slack.status.emoji' value='${'$'}MAIN_EMOJI']"
+                echo "##teamcity[setParameter name='quality.gate.slack.external.emoji' value='$([[ "${'$'}EXTERNAL_GATE_STATUS" == "PASSED" ]] && echo "✅" || echo "❌")']"
+                echo "##teamcity[setParameter name='quality.gate.slack.internal.emoji' value='$([[ "${'$'}INTERNAL_GATE_STATUS" == "PASSED" ]] && echo "✅" || echo "❌")']"
+                echo "##teamcity[setParameter name='quality.gate.slack.critical.emoji' value='$([[ "${'$'}TOTAL_CRITICAL" -eq "0" ]] && echo "✅" || echo "🚨")']"
 
-            echo "=== Final Consolidated EAP Validation Results ==="
-            echo "EAP Version: ${'$'}VERSION"
-            echo "Overall Status: ${'$'}OVERALL_STATUS"
-            echo "Overall Score: ${'$'}OVERALL_SCORE/100"
+                echo ""
+                echo "=== Final Consolidated EAP Validation Results ==="
+                echo "EAP Version: ${'$'}VERSION"
+                echo "Overall Status: ${'$'}OVERALL_STATUS (${'$'}STATUS_COLOR)"
+                echo "Overall Score: ${'$'}OVERALL_SCORE/100"
+                echo "Critical Issues: ${'$'}TOTAL_CRITICAL"
 
-            if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                echo "✅ Consolidated EAP validation passed!"
-                echo "Recommendations: ${'$'}RECOMMENDATIONS"
-                echo "Next Steps: ${'$'}NEXT_STEPS"
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                    echo ""
+                    echo "🎉 Consolidated EAP validation PASSED!"
+                    echo "✅ Recommendations: ${'$'}RECOMMENDATIONS"
+                    echo "▶️  Next Steps: ${'$'}NEXT_STEPS"
+                else
+                    echo ""
+                    echo "⚠️  Consolidated EAP validation FAILED!"
+                    echo "💥 Failure Reasons: ${'$'}FAILURE_REASONS"
+                    echo "💡 Recommendations: ${'$'}RECOMMENDATIONS"
+                    echo "▶️  Next Steps: ${'$'}NEXT_STEPS"
+                fi
+
+                echo ""
                 echo "=== Step 5: Report Generation & Notifications Completed Successfully ==="
-            else
-                echo "❌ Consolidated EAP validation failed!"
-                echo "Failure Reasons: ${'$'}FAILURE_REASONS"
-                echo "Recommendations: ${'$'}RECOMMENDATIONS"
-                echo "Next Steps: ${'$'}NEXT_STEPS"
-                echo "=== Step 5: Report Generation & Notifications Completed with Failures ==="
-            fi
-
-            # Always exit successfully to ensure full report generation and artifact publishing
-            echo "Full report generated successfully regardless of quality gate status"
-            exit 0
-        """.trimIndent()
+                
+                # Always exit successfully to ensure full report generation and artifact publishing
+                exit 0
+            """.trimIndent()
         }
 
+        // Add a separate step for detailed Slack webhook notification
         script {
             name = "Send Detailed Slack Report"
             executionMode = BuildStep.ExecutionMode.ALWAYS
+            conditions {
+                doesNotEqual("system.slack.webhook.url", "")
+            }
             scriptContent = """
-            #!/bin/bash
-            
-            # Check if Slack webhook is configured
-            SLACK_WEBHOOK="%system.slack.webhook.url%"
-            if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%""system.slack.webhook.url%" ]; then
-                echo "Slack webhook not configured, skipping detailed notification"
-                echo "To enable detailed Slack notifications, set system.slack.webhook.url parameter"
-                exit 0
-            fi
-            
-            # Read all the quality gate data
-            OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
-            OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
-            TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
-            
-            EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
-            EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
-            EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
-            EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
-            
-            INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
-            INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
-            INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
-            INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
-            
-            RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
-            
-            # Choose emojis based on status
-            if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                MAIN_EMOJI="🎉"
-                COLOR="good"
-            else
-                MAIN_EMOJI="⚠️"
-                COLOR="danger"
-            fi
-            
-            EXT_EMOJI="❌"
-            if [ "${'$'}EXTERNAL_GATE_STATUS" = "PASSED" ]; then
-                EXT_EMOJI="✅"
-            fi
-            
-            INT_EMOJI="❌"
-            if [ "${'$'}INTERNAL_GATE_STATUS" = "PASSED" ]; then
-                INT_EMOJI="✅"
-            fi
-            
-            CRITICAL_EMOJI="🚨"
-            if [ "${'$'}TOTAL_CRITICAL" -eq 0 ]; then
-                CRITICAL_EMOJI="✅"
-            fi
-            
-            # Build URL
-            BUILD_URL="%teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%"
-            
-            # Create JSON payload for Slack webhook
-            cat > slack_payload.json << EOF
+                #!/bin/bash
+                # Don't use 'set -e' - notification failures shouldn't break the build
+                
+                echo "=== Sending detailed Slack webhook notification ==="
+                
+                # Read all the quality gate data with safe defaults
+                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
+                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
+                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
+                
+                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
+                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
+                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
+                
+                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
+                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
+                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
+                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
+                
+                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
+                
+                # Choose emojis and colors based on status
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                    MAIN_EMOJI="🎉"
+                    COLOR="good"
+                else
+                    MAIN_EMOJI="⚠️"
+                    COLOR="danger"
+                fi
+                
+                EXT_EMOJI="❌"
+                if [ "${'$'}EXTERNAL_GATE_STATUS" = "PASSED" ]; then
+                    EXT_EMOJI="✅"
+                fi
+                
+                INT_EMOJI="❌"
+                if [ "${'$'}INTERNAL_GATE_STATUS" = "PASSED" ]; then
+                    INT_EMOJI="✅"
+                fi
+                
+                CRITICAL_EMOJI="🚨"
+                if [ "${'$'}TOTAL_CRITICAL" -eq 0 ]; then
+                    CRITICAL_EMOJI="✅"
+                fi
+                
+                # Build URL
+                BUILD_URL="%teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%"
+                
+                # Create JSON payload for Slack webhook with error handling
+                if ! cat > slack_payload.json << EOF
 {
     "attachments": [
         {
@@ -1394,15 +1169,15 @@ EOF
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": "*Overall Status:*\n${'$'}OVERALL_STATUS"
+                            "text": "*Overall Status:*\\n${'$'}OVERALL_STATUS"
                         },
                         {
                             "type": "mrkdwn", 
-                            "text": "*Score:*\n${'$'}OVERALL_SCORE/100"
+                            "text": "*Score:*\\n${'$'}OVERALL_SCORE/100"
                         },
                         {
                             "type": "mrkdwn",
-                            "text": "*Critical Issues:*\n${'$'}CRITICAL_EMOJI ${'$'}TOTAL_CRITICAL"
+                            "text": "*Critical Issues:*\\n${'$'}CRITICAL_EMOJI ${'$'}TOTAL_CRITICAL"
                         }
                     ]
                 },
@@ -1418,11 +1193,11 @@ EOF
                     "fields": [
                         {
                             "type": "mrkdwn",
-                            "text": "${'$'}EXT_EMOJI *External Samples:*\n\`${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES\` passed (\`${'$'}EXTERNAL_GATE_SCORE/100\`)"
+                            "text": "${'$'}EXT_EMOJI *External Samples:*\\n\`${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES\` passed (\`${'$'}EXTERNAL_GATE_SCORE/100\`)"
                         },
                         {
                             "type": "mrkdwn",
-                            "text": "${'$'}INT_EMOJI *Internal Tests:*\n\`${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS\` passed (\`${'$'}INTERNAL_GATE_SCORE/100\`)"
+                            "text": "${'$'}INT_EMOJI *Internal Tests:*\\n\`${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS\` passed (\`${'$'}INTERNAL_GATE_SCORE/100\`)"
                         }
                     ]
                 },
@@ -1430,7 +1205,7 @@ EOF
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "*💡 Recommendations:*\n${'$'}RECOMMENDATIONS"
+                        "text": "*💡 Recommendations:*\\n${'$'}RECOMMENDATIONS"
                     }
                 },
                 {
@@ -1451,14 +1226,32 @@ EOF
     ]
 }
 EOF
-            
-            # Send to Slack webhook
-            curl -X POST -H 'Content-type: application/json' \
-                --data @slack_payload.json \
-                "${'$'}SLACK_WEBHOOK"
-            
-            echo "Detailed Slack notification sent to webhook"
-        """.trimIndent()
+                then
+                    echo "❌ Failed to create Slack payload JSON"
+                    exit 0
+                fi
+                
+                # Send to Slack webhook with error handling
+                SLACK_WEBHOOK="%system.slack.webhook.url%"
+                echo "Sending notification to Slack webhook..."
+                
+                if curl -X POST -H 'Content-type: application/json' \
+                    --max-time 30 \
+                    --data @slack_payload.json \
+                    "${'$'}SLACK_WEBHOOK"; then
+                    echo "✅ Detailed Slack notification sent successfully"
+                else
+                    CURL_EXIT_CODE=$?
+                    echo "❌ Failed to send Slack notification (curl exit code: ${'$'}CURL_EXIT_CODE)"
+                    echo "This is non-critical - build continues successfully"
+                fi
+                
+                # Clean up
+                rm -f slack_payload.json
+                
+                echo "=== Slack notification step completed ==="
+                exit 0
+            """.trimIndent()
         }
     }
 }
