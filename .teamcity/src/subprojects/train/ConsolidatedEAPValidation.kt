@@ -66,6 +66,48 @@ object ConsolidatedEAPValidation {
                 // Optional Slack webhook for detailed notifications
                 param("system.slack.webhook.url", "")
 
+                // Version parameters
+                param("env.KTOR_VERSION", "")
+                param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
+                param("env.KOTLIN_VERSION", "2.1.21")
+
+                // Version resolution parameters
+                param("version.resolution.errors", "0")
+
+                // External validation parameters
+                param("external.validation.total.samples", "0")
+                param("external.validation.successful.samples", "0")
+                param("external.validation.failed.samples", "0")
+                param("external.validation.skipped.samples", "0")
+                param("external.validation.success.rate", "0.0")
+
+                // Internal validation parameters
+                param("internal.validation.total.tests", "0")
+                param("internal.validation.passed.tests", "0")
+                param("internal.validation.failed.tests", "0")
+                param("internal.validation.error.tests", "0")
+                param("internal.validation.skipped.tests", "0")
+                param("internal.validation.success.rate", "0.0")
+                param("internal.validation.processed.files", "0")
+
+                // Quality gate evaluation parameters
+                param("quality.gate.overall.status", "UNKNOWN")
+                param("quality.gate.overall.score", "0")
+                param("quality.gate.total.critical", "0")
+                param("external.gate.status", "UNKNOWN")
+                param("external.gate.score", "0")
+                param("internal.gate.status", "UNKNOWN")
+                param("internal.gate.score", "0")
+                param("quality.gate.recommendations", "Validation not yet completed")
+                param("quality.gate.next.steps", "Run validation steps")
+                param("quality.gate.failure.reasons", "")
+
+                // Slack notification parameters
+                param("quality.gate.slack.status.emoji", "⏳")
+                param("quality.gate.slack.external.emoji", "⏳")
+                param("quality.gate.slack.internal.emoji", "⏳")
+                param("quality.gate.slack.critical.emoji", "⏳")
+
                 defaultGradleParams()
             }
 
@@ -243,9 +285,14 @@ EOF
                 # Don't use 'set -e' - we want to process all samples and collect comprehensive results
 
                 echo "=== Step 2: External Samples Validation ==="
+                
+                # Get current parameter values or use fallback defaults
+                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
+                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
+                
                 echo "Validating external GitHub samples against EAP versions"
-                echo "Ktor Version: %env.KTOR_VERSION%"
-                echo "Kotlin Version: %env.KOTLIN_VERSION%"
+                echo "Ktor Version: ${'$'}KTOR_VERSION"
+                echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
 
                 mkdir -p external-validation-reports
 
@@ -255,13 +302,15 @@ EOF
                     echo "##teamcity[setParameter name='external.validation.total.samples' value='0']"
                     echo "##teamcity[setParameter name='external.validation.successful.samples' value='0']"
                     echo "##teamcity[setParameter name='external.validation.failed.samples' value='0']"
+                    echo "##teamcity[setParameter name='external.validation.skipped.samples' value='0']"
                     echo "##teamcity[setParameter name='external.validation.success.rate' value='0.0']"
                     
                     cat > external-validation-reports/external-validation.txt <<EOF
 External Samples Validation Report
 ==================================
 Generated: $(date -Iseconds)
-Ktor Version: %env.KTOR_VERSION%
+Ktor Version: ${'$'}KTOR_VERSION
+Kotlin Version: ${'$'}KOTLIN_VERSION
 
 ERROR: Samples directory not found
 Cannot proceed with external validation
@@ -289,8 +338,8 @@ EOF
                 
                 # Create a temporary gradle.properties with EAP versions
                 cat > gradle.properties.eap <<EOF
-kotlin_version=%env.KOTLIN_VERSION%
-ktor_version=%env.KTOR_VERSION%
+kotlin_version=${'$'}KOTLIN_VERSION
+ktor_version=${'$'}KTOR_VERSION
 logback_version=1.4.14
 kotlin.mpp.stability.nowarn=true
 EOF
@@ -396,8 +445,8 @@ EOF
 External Samples Validation Report
 ==================================
 Generated: $(date -Iseconds)
-Ktor Version: %env.KTOR_VERSION%
-Kotlin Version: %env.KOTLIN_VERSION%
+Ktor Version: ${'$'}KTOR_VERSION
+Kotlin Version: ${'$'}KOTLIN_VERSION
 
 Results:
 - Total Samples Processed: ${'$'}TOTAL_SAMPLES
@@ -459,9 +508,16 @@ EOF
                 # Don't use 'set -e' - we want to process results regardless of test outcomes
 
                 echo "=== Step 3: Processing Internal Test Results ==="
+                
+                # Get current parameter values or use fallback defaults
+                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
+                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
+                BUILD_STATUS=$(echo "%teamcity.build.status%" | sed 's/^%teamcity\.build\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                
                 echo "Analyzing internal test suite results"
-                echo "Ktor Version: %env.KTOR_VERSION%"
-                echo "Kotlin Version: %env.KOTLIN_VERSION%"
+                echo "Ktor Version: ${'$'}KTOR_VERSION"
+                echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
+                echo "Build Status: ${'$'}BUILD_STATUS"
 
                 mkdir -p internal-validation-reports
 
@@ -521,8 +577,6 @@ EOF
                 else
                     echo "No JUnit XML test results found, checking build status and logs..."
                     
-                    # Try to determine status from build outcome and logs
-                    BUILD_STATUS=$(echo "%teamcity.build.status%" 2>/dev/null || echo "UNKNOWN")
                     echo "Build status: ${'$'}BUILD_STATUS"
                     
                     # Look for compilation or build errors in recent logs
@@ -581,8 +635,8 @@ EOF
 Internal Test Suites Report
 ===========================
 Generated: $(date -Iseconds)
-Ktor Version: %env.KTOR_VERSION%
-Kotlin Version: %env.KOTLIN_VERSION%
+Ktor Version: ${'$'}KTOR_VERSION
+Kotlin Version: ${'$'}KOTLIN_VERSION
 
 Results:
 - Total Tests: ${'$'}TOTAL_TESTS
@@ -635,27 +689,27 @@ EOF
 
                 mkdir -p quality-gate-reports
 
-                # Read validation results with fallback defaults
-                EXTERNAL_TOTAL=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SUCCESSFUL=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_FAILED=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SKIPPED=$(echo "%external.validation.skipped.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
+                # Read validation results with safe parameter extraction and fallback defaults
+                EXTERNAL_TOTAL=$(echo "%external.validation.total.samples%" | sed 's/^%external\.validation\.total\.samples%$/0/' || echo "0")
+                EXTERNAL_SUCCESSFUL=$(echo "%external.validation.successful.samples%" | sed 's/^%external\.validation\.successful\.samples%$/0/' || echo "0")
+                EXTERNAL_FAILED=$(echo "%external.validation.failed.samples%" | sed 's/^%external\.validation\.failed\.samples%$/0/' || echo "0")
+                EXTERNAL_SKIPPED=$(echo "%external.validation.skipped.samples%" | sed 's/^%external\.validation\.skipped\.samples%$/0/' || echo "0")
+                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" | sed 's/^%external\.validation\.success\.rate%$/0.0/' || echo "0.0")
 
-                INTERNAL_TOTAL=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
-                INTERNAL_PASSED=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
-                INTERNAL_FAILED=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
-                INTERNAL_ERRORS=$(echo "%internal.validation.error.tests%" 2>/dev/null || echo "0")
-                INTERNAL_SKIPPED=$(echo "%internal.validation.skipped.tests%" 2>/dev/null || echo "0")
-                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
+                INTERNAL_TOTAL=$(echo "%internal.validation.total.tests%" | sed 's/^%internal\.validation\.total\.tests%$/0/' || echo "0")
+                INTERNAL_PASSED=$(echo "%internal.validation.passed.tests%" | sed 's/^%internal\.validation\.passed\.tests%$/0/' || echo "0")
+                INTERNAL_FAILED=$(echo "%internal.validation.failed.tests%" | sed 's/^%internal\.validation\.failed\.tests%$/0/' || echo "0")
+                INTERNAL_ERRORS=$(echo "%internal.validation.error.tests%" | sed 's/^%internal\.validation\.error\.tests%$/0/' || echo "0")
+                INTERNAL_SKIPPED=$(echo "%internal.validation.skipped.tests%" | sed 's/^%internal\.validation\.skipped\.tests%$/0/' || echo "0")
+                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" | sed 's/^%internal\.validation\.success\.rate%$/0.0/' || echo "0.0")
 
-                VERSION_ERRORS=$(echo "%version.resolution.errors%" 2>/dev/null || echo "0")
+                VERSION_ERRORS=$(echo "%version.resolution.errors%" | sed 's/^%version\.resolution\.errors%$/0/' || echo "0")
 
                 # Read quality gate thresholds
-                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
-                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
-                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
-                CRITICAL_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
+                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" | sed 's/^%quality\.gate\.scoring\.external\.weight%$/60/' || echo "60")
+                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" | sed 's/^%quality\.gate\.scoring\.internal\.weight%$/40/' || echo "40")
+                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" | sed 's/^%quality\.gate\.thresholds\.minimum\.score%$/80/' || echo "80")
+                CRITICAL_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" | sed 's/^%quality\.gate\.thresholds\.critical\.issues%$/0/' || echo "0")
 
                 echo "=== Quality Gate Configuration ==="
                 echo "- External Weight: ${'$'}EXTERNAL_WEIGHT%"
@@ -781,8 +835,6 @@ EOF
 Quality Gate Evaluation Report
 ==============================
 Generated: $(date -Iseconds)
-Ktor Version: %env.KTOR_VERSION%
-Kotlin Version: %env.KOTLIN_VERSION%
 
 Configuration:
 - External Weight: ${'$'}EXTERNAL_WEIGHT%
@@ -858,51 +910,57 @@ EOF
 
                 echo "=== Step 5: Report Generation & Notifications ==="
                 echo "Generating comprehensive reports and sending notifications"
-                echo "EAP Version: %env.KTOR_VERSION%"
                 echo "Timestamp: $(date -Iseconds)"
 
-                # Read all runtime parameter values with safe defaults
-                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
-                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
-                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
+                # Read all runtime parameter values with safe defaults and parameter extraction
+                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
+                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
+                KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | sed 's/^%env\.KTOR_COMPILER_PLUGIN_VERSION%$//' || echo "")
+                BUILD_VCS_NUMBER=$(echo "%build.vcs.number%" | sed 's/^%build\.vcs\.number%$/unknown/' || echo "unknown")
+                AGENT_NAME=$(echo "%agent.name%" | sed 's/^%agent\.name%$/unknown/' || echo "unknown")
+                
+                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" | sed 's/^%quality\.gate\.overall\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" | sed 's/^%quality\.gate\.overall\.score%$/0/' || echo "0")
+                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" | sed 's/^%quality\.gate\.total\.critical%$/0/' || echo "0")
 
-                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
-                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
-                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SKIPPED_SAMPLES=$(echo "%external.validation.skipped.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" 2>/dev/null || echo "0.0")
+                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" | sed 's/^%external\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" | sed 's/^%external\.gate\.score%$/0/' || echo "0")
+                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" | sed 's/^%external\.validation\.total\.samples%$/0/' || echo "0")
+                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" | sed 's/^%external\.validation\.successful\.samples%$/0/' || echo "0")
+                EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" | sed 's/^%external\.validation\.failed\.samples%$/0/' || echo "0")
+                EXTERNAL_SKIPPED_SAMPLES=$(echo "%external.validation.skipped.samples%" | sed 's/^%external\.validation\.skipped\.samples%$/0/' || echo "0")
+                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" | sed 's/^%external\.validation\.success\.rate%$/0.0/' || echo "0.0")
 
-                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
-                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
-                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
-                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
-                INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" 2>/dev/null || echo "0")
-                INTERNAL_ERROR_TESTS=$(echo "%internal.validation.error.tests%" 2>/dev/null || echo "0")
-                INTERNAL_SKIPPED_TESTS=$(echo "%internal.validation.skipped.tests%" 2>/dev/null || echo "0")
-                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" 2>/dev/null || echo "0.0")
+                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" | sed 's/^%internal\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" | sed 's/^%internal\.gate\.score%$/0/' || echo "0")
+                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" | sed 's/^%internal\.validation\.total\.tests%$/0/' || echo "0")
+                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" | sed 's/^%internal\.validation\.passed\.tests%$/0/' || echo "0")
+                INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" | sed 's/^%internal\.validation\.failed\.tests%$/0/' || echo "0")
+                INTERNAL_ERROR_TESTS=$(echo "%internal.validation.error.tests%" | sed 's/^%internal\.validation\.error\.tests%$/0/' || echo "0")
+                INTERNAL_SKIPPED_TESTS=$(echo "%internal.validation.skipped.tests%" | sed 's/^%internal\.validation\.skipped\.tests%$/0/' || echo "0")
+                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" | sed 's/^%internal\.validation\.success\.rate%$/0.0/' || echo "0.0")
 
-                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
-                NEXT_STEPS=$(echo "%quality.gate.next.steps%" 2>/dev/null || echo "Review validation results")
-                FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" 2>/dev/null || echo "")
+                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" | sed 's/^%quality\.gate\.recommendations%$/Quality gate evaluation not completed/' || echo "Quality gate evaluation not completed")
+                NEXT_STEPS=$(echo "%quality.gate.next.steps%" | sed 's/^%quality\.gate\.next\.steps%$/Review validation results/' || echo "Review validation results")
+                FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" | sed 's/^%quality\.gate\.failure\.reasons%$//' || echo "")
 
-                VERSION_ERRORS=$(echo "%version.resolution.errors%" 2>/dev/null || echo "0")
+                VERSION_ERRORS=$(echo "%version.resolution.errors%" | sed 's/^%version\.resolution\.errors%$/0/' || echo "0")
 
                 # Read quality gate configuration parameters
-                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" 2>/dev/null || echo "60")
-                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" 2>/dev/null || echo "40")
-                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" 2>/dev/null || echo "80")
-                CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" 2>/dev/null || echo "0")
+                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" | sed 's/^%quality\.gate\.scoring\.external\.weight%$/60/' || echo "60")
+                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" | sed 's/^%quality\.gate\.scoring\.internal\.weight%$/40/' || echo "40")
+                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" | sed 's/^%quality\.gate\.thresholds\.minimum\.score%$/80/' || echo "80")
+                CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" | sed 's/^%quality\.gate\.thresholds\.critical\.issues%$/0/' || echo "0")
 
                 echo "=== Report Data Summary ==="
+                echo "EAP Version: ${'$'}KTOR_VERSION"
                 echo "Overall Status: ${'$'}OVERALL_STATUS"
                 echo "Overall Score: ${'$'}OVERALL_SCORE/100"
                 echo "Critical Issues: ${'$'}TOTAL_CRITICAL"
 
                 # Generate comprehensive report
                 cat > quality-gate-reports/consolidated-eap-validation-report.txt <<EOF
-Consolidated EAP Validation Report - %env.KTOR_VERSION%
+Consolidated EAP Validation Report - ${'$'}KTOR_VERSION
 ======================================================
 Generated: $(date -Iseconds)
 Architecture: Consolidated Single Build
@@ -915,9 +973,9 @@ Overall Assessment:
 - Ready for Release: $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "YES" || echo "NO")
 
 Version Information:
-- Ktor Framework: %env.KTOR_VERSION%
-- Ktor Compiler Plugin: %env.KTOR_COMPILER_PLUGIN_VERSION%
-- Kotlin: %env.KOTLIN_VERSION%
+- Ktor Framework: ${'$'}KTOR_VERSION
+- Ktor Compiler Plugin: ${'$'}KTOR_COMPILER_PLUGIN_VERSION
+- Kotlin: ${'$'}KOTLIN_VERSION
 - Version Resolution Errors: ${'$'}VERSION_ERRORS
 
 Step Results:
@@ -961,8 +1019,8 @@ $([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo "- Failure Reasons: ${'$'}FAI
 
 Build Information:
 - TeamCity Build: %teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%
-- VCS Revision: %build.vcs.number%
-- Agent: %agent.name%
+- VCS Revision: ${'$'}BUILD_VCS_NUMBER
+- Agent: ${'$'}AGENT_NAME
 EOF
 
                 # Generate JSON report for programmatic consumption
@@ -972,12 +1030,13 @@ EOF
         "generated": "$(date -Iseconds)",
         "architecture": "consolidated",
         "buildId": "%teamcity.build.id%",
-        "vcsRevision": "%build.vcs.number%"
+        "vcsRevision": "${'$'}BUILD_VCS_NUMBER",
+        "agentName": "${'$'}AGENT_NAME"
     },
     "versions": {
-        "ktorFramework": "%env.KTOR_VERSION%",
-        "ktorCompilerPlugin": "%env.KTOR_COMPILER_PLUGIN_VERSION%",
-        "kotlin": "%env.KOTLIN_VERSION%",
+        "ktorFramework": "${'$'}KTOR_VERSION",
+        "ktorCompilerPlugin": "${'$'}KTOR_COMPILER_PLUGIN_VERSION",
+        "kotlin": "${'$'}KOTLIN_VERSION",
         "resolutionErrors": ${'$'}VERSION_ERRORS
     },
     "overallAssessment": {
@@ -1036,8 +1095,6 @@ EOF
                 echo "##teamcity[publishArtifacts 'internal-validation-reports => internal-validation-reports.zip']"
                 echo "##teamcity[publishArtifacts 'quality-gate-reports => quality-gate-reports.zip']"
 
-                VERSION="%env.KTOR_VERSION%"
-
                 # Choose emojis based on status
                 if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
                     MAIN_EMOJI="✅"
@@ -1048,7 +1105,7 @@ EOF
                 fi
 
                 # Create enhanced build status text with key metrics
-                STATUS_LINE1="${'$'}MAIN_EMOJI EAP ${'$'}VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
+                STATUS_LINE1="${'$'}MAIN_EMOJI EAP ${'$'}KTOR_VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
                 STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
                 STATUS_LINE3="Critical: ${'$'}TOTAL_CRITICAL issues | Score: ${'$'}OVERALL_SCORE/100"
                 
@@ -1067,7 +1124,7 @@ ${'$'}STATUS_LINE3"
 
                 echo ""
                 echo "=== Final Consolidated EAP Validation Results ==="
-                echo "EAP Version: ${'$'}VERSION"
+                echo "EAP Version: ${'$'}KTOR_VERSION"
                 echo "Overall Status: ${'$'}OVERALL_STATUS (${'$'}STATUS_COLOR)"
                 echo "Overall Score: ${'$'}OVERALL_SCORE/100"
                 echo "Critical Issues: ${'$'}TOTAL_CRITICAL"
@@ -1106,22 +1163,23 @@ ${'$'}STATUS_LINE3"
                 
                 echo "=== Sending detailed Slack webhook notification ==="
                 
-                # Read all the quality gate data with safe defaults
-                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" 2>/dev/null || echo "UNKNOWN")
-                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" 2>/dev/null || echo "0")
-                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" 2>/dev/null || echo "0")
+                # Read all the quality gate data with safe parameter extraction and defaults
+                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
+                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" | sed 's/^%quality\.gate\.overall\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" | sed 's/^%quality\.gate\.overall\.score%$/0/' || echo "0")
+                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" | sed 's/^%quality\.gate\.total\.critical%$/0/' || echo "0")
                 
-                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" 2>/dev/null || echo "UNKNOWN")
-                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" 2>/dev/null || echo "0")
-                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" 2>/dev/null || echo "0")
-                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" 2>/dev/null || echo "0")
+                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" | sed 's/^%external\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" | sed 's/^%external\.gate\.score%$/0/' || echo "0")
+                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" | sed 's/^%external\.validation\.total\.samples%$/0/' || echo "0")
+                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" | sed 's/^%external\.validation\.successful\.samples%$/0/' || echo "0")
                 
-                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" 2>/dev/null || echo "UNKNOWN")
-                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" 2>/dev/null || echo "0")
-                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" 2>/dev/null || echo "0")
-                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" 2>/dev/null || echo "0")
+                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" | sed 's/^%internal\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
+                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" | sed 's/^%internal\.gate\.score%$/0/' || echo "0")
+                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" | sed 's/^%internal\.validation\.total\.tests%$/0/' || echo "0")
+                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" | sed 's/^%internal\.validation\.passed\.tests%$/0/' || echo "0")
                 
-                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" 2>/dev/null || echo "Quality gate evaluation not completed")
+                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" | sed 's/^%quality\.gate\.recommendations%$/Quality gate evaluation not completed/' || echo "Quality gate evaluation not completed")
                 
                 # Choose emojis and colors based on status
                 if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
@@ -1161,7 +1219,7 @@ ${'$'}STATUS_LINE3"
                     "type": "header",
                     "text": {
                         "type": "plain_text",
-                        "text": "${'$'}MAIN_EMOJI Ktor EAP Validation Report - %env.KTOR_VERSION%"
+                        "text": "${'$'}MAIN_EMOJI Ktor EAP Validation Report - ${'$'}KTOR_VERSION"
                     }
                 },
                 {
