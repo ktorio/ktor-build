@@ -6,8 +6,8 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
 import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.build.defaultGradleParams
-import subprojects.VCSCore
 import subprojects.VCSSamples
+import subprojects.VCSKtorBuildPlugins
 import dsl.addSlackNotifications
 
 object EapConstants {
@@ -112,8 +112,8 @@ object ConsolidatedEAPValidation {
             }
 
             vcs {
-                root(VCSCore)
                 root(VCSSamples, "+:. => samples")
+                root(VCSKtorBuildPlugins, "+:. => ktor-build-plugins")
                 cleanCheckout = true
             }
 
@@ -216,8 +216,19 @@ object ConsolidatedEAPValidation {
                 KOTLIN_VERSION=""
                 if KOTLIN_VERSION=$(curl -s -f --max-time 30 "${EapConstants.KOTLIN_EAP_METADATA_URL}" | grep -o ">2\.[0-9]\+\.[0-9]\+\(-[A-Za-z0-9\-]\+\)\?<" | head -1 | sed 's/[><]//g' 2>/dev/null); then
                     if [ -n "${'$'}KOTLIN_VERSION" ]; then
-                        echo "✅ Latest Kotlin version: ${'$'}KOTLIN_VERSION (from EAP repository)"
-                        VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (EAP_SUCCESS)\n"
+                        echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
+
+                        # Check if version has build number format (e.g., 2.1.22-332)
+                        if [[ "${'$'}KOTLIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]]; then
+                            ORIGINAL_VERSION="${'$'}KOTLIN_VERSION"
+                            KOTLIN_VERSION=$(echo "${'$'}KOTLIN_VERSION" | sed 's/-[0-9]*$//')
+                            echo "⚠️  Invalid Kotlin version format: ${'$'}ORIGINAL_VERSION (looks like build number)"
+                            echo "🔧 Using corrected Kotlin version: ${'$'}KOTLIN_VERSION"
+                            VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (EAP_SUCCESS_CORRECTED)\n"
+                        else
+                            echo "✅ Latest Kotlin version: ${'$'}KOTLIN_VERSION (from EAP repository)"
+                            VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (EAP_SUCCESS)\n"
+                        fi
                     else
                         KOTLIN_VERSION="2.1.21"
                         echo "⚠️ Using fallback Kotlin version: ${'$'}KOTLIN_VERSION"
@@ -772,19 +783,34 @@ EOF
             
             echo "=== Processing Regular Sample Projects (PARALLEL) ==="
             
-            # Get list of sample directories
-            SAMPLE_DIRS=$(find . -maxdepth 1 -type d -name "*" ! -name "." ! -name "..*" ! -name ".*" | head -30)
+            # List of known regular samples from ktor-samples repository
+            REGULAR_SAMPLES=(
+                "chat"
+                "client-mpp"
+                "client-multipart"
+                "client-tools"
+                "di-kodein"
+                "filelisting"
+                "fullstack-mpp"
+                "graalvm"
+                "httpbin"
+                "ktor-client-wasm"
+                "kweet"
+                "location-header"
+                "maven-google-appengine-standard"
+                "redirect-with-exception"
+                "reverse-proxy"
+                "reverse-proxy-ws"
+                "rx"
+                "sse"
+                "structured-logging"
+                "version-diff"
+                "youkube"
+            )
             
             # Run samples in parallel using xargs
-            if [ -n "${'$'}SAMPLE_DIRS" ]; then
-                echo "${'$'}SAMPLE_DIRS" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "{}"'
-            else
-                echo "ℹ️  No regular sample directories found in current VCS root"
-                echo "📁 Current directory: $(pwd)"
-                echo "📁 Directory contents:"
-                ls -la | head -10
-            fi
-            
+            printf '%s\n' "${'$'}{REGULAR_SAMPLES[@]}" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "{}"'
+
             echo "=== Regular samples validation completed ==="
         """.trimIndent()
         }
@@ -797,23 +823,20 @@ EOF
             source build-env.properties
             
             echo "=== Step 3c: Build Plugin Samples Validation ==="
-            echo "Checking out and validating build plugin samples from separate repository"
+            echo "Validating build plugin samples from VCS checkout"
             
-            # Create a temporary directory for build plugin samples
+            # Use the ktor-build-plugins repository checked out via VCS configuration
             BUILD_PLUGIN_DIR="${'$'}PWD/ktor-build-plugins"
-            mkdir -p "${'$'}BUILD_PLUGIN_DIR"
-            
-            # Clone the ktor-build-plugins repository (or use existing checkout)
-            if [ ! -d "${'$'}BUILD_PLUGIN_DIR/.git" ]; then
-                echo "🔄 Cloning ktor-build-plugins repository..."
-                git clone --depth 1 https://github.com/ktorio/ktor-build-plugins.git "${'$'}BUILD_PLUGIN_DIR"
-            else
-                echo "🔄 Using existing ktor-build-plugins checkout, pulling latest..."
-                cd "${'$'}BUILD_PLUGIN_DIR"
-                git pull origin main
-                cd -
+
+            # Verify the VCS checkout exists
+            if [ ! -d "${'$'}BUILD_PLUGIN_DIR" ]; then
+                echo "❌ Build plugin repository not found at ${'$'}BUILD_PLUGIN_DIR"
+                echo "This indicates a VCS configuration issue - the repository should be checked out automatically"
+                exit 1
             fi
             
+            echo "✅ Using ktor-build-plugins repository from VCS checkout: ${'$'}BUILD_PLUGIN_DIR"
+
             # Function to validate build plugin sample
             validate_build_plugin_sample() {
                 local sample_name="$1"
@@ -832,7 +855,7 @@ EOF
                 
                 # Build plugin samples are always Gradle projects
                 echo "🔧 Building plugin sample: ${'$'}sample_name"
-                if timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../../../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
+                if timeout 300 "${'$'}BUILD_PLUGIN_DIR/gradlew" clean build --init-script "${'$'}PWD/../../../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                 else
