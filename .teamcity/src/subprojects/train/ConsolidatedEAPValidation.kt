@@ -362,8 +362,8 @@ EOF
                         fi
 
                         cd "${'$'}project_dir"
-                        echo "Building with timeout of 600 seconds using Gradle wrapper..."
-                        if timeout 600 ./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache > "${'$'}BUILD_LOG" 2>&1; then
+                        echo "Building with timeout of 300 seconds using Gradle wrapper..."
+                        if timeout 300 ./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache > "${'$'}BUILD_LOG" 2>&1; then
                             BUILD_SUCCESS=true
                             echo "✅ Build successful with Gradle"
                         else
@@ -400,8 +400,8 @@ EOF
                     fi
 
                     cd "${'$'}project_dir"
-                    echo "Building with timeout of 600 seconds using Gradle..."
-                    if timeout 600 ./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache > "${'$'}BUILD_LOG" 2>&1; then
+                    echo "Building with timeout of 300 seconds using Gradle..."
+                    if timeout 300 ./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache > "${'$'}BUILD_LOG" 2>&1; then
                         BUILD_SUCCESS=true
                         echo "✅ Build successful with assemble"
                     else
@@ -423,8 +423,8 @@ EOF
                 elif [ -f "${'$'}project_dir/pom.xml" ]; then
                     echo "Detected Maven project (pom.xml found)"
                     cd "${'$'}project_dir"
-                    echo "Building with timeout of 600 seconds using Maven..."
-                    if timeout 600 mvn compile -Dkotlin.version="${'$'}KOTLIN_VERSION" -Dktor.version="${'$'}KTOR_VERSION" > "${'$'}BUILD_LOG" 2>&1; then
+                    echo "Building with timeout of 300 seconds using Maven..."
+                    if timeout 300 mvn compile -Dkotlin.version="${'$'}KOTLIN_VERSION" -Dktor.version="${'$'}KTOR_VERSION" > "${'$'}BUILD_LOG" 2>&1; then
                         BUILD_SUCCESS=true
                         echo "✅ Maven compile successful"
                     else
@@ -539,14 +539,28 @@ $(cat "${'$'}REPORTS_DIR/skipped-samples.txt" 2>/dev/null | sort || echo "None")
 Status: COMPLETED
 EOF
 
-            echo "=== Step 2: External Samples Validation Completed ==="
-            echo "Reports generated in: ${'$'}REPORTS_DIR"
-            
-            # Always succeed - let quality gate evaluate the results
-            exit 0
-        """.trimIndent()
+        # Clean up external samples directory 
+        echo "Cleaning up external samples directory..."
+        if [ -d "${'$'}SAMPLES_DIR" ]; then
+            rm -rf "${'$'}SAMPLES_DIR"
+            echo "✅ Cleaned up ${'$'}SAMPLES_DIR"
+        fi
+
+        # Also clean up temporary gradle.properties file
+        if [ -f "${'$'}WORK_DIR/gradle.properties.eap" ]; then
+            rm -f "${'$'}WORK_DIR/gradle.properties.eap"
+            echo "✅ Cleaned up temporary gradle.properties.eap"
+        fi
+
+        echo "=== Step 2: External Samples Validation Completed ==="
+        echo "Reports generated in: ${'$'}REPORTS_DIR"
+        
+        # Always succeed - let quality gate evaluate the results
+        exit 0
+    """.trimIndent()
         }
     }
+
 
     /**
      * Step 3: Internal Test Suites
@@ -586,6 +600,38 @@ EOF
             # Store the absolute path in environment
             echo "REPORTS_DIR=${'$'}REPORTS_DIR" > build-env.properties
             echo "KOTLIN_VERSION=${'$'}KOTLIN_VERSION" >> build-env.properties
+
+            # Locate VCS checkouts - TeamCity checks out multiple VCS roots in subdirectories
+            echo "Locating VCS checkouts..."
+            echo "Current directory structure:"
+            ls -la
+            
+            # Find the build plugins checkout (should contain gradlew and samples/)
+            BUILD_PLUGINS_DIR=""
+            for dir in */; do
+                if [ -f "${'$'}dir/gradlew" ] && [ -d "${'$'}dir/samples" ]; then
+                    BUILD_PLUGINS_DIR="${'$'}dir"
+                    echo "✅ Found build plugins repository at: ${'$'}BUILD_PLUGINS_DIR"
+                    break
+                fi
+            done
+            
+            # Find the samples checkout (should contain various sample directories)  
+            SAMPLES_DIR=""
+            for dir in */; do
+                if [ -d "${'$'}dir" ] && [ "${'$'}dir" != "${'$'}BUILD_PLUGINS_DIR" ]; then
+                    # Check if this looks like samples repo (has multiple project directories)
+                    sample_count=$(find "${'$'}dir" -maxdepth 1 -type d | wc -l)
+                    if [ ${'$'}sample_count -gt 5 ]; then
+                        SAMPLES_DIR="${'$'}dir"
+                        echo "✅ Found samples repository at: ${'$'}SAMPLES_DIR"
+                        break
+                    fi
+                fi
+            done
+            
+            echo "BUILD_PLUGINS_DIR=${'$'}BUILD_PLUGINS_DIR" >> build-env.properties
+            echo "SAMPLES_DIR=${'$'}SAMPLES_DIR" >> build-env.properties
 
             # Create EAP Gradle init script with correct Groovy syntax
             echo "Creating EAP Gradle init script..."
@@ -653,254 +699,264 @@ EOF
         script {
             name = "Step 3: Internal Test Suites - Regular Samples"
             scriptContent = """
-                #!/bin/bash
+            #!/bin/bash
+            
+            source build-env.properties || true
+            
+            echo "=== Step 3: Build Plugin Samples Validation ==="
+            echo "Using reports directory: ${'$'}REPORTS_DIR"
+            echo "Build plugins directory: ${'$'}BUILD_PLUGINS_DIR"
+            
+            # Initialize result files for plugin samples
+            touch "${'$'}REPORTS_DIR/successful-plugin-samples.log"
+            touch "${'$'}REPORTS_DIR/failed-plugin-samples.log" 
+            touch "${'$'}REPORTS_DIR/skipped-plugin-samples.log"
+            
+            # Function to validate build plugin sample using Gradle includeBuild approach
+            validate_build_plugin_sample() {
+                local sample_name="$1"
+                local log_file="${'$'}REPORTS_DIR/build-plugin-${'$'}sample_name.log"
                 
-                source build-env.properties
+                echo "🔄 [BUILD PLUGIN] Starting validation of sample: ${'$'}sample_name"
                 
-                echo "=== Validating Regular Sample Projects against EAP versions (PARALLEL) ==="
-                echo "Using reports directory: ${'$'}REPORTS_DIR"
-                echo "Using Kotlin version: ${'$'}KOTLIN_VERSION"
-                echo "Current working directory: $(pwd)"
-                echo "Directory contents:"
-                ls -la | head -10
-                
-                # Set maximum parallel jobs (adjust based on CI agent capacity)
-                MAX_PARALLEL_JOBS=4
-                
-                # Function to validate a single sample
-                validate_sample() {
-                    local sample_dir="$1"
-                    local sample_name=$(basename "${'$'}sample_dir")
-                    local log_file="${'$'}REPORTS_DIR/build-${'$'}sample_name.log"
-                    
-                    echo "🔄 [PARALLEL] Starting validation of sample: ${'$'}sample_name"
-                    
-                    if [ ! -d "${'$'}sample_dir" ]; then
-                        echo "⚠️  Sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
-                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
-                        return 0
-                    fi
-                    
-                    cd "${'$'}sample_dir"
-                    
-                    # Determine build command based on build system
-                    if [ -f "pom.xml" ]; then
-                        # Maven build - use corrected Kotlin version
-                        echo "🔧 Maven sample detected, using Kotlin version: ${'$'}KOTLIN_VERSION"
-                        if timeout 300 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1; then
-                            echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
-                            echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
-                        else
-                            echo "❌ [PARALLEL] Sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
-                            echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
-                        fi
-                    elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-                        # Gradle build - samples repository uses Gradle wrapper
-                        if [ -f "./gradlew" ]; then
-                            echo "🔧 Using Gradle wrapper for ${'$'}sample_name"
-                            if timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
-                                echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
-                                echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
-                            else
-                                echo "❌ [PARALLEL] Sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
-                                echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
-                            fi
-                        else
-                            # Try using parent Gradle wrapper if it exists
-                            if [ -f "../gradlew" ]; then
-                                echo "🔧 Using parent Gradle wrapper for ${'$'}sample_name"
-                                if timeout 300 ../gradlew -p . clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
-                                    echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
-                                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
-                                else
-                                    echo "❌ [PARALLEL] Sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
-                                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
-                                fi
-                            else
-                                echo "⚠️  Sample ${'$'}sample_name: NO_GRADLE_WRAPPER - skipping" | tee -a "${'$'}log_file"
-                                echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
-                            fi
-                        fi
-                    else
-                        echo "⚠️  Sample ${'$'}sample_name: NO_BUILD_FILE - skipping" | tee -a "${'$'}log_file"
-                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
-                    fi
-                    
-                    cd - > /dev/null
-                }
-                
-                # Export function for parallel execution
-                export -f validate_sample
-                export REPORTS_DIR
-                export PWD
-                export KOTLIN_VERSION
-                
-                # Initialize result files
-                touch "${'$'}REPORTS_DIR/successful-samples.log"
-                touch "${'$'}REPORTS_DIR/failed-samples.log"
-                touch "${'$'}REPORTS_DIR/skipped-samples.log"
-                
-                echo "=== Processing Regular Sample Projects (PARALLEL) ==="
-                
-                # Get list of sample directories (excluding hidden dirs and special dirs)
-                SAMPLE_DIRS=$(find . -maxdepth 1 -type d -name "*" ! -name "." ! -name "..*" ! -name ".*" ! -name "build-plugins" | head -30)
-                
-                # Run samples in parallel using xargs
-                if [ -n "${'$'}SAMPLE_DIRS" ]; then
-                    echo "${'$'}SAMPLE_DIRS" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "{}"'
-                else
-                    echo "ℹ️  No sample directories found in current VCS root"
-                    echo "📁 Current directory: $(pwd)"
-                    echo "📁 Available files and directories:"
-                    find . -maxdepth 2 -name "*.gradle*" -o -name "pom.xml" | head -10
-                fi
-                
-                echo "=== Regular samples validation completed ==="
-            """.trimIndent()
-        }
-
-        script {
-            name = "Step 3: Build Plugin Samples"
-            scriptContent = """
-                #!/bin/bash
-                
-                source build-env.properties
-                
-                echo "=== Step 3c: Build Plugin Samples Validation ==="
-                echo "Locating build plugins repository checkout..."
-                
-                # Find the build plugins checkout directory
-                BUILD_PLUGINS_DIR=""
-                if [ -d "%env.BUILD_PLUGINS_CHECKOUT_DIR%" ] && [ "%env.BUILD_PLUGINS_CHECKOUT_DIR%" != "%env.BUILD_PLUGINS_CHECKOUT_DIR%" ]; then
-                    BUILD_PLUGINS_DIR="%env.BUILD_PLUGINS_CHECKOUT_DIR%"
-                elif [ -d "build-plugins" ]; then
-                    BUILD_PLUGINS_DIR="build-plugins"
-                else
-                    # Search for ktor build plugins checkout
-                    BUILD_PLUGINS_DIR=$(find . -maxdepth 1 -type d -name "*ktor*build*plugin*" 2>/dev/null | head -1 || echo "")
-                fi
-                
+                # Check if we found the build plugins directory
                 if [ -z "${'$'}BUILD_PLUGINS_DIR" ] || [ ! -d "${'$'}BUILD_PLUGINS_DIR" ]; then
-                    echo "⚠️  Build plugins repository not found, skipping build plugin samples validation"
-                    echo "Checked directories:"
-                    echo "  - %env.BUILD_PLUGINS_CHECKOUT_DIR%"
-                    echo "  - build-plugins"
-                    echo "Available directories:"
-                    ls -la | grep "^d" | head -10
+                    echo "⚠️  Build plugins directory not found - skipping ${'$'}sample_name"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-plugin-samples.log"
                     return 0
                 fi
                 
-                echo "✅ Found build plugins repository at: ${'$'}BUILD_PLUGINS_DIR"
+                # Change to build plugins directory
+                cd "${'$'}BUILD_PLUGINS_DIR"
                 
-                # Function to validate build plugin sample
-                validate_build_plugin_sample() {
-                    local sample_name="$1"
-                    local sample_dir="${'$'}BUILD_PLUGINS_DIR/samples/${'$'}sample_name"
-                    local log_file="${'$'}REPORTS_DIR/build-plugin-${'$'}sample_name.log"
-                    
-                    echo "🔄 [BUILD PLUGIN] Starting validation of sample: ${'$'}sample_name"
-                    
-                    if [ ! -d "${'$'}sample_dir" ]; then
-                        echo "⚠️  Build plugin sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
-                        echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
-                        return 0
+                if [ ! -d "samples/${'$'}sample_name" ]; then
+                    echo "⚠️  Build plugin sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
+                    echo "Available samples in ${'$'}BUILD_PLUGINS_DIR/samples/:"
+                    ls -la samples/ 2>/dev/null | head -10 || echo "Cannot list samples directory"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-plugin-samples.log"
+                    cd - > /dev/null
+                    return 0
+                fi
+                
+                # Use Gradle includeBuild approach (same as ProjectBuildPluginSamples)
+                echo "🔧 Building plugin sample: ${'$'}sample_name using includeBuild approach"
+                
+                if timeout 300 ./gradlew build \
+                    --init-script ../gradle-eap-init.gradle \
+                    --project-prop org.gradle.project.includeBuild=samples/${'$'}sample_name \
+                    --no-daemon \
+                    --continue \
+                    --info > "${'$'}log_file" 2>&1; then
+                    echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-plugin-samples.log"
+                else
+                    echo "❌ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-plugin-samples.log"
+                fi
+                
+                cd - > /dev/null
+            }
+            
+            # List of known build plugin samples
+            BUILD_PLUGIN_SAMPLES=(
+                "ktor-docker-sample"
+                "ktor-fatjar-sample"
+                "ktor-native-image-sample"
+                "ktor-openapi-sample"
+            )
+            
+            echo "=== Processing Build Plugin Samples ==="
+            
+            # Validate each build plugin sample
+            for sample_name in "${'$'}{BUILD_PLUGIN_SAMPLES[@]}"; do
+                validate_build_plugin_sample "${'$'}sample_name"
+            done
+            
+            echo "=== Build plugin samples validation completed ==="
+        """.trimIndent()
+        }
+
+        script {
+            name = "Step 3: Regular Samples Validation"
+            scriptContent = """
+            #!/bin/bash
+            
+            source build-env.properties || true
+            
+            echo "=== Step 3: Regular Samples Validation ==="
+            echo "Using reports directory: ${'$'}REPORTS_DIR"
+            echo "Using Kotlin version: ${'$'}KOTLIN_VERSION"
+            echo "Samples directory: ${'$'}SAMPLES_DIR"
+            
+            # Initialize result files for regular samples
+            touch "${'$'}REPORTS_DIR/successful-regular-samples.log"
+            touch "${'$'}REPORTS_DIR/failed-regular-samples.log"
+            touch "${'$'}REPORTS_DIR/skipped-regular-samples.log"
+            
+            # Function to validate a single regular sample
+            validate_regular_sample() {
+                local sample_dir="$1"
+                local sample_name=$(basename "${'$'}sample_dir")
+                local log_file="${'$'}REPORTS_DIR/build-regular-${'$'}sample_name.log"
+                
+                echo "🔄 Processing regular sample: ${'$'}sample_name"
+                
+                if [ ! -d "${'$'}sample_dir" ]; then
+                    echo "⚠️  Sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-regular-samples.log"
+                    return 0
+                fi
+                
+                cd "${'$'}sample_dir"
+                
+                # Determine build command based on build system
+                if [ -f "pom.xml" ]; then
+                    # Maven build - use corrected Kotlin version
+                    echo "🔧 Maven sample detected, using Kotlin version: ${'$'}KOTLIN_VERSION"
+                    if timeout 300 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1; then
+                        echo "✅ Regular sample ${'$'}sample_name: BUILD SUCCESSFUL"
+                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-regular-samples.log"
+                    else
+                        echo "❌ Regular sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
+                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-regular-samples.log"
                     fi
-                    
-                    cd "${'$'}sample_dir"
-                    
-                    # Build plugin samples use Gradle wrapper
+                elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+                    # Gradle build - samples repository uses Gradle wrapper
                     if [ -f "./gradlew" ]; then
-                        echo "🔧 Using Gradle wrapper for build plugin sample: ${'$'}sample_name"
-                        if timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../../../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
-                            echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
-                            echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
+                        echo "🔧 Using Gradle wrapper for ${'$'}sample_name"
+                        if timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
+                            echo "✅ Regular sample ${'$'}sample_name: BUILD SUCCESSFUL"
+                            echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-regular-samples.log"
                         else
-                            echo "❌ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
-                            echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
+                            echo "❌ Regular sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
+                            echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-regular-samples.log"
                         fi
                     else
-                        echo "⚠️  Build plugin sample ${'$'}sample_name: NO_GRADLE_WRAPPER - skipping" | tee -a "${'$'}log_file"
-                        echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
+                        # Try using parent Gradle wrapper if it exists
+                        if [ -f "../gradlew" ]; then
+                            echo "🔧 Using parent Gradle wrapper for ${'$'}sample_name"
+                            if timeout 300 ../gradlew -p . clean build --init-script "${'$'}PWD/../../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
+                                echo "✅ Regular sample ${'$'}sample_name: BUILD SUCCESSFUL"
+                                echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-regular-samples.log"
+                            else
+                                echo "❌ Regular sample ${'$'}sample_name: BUILD FAILED (exit code: $?)"
+                                echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-regular-samples.log"
+                            fi
+                        else
+                            echo "⚠️  Regular sample ${'$'}sample_name: NO_GRADLE_WRAPPER - skipping" | tee -a "${'$'}log_file"
+                            echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-regular-samples.log"
+                        fi
                     fi
-                    
-                    cd - > /dev/null
-                }
+                else
+                    echo "⚠️  Regular sample ${'$'}sample_name: NO_BUILD_FILE - skipping" | tee -a "${'$'}log_file"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-regular-samples.log"
+                fi
                 
-                # Export function for parallel execution
-                export -f validate_build_plugin_sample
-                export REPORTS_DIR
-                export PWD
-                export BUILD_PLUGINS_DIR
-                
-                # List of known build plugin samples
-                BUILD_PLUGIN_SAMPLES=(
-                    "ktor-docker-sample"
-                    "ktor-fatjar-sample"
-                    "ktor-native-image-sample"
-                    "ktor-openapi-sample"
-                )
-                
-                # Validate build plugin samples in parallel
-                echo "=== Processing Build Plugin Samples (PARALLEL) ==="
-                
-                # Use printf to create proper input for xargs
-                printf '%s\n' "${'$'}{BUILD_PLUGIN_SAMPLES[@]}" | xargs -n 1 -P 4 -I {} bash -c 'validate_build_plugin_sample "{}"'
-                
-                # Wait for all background jobs to complete
-                wait
-                
-                echo "=== Build plugin samples validation completed ==="
-            """.trimIndent()
+                cd - > /dev/null
+            }
+            
+            echo "=== Processing Regular Sample Projects ==="
+            
+            # Check if we found the samples directory
+            if [ -z "${'$'}SAMPLES_DIR" ] || [ ! -d "${'$'}SAMPLES_DIR" ]; then
+                echo "⚠️  Samples directory not found - skipping regular samples validation"
+            else
+                # Change to samples directory and process samples
+                cd "${'$'}SAMPLES_DIR"
+                # Get list of sample directories (excluding hidden dirs and special dirs)
+                find . -maxdepth 1 -type d -name "*" ! -name "." ! -name "..*" ! -name ".*" ! -name "samples" | while read -r sample_dir; do
+                    validate_regular_sample "${'$'}sample_dir"
+                done
+                cd - > /dev/null
+            fi
+            
+            echo "=== Regular samples validation completed ==="
+        """.trimIndent()
         }
 
         script {
             name = "Step 3: Generate Internal Test Suites Summary"
             scriptContent = """
-                #!/bin/bash
-                
-                source build-env.properties
-                
-                echo "=== Generating Internal Test Suites Summary ==="
-                
-                # Generate summary
-                SUCCESSFUL_COUNT=$(wc -l < "${'$'}REPORTS_DIR/successful-samples.log" 2>/dev/null || echo "0")
-                FAILED_COUNT=$(wc -l < "${'$'}REPORTS_DIR/failed-samples.log" 2>/dev/null || echo "0")
-                SKIPPED_COUNT=$(wc -l < "${'$'}REPORTS_DIR/skipped-samples.log" 2>/dev/null || echo "0")
-                TOTAL_COUNT=$((SUCCESSFUL_COUNT + FAILED_COUNT + SKIPPED_COUNT))
-                
-                if [ ${'$'}TOTAL_COUNT -gt 0 ]; then
-                    SUCCESS_RATE=$(( (SUCCESSFUL_COUNT * 100) / TOTAL_COUNT ))
-                else
-                    SUCCESS_RATE=0
+            #!/bin/bash
+            
+            source build-env.properties || true
+            
+            echo "=== Generating Internal Test Suites Summary ==="
+            
+            # Calculate totals from both plugin and regular samples
+            PLUGIN_SUCCESSFUL=$(wc -l < "${'$'}REPORTS_DIR/successful-plugin-samples.log" 2>/dev/null || echo "0")
+            PLUGIN_FAILED=$(wc -l < "${'$'}REPORTS_DIR/failed-plugin-samples.log" 2>/dev/null || echo "0")
+            PLUGIN_SKIPPED=$(wc -l < "${'$'}REPORTS_DIR/skipped-plugin-samples.log" 2>/dev/null || echo "0")
+            
+            REGULAR_SUCCESSFUL=$(wc -l < "${'$'}REPORTS_DIR/successful-regular-samples.log" 2>/dev/null || echo "0")
+            REGULAR_FAILED=$(wc -l < "${'$'}REPORTS_DIR/failed-regular-samples.log" 2>/dev/null || echo "0")
+            REGULAR_SKIPPED=$(wc -l < "${'$'}REPORTS_DIR/skipped-regular-samples.log" 2>/dev/null || echo "0")
+            
+            TOTAL_SUCCESSFUL=$((PLUGIN_SUCCESSFUL + REGULAR_SUCCESSFUL))
+            TOTAL_FAILED=$((PLUGIN_FAILED + REGULAR_FAILED))
+            TOTAL_SKIPPED=$((PLUGIN_SKIPPED + REGULAR_SKIPPED))
+            TOTAL_COUNT=$((TOTAL_SUCCESSFUL + TOTAL_FAILED + TOTAL_SKIPPED))
+            
+            if [ ${'$'}TOTAL_COUNT -gt 0 ]; then
+                SUCCESS_RATE=$(( (TOTAL_SUCCESSFUL * 100) / TOTAL_COUNT ))
+            else
+                SUCCESS_RATE=0
+            fi
+            
+            echo "=== Internal Sample Validation Results ==="
+            echo "Total samples processed: ${'$'}TOTAL_COUNT"
+            echo "  Plugin samples: $((PLUGIN_SUCCESSFUL + PLUGIN_FAILED + PLUGIN_SKIPPED))"
+            echo "  Regular samples: $((REGULAR_SUCCESSFUL + REGULAR_FAILED + REGULAR_SKIPPED))"
+            echo ""
+            echo "Overall Results:"
+            echo "  Successful: ${'$'}TOTAL_SUCCESSFUL"
+            echo "  Failed: ${'$'}TOTAL_FAILED"  
+            echo "  Skipped: ${'$'}TOTAL_SKIPPED"
+            echo "  Success rate: ${'$'}SUCCESS_RATE%"
+            
+            # Plugin samples results
+            if [ $((PLUGIN_SUCCESSFUL + PLUGIN_FAILED + PLUGIN_SKIPPED)) -gt 0 ]; then
+                echo ""
+                echo "=== Build Plugin Samples Results ==="
+                if [ -s "${'$'}REPORTS_DIR/successful-plugin-samples.log" ]; then
+                    echo "✅ Successful plugin samples:"
+                    cat "${'$'}REPORTS_DIR/successful-plugin-samples.log" | sed 's/^/  - /'
                 fi
                 
-                echo "=== Internal Sample Validation Results (PARALLEL EXECUTION) ==="
-                echo "Total samples processed: ${'$'}TOTAL_COUNT"
-                echo "Successful: ${'$'}SUCCESSFUL_COUNT"
-                echo "Failed: ${'$'}FAILED_COUNT"
-                echo "Skipped: ${'$'}SKIPPED_COUNT"
-                echo "Success rate: ${'$'}SUCCESS_RATE%"
-                
-                if [ -s "${'$'}REPORTS_DIR/successful-samples.log" ]; then
-                    echo ""
-                    echo "✅ Successful samples:"
-                    cat "${'$'}REPORTS_DIR/successful-samples.log" | sed 's/^/  - /'
+                if [ -s "${'$'}REPORTS_DIR/failed-plugin-samples.log" ]; then
+                    echo "❌ Failed plugin samples:"
+                    cat "${'$'}REPORTS_DIR/failed-plugin-samples.log" | sed 's/^/  - /'
                 fi
                 
-                if [ -s "${'$'}REPORTS_DIR/failed-samples.log" ]; then
-                    echo ""
-                    echo "❌ Failed samples:"
-                    cat "${'$'}REPORTS_DIR/failed-samples.log" | sed 's/^/  - /'
+                if [ -s "${'$'}REPORTS_DIR/skipped-plugin-samples.log" ]; then
+                    echo "⚠️  Skipped plugin samples:"
+                    cat "${'$'}REPORTS_DIR/skipped-plugin-samples.log" | sed 's/^/  - /'
+                fi
+            fi
+            
+            # Regular samples results
+            if [ $((REGULAR_SUCCESSFUL + REGULAR_FAILED + REGULAR_SKIPPED)) -gt 0 ]; then
+                echo ""
+                echo "=== Regular Samples Results ==="
+                if [ -s "${'$'}REPORTS_DIR/successful-regular-samples.log" ]; then
+                    echo "✅ Successful regular samples:"
+                    cat "${'$'}REPORTS_DIR/successful-regular-samples.log" | sed 's/^/  - /'
                 fi
                 
-                if [ -s "${'$'}REPORTS_DIR/skipped-samples.log" ]; then
-                    echo ""
-                    echo "⚠️  Skipped samples:"
-                    cat "${'$'}REPORTS_DIR/skipped-samples.log" | sed 's/^/  - /'
+                if [ -s "${'$'}REPORTS_DIR/failed-regular-samples.log" ]; then
+                    echo "❌ Failed regular samples:"
+                    cat "${'$'}REPORTS_DIR/failed-regular-samples.log" | sed 's/^/  - /'
                 fi
                 
-                echo "=== Step 3: Internal Sample Validation Completed ==="
-            """.trimIndent()
+                if [ -s "${'$'}REPORTS_DIR/skipped-regular-samples.log" ]; then
+                    echo "⚠️  Skipped regular samples:"
+                    cat "${'$'}REPORTS_DIR/skipped-regular-samples.log" | sed 's/^/  - /'
+                fi
+            fi
+            
+            echo ""
+            echo "=== Step 3: Internal Sample Validation Completed ==="
+        """.trimIndent()
         }
     }
 
