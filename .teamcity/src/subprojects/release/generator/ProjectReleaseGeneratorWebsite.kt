@@ -10,10 +10,6 @@ object ProjectReleaseGeneratorWebsite : Project({
     name = "Generator Website"
 
     params {
-        param("env.GITHUB_FORK", "ktorio")
-        param("env.GITHUB_USER", VCSUsername)
-        password("env.GITHUB_PASSWORD", VCSToken)
-
         password("env.PUBLISHING_TOKEN", value = "%space.packages.publish.token%")
     }
 
@@ -45,23 +41,6 @@ object ProjectReleaseGeneratorWebsite : Project({
                       -H "Authorization: Bearer %env.PUBLISHING_TOKEN%" \
                       https://packages.jetbrains.team/files/p/ktor/files/ktor-generator-website/main/ \
                       --upload-file website.tar.gz
-                """.trimIndent()
-            }
-            script {
-                name = "Commit to github pages repository"
-                scriptContent = """
-                    set -e
-                    git clone "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/${'$'}{GITHUB_FORK}/ktor-init-tools.git"
-                    cd ktor-init-tools 
-                    git checkout generator
-                    rm * -rf
-                    cp -R ../ktor-generator-website/build/* ./
-                    echo start.ktor.io > CNAME
-                    git config user.email "ktor@jetbrains.com"
-                    git config user.name "ktor"
-                    git add .
-                    git commit -m "Deploy website"
-                    git push origin generator
                 """.trimIndent()
             }
         }
