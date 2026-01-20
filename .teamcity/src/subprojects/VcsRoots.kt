@@ -126,7 +126,7 @@ open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
     init()
 })
 @Deprecated("Use GitHub App refreshable token instead")
-const val VCSUsername = "hhariri"
+const val VCSUsername = "%github.username%"
 @Deprecated("Use GitHub App refreshable token instead")
 const val VCSToken = "%github.token%"
 
