@@ -53,8 +53,61 @@ object ConsolidatedEAPValidation {
                 root(VCSKtorBuildPlugins)
             }
 
+
             params {
                 param("env.BUILD_PLUGINS_CHECKOUT_DIR", "build-plugins")
+
+                // Quality Gate Configuration Parameters
+                param("quality.gate.scoring.external.weight", "60")
+                param("quality.gate.scoring.internal.weight", "40")
+                param("quality.gate.thresholds.minimum.score", "80")
+                param("quality.gate.thresholds.critical.issues", "0")
+
+                // Optional Slack webhook for detailed notifications
+                param("system.slack.webhook.url", "")
+
+                // Version parameters
+                param("env.KTOR_VERSION", "")
+                param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
+                param("env.KOTLIN_VERSION", "2.1.21")
+
+                // Version resolution parameters
+                param("version.resolution.errors", "0")
+
+                // External validation parameters
+                param("external.validation.total.samples", "0")
+                param("external.validation.successful.samples", "0")
+                param("external.validation.failed.samples", "0")
+                param("external.validation.skipped.samples", "0")
+                param("external.validation.success.rate", "0.0")
+
+                // Internal validation parameters
+                param("internal.validation.total.tests", "0")
+                param("internal.validation.passed.tests", "0")
+                param("internal.validation.failed.tests", "0")
+                param("internal.validation.error.tests", "0")
+                param("internal.validation.skipped.tests", "0")
+                param("internal.validation.success.rate", "0.0")
+                param("internal.validation.processed.files", "0")
+
+                // Quality gate evaluation parameters
+                param("quality.gate.overall.status", "UNKNOWN")
+                param("quality.gate.overall.score", "0")
+                param("quality.gate.total.critical", "0")
+                param("external.gate.status", "UNKNOWN")
+                param("external.gate.score", "0")
+                param("internal.gate.status", "UNKNOWN")
+                param("internal.gate.score", "0")
+                param("quality.gate.recommendations", "Validation not yet completed")
+                param("quality.gate.next.steps", "Run validation steps")
+                param("quality.gate.failure.reasons", "")
+
+                // Slack notification parameters
+                param("quality.gate.slack.status.emoji", "⏳")
+                param("quality.gate.slack.external.emoji", "⏳")
+                param("quality.gate.slack.internal.emoji", "⏳")
+                param("quality.gate.slack.critical.emoji", "⏳")
+
                 defaultGradleParams()
             }
 
