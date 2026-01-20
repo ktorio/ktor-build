@@ -733,7 +733,6 @@ EOF
             """.trimIndent()
         }
     }
-
     /**
      * Step 5: Report Generation & Notifications
      * Generates comprehensive reports and sends notifications
@@ -758,51 +757,178 @@ EOF
 Generated: $(date)
 
 ## Version Information
-- Ktor Version: $(echo "%env.KTOR_VERSION%" || echo "Not resolved")
-- Ktor Compiler Plugin Version: $(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" || echo "Not resolved")
-- Kotlin Version: $(echo "%env.KOTLIN_VERSION%" || echo "Not resolved")
+- Ktor Version: %env.KTOR_VERSION%
+- Ktor Compiler Plugin Version: %env.KTOR_COMPILER_PLUGIN_VERSION%
+- Kotlin Version: %env.KOTLIN_VERSION%
 
 ## Quality Gate Status
-Status: $(echo "%env.QUALITY_GATE_STATUS%" || echo "Unknown")
+Status: %quality.gate.overall.status%
+Overall Score: %quality.gate.overall.score%
+External Score: %external.gate.score%
+Internal Score: %internal.gate.score%
+Critical Issues: %quality.gate.total.critical%
 
-## Internal Sample Validation Results
+## External Validation Results
+- Total Samples: %external.validation.total.samples%
+- Successful: %external.validation.successful.samples%
+- Failed: %external.validation.failed.samples%
+- Skipped: %external.validation.skipped.samples%
+- Success Rate: %external.validation.success.rate%%
+
+## Internal Validation Results  
+- Total Tests: %internal.validation.total.tests%
+- Passed: %internal.validation.passed.tests%
+- Failed: %internal.validation.failed.tests%
+- Error: %internal.validation.error.tests%
+- Skipped: %internal.validation.skipped.tests%
+- Success Rate: %internal.validation.success.rate%%
+- Processed Files: %internal.validation.processed.files%
+
+## Quality Gate Details
+- Recommendations: %quality.gate.recommendations%
+- Next Steps: %quality.gate.next.steps%
 EOF
+
+            # Add failure reasons if any
+            if [ "%quality.gate.failure.reasons%" != "" ]; then
+                cat >> final-reports/validation-summary.md <<EOF
+- Failure Reasons: %quality.gate.failure.reasons%
+EOF
+            fi
+
+            cat >> final-reports/validation-summary.md <<EOF
+
+## Detailed Results
+EOF
+            
+            # Add external sample results if available
+            if [ -f "external-validation-reports/successful-samples.log" ] && [ -s "external-validation-reports/successful-samples.log" ]; then
+                echo "### ✅ External Successful Samples" >> final-reports/validation-summary.md
+                sed 's/^/- /' external-validation-reports/successful-samples.log >> final-reports/validation-summary.md
+                echo "" >> final-reports/validation-summary.md
+            fi
+            
+            if [ -f "external-validation-reports/failed-samples.log" ] && [ -s "external-validation-reports/failed-samples.log" ]; then
+                echo "### ❌ External Failed Samples" >> final-reports/validation-summary.md
+                sed 's/^/- /' external-validation-reports/failed-samples.log >> final-reports/validation-summary.md
+                echo "" >> final-reports/validation-summary.md
+            fi
+            
+            # Add internal sample results if available
+            if [ -f "internal-validation-reports/successful-samples.log" ] && [ -s "internal-validation-reports/successful-samples.log" ]; then
+                echo "### ✅ Internal Successful Samples" >> final-reports/validation-summary.md
+                sed 's/^/- /' internal-validation-reports/successful-samples.log >> final-reports/validation-summary.md
+                echo "" >> final-reports/validation-summary.md
+            fi
+            
+            if [ -f "internal-validation-reports/failed-samples.log" ] && [ -s "internal-validation-reports/failed-samples.log" ]; then
+                echo "### ❌ Internal Failed Samples" >> final-reports/validation-summary.md
+                sed 's/^/- /' internal-validation-reports/failed-samples.log >> final-reports/validation-summary.md
+                echo "" >> final-reports/validation-summary.md
+            fi
+            
+            if [ -f "internal-validation-reports/skipped-samples.log" ] && [ -s "internal-validation-reports/skipped-samples.log" ]; then
+                echo "### ⚠️ Skipped Samples" >> final-reports/validation-summary.md
+                sed 's/^/- /' internal-validation-reports/skipped-samples.log >> final-reports/validation-summary.md
+                echo "" >> final-reports/validation-summary.md
+            fi
+            
+            echo "## Build Logs" >> final-reports/validation-summary.md
+            echo "Individual build logs are available in the build artifacts." >> final-reports/validation-summary.md
+            
+            # Display final report
+            echo "=== Final Validation Report ==="
+            cat final-reports/validation-summary.md
+            
+            # Generate Slack notification if webhook is configured
+            if [ "%system.slack.webhook.url%" != "" ]; then
+                echo "📢 Sending Slack notification..."
                 
-                # Add internal sample results if available
-                if [ -f "internal-validation-reports/successful-samples.log" ] && [ -s "internal-validation-reports/successful-samples.log" ]; then
-                    echo "### ✅ Successful Samples" >> final-reports/validation-summary.md
-                    sed 's/^/- /' internal-validation-reports/successful-samples.log >> final-reports/validation-summary.md
-                    echo "" >> final-reports/validation-summary.md
-                fi
+                # Prepare Slack message with proper variable handling
+                STATUS_EMOJI="%quality.gate.slack.status.emoji%"
+                EXTERNAL_EMOJI="%quality.gate.slack.external.emoji%"
+                INTERNAL_EMOJI="%quality.gate.slack.internal.emoji%"
+                CRITICAL_EMOJI="%quality.gate.slack.critical.emoji%"
                 
-                if [ -f "internal-validation-reports/failed-samples.log" ] && [ -s "internal-validation-reports/failed-samples.log" ]; then
-                    echo "### ❌ Failed Samples" >> final-reports/validation-summary.md
-                    sed 's/^/- /' internal-validation-reports/failed-samples.log >> final-reports/validation-summary.md
-                    echo "" >> final-reports/validation-summary.md
-                fi
+                cat > slack-message.json <<SLACK_EOF
+{
+  "text": "Ktor EAP Validation Report",
+  "blocks": [
+    {
+      "type": "header",
+      "text": {
+        "type": "plain_text",
+        "text": "${'$'}{STATUS_EMOJI} Ktor EAP Validation Report"
+      }
+    },
+    {
+      "type": "section",
+      "fields": [
+        {
+          "type": "mrkdwn",
+          "text": "*Status:* %quality.gate.overall.status%"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Overall Score:* %quality.gate.overall.score%"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*External:* ${'$'}{EXTERNAL_EMOJI} %external.gate.score%"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Internal:* ${'$'}{INTERNAL_EMOJI} %internal.gate.score%"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Critical Issues:* ${'$'}{CRITICAL_EMOJI} %quality.gate.total.critical%"
+        },
+        {
+          "type": "mrkdwn",
+          "text": "*Build:* <%teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%|#%build.number%>"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Versions:* Ktor %env.KTOR_VERSION%, Plugin %env.KTOR_COMPILER_PLUGIN_VERSION%, Kotlin %env.KOTLIN_VERSION%"
+      }
+    }
+  ]
+}
+SLACK_EOF
                 
-                if [ -f "internal-validation-reports/skipped-samples.log" ] && [ -s "internal-validation-reports/skipped-samples.log" ]; then
-                    echo "### ⚠️ Skipped Samples" >> final-reports/validation-summary.md
-                    sed 's/^/- /' internal-validation-reports/skipped-samples.log >> final-reports/validation-summary.md
-                    echo "" >> final-reports/validation-summary.md
-                fi
-                
-                echo "## Build Logs" >> final-reports/validation-summary.md
-                echo "Individual build logs are available in the build artifacts." >> final-reports/validation-summary.md
-                
-                # Display final report
-                echo "=== Final Validation Report ==="
-                cat final-reports/validation-summary.md
-                
-                # Archive all reports
-                if command -v tar >/dev/null 2>&1; then
-                    echo "📦 Creating validation reports archive..."
-                    tar -czf validation-reports.tar.gz internal-validation-reports/ external-validation-reports/ final-reports/ 2>/dev/null || true
-                    echo "##teamcity[publishArtifacts 'validation-reports.tar.gz']"
-                fi
-                
-                echo "=== Step 5: Report Generation & Notifications Completed ==="
-            """.trimIndent()
+                # Send to Slack
+                curl -X POST \
+                  -H "Content-type: application/json" \
+                  --data @slack-message.json \
+                  "%system.slack.webhook.url%" || echo "⚠️ Failed to send Slack notification"
+                  
+                # Clean up
+                rm -f slack-message.json
+            else
+                echo "ℹ️ Slack webhook not configured, skipping notification"
+            fi
+            
+            # Archive all reports
+            if command -v tar >/dev/null 2>&1; then
+                echo "📦 Creating validation reports archive..."
+                tar -czf validation-reports.tar.gz \
+                  internal-validation-reports/ \
+                  external-validation-reports/ \
+                  final-reports/ \
+                  2>/dev/null || true
+                echo "##teamcity[publishArtifacts 'validation-reports.tar.gz']"
+            fi
+            
+            # Publish individual report files
+            echo "##teamcity[publishArtifacts 'final-reports/validation-summary.md']"
+            
+            echo "=== Step 5: Report Generation & Notifications Completed ==="
+        """.trimIndent()
         }
     }
 }
