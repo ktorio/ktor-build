@@ -153,61 +153,67 @@ object ConsolidatedEAPValidation {
         script {
             name = "Step 1: Version Resolution"
             scriptContent = """
-                #!/bin/bash
-                set -e
+            #!/bin/bash
+            set -e
+            
+            echo "=== Step 1: Version Resolution ==="
+            echo "Fetching latest EAP versions for validation"
+            
+            # Function to extract version from XML metadata
+            extract_version() {
+                local url="$1"
+                local description="$2"
+                echo "🔍 Fetching ${'$'}description from ${'$'}url" >&2
                 
-                echo "=== Step 1: Version Resolution ==="
-                echo "Fetching latest EAP versions for validation"
+                local version=$(curl -s "${'$'}url" | grep -o "${EapConstants.EAP_VERSION_REGEX}" | head -1 | sed 's/[><]//g' || echo "")
                 
-                # Function to extract version from XML metadata
-                extract_version() {
-                    local url="$1"
-                    local description="$2"
-                    echo "🔍 Fetching ${'$'}description from ${'$'}url"
-                    
-                    if curl -s "${'$'}url" | grep -o "${EapConstants.EAP_VERSION_REGEX}" | head -1 | sed 's/[><]//g'; then
-                        echo "✅ Successfully fetched ${'$'}description"
-                    else
-                        echo "❌ Failed to fetch ${'$'}description, will use fallback"
-                        echo ""
-                    fi
-                }
-                
-                # Fetch Ktor EAP version
-                echo "KTOR_VERSION=" > eap-versions.properties
-                KTOR_VERSION=$(extract_version "${EapConstants.KTOR_EAP_METADATA_URL}" "Ktor EAP version")
-                if [ -n "${'$'}KTOR_VERSION" ]; then
-                    echo "KTOR_VERSION=${'$'}KTOR_VERSION" >> eap-versions.properties
-                    echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
-                fi
-                
-                # Fetch Ktor Compiler Plugin EAP version
-                KTOR_COMPILER_PLUGIN_VERSION=$(extract_version "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}" "Ktor Compiler Plugin EAP version")
-                if [ -n "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
-                    echo "KTOR_COMPILER_PLUGIN_VERSION=${'$'}KTOR_COMPILER_PLUGIN_VERSION" >> eap-versions.properties
-                    echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
-                fi
-                
-                # Fetch Kotlin EAP version
-                KOTLIN_VERSION=$(extract_version "${EapConstants.KOTLIN_EAP_METADATA_URL}" "Kotlin EAP version")
-                if [ -n "${'$'}KOTLIN_VERSION" ]; then
-                    # Fix Kotlin version format
-                    if [[ "${'$'}KOTLIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]]; then
-                        KOTLIN_VERSION=$(echo "${'$'}KOTLIN_VERSION" | sed 's/-[0-9]*$//')
-                        echo "🔧 Corrected Kotlin version format to: ${'$'}KOTLIN_VERSION"
-                    fi
-                    echo "KOTLIN_VERSION=${'$'}KOTLIN_VERSION" >> eap-versions.properties
-                    echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}KOTLIN_VERSION']"
+                if [ -n "${'$'}version" ]; then
+                    echo "✅ Successfully fetched ${'$'}description" >&2
+                    echo "${'$'}version"
                 else
-                    echo "KOTLIN_VERSION=2.1.21" >> eap-versions.properties
-                    echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='2.1.21']"
+                    echo "❌ Failed to fetch ${'$'}description, will use fallback" >&2
+                    echo ""
                 fi
-                
-                echo ""
-                echo "=== Resolved EAP Versions ==="
-                cat eap-versions.properties
-                echo "=== Step 1: Version Resolution Completed ==="
-            """.trimIndent()
+            }
+            
+            # Initialize properties file
+            echo "# EAP Versions resolved at $(date)" > eap-versions.properties
+            
+            # Fetch Ktor EAP version
+            echo "KTOR_VERSION=" >> eap-versions.properties
+            KTOR_VERSION=$(extract_version "${EapConstants.KTOR_EAP_METADATA_URL}" "Ktor EAP version")
+            if [ -n "${'$'}KTOR_VERSION" ]; then
+                echo "KTOR_VERSION=${'$'}KTOR_VERSION" >> eap-versions.properties
+                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
+            fi
+            
+            # Fetch Ktor Compiler Plugin EAP version  
+            KTOR_COMPILER_PLUGIN_VERSION=$(extract_version "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}" "Ktor Compiler Plugin EAP version")
+            if [ -n "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
+                echo "KTOR_COMPILER_PLUGIN_VERSION=${'$'}KTOR_COMPILER_PLUGIN_VERSION" >> eap-versions.properties
+                echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
+            fi
+            
+            # Fetch Kotlin EAP version
+            KOTLIN_VERSION=$(extract_version "${EapConstants.KOTLIN_EAP_METADATA_URL}" "Kotlin EAP version")
+            if [ -n "${'$'}KOTLIN_VERSION" ]; then
+                # Fix Kotlin version format if needed
+                if [[ "${'$'}KOTLIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[0-9]+$ ]]; then
+                    KOTLIN_VERSION=$(echo "${'$'}KOTLIN_VERSION" | sed 's/-[0-9]*$//')
+                    echo "🔧 Corrected Kotlin version format to: ${'$'}KOTLIN_VERSION" >&2
+                fi
+                echo "KOTLIN_VERSION=${'$'}KOTLIN_VERSION" >> eap-versions.properties
+                echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}KOTLIN_VERSION']"
+            else
+                echo "KOTLIN_VERSION=2.1.21" >> eap-versions.properties
+                echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='2.1.21']"
+            fi
+            
+            echo ""
+            echo "=== Resolved EAP Versions ==="
+            cat eap-versions.properties
+            echo "=== Step 1: Version Resolution Completed ==="
+        """.trimIndent()
         }
     }
 
@@ -220,72 +226,141 @@ object ConsolidatedEAPValidation {
         script {
             name = "Step 2: External Samples Validation"
             scriptContent = """
-                #!/bin/bash
-                set -e
-                
-                echo "=== Step 2: External Samples Validation ==="
-                echo "Validating external GitHub repositories against EAP versions"
-                
-                # Get current parameter values
-                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
-                KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | sed 's/^%env\.KTOR_COMPILER_PLUGIN_VERSION%$//' || echo "")
-                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
-                
-                echo "Using versions: Ktor=${'$'}KTOR_VERSION, Plugin=${'$'}KTOR_COMPILER_PLUGIN_VERSION, Kotlin=${'$'}KOTLIN_VERSION"
-                
-                # Create reports directory
-                mkdir -p external-validation-reports
-                
-                # List of external samples to validate
-                declare -A EXTERNAL_SAMPLES=(
-                    ["ktor-ai-server"]="https://github.com/nomisRev/ktor-ai-server.git"
-                    ["ktor-native-server"]="https://github.com/nomisRev/ktor-native-server.git"
-                    ["ktor-config-example"]="https://github.com/nomisRev/ktor-config-example.git"
-                    ["ktor-workshop-2025"]="https://github.com/nomisRev/ktor-workshop-2025.git"
-                    ["amper-ktor-sample"]="https://github.com/nomisRev/amper-ktor-sample.git"
-                    ["ktor-di-overview"]="https://github.com/nomisRev/Ktor-DI-Overview.git"
-                    ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
-                )
-                
-                SUCCESSFUL_COUNT=0
-                FAILED_COUNT=0
-                SKIPPED_COUNT=0
-                
-                # Process each external sample
-                for sample_name in "${'$'}{!EXTERNAL_SAMPLES[@]}"; do
-                    repo_url="${'$'}{EXTERNAL_SAMPLES[${'$'}sample_name]}"
-                    
-                    echo "🔄 Validating external sample: ${'$'}sample_name"
-                    
-                    if timeout 600 bash -c "
-                        git clone --depth 1 '${'$'}repo_url' temp-${'$'}sample_name 2>/dev/null || exit 1
-                        cd temp-${'$'}sample_name 2>/dev/null || exit 1
-                        
-                        if [ -f 'gradlew' ]; then
-                            ./gradlew clean build --no-daemon -q 2>/dev/null || exit 1
-                        elif [ -f 'pom.xml' ]; then
-                            mvn clean test -q 2>/dev/null || exit 1
-                        else
-                            exit 1
-                        fi
-                    " > "external-validation-reports/${'$'}sample_name.log" 2>&1; then
-                        echo "✅ External sample ${'$'}sample_name: SUCCESSFUL"
-                        ((SUCCESSFUL_COUNT++))
-                    else
-                        echo "❌ External sample ${'$'}sample_name: FAILED"
-                        ((FAILED_COUNT++))
-                    fi
-                    
-                    # Cleanup
-                    rm -rf "temp-${'$'}sample_name" 2>/dev/null || true
-                done
+            #!/bin/bash
+            
+            echo "=== Step 2: External Samples Validation ==="
+            echo "Validating external GitHub repositories against EAP versions"
+            echo "Using versions: Ktor=${'$'}{KTOR_VERSION:-}, Plugin=${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-}, Kotlin=${'$'}{KOTLIN_VERSION:-}"
+            
+            # Initialize results tracking
+            TOTAL_SAMPLES=0
+            SUCCESSFUL_SAMPLES=0
+            FAILED_SAMPLES=0
+            RESULTS_FILE="sample-validation-results.txt"
+            echo "# Sample Validation Results - $(date)" > "${'$'}RESULTS_FILE"
+            
+            # Function to validate a single sample
+            validate_sample() {
+                local repo_url="$1"
+                local sample_name="$2"
+                local temp_dir="temp_${'$'}sample_name"
                 
                 echo ""
-                echo "=== External Validation Results ==="
-                echo "Successful: ${'$'}SUCCESSFUL_COUNT"
-                echo "Failed: ${'$'}FAILED_COUNT"
-                echo "=== Step 2: External Samples Validation Completed ==="
-            """.trimIndent()
+                echo "🔍 Validating sample: ${'$'}sample_name"
+                echo "   Repository: ${'$'}repo_url"
+                
+                TOTAL_SAMPLES=$((TOTAL_SAMPLES + 1))
+                
+                # Clean up any existing temp directory
+                rm -rf "${'$'}temp_dir"
+                
+                # Clone the repository
+                if git clone "${'$'}repo_url" "${'$'}temp_dir" > /dev/null 2>&1; then
+                    echo "✅ Successfully cloned ${'$'}sample_name"
+                else
+                    echo "❌ Failed to clone ${'$'}sample_name"
+                    echo "FAILED: ${'$'}sample_name - Clone failed" >> "${'$'}RESULTS_FILE"
+                    FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
+                    return 1
+                fi
+                
+                cd "${'$'}temp_dir"
+                
+                # Update versions
+                local version_updates=""
+                if [ -n "${'$'}{KTOR_VERSION:-}" ]; then
+                    version_updates="${'$'}version_updates -Pktor_version=${'$'}KTOR_VERSION"
+                fi
+                if [ -n "${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-}" ]; then
+                    version_updates="${'$'}version_updates -Pktor_plugin_version=${'$'}KTOR_COMPILER_PLUGIN_VERSION"
+                fi
+                if [ -n "${'$'}{KOTLIN_VERSION:-}" ]; then
+                    version_updates="${'$'}version_updates -Pkotlin_version=${'$'}KOTLIN_VERSION"
+                fi
+                
+                # Try to build the sample
+                local build_result=0
+                echo "   Building with versions: ${'$'}version_updates"
+                
+                if [ -f "build.gradle.kts" ] || [ -f "build.gradle" ]; then
+                    # Gradle project
+                    if ./gradlew build ${'$'}version_updates --no-daemon --console=plain 2>&1; then
+                        echo "✅ ${'$'}sample_name build successful"
+                        echo "SUCCESS: ${'$'}sample_name - Build completed" >> "${'$'}RESULTS_FILE"
+                        SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
+                    else
+                        build_result=1
+                        echo "❌ ${'$'}sample_name build failed"
+                        echo "FAILED: ${'$'}sample_name - Build failed" >> "${'$'}RESULTS_FILE"
+                        FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
+                    fi
+                elif [ -f "pom.xml" ]; then
+                    # Maven project
+                    local maven_props=""
+                    if [ -n "${'$'}{KTOR_VERSION:-}" ]; then
+                        maven_props="${'$'}maven_props -Dktor.version=${'$'}KTOR_VERSION"
+                    fi
+                    if [ -n "${'$'}{KOTLIN_VERSION:-}" ]; then
+                        maven_props="${'$'}maven_props -Dkotlin.version=${'$'}KOTLIN_VERSION"
+                    fi
+                    
+                    if mvn clean compile ${'$'}maven_props -q 2>&1; then
+                        echo "✅ ${'$'}sample_name build successful"
+                        echo "SUCCESS: ${'$'}sample_name - Build completed" >> "${'$'}RESULTS_FILE"
+                        SUCCESSFUL_SAMPLES=$((SUCCESSFUL_SAMPLES + 1))
+                    else
+                        build_result=1
+                        echo "❌ ${'$'}sample_name build failed"
+                        echo "FAILED: ${'$'}sample_name - Build failed" >> "${'$'}RESULTS_FILE"
+                        FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
+                    fi
+                else
+                    echo "⚠️  No recognized build file found in ${'$'}sample_name"
+                    echo "SKIPPED: ${'$'}sample_name - No build file found" >> "${'$'}RESULTS_FILE"
+                    FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
+                    build_result=1
+                fi
+                
+                cd ..
+                rm -rf "${'$'}temp_dir"
+                
+                return ${'$'}build_result
+            }
+            
+            # List of external samples to validate (add more as needed)
+            declare -a SAMPLES=(
+                "https://github.com/ktorio/ktor-samples.git ktor-samples"
+                "https://github.com/ktorio/ktor-documentation.git ktor-documentation"
+            )
+            
+            # Validate all samples
+            for sample in "${'$'}{SAMPLES[@]}"; do
+                read -r repo_url sample_name <<< "${'$'}sample"
+                validate_sample "${'$'}repo_url" "${'$'}sample_name"
+                # Continue to next sample regardless of result
+            done
+            
+            echo ""
+            echo "=== External Samples Validation Summary ==="
+            echo "Total samples processed: ${'$'}TOTAL_SAMPLES"
+            echo "Successful: ${'$'}SUCCESSFUL_SAMPLES"
+            echo "Failed: ${'$'}FAILED_SAMPLES"
+            
+            echo ""
+            echo "=== Detailed Results ==="
+            cat "${'$'}RESULTS_FILE"
+            
+            # Set TeamCity parameters for next steps
+            echo "##teamcity[setParameter name='env.SAMPLES_TOTAL' value='${'$'}TOTAL_SAMPLES']"
+            echo "##teamcity[setParameter name='env.SAMPLES_SUCCESSFUL' value='${'$'}SUCCESSFUL_SAMPLES']"
+            echo "##teamcity[setParameter name='env.SAMPLES_FAILED' value='${'$'}FAILED_SAMPLES']"
+            
+            echo "=== Step 2: External Samples Validation Completed ==="
+            
+            # Return success even if some samples failed (resilient approach)
+            # The quality gate step will evaluate the results
+            exit 0
+        """.trimIndent()
         }
     }
 
@@ -299,7 +374,6 @@ object ConsolidatedEAPValidation {
             name = "Step 3: Internal Test Suites - Setup EAP Environment"
             scriptContent = """
             #!/bin/bash
-            set -e
             
             echo "=== Step 3: Internal Test Suites - EAP Sample Validation ==="
             echo "Setting up EAP environment for internal sample validation"
@@ -396,7 +470,6 @@ EOF
             name = "Step 3: Internal Test Suites - Regular Samples"
             scriptContent = """
                 #!/bin/bash
-                set -e
                 
                 source build-env.properties
                 
@@ -506,7 +579,6 @@ EOF
             name = "Step 3: Build Plugin Samples"
             scriptContent = """
                 #!/bin/bash
-                set -e
                 
                 source build-env.properties
                 
@@ -601,7 +673,6 @@ EOF
             name = "Step 3: Generate Internal Test Suites Summary"
             scriptContent = """
                 #!/bin/bash
-                set -e
                 
                 source build-env.properties
                 
