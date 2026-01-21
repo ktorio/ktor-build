@@ -654,7 +654,8 @@ EOF
 
             # Create EAP Gradle init script with correct Groovy syntax
             echo "Creating EAP Gradle init script..."
-            cat > gradle-eap-init.gradle <<EOF
+            mkdir -p samples
+            cat > samples/gradle-eap-init.gradle <<EOF
 allprojects {
     repositories {
         maven {
@@ -694,6 +695,18 @@ EOF
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </repository>
+                <repository>
+                    <id>kotlin-eap-repo</id>
+                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </repository>
+                <repository>
+                    <id>central</id>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
+                </repository>
             </repositories>
             <pluginRepositories>
                 <pluginRepository>
@@ -701,6 +714,18 @@ EOF
                     <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>kotlin-eap-plugins</id>
+                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>central</id>
+                    <url>https://repo1.maven.org/maven2</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
                 </pluginRepository>
             </pluginRepositories>
         </profile>
@@ -855,7 +880,7 @@ EOF
 
                 # Build plugin samples using composite build from the root directory
                 echo "🔧 Building plugin sample: ${'$'}sample_name"
-                if timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
+                if timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../samples/gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                 else
