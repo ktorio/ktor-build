@@ -22,6 +22,7 @@ object ProjectPublishEAPToSpace : Project({
 
     buildType(SetBuildNumber)
     buildType(PublishCustomTaskToSpace)
+    buildType(SyncPublicJetbrainsSpaceToJetbrainsTeam)
 
     val builds = listOf(
         PublishJvmToSpace,
