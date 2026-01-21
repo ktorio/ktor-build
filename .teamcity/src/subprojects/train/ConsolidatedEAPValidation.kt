@@ -809,7 +809,7 @@ EOF
             )
             
             # Run samples in parallel using xargs
-            printf '%s\n' "${'$'}{REGULAR_SAMPLES[@]}" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "{}"'
+            printf '%s\n' "${'$'}{REGULAR_SAMPLES[@]}" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "samples/{}"'
 
             echo "=== Regular samples validation completed ==="
         """.trimIndent()
@@ -850,12 +850,12 @@ EOF
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
                     return 0
                 fi
-                
-                cd "${'$'}sample_dir"
-                
-                # Build plugin samples are always Gradle projects
+
+                cd "${'$'}BUILD_PLUGIN_DIR"
+
+                # Build plugin samples using composite build from the root directory
                 echo "🔧 Building plugin sample: ${'$'}sample_name"
-                if timeout 300 "${'$'}BUILD_PLUGIN_DIR/gradlew" clean build --init-script "${'$'}PWD/../../../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
+                if timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                 else
