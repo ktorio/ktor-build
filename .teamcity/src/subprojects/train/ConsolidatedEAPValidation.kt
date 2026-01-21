@@ -489,7 +489,7 @@ EOF
                             echo "✅ Build successful with Gradle"
                         else
                             echo "❌ Gradle build failed, trying compile-only..."
-                            if run_with_intelligent_timeout "./gradlew classes --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
+                            if run_with_intelligent_timeout "./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
                                 BUILD_SUCCESS=true
                                 echo "✅ Compile successful with Gradle"
                                 # Append compile log to main log
@@ -585,7 +585,7 @@ EOF
                         echo "✅ Build successful with assemble"
                     else
                         echo "❌ assemble failed, trying compile-only..."
-                        if run_with_intelligent_timeout "./gradlew classes --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
+                        if run_with_intelligent_timeout "./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
                             BUILD_SUCCESS=true
                             echo "✅ Compile successful"
                             # Append compile log to main log
@@ -884,14 +884,14 @@ EOF
             </repositories>
             <pluginRepositories>
                 <pluginRepository>
-                    <id>kotlin-eap-plugins</id>
-                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
+                    <id>ktor-eap-plugins</id>
+                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
                 <pluginRepository>
-                    <id>ktor-eap-plugins</id>
-                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    <id>kotlin-eap-plugins</id>
+                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
@@ -936,13 +936,6 @@ EOF
                 
                 echo "🔄 [PARALLEL] Starting validation of sample: ${'$'}sample_name"
                 
-                # Initialize log file with basic information
-                echo "=== Sample Validation Log for ${'$'}sample_name ===" > "${'$'}log_file"
-                echo "Started at: $(date)" >> "${'$'}log_file"
-                echo "Sample directory: ${'$'}sample_dir" >> "${'$'}log_file"
-                echo "Kotlin version: ${'$'}KOTLIN_VERSION" >> "${'$'}log_file"
-                echo "========================================" >> "${'$'}log_file"
-
                 if [ ! -d "${'$'}sample_dir" ]; then
                     echo "⚠️  Sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
                     echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
@@ -968,14 +961,10 @@ EOF
                 if [ -f "pom.xml" ]; then
                     # Maven build - use corrected Kotlin version
                     echo "🔧 Maven sample detected, using Kotlin version: ${'$'}KOTLIN_VERSION"
-                    timeout 600 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1
+                    timeout 300 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1
                     exit_code=$?
 
-                    # Handle timeout specifically
-                    if [ ${'$'}exit_code -eq 124 ]; then
-                        echo "⏰ [PARALLEL] Sample ${'$'}sample_name: BUILD TIMEOUT (10 minutes exceeded)" | tee -a "${'$'}log_file"
-                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
-                    elif [ ${'$'}exit_code -eq 0 ]; then
+                    if [ ${'$'}exit_code -eq 0 ]; then
                         echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                         echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                     elif check_deprecation_warnings_only "${'$'}log_file"; then
@@ -988,14 +977,10 @@ EOF
                 else
                     # Gradle build - suppress Node.js deprecation warnings
                     export NODE_OPTIONS="--no-deprecation --no-warnings"
-                    timeout 600 ./gradlew clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
+                    timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
                     exit_code=$?
 
-                    # Handle timeout specifically
-                    if [ ${'$'}exit_code -eq 124 ]; then
-                        echo "⏰ [PARALLEL] Sample ${'$'}sample_name: BUILD TIMEOUT (10 minutes exceeded)" | tee -a "${'$'}log_file"
-                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
-                    elif [ ${'$'}exit_code -eq 0 ]; then
+                    if [ ${'$'}exit_code -eq 0 ]; then
                         echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                         echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                     elif check_deprecation_warnings_only "${'$'}log_file"; then
@@ -1084,15 +1069,7 @@ EOF
                 local log_file="${'$'}REPORTS_DIR/build-plugin-${'$'}sample_name.log"
                 
                 echo "🔄 [BUILD PLUGIN] Starting validation of sample: ${'$'}sample_name"
-
-                # Initialize log file with basic information
-                echo "=== Build Plugin Sample Validation Log for ${'$'}sample_name ===" > "${'$'}log_file"
-                echo "Started at: $(date)" >> "${'$'}log_file"
-                echo "Sample directory: ${'$'}sample_dir" >> "${'$'}log_file"
-                echo "Build plugin directory: ${'$'}BUILD_PLUGIN_DIR" >> "${'$'}log_file"
-                echo "Kotlin version: ${'$'}KOTLIN_VERSION" >> "${'$'}log_file"
-                echo "========================================" >> "${'$'}log_file"
-
+                
                 if [ ! -d "${'$'}sample_dir" ]; then
                     echo "⚠️  Build plugin sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
@@ -1117,14 +1094,10 @@ EOF
                 # Build plugin samples using composite build from the root directory - suppress Node.js deprecation warnings
                 echo "🔧 Building plugin sample: ${'$'}sample_name"
                 export NODE_OPTIONS="--no-deprecation --no-warnings"
-                timeout 600 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../samples/gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
+                timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../samples/gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
                 exit_code=$?
 
-                # Handle timeout specifically
-                if [ ${'$'}exit_code -eq 124 ]; then
-                    echo "⏰ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD TIMEOUT (10 minutes exceeded)" | tee -a "${'$'}log_file"
-                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
-                elif [ ${'$'}exit_code -eq 0 ]; then
+                if [ ${'$'}exit_code -eq 0 ]; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                 elif check_deprecation_warnings_only "${'$'}log_file"; then
