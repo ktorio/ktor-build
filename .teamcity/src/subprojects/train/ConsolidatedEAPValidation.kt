@@ -374,8 +374,8 @@ logback_version=1.4.14
 kotlin.mpp.stability.nowarn=true
 org.gradle.jvmargs=-Xmx2g
 org.gradle.daemon=false
-org.gradle.parallel=true
-org.gradle.caching=true
+org.gradle.parallel=false
+org.gradle.caching=false
 kotlin.compiler.execution.strategy=in-process
 kotlin.incremental=true
 EOF
@@ -398,6 +398,11 @@ EOF
                 (
                     echo ""
                     echo "=== [${'$'}sample_index] Validating external sample: ${'$'}project_dir ==="
+
+                    # Create unique Gradle user home for this build to avoid cache conflicts
+                    GRADLE_USER_HOME="${'$'}WORK_DIR/.gradle-${'$'}sample_name"
+                    mkdir -p "${'$'}GRADLE_USER_HOME"
+                    export GRADLE_USER_HOME
 
                     # Check if project directory exists
                     if [ ! -d "${'$'}project_dir" ]; then
@@ -484,16 +489,29 @@ EOF
                             return $?
                         }
 
-                        if run_with_intelligent_timeout "./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG"; then
+                        if run_with_intelligent_timeout "./gradlew assemble --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG"; then
                             BUILD_SUCCESS=true
                             echo "✅ Build successful with Gradle"
                         else
                             echo "❌ Gradle build failed, trying compile-only..."
-                            if run_with_intelligent_timeout "./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
-                                BUILD_SUCCESS=true
-                                echo "✅ Compile successful with Gradle"
-                                # Append compile log to main log
-                                cat "${'$'}BUILD_LOG.compile" >> "${'$'}BUILD_LOG"
+                            # Get available compile tasks to handle multiplatform projects properly
+                            COMPILE_TASKS=${'$'}(./gradlew tasks --all 2>/dev/null | grep -E "^compile[A-Za-z]*( |${'$'})" | awk '{print ${'$'}1}' | head -10 | tr '\n' ' ')
+                            if [ -n "${'$'}COMPILE_TASKS" ]; then
+                                echo "Found compile tasks: ${'$'}COMPILE_TASKS"
+                                if run_with_intelligent_timeout "./gradlew ${'$'}COMPILE_TASKS --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG.compile"; then
+                                    BUILD_SUCCESS=true
+                                    echo "✅ Compile successful with Gradle"
+                                    # Append compile log to main log
+                                    cat "${'$'}BUILD_LOG.compile" >> "${'$'}BUILD_LOG"
+                                fi
+                            else
+                                echo "No compile tasks found, trying classes task..."
+                                if run_with_intelligent_timeout "./gradlew classes --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG.compile"; then
+                                    BUILD_SUCCESS=true
+                                    echo "✅ Classes task successful with Gradle"
+                                    # Append compile log to main log
+                                    cat "${'$'}BUILD_LOG.compile" >> "${'$'}BUILD_LOG"
+                                fi
                             fi
                         fi
                         cd "${'$'}WORK_DIR"
@@ -580,16 +598,29 @@ EOF
                         return $?
                     }
 
-                    if run_with_intelligent_timeout "./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG"; then
+                    if run_with_intelligent_timeout "./gradlew assemble --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG"; then
                         BUILD_SUCCESS=true
                         echo "✅ Build successful with assemble"
                     else
                         echo "❌ assemble failed, trying compile-only..."
-                        if run_with_intelligent_timeout "./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
-                            BUILD_SUCCESS=true
-                            echo "✅ Compile successful"
-                            # Append compile log to main log
-                            cat "${'$'}BUILD_LOG.compile" >> "${'$'}BUILD_LOG"
+                        # Get available compile tasks to handle multiplatform projects properly
+                        COMPILE_TASKS=${'$'}(./gradlew tasks --all 2>/dev/null | grep -E "^compile[A-Za-z]*( |${'$'})" | awk '{print ${'$'}1}' | head -10 | tr '\n' ' ')
+                        if [ -n "${'$'}COMPILE_TASKS" ]; then
+                            echo "Found compile tasks: ${'$'}COMPILE_TASKS"
+                            if run_with_intelligent_timeout "./gradlew ${'$'}COMPILE_TASKS --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG.compile"; then
+                                BUILD_SUCCESS=true
+                                echo "✅ Compile successful"
+                                # Append compile log to main log
+                                cat "${'$'}BUILD_LOG.compile" >> "${'$'}BUILD_LOG"
+                            fi
+                        else
+                            echo "No compile tasks found, trying classes task..."
+                            if run_with_intelligent_timeout "./gradlew classes --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG.compile"; then
+                                BUILD_SUCCESS=true
+                                echo "✅ Classes task successful"
+                                # Append compile log to main log
+                                cat "${'$'}BUILD_LOG.compile" >> "${'$'}BUILD_LOG"
+                            fi
                         fi
                     fi
                     cd "${'$'}WORK_DIR"
@@ -1190,6 +1221,14 @@ EOF
             fi
             
             echo "=== Step 3: Internal Sample Validation Completed ==="
+
+            # Set TeamCity parameters for quality gate evaluation
+            echo "##teamcity[setParameter name='internal.validation.total.tests' value='${'$'}TOTAL_COUNT']"
+            echo "##teamcity[setParameter name='internal.validation.passed.tests' value='${'$'}SUCCESSFUL_COUNT']"
+            echo "##teamcity[setParameter name='internal.validation.failed.tests' value='${'$'}FAILED_COUNT']"
+            echo "##teamcity[setParameter name='internal.validation.error.tests' value='0']"
+            echo "##teamcity[setParameter name='internal.validation.skipped.tests' value='${'$'}SKIPPED_COUNT']"
+            echo "##teamcity[setParameter name='internal.validation.success.rate' value='${'$'}SUCCESS_RATE.0']"
         """.trimIndent()
         }
     }
@@ -1648,12 +1687,10 @@ EOF
                 STATUS_LINE1="${'$'}MAIN_EMOJI EAP ${'$'}KTOR_VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
                 STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
                 STATUS_LINE3="Critical: ${'$'}TOTAL_CRITICAL issues | Score: ${'$'}OVERALL_SCORE/100"
-                
-                # Combine into multi-line status
-                STATUS_TEXT="${'$'}STATUS_LINE1
-${'$'}STATUS_LINE2
-${'$'}STATUS_LINE3"
-                
+
+                # Combine into single-line status for TeamCity service message
+                STATUS_TEXT="${'$'}STATUS_LINE1 | ${'$'}STATUS_LINE2 | ${'$'}STATUS_LINE3"
+
                 echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
 
                 # Store detailed info in build parameters for notifications
