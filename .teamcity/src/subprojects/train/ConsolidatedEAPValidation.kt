@@ -431,22 +431,22 @@ EOF
 
                         # Function to run command with intelligent timeout
                         run_with_intelligent_timeout() {
-                            local cmd="${'$'}1"
-                            local log_file="${'$'}2"
+                            local cmd="$1"
+                            local log_file="$2"
                             local max_timeout=1500  # 25 minutes
                             local check_interval=30  # Check every 30 seconds
                             local no_progress_limit=300  # Kill if no progress for 5 minutes
 
                             # Start the command in background
                             ${'$'}cmd > "${'$'}log_file" 2>&1 &
-                            local cmd_pid=${'$'}!
-                            local start_time=${'$'}(date +%s)
+                            local cmd_pid=$!
+                            local start_time=$(date +%s)
                             local last_log_size=0
                             local last_progress_time=${'$'}start_time
 
                             while kill -0 ${'$'}cmd_pid 2>/dev/null; do
-                                local current_time=${'$'}(date +%s)
-                                local elapsed=${'$'}((current_time - start_time))
+                                local current_time=$(date +%s)
+                                local elapsed=$((current_time - start_time))
 
                                 # Check if we've exceeded maximum timeout
                                 if [ ${'$'}elapsed -gt ${'$'}max_timeout ]; then
@@ -459,7 +459,7 @@ EOF
 
                                 # Check if log file is growing (indicating progress)
                                 if [ -f "${'$'}log_file" ]; then
-                                    local current_log_size=${'$'}(wc -c < "${'$'}log_file" 2>/dev/null || echo "0")
+                                    local current_log_size=$(wc -c < "${'$'}log_file" 2>/dev/null || echo "0")
                                     if [ "${'$'}current_log_size" -gt "${'$'}last_log_size" ]; then
                                         last_log_size=${'$'}current_log_size
                                         last_progress_time=${'$'}current_time
@@ -467,7 +467,7 @@ EOF
                                 fi
 
                                 # Check if no progress for too long
-                                local no_progress_time=${'$'}((current_time - last_progress_time))
+                                local no_progress_time=$((current_time - last_progress_time))
                                 if [ ${'$'}no_progress_time -gt ${'$'}no_progress_limit ]; then
                                     echo "❌ No progress detected for 5 minutes, terminating build"
                                     kill -TERM ${'$'}cmd_pid 2>/dev/null || true
@@ -481,7 +481,7 @@ EOF
 
                             # Wait for the process to finish and get exit code
                             wait ${'$'}cmd_pid
-                            return ${'$'}?
+                            return $?
                         }
 
                         if run_with_intelligent_timeout "./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG"; then
@@ -489,7 +489,7 @@ EOF
                             echo "✅ Build successful with Gradle"
                         else
                             echo "❌ Gradle build failed, trying compile-only..."
-                            if run_with_intelligent_timeout "./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
+                            if run_with_intelligent_timeout "./gradlew classes --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
                                 BUILD_SUCCESS=true
                                 echo "✅ Compile successful with Gradle"
                                 # Append compile log to main log
@@ -527,22 +527,22 @@ EOF
 
                     # Function to run command with intelligent timeout (reused from Amper section)
                     run_with_intelligent_timeout() {
-                        local cmd="${'$'}1"
-                        local log_file="${'$'}2"
+                        local cmd="$1"
+                        local log_file="$2"
                         local max_timeout=1500  # 25 minutes
                         local check_interval=30  # Check every 30 seconds
                         local no_progress_limit=300  # Kill if no progress for 5 minutes
 
                         # Start the command in background
                         ${'$'}cmd > "${'$'}log_file" 2>&1 &
-                        local cmd_pid=${'$'}!
-                        local start_time=${'$'}(date +%s)
+                        local cmd_pid=$!
+                        local start_time=$(date +%s)
                         local last_log_size=0
                         local last_progress_time=${'$'}start_time
 
                         while kill -0 ${'$'}cmd_pid 2>/dev/null; do
-                            local current_time=${'$'}(date +%s)
-                            local elapsed=${'$'}((current_time - start_time))
+                            local current_time=$(date +%s)
+                            local elapsed=$((current_time - start_time))
 
                             # Check if we've exceeded maximum timeout
                             if [ ${'$'}elapsed -gt ${'$'}max_timeout ]; then
@@ -555,7 +555,7 @@ EOF
 
                             # Check if log file is growing (indicating progress)
                             if [ -f "${'$'}log_file" ]; then
-                                local current_log_size=${'$'}(wc -c < "${'$'}log_file" 2>/dev/null || echo "0")
+                                local current_log_size=$(wc -c < "${'$'}log_file" 2>/dev/null || echo "0")
                                 if [ "${'$'}current_log_size" -gt "${'$'}last_log_size" ]; then
                                     last_log_size=${'$'}current_log_size
                                     last_progress_time=${'$'}current_time
@@ -563,7 +563,7 @@ EOF
                             fi
 
                             # Check if no progress for too long
-                            local no_progress_time=${'$'}((current_time - last_progress_time))
+                            local no_progress_time=$((current_time - last_progress_time))
                             if [ ${'$'}no_progress_time -gt ${'$'}no_progress_limit ]; then
                                 echo "❌ No progress detected for 5 minutes, terminating build"
                                 kill -TERM ${'$'}cmd_pid 2>/dev/null || true
@@ -577,7 +577,7 @@ EOF
 
                         # Wait for the process to finish and get exit code
                         wait ${'$'}cmd_pid
-                        return ${'$'}?
+                        return $?
                     }
 
                     if run_with_intelligent_timeout "./gradlew assemble --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG"; then
@@ -585,7 +585,7 @@ EOF
                         echo "✅ Build successful with assemble"
                     else
                         echo "❌ assemble failed, trying compile-only..."
-                        if run_with_intelligent_timeout "./gradlew compileKotlin compileJava --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
+                        if run_with_intelligent_timeout "./gradlew classes --no-daemon --continue --parallel --stacktrace --build-cache --no-configuration-cache" "${'$'}BUILD_LOG.compile"; then
                             BUILD_SUCCESS=true
                             echo "✅ Compile successful"
                             # Append compile log to main log
@@ -608,22 +608,22 @@ EOF
 
                     # Function to run command with intelligent timeout (reused from Gradle sections)
                     run_with_intelligent_timeout() {
-                        local cmd="${'$'}1"
-                        local log_file="${'$'}2"
+                        local cmd="$1"
+                        local log_file="$2"
                         local max_timeout=1500  # 25 minutes
                         local check_interval=30  # Check every 30 seconds
                         local no_progress_limit=300  # Kill if no progress for 5 minutes
 
                         # Start the command in background
                         ${'$'}cmd > "${'$'}log_file" 2>&1 &
-                        local cmd_pid=${'$'}!
-                        local start_time=${'$'}(date +%s)
+                        local cmd_pid=$!
+                        local start_time=$(date +%s)
                         local last_log_size=0
                         local last_progress_time=${'$'}start_time
 
                         while kill -0 ${'$'}cmd_pid 2>/dev/null; do
-                            local current_time=${'$'}(date +%s)
-                            local elapsed=${'$'}((current_time - start_time))
+                            local current_time=$(date +%s)
+                            local elapsed=$((current_time - start_time))
 
                             # Check if we've exceeded maximum timeout
                             if [ ${'$'}elapsed -gt ${'$'}max_timeout ]; then
@@ -636,7 +636,7 @@ EOF
 
                             # Check if log file is growing (indicating progress)
                             if [ -f "${'$'}log_file" ]; then
-                                local current_log_size=${'$'}(wc -c < "${'$'}log_file" 2>/dev/null || echo "0")
+                                local current_log_size=$(wc -c < "${'$'}log_file" 2>/dev/null || echo "0")
                                 if [ "${'$'}current_log_size" -gt "${'$'}last_log_size" ]; then
                                     last_log_size=${'$'}current_log_size
                                     last_progress_time=${'$'}current_time
@@ -644,7 +644,7 @@ EOF
                             fi
 
                             # Check if no progress for too long
-                            local no_progress_time=${'$'}((current_time - last_progress_time))
+                            local no_progress_time=$((current_time - last_progress_time))
                             if [ ${'$'}no_progress_time -gt ${'$'}no_progress_limit ]; then
                                 echo "❌ No progress detected for 5 minutes, terminating build"
                                 kill -TERM ${'$'}cmd_pid 2>/dev/null || true
@@ -658,7 +658,7 @@ EOF
 
                         # Wait for the process to finish and get exit code
                         wait ${'$'}cmd_pid
-                        return ${'$'}?
+                        return $?
                     }
 
                     if run_with_intelligent_timeout "mvn compile -Dkotlin.version=\"${'$'}KOTLIN_VERSION\" -Dktor.version=\"${'$'}KTOR_VERSION\"" "${'$'}BUILD_LOG"; then
@@ -884,14 +884,14 @@ EOF
             </repositories>
             <pluginRepositories>
                 <pluginRepository>
-                    <id>ktor-eap-plugins</id>
-                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    <id>kotlin-eap-plugins</id>
+                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
                 <pluginRepository>
-                    <id>kotlin-eap-plugins</id>
-                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
+                    <id>ktor-eap-plugins</id>
+                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
@@ -936,6 +936,13 @@ EOF
                 
                 echo "🔄 [PARALLEL] Starting validation of sample: ${'$'}sample_name"
                 
+                # Initialize log file with basic information
+                echo "=== Sample Validation Log for ${'$'}sample_name ===" > "${'$'}log_file"
+                echo "Started at: $(date)" >> "${'$'}log_file"
+                echo "Sample directory: ${'$'}sample_dir" >> "${'$'}log_file"
+                echo "Kotlin version: ${'$'}KOTLIN_VERSION" >> "${'$'}log_file"
+                echo "========================================" >> "${'$'}log_file"
+
                 if [ ! -d "${'$'}sample_dir" ]; then
                     echo "⚠️  Sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
                     echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
@@ -961,10 +968,14 @@ EOF
                 if [ -f "pom.xml" ]; then
                     # Maven build - use corrected Kotlin version
                     echo "🔧 Maven sample detected, using Kotlin version: ${'$'}KOTLIN_VERSION"
-                    timeout 300 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1
-                    exit_code=${'$'}?
+                    timeout 600 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1
+                    exit_code=$?
 
-                    if [ ${'$'}exit_code -eq 0 ]; then
+                    # Handle timeout specifically
+                    if [ ${'$'}exit_code -eq 124 ]; then
+                        echo "⏰ [PARALLEL] Sample ${'$'}sample_name: BUILD TIMEOUT (10 minutes exceeded)" | tee -a "${'$'}log_file"
+                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
+                    elif [ ${'$'}exit_code -eq 0 ]; then
                         echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                         echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                     elif check_deprecation_warnings_only "${'$'}log_file"; then
@@ -977,10 +988,14 @@ EOF
                 else
                     # Gradle build - suppress Node.js deprecation warnings
                     export NODE_OPTIONS="--no-deprecation --no-warnings"
-                    timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
-                    exit_code=${'$'}?
+                    timeout 600 ./gradlew clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
+                    exit_code=$?
 
-                    if [ ${'$'}exit_code -eq 0 ]; then
+                    # Handle timeout specifically
+                    if [ ${'$'}exit_code -eq 124 ]; then
+                        echo "⏰ [PARALLEL] Sample ${'$'}sample_name: BUILD TIMEOUT (10 minutes exceeded)" | tee -a "${'$'}log_file"
+                        echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
+                    elif [ ${'$'}exit_code -eq 0 ]; then
                         echo "✅ [PARALLEL] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                         echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                     elif check_deprecation_warnings_only "${'$'}log_file"; then
@@ -1069,7 +1084,15 @@ EOF
                 local log_file="${'$'}REPORTS_DIR/build-plugin-${'$'}sample_name.log"
                 
                 echo "🔄 [BUILD PLUGIN] Starting validation of sample: ${'$'}sample_name"
-                
+
+                # Initialize log file with basic information
+                echo "=== Build Plugin Sample Validation Log for ${'$'}sample_name ===" > "${'$'}log_file"
+                echo "Started at: $(date)" >> "${'$'}log_file"
+                echo "Sample directory: ${'$'}sample_dir" >> "${'$'}log_file"
+                echo "Build plugin directory: ${'$'}BUILD_PLUGIN_DIR" >> "${'$'}log_file"
+                echo "Kotlin version: ${'$'}KOTLIN_VERSION" >> "${'$'}log_file"
+                echo "========================================" >> "${'$'}log_file"
+
                 if [ ! -d "${'$'}sample_dir" ]; then
                     echo "⚠️  Build plugin sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
@@ -1094,10 +1117,14 @@ EOF
                 # Build plugin samples using composite build from the root directory - suppress Node.js deprecation warnings
                 echo "🔧 Building plugin sample: ${'$'}sample_name"
                 export NODE_OPTIONS="--no-deprecation --no-warnings"
-                timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../samples/gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
-                exit_code=${'$'}?
+                timeout 600 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../samples/gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
+                exit_code=$?
 
-                if [ ${'$'}exit_code -eq 0 ]; then
+                # Handle timeout specifically
+                if [ ${'$'}exit_code -eq 124 ]; then
+                    echo "⏰ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD TIMEOUT (10 minutes exceeded)" | tee -a "${'$'}log_file"
+                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
+                elif [ ${'$'}exit_code -eq 0 ]; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                     echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                 elif check_deprecation_warnings_only "${'$'}log_file"; then
