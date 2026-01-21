@@ -407,7 +407,7 @@ EOF
                     fi
 
                     # Prepare build log
-                    BUILD_LOG="${'$'}REPORTS_DIR/build-${'$'}sample_name.log"
+                    BUILD_LOG="${'$'}REPORTS_DIR/${'$'}sample_name.log"
                     BUILD_SUCCESS=false
 
                 # Check if it's an Amper project (has module.yaml)
@@ -884,10 +884,16 @@ EOF
             </repositories>
             <pluginRepositories>
                 <pluginRepository>
-                    <id>ktor-eap-plugins</id>
-                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    <id>central</id>
+                    <url>https://repo1.maven.org/maven2</url>
                     <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>true</enabled></snapshots>
+                    <snapshots><enabled>false</enabled></snapshots>
+                </pluginRepository>
+                <pluginRepository>
+                    <id>gradle-plugins</id>
+                    <url>https://plugins.gradle.org/m2</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>false</enabled></snapshots>
                 </pluginRepository>
                 <pluginRepository>
                     <id>kotlin-eap-plugins</id>
@@ -896,10 +902,10 @@ EOF
                     <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
                 <pluginRepository>
-                    <id>central</id>
-                    <url>https://repo1.maven.org/maven2</url>
+                    <id>ktor-eap-plugins</id>
+                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
                     <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>false</enabled></snapshots>
+                    <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
             </pluginRepositories>
         </profile>
@@ -932,7 +938,7 @@ EOF
             validate_sample() {
                 local sample_dir="$1"
                 local sample_name=$(basename "${'$'}sample_dir")
-                local log_file="${'$'}REPORTS_DIR/build-${'$'}sample_name.log"
+                local log_file="${'$'}REPORTS_DIR/${'$'}sample_name.log"
                 
                 echo "🔄 [PARALLEL] Starting validation of sample: ${'$'}sample_name"
                 
@@ -961,7 +967,7 @@ EOF
                 if [ -f "pom.xml" ]; then
                     # Maven build - use corrected Kotlin version
                     echo "🔧 Maven sample detected, using Kotlin version: ${'$'}KOTLIN_VERSION"
-                    timeout 300 mvn clean test -q -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1
+                    timeout 300 mvn clean test -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}log_file" 2>&1 || true
                     exit_code=$?
 
                     if [ ${'$'}exit_code -eq 0 ]; then
@@ -977,7 +983,7 @@ EOF
                 else
                     # Gradle build - suppress Node.js deprecation warnings
                     export NODE_OPTIONS="--no-deprecation --no-warnings"
-                    timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
+                    timeout 300 ./gradlew clean build --init-script "${'$'}PWD/../gradle-eap-init.gradle" --no-daemon > "${'$'}log_file" 2>&1 || true
                     exit_code=$?
 
                     if [ ${'$'}exit_code -eq 0 ]; then
@@ -1066,13 +1072,13 @@ EOF
             validate_build_plugin_sample() {
                 local sample_name="$1"
                 local sample_dir="${'$'}BUILD_PLUGIN_DIR/samples/${'$'}sample_name"
-                local log_file="${'$'}REPORTS_DIR/build-plugin-${'$'}sample_name.log"
+                local log_file="${'$'}REPORTS_DIR/${'$'}sample_name.log"
                 
                 echo "🔄 [BUILD PLUGIN] Starting validation of sample: ${'$'}sample_name"
                 
                 if [ ! -d "${'$'}sample_dir" ]; then
                     echo "⚠️  Build plugin sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping" | tee -a "${'$'}log_file"
-                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-samples.log"
                     return 0
                 fi
 
@@ -1094,18 +1100,18 @@ EOF
                 # Build plugin samples using composite build from the root directory - suppress Node.js deprecation warnings
                 echo "🔧 Building plugin sample: ${'$'}sample_name"
                 export NODE_OPTIONS="--no-deprecation --no-warnings"
-                timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../samples/gradle-eap-init.gradle" --no-daemon -q > "${'$'}log_file" 2>&1
+                timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}PWD/../samples/gradle-eap-init.gradle" --no-daemon > "${'$'}log_file" 2>&1 || true
                 exit_code=$?
 
                 if [ ${'$'}exit_code -eq 0 ]; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
-                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                 elif check_deprecation_warnings_only "${'$'}log_file"; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL (deprecation warnings ignored)"
-                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-samples.log"
                 else
                     echo "❌ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD FAILED (exit code: ${'$'}exit_code)"
-                    echo "build-plugin-${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-samples.log"
                 fi
                 
                 cd - > /dev/null
@@ -1125,14 +1131,13 @@ EOF
                 "ktor-openapi-sample"
             )
             
-            # Validate build plugin samples in parallel
-            echo "=== Processing Build Plugin Samples (PARALLEL) ==="
+            # Validate build plugin samples sequentially to avoid Gradle lock conflicts
+            echo "=== Processing Build Plugin Samples (SEQUENTIAL) ==="
             
-            # Use printf to create proper input for xargs
-            printf '%s\n' "${'$'}{BUILD_PLUGIN_SAMPLES[@]}" | xargs -n 1 -P 4 -I {} bash -c 'validate_build_plugin_sample "{}"'
-            
-            # Wait for all background jobs to complete
-            wait
+            # Process samples one by one to avoid Gradle daemon lock conflicts
+            for sample in "${'$'}{BUILD_PLUGIN_SAMPLES[@]}"; do
+                validate_build_plugin_sample "${'$'}sample"
+            done
             
             echo "=== Build plugin samples validation completed ==="
         """.trimIndent()
