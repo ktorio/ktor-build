@@ -322,8 +322,7 @@ EOF
                     ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
                 )
 
-            # Clone external sample repositories in parallel
-            echo "Cloning external sample repositories in parallel..."
+            echo "Cloning external sample repositories..."
             clone_pids=()
             for sample_name in "${'$'}{!EXTERNAL_SAMPLES[@]}"; do
                 sample_url="${'$'}{EXTERNAL_SAMPLES[${'$'}sample_name]}"
@@ -386,9 +385,8 @@ EOF
             > "${'$'}REPORTS_DIR/skipped-samples.txt"
             > "${'$'}REPORTS_DIR/detailed-errors.txt"
 
-            # Process all samples in parallel using a simpler approach
             echo ""
-            echo "=== Starting parallel validation of ${'$'}{#EXTERNAL_SAMPLE_DIRS[@]} samples ==="
+            echo "=== Starting validation of ${'$'}{#EXTERNAL_SAMPLE_DIRS[@]} samples ==="
             
             build_pids=()
             sample_index=1
@@ -432,7 +430,6 @@ EOF
                         fi
 
                         cd "${'$'}project_dir"
-                        echo "Building with intelligent timeout (max 25 minutes) using Gradle wrapper..."
 
                         # Function to run command with intelligent timeout
                         run_with_intelligent_timeout() {
@@ -635,9 +632,8 @@ EOF
                 elif [ -f "${'$'}project_dir/pom.xml" ]; then
                     echo "Detected Maven project (pom.xml found)"
                     cd "${'$'}project_dir"
-                    echo "Building with intelligent timeout (max 25 minutes) using Maven..."
 
-                    # Function to run command with intelligent timeout (reused from Gradle sections)
+                    # Function to run command with intelligent timeout
                     run_with_intelligent_timeout() {
                         local cmd="$1"
                         local log_file="$2"
@@ -722,7 +718,6 @@ EOF
                             grep -E "FAILURE|BUILD FAILED|Error|ERROR" "${'$'}BUILD_LOG" | head -5 >> "${'$'}REPORTS_DIR/detailed-errors.txt" || true
                             echo "---" >> "${'$'}REPORTS_DIR/detailed-errors.txt"
                             
-                            # Also add to main failed report
                             echo "Build error summary:" >> "${'$'}REPORTS_DIR/failed-samples.txt"
                             tail -20 "${'$'}BUILD_LOG" | grep -E "(FAILURE|ERROR|Exception)" | head -5 >> "${'$'}REPORTS_DIR/failed-samples.txt" || true
                             echo "---" >> "${'$'}REPORTS_DIR/failed-samples.txt"
@@ -740,7 +735,6 @@ EOF
             FAILED_SAMPLES=0
             SKIPPED_SAMPLES=0
 
-            echo "Waiting for all builds to complete..."
             for build_pid in "${'$'}{build_pids[@]}"; do
                 wait "${'$'}build_pid"
                 result_code=$?
@@ -1043,7 +1037,7 @@ EOF
             touch "${'$'}REPORTS_DIR/failed-samples.log"
             touch "${'$'}REPORTS_DIR/skipped-samples.log"
             
-            echo "=== Processing Regular Sample Projects (PARALLEL) ==="
+            echo "=== Processing Regular Sample Projects ==="
             
             # List of known regular samples from ktor-samples repository
             REGULAR_SAMPLES=(
@@ -1084,7 +1078,7 @@ EOF
             
             source build-env.properties
             
-            echo "=== Step 3c: Build Plugin Samples Validation ==="
+            echo "=== Step 3: Build Plugin Samples Validation ==="
             echo "Validating build plugin samples from VCS checkout"
             
             # Use the ktor-build-plugins repository checked out via VCS configuration
@@ -1163,7 +1157,7 @@ EOF
             )
             
             # Validate build plugin samples sequentially to avoid Gradle lock conflicts
-            echo "=== Processing Build Plugin Samples (SEQUENTIAL) ==="
+            echo "=== Processing Build Plugin Samples ==="
             
             # Process samples one by one to avoid Gradle daemon lock conflicts
             for sample in "${'$'}{BUILD_PLUGIN_SAMPLES[@]}"; do
@@ -1349,7 +1343,7 @@ EOF
                 if [ "${'$'}SCORE_CHECK" = "PASSED" ] && [ "${'$'}CRITICAL_CHECK" = "PASSED" ]; then
                     OVERALL_STATUS="PASSED"
                     RECOMMENDATIONS="EAP version meets quality criteria and is ready for release"
-                    NEXT_STEPS="Proceed with release process and stakeholder notification"
+                    NEXT_STEPS="Proceed with release process"
                     FAILURE_REASONS="None"
                 else
                     # Build failure reasons
@@ -1865,6 +1859,25 @@ EOF
                 
                 # Send to Slack webhook with error handling
                 SLACK_WEBHOOK="%system.slack.webhook.url%"
+
+                # Validate webhook URL parameter
+                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ]; then
+                    echo "⚠️ Slack webhook URL is not configured - skipping notification"
+                    echo "Please configure the 'system.slack.webhook.url' parameter in TeamCity"
+                    echo "This is non-critical - build continues successfully"
+                    rm -f slack_payload.json
+                    exit 0
+                fi
+
+                # Validate webhook URL format
+                if [[ ! "${'$'}SLACK_WEBHOOK" =~ ^https://hooks\.slack\.com/services/.+ ]]; then
+                    echo "❌ Invalid Slack webhook URL format: ${'$'}SLACK_WEBHOOK"
+                    echo "Expected format: https://hooks.slack.com/services/..."
+                    echo "This is non-critical - build continues successfully"
+                    rm -f slack_payload.json
+                    exit 0
+                fi
+
                 echo "Sending notification to Slack webhook..."
                 
                 if curl -X POST -H 'Content-type: application/json' \
