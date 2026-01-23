@@ -64,7 +64,8 @@ object ConsolidatedEAPValidation {
                 param("quality.gate.thresholds.critical.issues", "0")
 
                 // Optional Slack webhook for detailed notifications
-                password("system.slack.webhook.url", "%system.slack.webhook.url%")
+                password("slack.webhook.url", "%system.slack.webhook.url%")
+                password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
 
                 // Version parameters
                 param("env.KTOR_VERSION", "")
@@ -1858,24 +1859,13 @@ EOF
                 fi
                 
                 # Send to Slack webhook with error handling
-                SLACK_WEBHOOK="%system.slack.webhook.url%"
-
-                # Validate webhook URL parameter
-                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ]; then
-                    echo "⚠️ Slack webhook URL is not configured - skipping notification"
-                    echo "Please configure the 'system.slack.webhook.url' parameter in TeamCity"
-                    echo "This is non-critical - build continues successfully"
-                    rm -f slack_payload.json
-                    exit 0
-                fi
-
-                # Validate webhook URL format
-                if [[ ! "${'$'}SLACK_WEBHOOK" =~ ^https://hooks\.slack\.com/services/.+ ]]; then
-                    echo "❌ Invalid Slack webhook URL format: ${'$'}SLACK_WEBHOOK"
-                    echo "Expected format: https://hooks.slack.com/services/..."
-                    echo "This is non-critical - build continues successfully"
-                    rm -f slack_payload.json
-                    exit 0
+                SLACK_WEBHOOK="%slack.webhook.url%"
+                
+                # Try reading from environment variable as a fallback
+                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ] || [ "${'$'}SLACK_WEBHOOK" = "%slack.webhook.url%" ]; then
+                    if [ -n "${'$'}SLACK_WEBHOOK_URL" ]; then
+                        SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
+                    fi
                 fi
 
                 echo "Sending notification to Slack webhook..."
