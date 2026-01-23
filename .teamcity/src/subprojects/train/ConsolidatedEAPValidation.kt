@@ -64,7 +64,9 @@ object ConsolidatedEAPValidation {
                 param("quality.gate.thresholds.critical.issues", "0")
 
                 // Optional Slack webhook for detailed notifications
-                param("system.slack.webhook.url", "")
+                // Reference to the parameter, configured in TeamCity UI
+                password("system.slack.webhook.url", "%system.slack.webhook.url%")
+                password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
 
                 // Version parameters
                 param("env.KTOR_VERSION", "")
@@ -1859,6 +1861,13 @@ EOF
                 
                 # Send to Slack webhook with error handling
                 SLACK_WEBHOOK="%system.slack.webhook.url%"
+
+                # Try reading from environment variable as a fallback
+                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ]; then
+                    if [ -n "${'$'}SLACK_WEBHOOK_URL" ]; then
+                        SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
+                    fi
+                fi
 
                 # Validate webhook URL parameter
                 if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ]; then
