@@ -64,7 +64,6 @@ object ConsolidatedEAPValidation {
                 param("quality.gate.thresholds.critical.issues", "0")
 
                 // Optional Slack webhook for detailed notifications
-                password("slack.webhook.url", "%system.slack.webhook.url%")
                 password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
 
                 // Version parameters
@@ -1859,14 +1858,7 @@ EOF
                 fi
                 
                 # Send to Slack webhook with error handling
-                SLACK_WEBHOOK="%slack.webhook.url%"
-                
-                # Try reading from environment variable as a fallback
-                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ] || [ "${'$'}SLACK_WEBHOOK" = "%slack.webhook.url%" ]; then
-                    if [ -n "${'$'}SLACK_WEBHOOK_URL" ]; then
-                        SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
-                    fi
-                fi
+                SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
 
                 echo "Sending notification to Slack webhook..."
                 
