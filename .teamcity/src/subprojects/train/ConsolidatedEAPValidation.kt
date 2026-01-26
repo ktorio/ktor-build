@@ -1859,6 +1859,23 @@ EOF
                 
                 # Send to Slack webhook with error handling
                 SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
+                
+                # Validate webhook URL parameter
+                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ] || [ "${'$'}SLACK_WEBHOOK" = "%slack.webhook.url%" ]; then
+                    echo "⚠️ Slack webhook URL is not configured - skipping notification"
+                    echo "Please configure the 'system.slack.webhook.url' parameter in TeamCity"
+                    echo "This is non-critical - build continues successfully"
+                    rm -f slack_payload.json
+                    exit 0
+                fi
+
+                # Validate webhook URL format
+                if ! echo "${'$'}SLACK_WEBHOOK" | grep -qE "^https://hooks\.slack\.com/services/.+"; then
+                    echo "❌ Invalid Slack webhook URL format"
+                    echo "This is non-critical - build continues successfully"
+                    rm -f slack_payload.json
+                    exit 0
+                fi
 
                 echo "Sending notification to Slack webhook..."
                 
