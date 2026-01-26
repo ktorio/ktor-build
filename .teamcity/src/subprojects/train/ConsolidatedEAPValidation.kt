@@ -65,7 +65,6 @@ object ConsolidatedEAPValidation {
 
                 // Optional Slack webhook for detailed notifications
                 password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
-                password("system.slack.webhook.url", "%system.slack.webhook.url%")
 
                 // Version parameters
                 param("env.KTOR_VERSION", "")
@@ -1861,13 +1860,13 @@ EOF
                 # Send to Slack webhook with error handling
                 SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
                 
-                # Check if Slack webhook is a literal placeholder
-                if [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ]; then
-                    SLACK_WEBHOOK=""
+                # Fallback to direct parameter substitution if env var is empty/masked
+                if [ -z "${'$'}SLACK_WEBHOOK" ] || [[ "${'$'}SLACK_WEBHOOK" == "%"* ]]; then
+                    SLACK_WEBHOOK="%system.slack.webhook.url%"
                 fi
 
-                # Validate webhook URL parameter
-                if [ -z "${'$'}SLACK_WEBHOOK" ]; then
+                # Validate webhook URL parameter (handle empty or literal placeholders)
+                if [ -z "${'$'}SLACK_WEBHOOK" ] || [[ "${'$'}SLACK_WEBHOOK" == "%"* ]]; then
                     echo "⚠️ Slack webhook URL is not configured - skipping notification"
                     echo "Please configure the 'system.slack.webhook.url' parameter in TeamCity"
                     echo "This is non-critical - build continues successfully"
