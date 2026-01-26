@@ -1861,7 +1861,7 @@ EOF
                 SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
                 
                 # Validate webhook URL parameter
-                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ] || [ "${'$'}SLACK_WEBHOOK" = "%slack.webhook.url%" ]; then
+                if [ -z "${'$'}SLACK_WEBHOOK" ] || [ "${'$'}SLACK_WEBHOOK" = "%system.slack.webhook.url%" ]; then
                     echo "⚠️ Slack webhook URL is not configured - skipping notification"
                     echo "Please configure the 'system.slack.webhook.url' parameter in TeamCity"
                     echo "This is non-critical - build continues successfully"
