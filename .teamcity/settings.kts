@@ -48,8 +48,7 @@ project {
 
     // DO NOT REMOVE
     params {
-        param("teamcity.ui.settings.readOnly", "true")
-        password("system.slack.webhook.url", "")
+        param("teamcity.ui.settings.readOnly", "false")
     }
 
     // TODO: Create narrow group of approvers not to spam to averyone with notifications

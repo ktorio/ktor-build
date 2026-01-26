@@ -31,6 +31,7 @@ object ConsolidatedEAPValidation {
 
             params {
                 param("teamcity.ui.settings.readOnly", "false")
+                password("system.slack.webhook.url", "")
             }
         }
 
@@ -1858,11 +1859,11 @@ EOF
                 fi
                 
                 # Send to Slack webhook with error handling
-                SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
+                SLACK_WEBHOOK="%system.slack.webhook.url%"
                 
-                # Fallback to direct parameter substitution if env var is empty/masked
+                # Fallback, try environment variable
                 if [ -z "${'$'}SLACK_WEBHOOK" ] || [[ "${'$'}SLACK_WEBHOOK" == "%"* ]]; then
-                    SLACK_WEBHOOK="%system.slack.webhook.url%"
+                    SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
                 fi
 
                 # Validate webhook URL parameter (handle empty or literal placeholders)
