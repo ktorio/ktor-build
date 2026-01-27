@@ -27,12 +27,16 @@ object ConsolidatedEAPValidation {
             name = "Consolidated EAP Validation"
             description = "Consolidated EAP validation project for external and internal projects"
 
+            features {
+                feature {
+                    type = "report_tab"
+                    param("title", "Quality Gate Report")
+                    param("startPage", "quality-gate-reports.zip!quality-gate-report.html")
+                }
+            }
+
             buildType(createConsolidatedBuild())
 
-            params {
-                param("teamcity.ui.settings.readOnly", "false")
-                password("system.slack.webhook.url", "")
-            }
         }
 
     /**
@@ -128,7 +132,7 @@ object ConsolidatedEAPValidation {
 
             triggers {
                 finishBuildTrigger {
-                    buildType = "KtorEAP_EAPValidation"
+                    buildType = "KtorPublish_AllEAP"
                     successfulOnly = true
                     branchFilter = "+:*"
                 }
@@ -602,7 +606,7 @@ EOF
                     else
                         echo "❌ assemble failed, trying compile-only..."
                         # Get available compile tasks to handle multiplatform projects properly
-                        COMPILE_TASKS=${'$'}(./gradlew tasks --all 2>/dev/null | grep -E "^compile[A-Za-z]*( |${'$'})" | awk '{print ${'$'}1}' | head -10 | tr '\n' ' ')
+                        COMPILE_TASKS=$(./gradlew tasks --all 2>/dev/null | grep -E "^compile[A-Za-z]*( |$)" | awk '{print $1}' | head -10 | tr '\n' ' ')
                         if [ -n "${'$'}COMPILE_TASKS" ]; then
                             echo "Found compile tasks: ${'$'}COMPILE_TASKS"
                             if run_with_intelligent_timeout "./gradlew ${'$'}COMPILE_TASKS --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG.compile"; then
@@ -1663,6 +1667,124 @@ EOF
 }
 EOF
 
+                # Generate HTML report for TeamCity Report Tab
+                cat > quality-gate-reports/quality-gate-report.html <<EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quality Gate Report - ${'$'}{KTOR_VERSION}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; max-width: 1000px; margin: 0 auto; padding: 20px; background-color: #f5f7f9; }
+        .card { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 25px; margin-bottom: 25px; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px; }
+        h1, h2, h3 { margin-top: 0; }
+        .status-badge { padding: 8px 16px; border-radius: 20px; font-weight: bold; text-transform: uppercase; font-size: 14px; }
+        .status-passed { background-color: #e6ffed; color: #22863a; border: 1px solid #28a745; }
+        .status-failed { background-color: #ffeef0; color: #cb2431; border: 1px solid #d73a49; }
+        .status-unknown { background-color: #f1f8ff; color: #0366d6; border: 1px solid #0366d6; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .metric { margin-bottom: 15px; }
+        .metric-label { font-size: 14px; color: #666; margin-bottom: 5px; }
+        .metric-value { font-size: 24px; font-weight: bold; }
+        .progress-bar { height: 10px; background-color: #eee; border-radius: 5px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; }
+        .progress-success { background-color: #28a745; }
+        .progress-danger { background-color: #dc3545; }
+        .details-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .details-table th, .details-table td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        .details-table th { background-color: #f8f9fa; font-weight: 600; }
+        .recommendation { background-color: #fffbdd; border-left: 4px solid #d4a017; padding: 15px; border-radius: 0 4px 4px 0; }
+        .footer { text-align: center; font-size: 12px; color: #999; margin-top: 40px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <div>
+                <h1>Quality Gate Report</h1>
+                <div style="color: #666;">Ktor EAP Validation: <strong>${'$'}{KTOR_VERSION}</strong></div>
+            </div>
+            <span class="status-badge $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "status-passed" || echo "status-failed")">
+                ${'$'}{OVERALL_STATUS}
+            </span>
+        </div>
+
+        <div class="grid">
+            <div class="metric">
+                <div class="metric-label">Overall Score</div>
+                <div class="metric-value">${'$'}{OVERALL_SCORE} / 100</div>
+                <div class="progress-bar">
+                    <div class="progress-fill $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "progress-success" || echo "progress-danger")" style="width: ${'$'}{OVERALL_SCORE}%"></div>
+                </div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Critical Issues</div>
+                <div class="metric-value" style="color: $([[ "${'$'}TOTAL_CRITICAL" -eq 0 ]] && echo "#22863a" || echo "#cb2431")">${'$'}{TOTAL_CRITICAL}</div>
+                <div style="font-size: 12px; color: #666;">Threshold: ${'$'}{CRITICAL_ISSUES_THRESHOLD}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>External Samples</h3>
+            <div class="metric">
+                <div class="metric-label">Success Rate</div>
+                <div class="metric-value">${'$'}{EXTERNAL_SUCCESS_RATE}%</div>
+            </div>
+            <table class="details-table">
+                <tr><td>Total Samples</td><td>${'$'}{EXTERNAL_TOTAL_SAMPLES}</td></tr>
+                <tr><td>Successful</td><td>${'$'}{EXTERNAL_SUCCESSFUL_SAMPLES}</td></tr>
+                <tr><td>Failed</td><td>${'$'}{EXTERNAL_FAILED_SAMPLES}</td></tr>
+                <tr><td>Skipped</td><td>${'$'}{EXTERNAL_SKIPPED_SAMPLES}</td></tr>
+                <tr><td>Gate Status</td><td><strong>${'$'}{EXTERNAL_GATE_STATUS}</strong></td></tr>
+            </table>
+        </div>
+
+        <div class="card">
+            <h3>Internal Test Suites</h3>
+            <div class="metric">
+                <div class="metric-label">Success Rate</div>
+                <div class="metric-value">${'$'}{INTERNAL_SUCCESS_RATE}%</div>
+            </div>
+            <table class="details-table">
+                <tr><td>Total Tests</td><td>${'$'}{INTERNAL_TOTAL_TESTS}</td></tr>
+                <tr><td>Passed</td><td>${'$'}{INTERNAL_PASSED_TESTS}</td></tr>
+                <tr><td>Failed</td><td>${'$'}{INTERNAL_FAILED_TESTS}</td></tr>
+                <tr><td>Errors</td><td>${'$'}{INTERNAL_ERROR_TESTS}</td></tr>
+                <tr><td>Gate Status</td><td><strong>${'$'}{INTERNAL_GATE_STATUS}</strong></td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Analysis & Recommendations</h3>
+        <div class="recommendation">
+            <p><strong>Recommendations:</strong> ${'$'}{RECOMMENDATIONS}</p>
+            <p><strong>Next Steps:</strong> ${'$'}{NEXT_STEPS}</p>
+        </div>
+        $([[ -n "${'$'}FAILURE_REASONS" ]] && echo "<div style='margin-top: 15px; color: #cb2431;'><strong>Failure Reasons:</strong> ${'$'}FAILURE_REASONS</div>")
+    </div>
+
+    <div class="card">
+        <h3>Version Information</h3>
+        <table class="details-table">
+            <tr><td>Ktor Framework</td><td>${'$'}{KTOR_VERSION}</td></tr>
+            <tr><td>Ktor Compiler Plugin</td><td>${'$'}{KTOR_COMPILER_PLUGIN_VERSION}</td></tr>
+            <tr><td>Kotlin</td><td>${'$'}{KOTLIN_VERSION}</td></tr>
+            <tr><td>Version Resolution Errors</td><td>${'$'}{VERSION_ERRORS}</td></tr>
+        </table>
+    </div>
+
+    <div class="footer">
+        Generated on $(date) | Build ID: %teamcity.build.id% | Agent: ${'$'}{AGENT_NAME}
+    </div>
+</body>
+</html>
+EOF
+
                 echo ""
                 echo "=== Publishing Artifacts ==="
                 echo "##teamcity[publishArtifacts 'version-resolution-reports => version-resolution-reports.zip']"
@@ -1682,10 +1804,9 @@ EOF
                 # Create enhanced build status text with key metrics
                 STATUS_LINE1="${'$'}MAIN_EMOJI EAP ${'$'}KTOR_VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
                 STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
-                STATUS_LINE3="Critical: ${'$'}TOTAL_CRITICAL issues | Score: ${'$'}OVERALL_SCORE/100"
 
                 # Combine into single-line status for TeamCity service message
-                STATUS_TEXT="${'$'}STATUS_LINE1 | ${'$'}STATUS_LINE2 | ${'$'}STATUS_LINE3"
+                STATUS_TEXT="${'$'}STATUS_LINE1 | ${'$'}STATUS_LINE2"
 
                 echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
 
@@ -1719,187 +1840,6 @@ EOF
                 echo "=== Step 5: Report Generation & Notifications Completed Successfully ==="
                 
                 # Always exit successfully to ensure full report generation and artifact publishing
-                exit 0
-            """.trimIndent()
-        }
-
-        // Add a separate step for detailed Slack webhook notification
-        script {
-            name = "Send Detailed Slack Report"
-            executionMode = BuildStep.ExecutionMode.ALWAYS
-            scriptContent = """
-                #!/bin/bash
-                
-                echo "=== Sending detailed Slack webhook notification ==="
-                
-                # Read all the quality gate data with safe parameter extraction and defaults
-                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
-                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" | sed 's/^%quality\.gate\.overall\.status%$/UNKNOWN/' || echo "UNKNOWN")
-                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" | sed 's/^%quality\.gate\.overall\.score%$/0/' || echo "0")
-                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" | sed 's/^%quality\.gate\.total\.critical%$/0/' || echo "0")
-                
-                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" | sed 's/^%external\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
-                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" | sed 's/^%external\.gate\.score%$/0/' || echo "0")
-                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" | sed 's/^%external\.validation\.total\.samples%$/0/' || echo "0")
-                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" | sed 's/^%external\.validation\.successful\.samples%$/0/' || echo "0")
-                
-                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" | sed 's/^%internal\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
-                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" | sed 's/^%internal\.gate\.score%$/0/' || echo "0")
-                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" | sed 's/^%internal\.validation\.total\.tests%$/0/' || echo "0")
-                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" | sed 's/^%internal\.validation\.passed\.tests%$/0/' || echo "0")
-                
-                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" | sed 's/^%quality\.gate\.recommendations%$/Quality gate evaluation not completed/' || echo "Quality gate evaluation not completed")
-                
-                # Choose emojis and colors based on status
-                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                    MAIN_EMOJI="🎉"
-                    COLOR="good"
-                else
-                    MAIN_EMOJI="⚠️"
-                    COLOR="danger"
-                fi
-                
-                EXT_EMOJI="❌"
-                if [ "${'$'}EXTERNAL_GATE_STATUS" = "PASSED" ]; then
-                    EXT_EMOJI="✅"
-                fi
-                
-                INT_EMOJI="❌"
-                if [ "${'$'}INTERNAL_GATE_STATUS" = "PASSED" ]; then
-                    INT_EMOJI="✅"
-                fi
-                
-                CRITICAL_EMOJI="🚨"
-                if [ "${'$'}TOTAL_CRITICAL" -eq 0 ]; then
-                    CRITICAL_EMOJI="✅"
-                fi
-                
-                # Build URL
-                BUILD_URL="%teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%"
-                
-                # Create JSON payload for Slack webhook with error handling
-                if ! cat > slack_payload.json << EOF
-{
-    "attachments": [
-        {
-            "color": "${'$'}COLOR",
-            "blocks": [
-                {
-                    "type": "header",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "${'$'}MAIN_EMOJI Ktor EAP Validation Report - ${'$'}KTOR_VERSION"
-                    }
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": "*Overall Status:*\\n${'$'}OVERALL_STATUS"
-                        },
-                        {
-                            "type": "mrkdwn", 
-                            "text": "*Score:*\\n${'$'}OVERALL_SCORE/100"
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": "*Critical Issues:*\\n${'$'}CRITICAL_EMOJI ${'$'}TOTAL_CRITICAL"
-                        }
-                    ]
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "*📋 Validation Results:*"
-                    }
-                },
-                {
-                    "type": "section",
-                    "fields": [
-                        {
-                            "type": "mrkdwn",
-                            "text": "${'$'}EXT_EMOJI *External Samples:*\\n\`${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES\` passed (\`${'$'}EXTERNAL_GATE_SCORE/100\`)"
-                        },
-                        {
-                            "type": "mrkdwn",
-                            "text": "${'$'}INT_EMOJI *Internal Tests:*\\n\`${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS\` passed (\`${'$'}INTERNAL_GATE_SCORE/100\`)"
-                        }
-                    ]
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "*💡 Recommendations:*\\n${'$'}RECOMMENDATIONS"
-                    }
-                },
-                {
-                    "type": "actions",
-                    "elements": [
-                        {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": "🔗 View Full Report"
-                            },
-                            "url": "${'$'}BUILD_URL"
-                        }
-                    ]
-                }
-            ]
-        }
-    ]
-}
-EOF
-                then
-                    echo "❌ Failed to create Slack payload JSON"
-                    exit 0
-                fi
-                
-                # Send to Slack webhook with error handling
-                SLACK_WEBHOOK="%system.slack.webhook.url%"
-                
-                # Fallback, try environment variable
-                if [ -z "${'$'}SLACK_WEBHOOK" ] || [[ "${'$'}SLACK_WEBHOOK" == "%"* ]]; then
-                    SLACK_WEBHOOK="${'$'}SLACK_WEBHOOK_URL"
-                fi
-
-                # Validate webhook URL parameter (handle empty or literal placeholders)
-                if [ -z "${'$'}SLACK_WEBHOOK" ] || [[ "${'$'}SLACK_WEBHOOK" == "%"* ]]; then
-                    echo "⚠️ Slack webhook URL is not configured - skipping notification"
-                    echo "Please configure the 'system.slack.webhook.url' parameter in TeamCity"
-                    echo "This is non-critical - build continues successfully"
-                    rm -f slack_payload.json
-                    exit 0
-                fi
-
-                # Validate webhook URL format
-                if ! echo "${'$'}SLACK_WEBHOOK" | grep -qE "^https://hooks\.slack\.com/services/.+"; then
-                    echo "❌ Invalid Slack webhook URL format"
-                    echo "This is non-critical - build continues successfully"
-                    rm -f slack_payload.json
-                    exit 0
-                fi
-
-                echo "Sending notification to Slack webhook..."
-                
-                if curl -X POST -H 'Content-type: application/json' \
-                    --max-time 30 \
-                    --data @slack_payload.json \
-                    "${'$'}SLACK_WEBHOOK"; then
-                    echo "✅ Detailed Slack notification sent successfully"
-                else
-                    CURL_EXIT_CODE=$?
-                    echo "❌ Failed to send Slack notification (curl exit code: ${'$'}CURL_EXIT_CODE)"
-                    echo "This is non-critical - build continues successfully"
-                fi
-                
-                # Clean up
-                rm -f slack_payload.json
-                
-                echo "=== Slack notification step completed ==="
                 exit 0
             """.trimIndent()
         }
