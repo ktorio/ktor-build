@@ -606,7 +606,7 @@ EOF
                     else
                         echo "❌ assemble failed, trying compile-only..."
                         # Get available compile tasks to handle multiplatform projects properly
-                        COMPILE_TASKS=$(./gradlew tasks --all 2>/dev/null | grep -E "^compile[A-Za-z]*( |$)" | awk '{print $1}' | head -10 | tr '\n' ' ')
+                        COMPILE_TASKS=${'$'}(./gradlew tasks --all 2>/dev/null | grep -E "^compile[A-Za-z]*( |${'$'})" | awk '{print ${'$'}1}' | head -10 | tr '\n' ' ')
                         if [ -n "${'$'}COMPILE_TASKS" ]; then
                             echo "Found compile tasks: ${'$'}COMPILE_TASKS"
                             if run_with_intelligent_timeout "./gradlew ${'$'}COMPILE_TASKS --no-daemon --continue --stacktrace" "${'$'}BUILD_LOG.compile"; then
