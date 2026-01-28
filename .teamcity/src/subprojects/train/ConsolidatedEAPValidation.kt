@@ -23,13 +23,13 @@ object EapConstants {
 object ConsolidatedEAPValidation {
     fun createConsolidatedProject(): Project =
         Project {
-            id("ConsolidatedEAPValidation")
+            id("ConsolidatedEAPValidationProject")
             name = "Consolidated EAP Validation"
             description = "Consolidated EAP validation project for external and internal projects"
 
             features {
                 feature {
-                    type = "report_tab"
+                    type = "build_report_tab"
                     param("title", "Quality Gate Report")
                     param("startPage", "quality-gate-reports.zip!quality-gate-report.html")
                 }
