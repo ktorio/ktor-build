@@ -29,9 +29,11 @@ object ConsolidatedEAPValidation {
 
             features {
                 feature {
-                    type = "build_report_tab"
+                    type = "ReportTab"
                     param("title", "Quality Gate Report")
                     param("startPage", "quality-gate-reports.zip!quality-gate-report.html")
+                    param("type", "BuildReportTab")
+                    param("buildTypeId", "ConsolidatedEAPValidation")
                 }
             }
 
