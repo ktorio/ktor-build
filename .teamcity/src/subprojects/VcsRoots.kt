@@ -3,7 +3,7 @@ package subprojects
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.vcs.*
 
-private object VcsToken {
+internal object VcsToken {
     const val KTOR = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:cc9c11b1-ed43-415e-b2f8-129a86f64a3b"
     const val DOCS_AND_SAMPLES = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:b9145cff-b66c-4bf7-9911-501c38d00274"
     const val PROJECT_GENERATOR = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:20b5312f-608e-46d3-9c83-41e00a2006ec"
@@ -128,7 +128,7 @@ open class KtorVcsRoot(init: GitVcsRoot.() -> Unit) : GitVcsRoot({
 @Deprecated("Use GitHub App refreshable token instead")
 const val VCSUsername = "%github.username%"
 @Deprecated("Use GitHub App refreshable token instead")
-const val VCSToken = "%github.token%"
+const val VCSToken = "%github.token.ktor.generator.website%"
 
 @Deprecated("Use GitHubAppVcsRoot instead")
 open class PasswordVcsRoot(init: GitVcsRoot.() -> Unit) : KtorVcsRoot({
