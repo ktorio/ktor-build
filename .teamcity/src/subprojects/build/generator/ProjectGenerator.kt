@@ -1,17 +1,12 @@
 package subprojects.build.generator
 
 import jetbrains.buildServer.configs.kotlin.*
-import subprojects.*
 
 object ProjectGenerator : Project({
     id("ProjectKtorGenerator")
     name = "Project Generator"
     description = "Code for start.ktor.io"
     
-    params {
-        password("github.token.ktor.generator.website", VcsToken.PROJECT_GENERATOR, display = ParameterDisplay.HIDDEN)
-    }
-
     /**
      *
      */

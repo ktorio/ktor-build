@@ -9,8 +9,11 @@ object TestGeneratorFrontEnd : BuildType({
     id("KtorGeneratorFrontendVerify")
     name = "Test generator frontend"
     params {
+        password("github.token.ktor.generator.website", VcsToken.PROJECT_GENERATOR, display = ParameterDisplay.HIDDEN)
+        password("github.actions.dispatch.pat", value = "%github.actions.dispatch.pat%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%")
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%")
+        password("env.GITHUB_TOKEN", value = "%github.actions.dispatch.pat%")
     }
 
     vcs {
@@ -27,9 +30,15 @@ object TestGeneratorFrontEnd : BuildType({
         #!/bin/bash
         set -e
         
+        export GITHUB_TOKEN="%env.GITHUB_TOKEN%"
         export BRANCH_NAME="%teamcity.build.branch%"
         echo "Original branch name: ${'$'}BRANCH_NAME"
         
+        if [ -z "${'$'}GITHUB_TOKEN" ]; then
+            echo "ERROR: GITHUB_TOKEN is not set"
+            exit 1
+        fi
+
         TARGET_BRANCH="master"
         
         if [[ "${'$'}BRANCH_NAME" =~ pull/([0-9]+) ]]; then
@@ -38,7 +47,7 @@ object TestGeneratorFrontEnd : BuildType({
             
             echo "Getting PR source branch..."
             PR_DATA=$(curl -s \
-              -H "Authorization: Bearer %github.token.ktor.generator.website%" \
+              -H "Authorization: token ${'$'}GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/ktorio/ktor-generator-website/pulls/${'$'}PR_NUMBER)
             
@@ -74,7 +83,7 @@ object TestGeneratorFrontEnd : BuildType({
         echo "${'$'}PR_DATA" | head -c 500
         
         BRANCH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
-          -H "Authorization: Bearer %github.token.ktor.generator.website%" \
+          -H "Authorization: token ${'$'}GITHUB_TOKEN" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/ktorio/ktor-generator-website/branches/${'$'}TARGET_BRANCH)
           
@@ -98,19 +107,19 @@ EOF
         echo "${'$'}PAYLOAD" | jq . 2>/dev/null || echo "${'$'}PAYLOAD"
         
         HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-        -H "Authorization: Bearer %github.token.ktor.generator.website%" \
+        -H "Authorization: token ${'$'}GITHUB_TOKEN" \
         -H "Accept: application/vnd.github.v3+json" \
         -H "Content-Type: application/json" \
         https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
         -d "${'$'}PAYLOAD")
         
-        if [ "${'$'}HTTP_STATUS" = "204" ]; then
-    echo "Successfully triggered GitHub Actions workflow on branch: ${'$'}TARGET_BRANCH"
+        if [ "${'$'}HTTP_STATUS" = "204" ] || [ "${'$'}HTTP_STATUS" = "202" ]; then
+    echo "Successfully triggered GitHub Actions workflow on branch: ${'$'}TARGET_BRANCH (HTTP ${'$'}HTTP_STATUS)"
 else
     echo "Failed to trigger workflow. HTTP status: ${'$'}HTTP_STATUS"
     echo "Error details (without exposing sensitive headers):"
     ERROR_RESPONSE=$(curl -s -X POST \
-    -H "Authorization: Bearer %github.token.ktor.generator.website%" \
+    -H "Authorization: token ${'$'}GITHUB_TOKEN" \
     -H "Accept: application/vnd.github.v3+json" \
     -H "Content-Type: application/json" \
     https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
@@ -130,7 +139,7 @@ fi
         
         while [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ] && [ "${'$'}WORKFLOW_STARTED" = false ]; do
             WORKFLOW_RUNS=$(curl -s \
-            -H "Authorization: Bearer %github.token.ktor.generator.website%" \
+            -H "Authorization: token ${'$'}GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/runs?branch=${'$'}TARGET_BRANCH&per_page=5")
             if command -v jq &> /dev/null; then
@@ -165,7 +174,7 @@ fi
         
         while [ ${'$'}CHECK_COUNT -lt ${'$'}MAX_CHECKS ] && [ "${'$'}WORKFLOW_STATUS" = "in_progress" ] || [ "${'$'}WORKFLOW_STATUS" = "queued" ] || [ "${'$'}WORKFLOW_STATUS" = "waiting" ]; do
             WORKFLOW_DATA=$(curl -s \
-            -H "Authorization: Bearer %github.token.ktor.generator.website%" \
+            -H "Authorization: token ${'$'}GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/ktorio/ktor-generator-website/actions/runs/${'$'}RUN_ID")
             
