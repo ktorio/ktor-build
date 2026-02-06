@@ -38,7 +38,7 @@ object TestGeneratorFrontEnd : BuildType({
             
             echo "Getting PR source branch..."
             PR_DATA=$(curl -s \
-              -H "Authorization: token %github.token.ktor.generator.website%" \
+              -H "Authorization: Bearer %github.token.ktor.generator.website%" \
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/ktorio/ktor-generator-website/pulls/${'$'}PR_NUMBER)
             
@@ -74,7 +74,7 @@ object TestGeneratorFrontEnd : BuildType({
         echo "${'$'}PR_DATA" | head -c 500
         
         BRANCH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" \
-          -H "Authorization: token %github.token.ktor.generator.website%" \
+          -H "Authorization: Bearer %github.token.ktor.generator.website%" \
           -H "Accept: application/vnd.github.v3+json" \
           https://api.github.com/repos/ktorio/ktor-generator-website/branches/${'$'}TARGET_BRANCH)
           
@@ -98,7 +98,7 @@ EOF
         echo "${'$'}PAYLOAD" | jq . 2>/dev/null || echo "${'$'}PAYLOAD"
         
         HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-        -H "Authorization: token %github.token.ktor.generator.website%" \
+        -H "Authorization: Bearer %github.token.ktor.generator.website%" \
         -H "Accept: application/vnd.github.v3+json" \
         -H "Content-Type: application/json" \
         https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
@@ -110,7 +110,7 @@ else
     echo "Failed to trigger workflow. HTTP status: ${'$'}HTTP_STATUS"
     echo "Error details (without exposing sensitive headers):"
     ERROR_RESPONSE=$(curl -s -X POST \
-    -H "Authorization: token %github.token.ktor.generator.website%" \
+    -H "Authorization: Bearer %github.token.ktor.generator.website%" \
     -H "Accept: application/vnd.github.v3+json" \
     -H "Content-Type: application/json" \
     https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches \
@@ -130,7 +130,7 @@ fi
         
         while [ ${'$'}RETRY_COUNT -lt ${'$'}MAX_RETRIES ] && [ "${'$'}WORKFLOW_STARTED" = false ]; do
             WORKFLOW_RUNS=$(curl -s \
-            -H "Authorization: token %github.token.ktor.generator.website%" \
+            -H "Authorization: Bearer %github.token.ktor.generator.website%" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/runs?branch=${'$'}TARGET_BRANCH&per_page=5")
             if command -v jq &> /dev/null; then
@@ -165,7 +165,7 @@ fi
         
         while [ ${'$'}CHECK_COUNT -lt ${'$'}MAX_CHECKS ] && [ "${'$'}WORKFLOW_STATUS" = "in_progress" ] || [ "${'$'}WORKFLOW_STATUS" = "queued" ] || [ "${'$'}WORKFLOW_STATUS" = "waiting" ]; do
             WORKFLOW_DATA=$(curl -s \
-            -H "Authorization: token %github.token.ktor.generator.website%" \
+            -H "Authorization: Bearer %github.token.ktor.generator.website%" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/ktorio/ktor-generator-website/actions/runs/${'$'}RUN_ID")
             
