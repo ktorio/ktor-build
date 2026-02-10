@@ -1,23 +1,21 @@
 package subprojects.train
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
-import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
-import subprojects.build.defaultGradleParams
-import subprojects.VCSSamples
-import subprojects.VCSKtorBuildPlugins
-import dsl.addSlackNotifications
+import jetbrains.buildServer.configs.kotlin.failureConditions.*
+import jetbrains.buildServer.configs.kotlin.triggers.*
+import subprojects.*
+import subprojects.build.*
 
 object EapConstants {
     const val EAP_VERSION_REGEX = ">[0-9][^<]*-eap-[0-9]*<"
     const val KTOR_EAP_METADATA_URL =
-        "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-bom/maven-metadata.xml"
+        "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/ktor-bom/maven-metadata.xml"
     const val KTOR_COMPILER_PLUGIN_METADATA_URL =
-        "https://maven.pkg.jetbrains.space/public/p/ktor/eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
+        "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
     const val KOTLIN_EAP_METADATA_URL =
-        "https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev/org/jetbrains/kotlin/kotlin-compiler-embeddable/maven-metadata.xml"
+        "https://redirector.kotlinlang.org/maven/dev/org/jetbrains/kotlin/kotlin-compiler-embeddable/maven-metadata.xml"
 }
 
 object ConsolidatedEAPValidation {
@@ -864,10 +862,10 @@ settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
         repositories {
             maven {
-                url "https://maven.pkg.jetbrains.space/public/p/ktor/eap"
+                url "https://redirector.kotlinlang.org/maven/ktor-eap"
             }
             maven {
-                url "https://maven.pkg.jetbrains.space/public/p/compose/dev"
+                url "https://redirector.kotlinlang.org/maven/compose-dev"
             }
             mavenCentral()
             gradlePluginPortal()
@@ -891,19 +889,19 @@ EOF
             <repositories>
                 <repository>
                     <id>ktor-eap-repo</id>
-                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    <url>https://redirector.kotlinlang.org/maven/ktor-eap</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </repository>
                 <repository>
                     <id>compose-dev-repo</id>
-                    <url>https://maven.pkg.jetbrains.space/public/p/compose/dev</url>
+                    <url>https://redirector.kotlinlang.org/maven/compose-dev</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </repository>
                 <repository>
                     <id>kotlin-eap-repo</id>
-                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
+                    <url>https://redirector.kotlinlang.org/maven/dev</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </repository>
@@ -929,13 +927,13 @@ EOF
                 </pluginRepository>
                 <pluginRepository>
                     <id>kotlin-eap-plugins</id>
-                    <url>https://maven.pkg.jetbrains.space/kotlin/p/kotlin/dev</url>
+                    <url>https://redirector.kotlinlang.org/maven/dev</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
                 <pluginRepository>
                     <id>ktor-eap-plugins</id>
-                    <url>https://maven.pkg.jetbrains.space/public/p/ktor/eap</url>
+                    <url>https://redirector.kotlinlang.org/maven/ktor-eap</url>
                     <releases><enabled>true</enabled></releases>
                     <snapshots><enabled>true</enabled></snapshots>
                 </pluginRepository>
