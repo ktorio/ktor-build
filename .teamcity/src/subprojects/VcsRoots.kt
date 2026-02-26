@@ -36,7 +36,6 @@ fun VcsSettings.coreEap() {
         -:*
         +:*-eap
         +:release/*
-        +:*/release/*
         +:<default>
     """.trimIndent()
 }
