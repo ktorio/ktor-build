@@ -81,15 +81,13 @@ object TestGeneratorFrontEnd : BuildType({
                     -H "Accept: application/vnd.github+json" \
                     "https://api.github.com/repos/${'$'}OWNER/${'$'}REPO/pulls/${'$'}PR_NUMBER")
 
-                  PR_HEAD=$(python3 - <<'PY' <<< "${'$'}PR_DATA"
-import json, sys
+                  PR_HEAD=$(python3 -c 'import json,sys
 try:
-    data = json.load(sys.stdin)
+    data=json.load(sys.stdin)
     print((data.get("head") or {}).get("ref") or "")
 except Exception:
     print("")
-PY
-                  )
+' <<< "${'$'}PR_DATA")
 
                   if [ -n "${'$'}PR_HEAD" ]; then
                     echo "Using PR source branch: ${'$'}PR_HEAD"
@@ -111,12 +109,11 @@ PY
                 export REQUEST_ID
                 echo "Using request_id=${'$'}REQUEST_ID"
 
-                PAYLOAD=$(python3 - <<'PY'
-import json, os
-ref = os.environ["TARGET_BRANCH"]
-rid = os.environ["REQUEST_ID"]
-user = os.environ["SPACE_USERNAME"]
-pw = os.environ["SPACE_PASSWORD"]
+                PAYLOAD=$(python3 -c 'import json,os
+ref=os.environ["TARGET_BRANCH"]
+rid=os.environ["REQUEST_ID"]
+user=os.environ["SPACE_USERNAME"]
+pw=os.environ["SPACE_PASSWORD"]
 print(json.dumps({
   "ref": ref,
   "inputs": {
@@ -125,16 +122,14 @@ print(json.dumps({
     "registry_password": pw
   }
 }))
-PY
-                )
+')
 
                 echo "Dispatching workflow (inputs redacted)..."
-                python3 - <<'PY' <<< "${'$'}PAYLOAD"
-import json, sys
-payload = json.load(sys.stdin)
-payload["inputs"]["registry_password"] = "<REDACTED>"
+                python3 -c 'import json,sys
+payload=json.load(sys.stdin)
+payload["inputs"]["registry_password"]="<REDACTED>"
 print(json.dumps(payload, indent=2))
-PY
+' <<< "${'$'}PAYLOAD"
 
                 RESPONSE_FILE=$(mktemp)
                 HTTP_STATUS=$(curl -sS -o "${'$'}RESPONSE_FILE" -w "%{http_code}" -X POST \
@@ -162,17 +157,15 @@ PY
                     -H "Accept: application/vnd.github+json" \
                     "https://api.github.com/repos/${'$'}OWNER/${'$'}REPO/actions/workflows/${'$'}WORKFLOW_FILE/runs?event=workflow_dispatch&branch=${'$'}TARGET_BRANCH&per_page=30")
 
-                  run_id=$(python3 - <<'PY' <<< "${'$'}runs_json"
-import json, os, sys
-rid = os.environ.get("REQUEST_ID", "")
-data = json.load(sys.stdin)
-for r in data.get("workflow_runs", []):
-    title = (r.get("display_title") or r.get("name") or "")
-    if rid and ("request_id=" + rid) in title:
-        print(r.get("id", ""))
+                  run_id=$(python3 -c 'import json,os,sys
+rid=os.environ.get("REQUEST_ID","")
+data=json.load(sys.stdin)
+for r in data.get("workflow_runs",[]):
+    title=(r.get("display_title") or r.get("name") or "")
+    if rid and ("request_id="+rid) in title:
+        print(r.get("id",""))
         break
-PY
-                  )
+' <<< "${'$'}runs_json")
 
                   if [[ -n "${'$'}run_id" && "${'$'}run_id" != "null" ]]; then
                     break
@@ -202,30 +195,24 @@ PY
                     -H "Accept: application/vnd.github+json" \
                     "https://api.github.com/repos/${'$'}OWNER/${'$'}REPO/actions/runs/${'$'}run_id")
 
-                  python3 - <<'PY' <<< "${'$'}run_json"
-import json, sys
-run = json.load(sys.stdin)
-status = run.get("status")
-conclusion = run.get("conclusion")
-url = run.get("html_url")
-print(f"Run status={status} conclusion={conclusion or '<none>'} url={url}")
-PY
-
-                  status=$(python3 - <<'PY' <<< "${'$'}run_json"
-import json, sys
-run = json.load(sys.stdin)
+                  status=$(python3 -c 'import json,sys
+run=json.load(sys.stdin)
 print(run.get("status") or "")
-PY
-                  )
+' <<< "${'$'}run_json")
+
+                  conclusion=$(python3 -c 'import json,sys
+run=json.load(sys.stdin)
+print(run.get("conclusion") or "")
+' <<< "${'$'}run_json")
+
+                  html_url=$(python3 -c 'import json,sys
+run=json.load(sys.stdin)
+print(run.get("html_url") or "")
+' <<< "${'$'}run_json")
+
+                  echo "Run status=${'$'}status conclusion=${'$'}{conclusion:-<none>} url=${'$'}html_url"
 
                   if [[ "${'$'}status" == "completed" ]]; then
-                    conclusion=$(python3 - <<'PY' <<< "${'$'}run_json"
-import json, sys
-run = json.load(sys.stdin)
-print(run.get("conclusion") or "")
-PY
-                    )
-
                     if [[ "${'$'}conclusion" == "success" ]]; then
                       echo "GitHub workflow succeeded."
                       exit 0
