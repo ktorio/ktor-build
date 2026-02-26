@@ -1,5 +1,6 @@
 package subprojects.build.generator
 
+import dsl.addSlackNotifications
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -27,10 +28,14 @@ object TestGeneratorFrontEnd : BuildType({
 
     steps {
         script {
-            name = "Trigger GitHub Actions Workflow"
+            name = "Trigger & wait for GitHub Actions workflow"
             scriptContent = """
                 #!/bin/bash
                 set -euo pipefail
+
+                OWNER="ktorio"
+                REPO="ktor-generator-website"
+                WORKFLOW_FILE="playwright-tests.yml"
 
                 GITHUB_TOKEN="%env.GITHUB_TOKEN%"
                 BRANCH_NAME="%teamcity.build.branch%"
@@ -56,6 +61,14 @@ object TestGeneratorFrontEnd : BuildType({
                 fail_if_unresolved_or_empty "SPACE_USERNAME" "${'$'}SPACE_USERNAME"
                 fail_if_unresolved_or_empty "SPACE_PASSWORD" "${'$'}SPACE_PASSWORD"
 
+                if ! command -v python3 >/dev/null 2>&1; then
+                  echo "python3 not found; installing..."
+                  sudo apt-get update -y
+                  sudo apt-get install -y python3
+                fi
+
+                python3 --version
+
                 TARGET_BRANCH="master"
 
                 if [[ "${'$'}BRANCH_NAME" =~ pull/([0-9]+) ]]; then
@@ -66,13 +79,17 @@ object TestGeneratorFrontEnd : BuildType({
                   PR_DATA=$(curl -sS \
                     -H "Authorization: Bearer ${'$'}GITHUB_TOKEN" \
                     -H "Accept: application/vnd.github+json" \
-                    "https://api.github.com/repos/ktorio/ktor-generator-website/pulls/${'$'}PR_NUMBER")
+                    "https://api.github.com/repos/${'$'}OWNER/${'$'}REPO/pulls/${'$'}PR_NUMBER")
 
-                  if command -v jq &>/dev/null; then
-                    PR_HEAD=$(echo "${'$'}PR_DATA" | jq -r '.head.ref // empty')
-                  else
-                    PR_HEAD=$(echo "${'$'}PR_DATA" | grep -o '\"ref\":\"[^\"]*\"' | head -n 1 | cut -d'"' -f4 || true)
-                  fi
+                  PR_HEAD=$(python3 - <<'PY' <<< "${'$'}PR_DATA"
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    print((data.get("head") or {}).get("ref") or "")
+except Exception:
+    print("")
+PY
+                  )
 
                   if [ -n "${'$'}PR_HEAD" ]; then
                     echo "Using PR source branch: ${'$'}PR_HEAD"
@@ -88,26 +105,43 @@ object TestGeneratorFrontEnd : BuildType({
                   echo "Using branch: ${'$'}TARGET_BRANCH"
                 fi
 
-                PAYLOAD=$(cat <<EOF
-                {
-                  "ref": "${'$'}TARGET_BRANCH",
-                  "inputs": {
-                    "registry_username": "${'$'}SPACE_USERNAME",
-                    "registry_password": "${'$'}SPACE_PASSWORD"
-                  }
-                }
-                EOF
+                export TARGET_BRANCH
+
+                REQUEST_ID="teamcity-%teamcity.build.id%-$(date +%s)"
+                export REQUEST_ID
+                echo "Using request_id=${'$'}REQUEST_ID"
+
+                PAYLOAD=$(python3 - <<'PY'
+import json, os
+ref = os.environ["TARGET_BRANCH"]
+rid = os.environ["REQUEST_ID"]
+user = os.environ["SPACE_USERNAME"]
+pw = os.environ["SPACE_PASSWORD"]
+print(json.dumps({
+  "ref": ref,
+  "inputs": {
+    "request_id": rid,
+    "registry_username": user,
+    "registry_password": pw
+  }
+}))
+PY
                 )
 
                 echo "Dispatching workflow (inputs redacted)..."
-                echo "${'$'}PAYLOAD" | sed 's/"registry_password":[^,}]*/"registry_password":"<REDACTED>"/' | (jq . 2>/dev/null || cat)
+                python3 - <<'PY' <<< "${'$'}PAYLOAD"
+import json, sys
+payload = json.load(sys.stdin)
+payload["inputs"]["registry_password"] = "<REDACTED>"
+print(json.dumps(payload, indent=2))
+PY
 
                 RESPONSE_FILE=$(mktemp)
                 HTTP_STATUS=$(curl -sS -o "${'$'}RESPONSE_FILE" -w "%{http_code}" -X POST \
                   -H "Authorization: Bearer ${'$'}GITHUB_TOKEN" \
                   -H "Accept: application/vnd.github+json" \
                   -H "Content-Type: application/json" \
-                  "https://api.github.com/repos/ktorio/ktor-generator-website/actions/workflows/playwright-tests.yml/dispatches" \
+                  "https://api.github.com/repos/${'$'}OWNER/${'$'}REPO/actions/workflows/${'$'}WORKFLOW_FILE/dispatches" \
                   -d "${'$'}PAYLOAD" || true)
 
                 if [ "${'$'}HTTP_STATUS" != "204" ] && [ "${'$'}HTTP_STATUS" != "202" ]; then
@@ -119,11 +153,99 @@ object TestGeneratorFrontEnd : BuildType({
                 fi
 
                 echo "Successfully triggered workflow on ref: ${'$'}TARGET_BRANCH (HTTP ${'$'}HTTP_STATUS)"
+
+                echo "Finding workflow run id by request_id=${'$'}REQUEST_ID ..."
+                run_id=""
+                for i in {1..30}; do
+                  runs_json=$(curl -sS \
+                    -H "Authorization: Bearer ${'$'}GITHUB_TOKEN" \
+                    -H "Accept: application/vnd.github+json" \
+                    "https://api.github.com/repos/${'$'}OWNER/${'$'}REPO/actions/workflows/${'$'}WORKFLOW_FILE/runs?event=workflow_dispatch&branch=${'$'}TARGET_BRANCH&per_page=30")
+
+                  run_id=$(python3 - <<'PY' <<< "${'$'}runs_json"
+import json, os, sys
+rid = os.environ.get("REQUEST_ID", "")
+data = json.load(sys.stdin)
+for r in data.get("workflow_runs", []):
+    title = (r.get("display_title") or r.get("name") or "")
+    if rid and ("request_id=" + rid) in title:
+        print(r.get("id", ""))
+        break
+PY
+                  )
+
+                  if [[ -n "${'$'}run_id" && "${'$'}run_id" != "null" ]]; then
+                    break
+                  fi
+
+                  sleep 2
+                done
+
+                if [[ -z "${'$'}run_id" || "${'$'}run_id" == "null" ]]; then
+                  echo "ERROR: Could not locate the GitHub Actions run for request_id=${'$'}REQUEST_ID"
+                  echo "Make sure the workflow has: run-name: \"... (request_id=${'$'}{{ inputs.request_id }})\""
+                  exit 1
+                fi
+
+                echo "Found run_id=${'$'}run_id. Waiting for completion..."
+
+                deadline=$(( $(date +%s) + 60*60 ))
+
+                while true; do
+                  if (( $(date +%s) > deadline )); then
+                    echo "ERROR: Timed out waiting for GitHub Actions run ${'$'}run_id"
+                    exit 1
+                  fi
+
+                  run_json=$(curl -sS \
+                    -H "Authorization: Bearer ${'$'}GITHUB_TOKEN" \
+                    -H "Accept: application/vnd.github+json" \
+                    "https://api.github.com/repos/${'$'}OWNER/${'$'}REPO/actions/runs/${'$'}run_id")
+
+                  python3 - <<'PY' <<< "${'$'}run_json"
+import json, sys
+run = json.load(sys.stdin)
+status = run.get("status")
+conclusion = run.get("conclusion")
+url = run.get("html_url")
+print(f"Run status={status} conclusion={conclusion or '<none>'} url={url}")
+PY
+
+                  status=$(python3 - <<'PY' <<< "${'$'}run_json"
+import json, sys
+run = json.load(sys.stdin)
+print(run.get("status") or "")
+PY
+                  )
+
+                  if [[ "${'$'}status" == "completed" ]]; then
+                    conclusion=$(python3 - <<'PY' <<< "${'$'}run_json"
+import json, sys
+run = json.load(sys.stdin)
+print(run.get("conclusion") or "")
+PY
+                    )
+
+                    if [[ "${'$'}conclusion" == "success" ]]; then
+                      echo "GitHub workflow succeeded."
+                      exit 0
+                    else
+                      echo "GitHub workflow failed: conclusion=${'$'}conclusion"
+                      exit 1
+                    fi
+                  fi
+
+                  sleep 10
+                done
             """.trimIndent()
         }
     }
 
     defaultBuildFeatures()
+    addSlackNotifications(
+        channel = "#ktor-website-generator-tests",
+        buildFailed = true
+    )
 
     triggers {
         onChangeDefaultOrPullRequest()

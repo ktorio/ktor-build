@@ -34,7 +34,7 @@ fun BuildType.addSlackNotifications(
     channel: String = "#ktor-projects-on-eap",
     connection: String = "PROJECT_EXT_5",
     buildFailed: Boolean = true,
-    buildFinishedSuccessfully: Boolean = true,
+    buildFinishedSuccessfully: Boolean = false,
     buildStarted: Boolean = false,
     buildFailedToStart: Boolean = false
 ) {
