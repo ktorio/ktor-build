@@ -9,7 +9,6 @@ import subprojects.*
 import subprojects.build.*
 
 object EapConstants {
-    const val EAP_VERSION_REGEX = ">[0-9][^<]*-eap-[0-9]*<"
     const val KTOR_EAP_METADATA_URL =
         "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/ktor-bom/maven-metadata.xml"
     const val KTOR_COMPILER_PLUGIN_METADATA_URL =
@@ -119,6 +118,7 @@ object ConsolidatedEAPValidation {
             vcs {
                 root(VCSSamples, "+:. => samples")
                 root(VCSKtorBuildPlugins, "+:. => ktor-build-plugins")
+                branchFilter = "+:*"
                 cleanCheckout = true
             }
 
@@ -1554,136 +1554,6 @@ EOF
                 echo "Overall Status: ${'$'}OVERALL_STATUS"
                 echo "Overall Score: ${'$'}OVERALL_SCORE/100"
                 echo "Critical Issues: ${'$'}TOTAL_CRITICAL"
-
-                # Generate comprehensive report
-                cat > quality-gate-reports/consolidated-eap-validation-report.txt <<EOF
-Consolidated EAP Validation Report - ${'$'}KTOR_VERSION
-======================================================
-Generated: $(date -Iseconds)
-Architecture: Consolidated Single Build
-Build ID: %teamcity.build.id%
-
-Overall Assessment:
-- Status: ${'$'}OVERALL_STATUS
-- Score: ${'$'}OVERALL_SCORE/100 (weighted)
-- Critical Issues: ${'$'}TOTAL_CRITICAL
-- Ready for Release: $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "YES" || echo "NO")
-
-Version Information:
-- Ktor Framework: ${'$'}KTOR_VERSION
-- Ktor Compiler Plugin: ${'$'}KTOR_COMPILER_PLUGIN_VERSION
-- Kotlin: ${'$'}KOTLIN_VERSION
-- Version Resolution Errors: ${'$'}VERSION_ERRORS
-
-Step Results:
-Step 1 - Version Resolution: $([[ "${'$'}VERSION_ERRORS" -eq "0" ]] && echo "SUCCESS" || echo "PARTIAL_SUCCESS (${'$'}VERSION_ERRORS errors)")
-
-Step 2 - External Samples Validation: ${'$'}EXTERNAL_GATE_STATUS (${'$'}EXTERNAL_GATE_SCORE/100)
-  - Total Samples: ${'$'}EXTERNAL_TOTAL_SAMPLES
-  - Successful: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES
-  - Failed: ${'$'}EXTERNAL_FAILED_SAMPLES
-  - Skipped: ${'$'}EXTERNAL_SKIPPED_SAMPLES
-  - Success Rate: ${'$'}EXTERNAL_SUCCESS_RATE%
-
-Step 3 - Internal Test Suites: ${'$'}INTERNAL_GATE_STATUS (${'$'}INTERNAL_GATE_SCORE/100)
-  - Total Tests: ${'$'}INTERNAL_TOTAL_TESTS
-  - Passed: ${'$'}INTERNAL_PASSED_TESTS
-  - Failed: ${'$'}INTERNAL_FAILED_TESTS
-  - Errors: ${'$'}INTERNAL_ERROR_TESTS
-  - Skipped: ${'$'}INTERNAL_SKIPPED_TESTS
-  - Success Rate: ${'$'}INTERNAL_SUCCESS_RATE%
-
-Step 4 - Quality Gate Evaluation: COMPLETED
-  - Scoring Strategy: Weighted (External ${'$'}EXTERNAL_WEIGHT%, Internal ${'$'}INTERNAL_WEIGHT%)
-  - Minimum Score Threshold: ${'$'}MINIMUM_SCORE
-  - Critical Issues Threshold: ${'$'}CRITICAL_ISSUES_THRESHOLD
-  - Score Check: $([[ "${'$'}OVERALL_SCORE" -ge "${'$'}MINIMUM_SCORE" ]] && echo "PASSED" || echo "FAILED") (${'$'}OVERALL_SCORE >= ${'$'}MINIMUM_SCORE)
-  - Critical Check: $([[ "${'$'}TOTAL_CRITICAL" -le "${'$'}CRITICAL_ISSUES_THRESHOLD" ]] && echo "PASSED" || echo "FAILED") (${'$'}TOTAL_CRITICAL <= ${'$'}CRITICAL_ISSUES_THRESHOLD)
-
-Step 5 - Report Generation & Notifications: COMPLETED
-
-Critical Issues Breakdown:
-- External Sample Failures: ${'$'}EXTERNAL_FAILED_SAMPLES
-- Internal Test Failures: ${'$'}INTERNAL_FAILED_TESTS
-- Internal Test Errors: ${'$'}INTERNAL_ERROR_TESTS
-- Version Resolution Errors: ${'$'}VERSION_ERRORS
-- Total: ${'$'}TOTAL_CRITICAL
-
-Quality Gate Analysis:
-- Recommendations: ${'$'}RECOMMENDATIONS
-- Next Steps: ${'$'}NEXT_STEPS
-$([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo "- Failure Reasons: ${'$'}FAILURE_REASONS" || echo "")
-
-Build Information:
-- TeamCity Build: %teamcity.serverUrl%/buildConfiguration/%system.teamcity.buildType.id%/%teamcity.build.id%
-- VCS Revision: ${'$'}BUILD_VCS_NUMBER
-- Agent: ${'$'}AGENT_NAME
-EOF
-
-                # Generate JSON report for programmatic consumption
-                cat > quality-gate-reports/consolidated-validation-results.json <<EOF
-{
-    "metadata": {
-        "generated": "$(date -Iseconds)",
-        "architecture": "consolidated",
-        "buildId": "%teamcity.build.id%",
-        "vcsRevision": "${'$'}BUILD_VCS_NUMBER",
-        "agentName": "${'$'}AGENT_NAME"
-    },
-    "versions": {
-        "ktorFramework": "${'$'}KTOR_VERSION",
-        "ktorCompilerPlugin": "${'$'}KTOR_COMPILER_PLUGIN_VERSION",
-        "kotlin": "${'$'}KOTLIN_VERSION",
-        "resolutionErrors": ${'$'}VERSION_ERRORS
-    },
-    "overallAssessment": {
-        "status": "${'$'}OVERALL_STATUS",
-        "score": ${'$'}OVERALL_SCORE,
-        "criticalIssues": ${'$'}TOTAL_CRITICAL,
-        "readyForRelease": $([[ "${'$'}OVERALL_STATUS" == "PASSED" ]] && echo "true" || echo "false")
-    },
-    "steps": {
-        "versionResolution": {
-            "status": $([[ "${'$'}VERSION_ERRORS" -eq "0" ]] && echo '"SUCCESS"' || echo '"PARTIAL_SUCCESS"'),
-            "errors": ${'$'}VERSION_ERRORS
-        },
-        "externalSamplesValidation": {
-            "status": "${'$'}EXTERNAL_GATE_STATUS",
-            "score": ${'$'}EXTERNAL_GATE_SCORE,
-            "totalSamples": ${'$'}EXTERNAL_TOTAL_SAMPLES,
-            "successfulSamples": ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES,
-            "failedSamples": ${'$'}EXTERNAL_FAILED_SAMPLES,
-            "skippedSamples": ${'$'}EXTERNAL_SKIPPED_SAMPLES,
-            "successRate": ${'$'}EXTERNAL_SUCCESS_RATE
-        },
-        "internalTestSuites": {
-            "status": "${'$'}INTERNAL_GATE_STATUS",
-            "score": ${'$'}INTERNAL_GATE_SCORE,
-            "totalTests": ${'$'}INTERNAL_TOTAL_TESTS,
-            "passedTests": ${'$'}INTERNAL_PASSED_TESTS,
-            "failedTests": ${'$'}INTERNAL_FAILED_TESTS,
-            "errorTests": ${'$'}INTERNAL_ERROR_TESTS,
-            "skippedTests": ${'$'}INTERNAL_SKIPPED_TESTS,
-            "successRate": ${'$'}INTERNAL_SUCCESS_RATE
-        }
-    },
-    "qualityGate": {
-        "configuration": {
-            "externalWeight": ${'$'}EXTERNAL_WEIGHT,
-            "internalWeight": ${'$'}INTERNAL_WEIGHT,
-            "minimumScoreThreshold": ${'$'}MINIMUM_SCORE,
-            "criticalIssuesThreshold": ${'$'}CRITICAL_ISSUES_THRESHOLD
-        },
-        "evaluation": {
-            "scoreCheck": $([[ "${'$'}OVERALL_SCORE" -ge "${'$'}MINIMUM_SCORE" ]] && echo '"PASSED"' || echo '"FAILED"'),
-            "criticalCheck": $([[ "${'$'}TOTAL_CRITICAL" -le "${'$'}CRITICAL_ISSUES_THRESHOLD" ]] && echo '"PASSED"' || echo '"FAILED"')
-        }
-    },
-    "recommendations": "${'$'}RECOMMENDATIONS",
-    "nextSteps": "${'$'}NEXT_STEPS"$([[ "${'$'}OVERALL_STATUS" == "FAILED" ]] && echo ',
-    "failureReasons": "'"${'$'}FAILURE_REASONS"'"' || echo "")
-}
-EOF
 
                 # Generate HTML report for TeamCity Report Tab
                 cat > quality-gate-reports/quality-gate-report.html <<EOF
