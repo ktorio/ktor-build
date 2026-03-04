@@ -116,6 +116,7 @@ object ConsolidatedEAPValidation {
             }
 
             vcs {
+                root(VCSCore, "+:. => ktor")
                 root(VCSSamples, "+:. => samples")
                 root(VCSKtorBuildPlugins, "+:. => ktor-build-plugins")
                 branchFilter = "+:*"
