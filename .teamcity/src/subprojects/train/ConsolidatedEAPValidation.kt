@@ -106,6 +106,9 @@ object ConsolidatedEAPValidation {
                 param("quality.gate.next.steps", "Run validation steps")
                 param("quality.gate.failure.reasons", "")
 
+                // Android SDK parameters
+                param("env.ANDROID_HOME", "%android-sdk.location%")
+
                 // Slack notification parameters
                 param("quality.gate.slack.status.emoji", "⏳")
                 param("quality.gate.slack.external.emoji", "⏳")
@@ -155,8 +158,9 @@ object ConsolidatedEAPValidation {
             )
 
             requirements {
-                startsWith("teamcity.agent.jvm.os.name", "Linux")
+                agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
                 exists("env.JAVA_HOME")
+                exists("docker.server.version")
             }
         }
 
@@ -190,6 +194,8 @@ object ConsolidatedEAPValidation {
                             | grep -oE "<version>[^<]+</version>" \
                             | sed -E 's#</?version>##g' \
                             | grep -E -- "-eap-" \
+                            | grep -vE -- "-rc|-beta|-alpha" \
+                            | sort -V \
                             | tail -1 || true)
 
                         if [ -n "${'$'}KTOR_VERSION" ]; then
@@ -216,6 +222,10 @@ object ConsolidatedEAPValidation {
                             | grep -oE "<version>[^<]+</version>" \
                             | sed -E 's#</?version>##g' \
                             | grep -E -- "-eap-" \
+                            | grep -vE -- "-rc|-beta|-alpha" \
+                            | grep -vE -- "(-SNAPSHOT|SNAPSHOT)" \
+                            | grep -vE -- "(^|[-.])openapi($|[-.])" \
+                            | sort -V \
                             | tail -1 || true)
 
                         if [ -n "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
@@ -312,6 +322,20 @@ object ConsolidatedEAPValidation {
      * Uses resilient approach - processes all samples and reports results
      */
     private fun BuildSteps.externalSamplesValidation() {
+        script {
+            name = "Prerequisites: Accept Android SDK licenses"
+            scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
+        }
+
+        script {
+            name = "Prerequisites: Warm up Docker images"
+            scriptContent = """
+                #!/bin/bash
+                echo "Pulling common Docker images used by external samples..."
+                docker pull postgres:16-alpine || true
+            """.trimIndent()
+        }
+
         script {
             name = "Step 2: External Samples Validation"
             scriptContent = """
@@ -841,6 +865,28 @@ EOF
      */
     private fun BuildSteps.internalTestSuites() {
         script {
+            name = "Prerequisites: Accept Android SDK licenses"
+            scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
+        }
+
+        script {
+            name = "Prerequisites: Warm up Docker images"
+            scriptContent = """
+                #!/bin/bash
+                echo "Pulling common Docker images used by internal samples..."
+                docker pull mongo:6.0 || true
+                docker pull mongodb/mongodb-community-server:8.2-ubi8 || true
+                docker pull jaegertracing/all-in-one:latest || true
+                docker pull postgres:18.0-alpine || true
+            """.trimIndent()
+        }
+
+        script {
+            name = "Prerequisites: Install pulseaudio for WebRTC tests"
+            scriptFile("install_pulseaudio.sh")
+        }
+
+        script {
             name = "Step 3: Internal Test Suites - Setup EAP Environment"
             scriptContent = """
             #!/bin/bash
@@ -1063,36 +1109,50 @@ EOF
             
             echo "=== Processing Regular Sample Projects ==="
             
-            # List of known regular samples from ktor-samples repository
-            REGULAR_SAMPLES=(
-                "chat"
-                "client-mpp"
-                "client-multipart"
-                "client-tools"
-                "di-kodein"
-                "filelisting"
-                "fullstack-mpp"
-                "graalvm"
-                "httpbin"
-                "ktor-client-wasm"
-                "kweet"
-                "location-header"
-                "maven-google-appengine-standard"
-                "redirect-with-exception"
-                "reverse-proxy"
-                "reverse-proxy-ws"
-                "rx"
-                "sse"
-                "structured-logging"
-                "version-diff"
-                "youkube"
-            )
-            
-            # Run samples in parallel using xargs
-            printf '%s\n' "${'$'}{REGULAR_SAMPLES[@]}" | xargs -n 1 -P ${'$'}MAX_PARALLEL_JOBS -I {} bash -c 'validate_sample "samples/{}"'
+            IGNORE_REGEX='^(\.git|\.github|\.idea|\.gradle|gradle|buildSrc|docs?|scripts?|out|build|tmp|node_modules)$'
 
-            echo "=== Regular samples validation completed ==="
-        """.trimIndent()
+                is_buildable_dir() {
+                    local dir="${'$'}1"
+                    [ -d "${'$'}dir" ] || return 1
+
+                    [ -f "${'$'}dir/pom.xml" ] && return 0
+                    [ -f "${'$'}dir/build.gradle.kts" ] && return 0
+                    [ -f "${'$'}dir/build.gradle" ] && return 0
+                    [ -f "${'$'}dir/settings.gradle.kts" ] && return 0
+                    [ -f "${'$'}dir/settings.gradle" ] && return 0
+
+                    return 1
+                }
+                export -f is_buildable_dir
+
+                REGULAR_SAMPLES=()
+                for d in "${'$'}SAMPLES_ROOT"/*; do
+                    [ -d "${'$'}d" ] || continue
+                    name="$(basename "${'$'}d")"
+
+                    if [[ "${'$'}name" =~ ${'$'}IGNORE_REGEX ]]; then
+                        continue
+                    fi
+
+                    if is_buildable_dir "${'$'}d"; then
+                        REGULAR_SAMPLES+=("${'$'}name")
+                    fi
+                done
+
+                if [ ${'#'}REGULAR_SAMPLES[@] -eq 0 ]; then
+                    echo "WARNING: No buildable sample directories discovered under ${'$'}SAMPLES_ROOT"
+                fi
+
+                echo "Discovered ${'#'}REGULAR_SAMPLES[@] buildable samples:"
+                printf '  - %s\n' "${'$'}{REGULAR_SAMPLES[@]}" | sort || true
+
+                echo "=== Running samples in parallel (max jobs: ${'$'}MAX_PARALLEL_JOBS) ==="
+                printf '%s\n' "${'$'}{REGULAR_SAMPLES[@]}" \
+                  | sort \
+                  | xargs -n 1 -P "${'$'}MAX_PARALLEL_JOBS" -I {} bash -c 'validate_sample "'"${'$'}SAMPLES_ROOT"'"/{}"'
+
+                echo "=== Regular samples validation completed ==="
+            """.trimIndent()
         }
 
         script {
