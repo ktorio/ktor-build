@@ -33,8 +33,7 @@ object VersionResolutionStep {
                     KTOR_VERSION=$(echo "${'$'}KTOR_METADATA" \
                         | grep -oE "<version>[^<]+</version>" \
                         | sed -E 's#</?version>##g' \
-                        | grep -E -- "-eap-" \
-                        | grep -vE -- "-rc|-beta|-alpha" \
+                        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-eap-[0-9]+$' \
                         | sort -V \
                         | tail -1 || true)
 
@@ -43,7 +42,7 @@ object VersionResolutionStep {
                         echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
                         VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: ${'$'}KTOR_VERSION (SUCCESS)\n"
                     else
-                        echo "❌ Failed to parse Ktor EAP version from metadata (no -eap- versions found)"
+                        echo "❌ Failed to parse Ktor EAP version from metadata (no valid semantic EAP versions found)"
                         FETCH_ERRORS=$((FETCH_ERRORS + 1))
                         VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: PARSE_ERROR\n"
                     fi
@@ -61,8 +60,7 @@ object VersionResolutionStep {
                     KTOR_COMPILER_PLUGIN_VERSION=$(echo "${'$'}KTOR_PLUGIN_METADATA" \
                         | grep -oE "<version>[^<]+</version>" \
                         | sed -E 's#</?version>##g' \
-                        | grep -E -- "-eap-" \
-                        | grep -vE -- "-rc|-beta|-alpha" \
+                        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-eap-[0-9]+$' \
                         | grep -vE -- "(-SNAPSHOT|SNAPSHOT)" \
                         | grep -vE -- "(^|[-.])openapi($|[-.])" \
                         | sort -V \
@@ -73,7 +71,7 @@ object VersionResolutionStep {
                         echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
                         VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: ${'$'}KTOR_COMPILER_PLUGIN_VERSION (SUCCESS)\n"
                     else
-                        echo "❌ Failed to parse Ktor Compiler Plugin EAP version from metadata (no -eap- versions found)"
+                        echo "❌ Failed to parse Ktor Compiler Plugin EAP version from metadata (no valid semantic EAP versions found)"
                         FETCH_ERRORS=$((FETCH_ERRORS + 1))
                         VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: PARSE_ERROR\n"
                     fi

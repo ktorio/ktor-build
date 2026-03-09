@@ -219,13 +219,13 @@ EOF
                 fi
             done
 
-            if [ ${'#'}SAMPLE_PROJECTS[@] -eq 0 ]; then
-                echo "⚠️  No buildable sample directories discovered"
-                echo "No buildable sample directories discovered" >> "${'$'}REPORT_FILE"
-            else
-                echo "Discovered ${'#'}SAMPLE_PROJECTS[@] buildable samples:"
-                printf '  - %s\n' "${'$'}{SAMPLE_PROJECTS[@]}" | sort
-            fi
+                if [ ${'$'}{'$'}{#SAMPLE_PROJECTS[@]} -eq 0 ]; then
+                    echo "⚠️  No buildable sample directories discovered"
+                    echo "No buildable sample directories discovered" >> "${'$'}{'$'}REPORT_FILE"
+                else
+                    echo "Discovered ${'$'}{'$'}{#SAMPLE_PROJECTS[@]} buildable samples:"
+                    printf '  - %s\n' "${'$'}{'$'}{SAMPLE_PROJECTS[@]}" | sort
+                fi
 
             for sample_dir in "${'$'}{SAMPLE_PROJECTS[@]}"; do
                 [ -d "${'$'}sample_dir" ] || continue

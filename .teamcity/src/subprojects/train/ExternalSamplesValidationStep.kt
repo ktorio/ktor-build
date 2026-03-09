@@ -26,6 +26,17 @@ object ExternalSamplesValidationStep {
                 docker pull redis:7-alpine || true
                 docker pull quay.io/keycloak/keycloak:26.5.2 || true
                 docker pull rabbitmq:4.2.2-alpine || true
+                docker pull testcontainers/ryuk:0.11.0 || true
+                docker pull dpage/pgadmin4:latest || true
+            """.trimIndent()
+        }
+
+        steps.script {
+            name = "Prerequisites: Install Playwright browsers"
+            scriptContent = """
+                #!/bin/bash
+                echo "Installing Playwright browsers..."
+                npx playwright install --with-deps chromium || true
             """.trimIndent()
         }
 
@@ -145,35 +156,51 @@ EOF
                 # Apply EAP versions
                 if [ -f "gradle.properties" ]; then
                     cp "${'$'}WORK_DIR/gradle.properties.eap" gradle.properties
+                    
+                    # Enable AndroidX if it seems necessary
+                    if grep -rnE "androidx|android" . > /dev/null 2>&1; then
+                        echo "android.useAndroidX=true" >> gradle.properties
+                        echo "Enabled AndroidX for ${'$'}project_name"
+                    fi
+                    
                     echo "Applied EAP versions to gradle.properties"
                 fi
                 
-                # Special handling for Amper projects
-                if [ -f "module.yaml" ] || [ -d ".amper" ]; then
+                # Run validation (build/test)
+                BUILD_SUCCESS=false
+                if [ -f "module.yaml" ] || [ -d ".amper" ] || [ -f "amper" ]; then
                     echo "Amper project detected. Updating versions in module.yaml or equivalent..."
                     # Simple sed replacement for versions if they exist in common locations
                     find . -name "*.yaml" -type f -exec sed -i "s/ktor: .*/ktor: ${'$'}KTOR_VERSION/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
+                    
+                    if [ -f "amper" ]; then
+                        chmod +x amper
+                        echo "Running: ./amper build"
+                        if ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                             BUILD_SUCCESS=true
+                        fi
+                    fi
                 fi
 
-                # Run validation (build/test)
-                BUILD_SUCCESS=false
-                if [ -f "gradlew" ]; then
-                    chmod +x gradlew
-                    echo "Running: ./gradlew build --no-daemon"
-                    if ./gradlew build --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
-                        BUILD_SUCCESS=true
+                if [ "${'$'}BUILD_SUCCESS" = false ]; then
+                    if [ -f "gradlew" ]; then
+                        chmod +x gradlew
+                        echo "Running: ./gradlew build --no-daemon"
+                        if ./gradlew build --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                            BUILD_SUCCESS=true
+                        fi
+                    elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+                        echo "Running: gradle build --no-daemon"
+                        if gradle build --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                            BUILD_SUCCESS=true
+                        fi
+                    elif [ ! -f "amper" ]; then
+                        echo "⚠️  No Gradle wrapper or build file found in ${'$'}project_name"
+                        SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                        cd "${'$'}WORK_DIR"
+                        continue
                     fi
-                elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-                    echo "Running: gradle build --no-daemon"
-                    if gradle build --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
-                        BUILD_SUCCESS=true
-                    fi
-                else
-                    echo "⚠️  No Gradle wrapper or build file found in ${'$'}project_name"
-                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
-                    cd "${'$'}WORK_DIR"
-                    continue
                 fi
 
                 if [ "${'$'}BUILD_SUCCESS" = true ]; then
