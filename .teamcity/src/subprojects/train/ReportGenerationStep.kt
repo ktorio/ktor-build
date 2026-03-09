@@ -79,11 +79,52 @@ object ReportGenerationStep {
                 MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" | sed 's/^%quality\.gate\.thresholds\.minimum\.score%$/80/' || echo "80")
                 CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" | sed 's/^%quality\.gate\.thresholds\.critical\.issues%$/0/' || echo "0")
 
+                STATUS_CLASS="status-unknown"
+                PROGRESS_CLASS="progress-danger"
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                    STATUS_CLASS="status-passed"
+                    PROGRESS_CLASS="progress-success"
+                elif [ "${'$'}OVERALL_STATUS" = "FAILED" ]; then
+                    STATUS_CLASS="status-failed"
+                fi
+
+                EXTERNAL_STATUS_CLASS="status-unknown"
+                if [ "${'$'}EXTERNAL_GATE_STATUS" = "PASSED" ]; then
+                    EXTERNAL_STATUS_CLASS="status-passed"
+                elif [ "${'$'}EXTERNAL_GATE_STATUS" = "FAILED" ]; then
+                    EXTERNAL_STATUS_CLASS="status-failed"
+                fi
+
+                INTERNAL_STATUS_CLASS="status-unknown"
+                if [ "${'$'}INTERNAL_GATE_STATUS" = "PASSED" ]; then
+                    INTERNAL_STATUS_CLASS="status-passed"
+                elif [ "${'$'}INTERNAL_GATE_STATUS" = "FAILED" ]; then
+                    INTERNAL_STATUS_CLASS="status-failed"
+                fi
+
+                CRITICAL_ISSUES_COLOR="#cb2431"
+                if [ "${'$'}TOTAL_CRITICAL" = "0" ]; then
+                    CRITICAL_ISSUES_COLOR="#22863a"
+                fi
+
+                FAILURE_REASONS_BLOCK=""
+                if [ -n "${'$'}FAILURE_REASONS" ]; then
+                    FAILURE_REASONS_BLOCK=$(cat <<EOF
+        <div style="margin-top: 20px;">
+            <strong>Failure Reasons:</strong>
+            <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-family: monospace; font-size: 13px;">${'$'}{FAILURE_REASONS}</pre>
+        </div>
+EOF
+                    )
+                fi
+
                 echo "=== Report Data Summary ==="
                 echo "EAP Version: ${'$'}KTOR_VERSION"
                 echo "Overall Status: ${'$'}OVERALL_STATUS"
                 echo "Overall Score: ${'$'}OVERALL_SCORE/100"
                 echo "Critical Issues: ${'$'}TOTAL_CRITICAL"
+
+                mkdir -p quality-gate-reports
 
                 # Generate HTML report for TeamCity
                 cat > quality-gate-reports/quality-gate-report.html <<EOF
@@ -124,7 +165,7 @@ object ReportGenerationStep {
                 <h1>Quality Gate Report</h1>
                 <div style="color: #666;">Ktor EAP Validation • ${'$'}{KTOR_VERSION}</div>
             </div>
-            <span class="status-badge status-${'$'}{OVERALL_STATUS,,}">${'$'}{OVERALL_STATUS}</span>
+            <span class="status-badge ${'$'}{STATUS_CLASS}">${'$'}{OVERALL_STATUS}</span>
         </div>
         
         <div class="grid">
@@ -132,13 +173,13 @@ object ReportGenerationStep {
                 <div class="metric-label">Overall Weighted Score</div>
                 <div class="metric-value">${'$'}{OVERALL_SCORE}/100</div>
                 <div class="progress-bar">
-                    <div class="progress-fill ${'$'}{OVERALL_STATUS == "PASSED" ? "progress-success" : "progress-danger"}" style="width: ${'$'}{OVERALL_SCORE}%"></div>
+                    <div class="progress-fill ${'$'}{PROGRESS_CLASS}" style="width: ${'$'}{OVERALL_SCORE}%"></div>
                 </div>
             </div>
             <div class="metric">
                 <div class="metric-label">Critical Issues</div>
-                <div class="metric-value">${'$'}{TOTAL_CRITICAL}</div>
-                <div style="font-size: 12px; color: ${'$'}{TOTAL_CRITICAL == 0 ? "#22863a" : "#cb2431"}; margin-top: 5px;">
+                <div class="metric-value" style="color: ${'$'}{CRITICAL_ISSUES_COLOR};">${'$'}{TOTAL_CRITICAL}</div>
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
                     Threshold: ${'$'}{CRITICAL_ISSUES_THRESHOLD} allowed
                 </div>
             </div>
@@ -150,28 +191,45 @@ object ReportGenerationStep {
             <h3>External Samples</h3>
             <div class="metric">
                 <div class="metric-label">Gate Status</div>
-                <div class="status-badge status-${'$'}{EXTERNAL_GATE_STATUS,,}" style="display: inline-block; padding: 4px 10px; font-size: 12px;">${'$'}{EXTERNAL_GATE_STATUS}</div>
+                <div class="status-badge ${'$'}{EXTERNAL_STATUS_CLASS}" style="display: inline-block; padding: 4px 10px; font-size: 12px;">${'$'}{EXTERNAL_GATE_STATUS}</div>
             </div>
             <div class="metric">
                 <div class="metric-label">Success Rate</div>
                 <div class="metric-value">${'$'}{EXTERNAL_SUCCESS_RATE}%</div>
                 <div style="font-size: 14px; color: #666;">${'$'}{EXTERNAL_SUCCESSFUL_SAMPLES} / ${'$'}{EXTERNAL_TOTAL_SAMPLES} samples passed</div>
             </div>
-            <div style="font-size: 12px; color: #999; margin-top: 10px;">Scoring Weight: ${'$'}{EXTERNAL_WEIGHT}%</div>
+            <table class="details-table">
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Total Samples</td><td>${'$'}{EXTERNAL_TOTAL_SAMPLES}</td></tr>
+                <tr><td>Successful</td><td>${'$'}{EXTERNAL_SUCCESSFUL_SAMPLES}</td></tr>
+                <tr><td>Failed</td><td>${'$'}{EXTERNAL_FAILED_SAMPLES}</td></tr>
+                <tr><td>Skipped</td><td>${'$'}{EXTERNAL_SKIPPED_SAMPLES}</td></tr>
+                <tr><td>Gate Score</td><td>${'$'}{EXTERNAL_GATE_SCORE}/100</td></tr>
+                <tr><td>Scoring Weight</td><td>${'$'}{EXTERNAL_WEIGHT}%</td></tr>
+            </table>
         </div>
 
         <div class="card">
             <h3>Internal Test Suites</h3>
             <div class="metric">
                 <div class="metric-label">Gate Status</div>
-                <div class="status-badge status-${'$'}{INTERNAL_GATE_STATUS,,}" style="display: inline-block; padding: 4px 10px; font-size: 12px;">${'$'}{INTERNAL_GATE_STATUS}</div>
+                <div class="status-badge ${'$'}{INTERNAL_STATUS_CLASS}" style="display: inline-block; padding: 4px 10px; font-size: 12px;">${'$'}{INTERNAL_GATE_STATUS}</div>
             </div>
             <div class="metric">
                 <div class="metric-label">Success Rate</div>
                 <div class="metric-value">${'$'}{INTERNAL_SUCCESS_RATE}%</div>
                 <div style="font-size: 14px; color: #666;">${'$'}{INTERNAL_PASSED_TESTS} / ${'$'}{INTERNAL_TOTAL_TESTS} tests passed</div>
             </div>
-            <div style="font-size: 12px; color: #999; margin-top: 10px;">Scoring Weight: ${'$'}{INTERNAL_WEIGHT}%</div>
+            <table class="details-table">
+                <tr><th>Metric</th><th>Value</th></tr>
+                <tr><td>Total Tests</td><td>${'$'}{INTERNAL_TOTAL_TESTS}</td></tr>
+                <tr><td>Passed</td><td>${'$'}{INTERNAL_PASSED_TESTS}</td></tr>
+                <tr><td>Failed</td><td>${'$'}{INTERNAL_FAILED_TESTS}</td></tr>
+                <tr><td>Errors</td><td>${'$'}{INTERNAL_ERROR_TESTS}</td></tr>
+                <tr><td>Skipped</td><td>${'$'}{INTERNAL_SKIPPED_TESTS}</td></tr>
+                <tr><td>Gate Score</td><td>${'$'}{INTERNAL_GATE_SCORE}/100</td></tr>
+                <tr><td>Scoring Weight</td><td>${'$'}{INTERNAL_WEIGHT}%</td></tr>
+            </table>
         </div>
     </div>
 
@@ -181,12 +239,7 @@ object ReportGenerationStep {
             <strong>Recommendation:</strong> ${'$'}{RECOMMENDATIONS}
         </div>
         <p><strong>Next Steps:</strong> ${'$'}{NEXT_STEPS}</p>
-        ${'$'}{FAILURE_REASONS:+
-        <div style="margin-top: 20px;">
-            <strong>Failure Reasons:</strong>
-            <pre style="background: #f8f9fa; padding: 15px; border-radius: 4px; overflow: x-auto; font-family: monospace; font-size: 13px;">${'$'}{FAILURE_REASONS}</pre>
-        </div>
-        }
+        ${'$'}{FAILURE_REASONS_BLOCK}
     </div>
 
     <div class="card">
@@ -196,6 +249,8 @@ object ReportGenerationStep {
             <tr><td>Ktor Framework</td><td>${'$'}{KTOR_VERSION}</td></tr>
             <tr><td>Kotlin Version</td><td>${'$'}{KOTLIN_VERSION}</td></tr>
             <tr><td>Compiler Plugin</td><td>${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-N/A}</td></tr>
+            <tr><td>Version Resolution Errors</td><td>${'$'}{VERSION_ERRORS}</td></tr>
+            <tr><td>Minimum Required Score</td><td>${'$'}{MINIMUM_SCORE}</td></tr>
             <tr><td>VCS Revision</td><td>${'$'}{BUILD_VCS_NUMBER}</td></tr>
             <tr><td>Build Agent</td><td>${'$'}{AGENT_NAME}</td></tr>
             <tr><td>Validation Time</td><td>$(date)</td></tr>
