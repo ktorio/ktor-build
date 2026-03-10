@@ -197,8 +197,9 @@ EOF
             WORK_DIR=$(pwd)
             INIT_SCRIPT="${'$'}WORK_DIR/samples/gradle-eap-init.gradle"
             PROPERTIES_EAP="${'$'}WORK_DIR/samples/gradle.properties.eap"
+            SAMPLES_ROOT="${'$'}WORK_DIR/samples"
 
-            cd samples
+            cd "${'$'}SAMPLES_ROOT"
         
             # Create a summary report file
             REPORT_FILE="${'$'}REPORTS_DIR/samples-summary.txt"
@@ -269,14 +270,15 @@ EOF
                     continue
                 fi
 
-                # Gradle sample (buildable marker present)
+                # Gradle sample
                 if [ -f "${'$'}sample_dir/gradle.properties" ]; then
                     cp "${'$'}PROPERTIES_EAP" "${'$'}sample_dir/gradle.properties"
                 fi
 
-                if [ -x "./gradlew" ]; then
-                    echo "Running: ./gradlew -p ${'$'}sample_dir test --init-script ${'$'}INIT_SCRIPT --no-daemon"
-                    if ./gradlew -p "${'$'}sample_dir" test --init-script "${'$'}INIT_SCRIPT" --no-daemon > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                if [ -f "${'$'}sample_dir/gradlew" ]; then
+                    chmod +x "${'$'}sample_dir/gradlew"
+                    echo "Running: cd ${'$'}sample_dir && ./gradlew test --init-script ${'$'}INIT_SCRIPT --no-daemon"
+                    if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                         echo "✅ ${'$'}sample_dir: SUCCESS"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
                         echo "${'$'}sample_dir: PASSED (Gradle)" >> "${'$'}REPORT_FILE"
@@ -286,23 +288,10 @@ EOF
                         echo "${'$'}sample_dir: FAILED (Gradle)" >> "${'$'}REPORT_FILE"
                         tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
                     fi
-                elif [ -x "${'$'}sample_dir/gradlew" ]; then
-                    chmod +x "${'$'}sample_dir/gradlew"
-                    echo "Running: ${'$'}sample_dir/gradlew test --init-script ${'$'}INIT_SCRIPT --no-daemon"
-                    if "${'$'}sample_dir/gradlew" test --init-script "${'$'}INIT_SCRIPT" --no-daemon > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
-                        echo "✅ ${'$'}sample_dir: SUCCESS"
-                        SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
-                        echo "${'$'}sample_dir: PASSED (Gradle wrapper)" >> "${'$'}REPORT_FILE"
-                    else
-                        echo "❌ ${'$'}sample_dir: FAILED"
-                        FAILED_COUNT=$((FAILED_COUNT + 1))
-                        echo "${'$'}sample_dir: FAILED (Gradle wrapper)" >> "${'$'}REPORT_FILE"
-                        tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
-                    fi
                 else
-                    echo "⚠️  No executable Gradle wrapper found for ${'$'}sample_dir"
+                    echo "⚠️  No Gradle wrapper found for ${'$'}sample_dir"
                     SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
-                    echo "${'$'}sample_dir: SKIPPED (No executable Gradle wrapper)" >> "${'$'}REPORT_FILE"
+                    echo "${'$'}sample_dir: SKIPPED (No Gradle wrapper)" >> "${'$'}REPORT_FILE"
                 fi
             done
 
