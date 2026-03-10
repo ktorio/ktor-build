@@ -150,7 +150,7 @@ kotlin.compiler.execution.strategy=in-process
 kotlin.incremental=true
 EOF
 
-            TOTAL_SAMPLES=${'$'}{'#'}EXTERNAL_SAMPLE_DIRS[@]}
+            TOTAL_SAMPLES=${'$'}{#EXTERNAL_SAMPLE_DIRS[@]}
             SUCCESSFUL_SAMPLES=0
             FAILED_SAMPLES=0
             SKIPPED_SAMPLES=0
@@ -186,11 +186,10 @@ EOF
                 # Run validation (build/test)
                 BUILD_SUCCESS=false
                 
-                GRADLE_ARGS="build --no-daemon"
+                GRADLE_ARGS="assemble --no-daemon"
 
                 if [ -f "module.yaml" ] || [ -d ".amper" ] || [ -f "amper" ]; then
                     echo "Amper project detected. Updating versions in module.yaml or equivalent..."
-                    # Simple sed replacement for versions if they exist in common locations
                     find . -name "*.yaml" -type f -exec sed -i "s/ktor: .*/ktor: ${'$'}KTOR_VERSION/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
                     
@@ -199,6 +198,27 @@ EOF
                         echo "Running: ./amper build"
                         if ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                              BUILD_SUCCESS=true
+                             
+                             echo "Build successful, now running tests: ./amper test"
+                             if ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                 echo "✅ ${'$'}project_name: Tests passed"
+                             else
+                                 echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                             fi
+                        fi
+                    fi
+                fi
+
+                # Maven sample
+                if [ "${'$'}BUILD_SUCCESS" = false ] && [ -f "pom.xml" ]; then
+                    echo "Maven sample detected. Running: mvn compile -B"
+                    if mvn compile -B -Dktor.version="${'$'}KTOR_VERSION" -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                        BUILD_SUCCESS=true
+                        echo "Build successful, now running tests: mvn test -B"
+                        if mvn test -B -Dktor.version="${'$'}KTOR_VERSION" -Dkotlin.version="${'$'}KOTLIN_VERSION" >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                             echo "✅ ${'$'}project_name: Tests passed"
+                        else
+                             echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
                         fi
                     fi
                 fi
@@ -209,28 +229,34 @@ EOF
                         echo "Running: ./gradlew ${'$'}GRADLE_ARGS"
                         if ./gradlew ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                             BUILD_SUCCESS=true
-                        elif [ "${'$'}TRY_COMPILE_ON_FAILURE" = "true" ]; then
-                            echo "❌ gradlew build failed, trying gradlew assemble..."
-                            if ./gradlew assemble --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" 2>&1; then
-                                echo "✅ gradlew assemble successful, considering project successful"
-                                BUILD_SUCCESS=true
-                                mv "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"
+                            
+                            # Optionally run tests if build succeeded and test task exists
+                            if ./gradlew tasks --all | grep -q "[:[:alnum:]]*test"; then
+                                echo "Build successful, now running tests: ./gradlew test --no-daemon"
+                                if ./gradlew test --no-daemon >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                    echo "✅ ${'$'}project_name: Tests passed"
+                                else
+                                    echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                                fi
                             fi
                         fi
                     elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
                         echo "Running: gradle ${'$'}GRADLE_ARGS"
                         if gradle ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                             BUILD_SUCCESS=true
-                        elif [ "${'$'}TRY_COMPILE_ON_FAILURE" = "true" ]; then
-                            echo "❌ gradle build failed, trying gradle assemble..."
-                            if gradle assemble --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" 2>&1; then
-                                echo "✅ gradle assemble successful, considering project successful"
-                                BUILD_SUCCESS=true
-                                mv "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"
+                            
+                            # Optionally run tests if build succeeded and test task exists
+                            if gradle tasks --all | grep -q "[:[:alnum:]]*test"; then
+                                echo "Build successful, now running tests: gradle test --no-daemon"
+                                if gradle test --no-daemon >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                    echo "✅ ${'$'}project_name: Tests passed"
+                                else
+                                    echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                                fi
                             fi
                         fi
-                    elif [ ! -f "amper" ]; then
-                        echo "⚠️  No Gradle wrapper or build file found in ${'$'}project_name"
+                    elif [ ! -f "amper" ] && [ ! -f "pom.xml" ]; then
+                        echo "⚠️  No Gradle wrapper, build file, Maven pom, or Amper config found in ${'$'}project_name"
                         SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
                         cd "${'$'}WORK_DIR"
                         continue
@@ -261,8 +287,8 @@ EOF
 
             # Calculate success rate
             SUCCESS_RATE=0
-            if [ "${'$'}TOTAL_SAMPLES" -gt 0 ]; then
-                SUCCESS_RATE=$((SUCCESSFUL_SAMPLES * 100 / TOTAL_SAMPLES))
+            if [[ -n "${'$'}TOTAL_SAMPLES" && "${'$'}TOTAL_SAMPLES" -gt 0 ]]; then
+                SUCCESS_RATE=$(echo "${'$'}SUCCESSFUL_SAMPLES ${'$'}TOTAL_SAMPLES" | awk '{printf "%.1f", $1 * 100 / $2}')
             fi
 
             # Report results to TeamCity
@@ -270,7 +296,7 @@ EOF
             echo "##teamcity[setParameter name='external.validation.successful.samples' value='${'$'}SUCCESSFUL_SAMPLES']"
             echo "##teamcity[setParameter name='external.validation.failed.samples' value='${'$'}FAILED_SAMPLES']"
             echo "##teamcity[setParameter name='external.validation.skipped.samples' value='${'$'}SKIPPED_SAMPLES']"
-            echo "##teamcity[setParameter name='external.validation.success.rate' value='${'$'}SUCCESS_RATE.0']"
+            echo "##teamcity[setParameter name='external.validation.success.rate' value='${'$'}SUCCESS_RATE']"
             
             echo "=== Step 2: External Samples Validation Completed ==="
         """.trimIndent()

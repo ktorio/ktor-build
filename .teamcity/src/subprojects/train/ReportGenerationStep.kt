@@ -21,9 +21,9 @@ object ReportGenerationStep {
                 echo "Timestamp: $(date -Iseconds)"
 
                 # Read all runtime parameter values with safe defaults and parameter extraction
-                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
-                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
-                KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | sed 's/^%env\.KTOR_COMPILER_PLUGIN_VERSION%$//' || echo "")
+                KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | grep -v "^%env\.KTOR_VERSION%$" || echo "unknown")
+                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | grep -E '^[0-9.]+$' || echo "2.1.21")
+                KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | grep -v "^%env\.KTOR_COMPILER_PLUGIN_VERSION%$" || echo "N/A")
                 
                 # Handle built-in TeamCity parameters safely
                 BUILD_VCS_NUMBER="unknown"
@@ -46,38 +46,38 @@ object ReportGenerationStep {
                     AGENT_NAME="${'$'}HOSTNAME"
                 fi
 
-                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" | sed 's/^%quality\.gate\.overall\.status%$/UNKNOWN/' || echo "UNKNOWN")
-                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" | sed 's/^%quality\.gate\.overall\.score%$/0/' || echo "0")
-                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" | sed 's/^%quality\.gate\.total\.critical%$/0/' || echo "0")
+                OVERALL_STATUS=$(echo "%quality.gate.overall.status%" | grep -v "^%quality\.gate\.overall\.status%$" || echo "UNKNOWN")
+                OVERALL_SCORE=$(echo "%quality.gate.overall.score%" | grep -E '^[0-9]+$' || echo "0")
+                TOTAL_CRITICAL=$(echo "%quality.gate.total.critical%" | grep -E '^[0-9]+$' || echo "0")
 
-                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" | sed 's/^%external\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
-                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" | sed 's/^%external\.gate\.score%$/0/' || echo "0")
-                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" | sed 's/^%external\.validation\.total\.samples%$/0/' || echo "0")
-                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" | sed 's/^%external\.validation\.successful\.samples%$/0/' || echo "0")
-                EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" | sed 's/^%external\.validation\.failed\.samples%$/0/' || echo "0")
-                EXTERNAL_SKIPPED_SAMPLES=$(echo "%external.validation.skipped.samples%" | sed 's/^%external\.validation\.skipped\.samples%$/0/' || echo "0")
-                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" | sed 's/^%external\.validation\.success\.rate%$/0.0/' || echo "0.0")
+                EXTERNAL_GATE_STATUS=$(echo "%external.gate.status%" | grep -v "^%external\.gate\.status%$" || echo "UNKNOWN")
+                EXTERNAL_GATE_SCORE=$(echo "%external.gate.score%" | grep -E '^[0-9]+$' || echo "0")
+                EXTERNAL_TOTAL_SAMPLES=$(echo "%external.validation.total.samples%" | grep -E '^[0-9]+$' || echo "0")
+                EXTERNAL_SUCCESSFUL_SAMPLES=$(echo "%external.validation.successful.samples%" | grep -E '^[0-9]+$' || echo "0")
+                EXTERNAL_FAILED_SAMPLES=$(echo "%external.validation.failed.samples%" | grep -E '^[0-9]+$' || echo "0")
+                EXTERNAL_SKIPPED_SAMPLES=$(echo "%external.validation.skipped.samples%" | grep -E '^[0-9]+$' || echo "0")
+                EXTERNAL_SUCCESS_RATE=$(echo "%external.validation.success.rate%" | grep -E '^[0-9.]+$' || echo "0.0")
 
-                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" | sed 's/^%internal\.gate\.status%$/UNKNOWN/' || echo "UNKNOWN")
-                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" | sed 's/^%internal\.gate\.score%$/0/' || echo "0")
-                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" | sed 's/^%internal\.validation\.total\.tests%$/0/' || echo "0")
-                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" | sed 's/^%internal\.validation\.passed\.tests%$/0/' || echo "0")
-                INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" | sed 's/^%internal\.validation\.failed\.tests%$/0/' || echo "0")
-                INTERNAL_ERROR_TESTS=$(echo "%internal.validation.error.tests%" | sed 's/^%internal\.validation\.error\.tests%$/0/' || echo "0")
-                INTERNAL_SKIPPED_TESTS=$(echo "%internal.validation.skipped.tests%" | sed 's/^%internal\.validation\.skipped\.tests%$/0/' || echo "0")
-                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" | sed 's/^%internal\.validation\.success\.rate%$/0.0/' || echo "0.0")
+                INTERNAL_GATE_STATUS=$(echo "%internal.gate.status%" | grep -v "^%internal\.gate\.status%$" || echo "UNKNOWN")
+                INTERNAL_GATE_SCORE=$(echo "%internal.gate.score%" | grep -E '^[0-9]+$' || echo "0")
+                INTERNAL_TOTAL_TESTS=$(echo "%internal.validation.total.tests%" | grep -E '^[0-9]+$' || echo "0")
+                INTERNAL_PASSED_TESTS=$(echo "%internal.validation.passed.tests%" | grep -E '^[0-9]+$' || echo "0")
+                INTERNAL_FAILED_TESTS=$(echo "%internal.validation.failed.tests%" | grep -E '^[0-9]+$' || echo "0")
+                INTERNAL_ERROR_TESTS=$(echo "%internal.validation.error.tests%" | grep -E '^[0-9]+$' || echo "0")
+                INTERNAL_SKIPPED_TESTS=$(echo "%internal.validation.skipped.tests%" | grep -E '^[0-9]+$' || echo "0")
+                INTERNAL_SUCCESS_RATE=$(echo "%internal.validation.success.rate%" | grep -E '^[0-9.]+$' || echo "0.0")
 
-                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" | sed 's/^%quality\.gate\.recommendations%$/Quality gate evaluation not completed/' || echo "Quality gate evaluation not completed")
-                NEXT_STEPS=$(echo "%quality.gate.next.steps%" | sed 's/^%quality\.gate\.next\.steps%$/Review validation results/' || echo "Review validation results")
-                FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" | sed 's/^%quality\.gate\.failure\.reasons%$//' || echo "")
+                RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" | grep -v "^%quality\.gate\.recommendations%$" || echo "Quality gate evaluation not completed")
+                NEXT_STEPS=$(echo "%quality.gate.next.steps%" | grep -v "^%quality\.gate\.next\.steps%$" || echo "Review validation results")
+                FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" | grep -v "^%quality\.gate\.failure\.reasons%$" || echo "")
 
-                VERSION_ERRORS=$(echo "%version.resolution.errors%" | sed 's/^%version\.resolution\.errors%$/0/' || echo "0")
+                VERSION_ERRORS=$(echo "%version.resolution.errors%" | grep -E '^[0-9]+$' || echo "0")
 
                 # Read quality gate configuration parameters
-                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" | sed 's/^%quality\.gate\.scoring\.external\.weight%$/60/' || echo "60")
-                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" | sed 's/^%quality\.gate\.scoring\.internal\.weight%$/40/' || echo "40")
-                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" | sed 's/^%quality\.gate\.thresholds\.minimum\.score%$/80/' || echo "80")
-                CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" | sed 's/^%quality\.gate\.thresholds\.critical\.issues%$/0/' || echo "0")
+                EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" | grep -E '^[0-9]+$' || echo "60")
+                INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" | grep -E '^[0-9]+$' || echo "40")
+                MINIMUM_SCORE=$(echo "%quality.gate.thresholds.minimum.score%" | grep -E '^[0-9]+$' || echo "80")
+                CRITICAL_ISSUES_THRESHOLD=$(echo "%quality.gate.thresholds.critical.issues%" | grep -E '^[0-9]+$' || echo "0")
 
                 STATUS_CLASS="status-unknown"
                 PROGRESS_CLASS="progress-danger"

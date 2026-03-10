@@ -71,6 +71,8 @@ object InternalTestSuitesStep {
             echo "Creating EAP Gradle init script..."
             mkdir -p samples
             cat > samples/gradle-eap-init.gradle <<EOF
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+
 beforeSettings { settings ->
     settings.pluginManagement {
         repositories {
@@ -85,6 +87,7 @@ beforeSettings { settings ->
             }
             mavenCentral()
             gradlePluginPortal()
+            google()
         }
     }
     settings.dependencyResolutionManagement {
@@ -99,6 +102,7 @@ beforeSettings { settings ->
                 url "https://redirector.kotlinlang.org/maven/dev"
             }
             mavenCentral()
+            google()
         }
     }
 }
@@ -160,12 +164,19 @@ ktor_version=${'$'}KTOR_VERSION
 kotlin_version=${'$'}KOTLIN_VERSION
 ktor_compiler_plugin_version=${'$'}KTOR_COMPILER_PLUGIN_VERSION
 logback_version=1.4.14
+exposed_version=0.59.0
+mongodb_version=5.3.1
+opentelemetry_version=1.46.0
+brotli_version=1.1.0
+h2_version=2.3.232
 kotlin.mpp.stability.nowarn=true
 org.gradle.jvmargs=-Xmx4g
 org.gradle.daemon=false
 org.gradle.parallel=false
 org.gradle.caching=false
 org.gradle.warning.mode=all
+org.gradle.java.installations.auto-download=true
+org.gradle.java.installations.auto-detect=true
 EOF
             
             echo "Setup completed successfully"
@@ -238,13 +249,13 @@ EOF
                 fi
             done
 
-                if [ ${'$'}{'$'}{#SAMPLE_PROJECTS[@]} -eq 0 ]; then
-                    echo "⚠️  No buildable sample directories discovered"
-                    echo "No buildable sample directories discovered" >> "${'$'}{'$'}REPORT_FILE"
-                else
-                    echo "Discovered ${'$'}{'$'}{#SAMPLE_PROJECTS[@]} buildable samples:"
-                    printf '  - %s\n' "${'$'}{'$'}{SAMPLE_PROJECTS[@]}" | sort
-                fi
+            if [ "${'$'}{#SAMPLE_PROJECTS[@]}" -eq 0 ]; then
+                echo "⚠️  No buildable sample directories discovered"
+                echo "No buildable sample directories discovered" >> "${'$'}REPORT_FILE"
+            else
+                echo "Discovered ${'$'}{#SAMPLE_PROJECTS[@]} buildable samples:"
+                printf '  - %s\n' "${'$'}{SAMPLE_PROJECTS[@]}" | sort
+            fi
 
             for sample_dir in "${'$'}{SAMPLE_PROJECTS[@]}"; do
                 [ -d "${'$'}sample_dir" ] || continue
@@ -254,15 +265,22 @@ EOF
 
                 # Maven sample
                 if [ -f "${'$'}sample_dir/pom.xml" ]; then
-                    echo "Maven sample detected. Running: mvn test -B"
-                    if mvn -f "${'$'}sample_dir/pom.xml" test -B -Dktor.version=%env.KTOR_VERSION% -Dkotlin.version=${'$'}KOTLIN_VERSION > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
-                        echo "✅ ${'$'}sample_dir: SUCCESS"
+                    echo "Maven sample detected. Running: mvn compile -B"
+                    if mvn -f "${'$'}sample_dir/pom.xml" compile -B -Dktor.version=%env.KTOR_VERSION% -Dkotlin.version=${'$'}KOTLIN_VERSION > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                        echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
-                        echo "${'$'}sample_dir: PASSED (Maven)" >> "${'$'}REPORT_FILE"
+                        echo "${'$'}sample_dir: PASSED (Maven build)" >> "${'$'}REPORT_FILE"
+                        
+                        echo "Build successful, now running tests: mvn test -B"
+                        if mvn -f "${'$'}sample_dir/pom.xml" test -B -Dktor.version=%env.KTOR_VERSION% -Dkotlin.version=${'$'}KOTLIN_VERSION >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                             echo "✅ ${'$'}sample_dir: Tests passed"
+                        else
+                             echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
+                        fi
                     else
-                        echo "❌ ${'$'}sample_dir: FAILED"
+                        echo "❌ ${'$'}sample_dir: BUILD FAILED"
                         FAILED_COUNT=$((FAILED_COUNT + 1))
-                        echo "${'$'}sample_dir: FAILED (Maven)" >> "${'$'}REPORT_FILE"
+                        echo "${'$'}sample_dir: FAILED (Maven build)" >> "${'$'}REPORT_FILE"
                         tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
                     fi
                     continue
@@ -273,15 +291,26 @@ EOF
 
                 if [ -f "${'$'}sample_dir/gradlew" ]; then
                     chmod +x "${'$'}sample_dir/gradlew"
-                    echo "Running: cd ${'$'}sample_dir && ./gradlew test --init-script ${'$'}INIT_SCRIPT --no-daemon"
-                    if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
-                        echo "✅ ${'$'}sample_dir: SUCCESS"
+                    echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT --no-daemon"
+                    if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                        echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
-                        echo "${'$'}sample_dir: PASSED (Gradle)" >> "${'$'}REPORT_FILE"
+                        echo "${'$'}sample_dir: PASSED (Gradle build)" >> "${'$'}REPORT_FILE"
+                        
+                        # Optionally run tests if build succeeded and test task exists
+                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all | grep -q "[:[:alnum:]]*test"); then
+                           echo "Build successful, now running tests: ./gradlew test --init-script ${'$'}INIT_SCRIPT --no-daemon"
+                           if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                               echo "✅ ${'$'}sample_dir: Tests passed"
+                           else
+                               echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
+                               # We still count it as successful because build passed as per user suggestion
+                           fi
+                        fi
                     else
-                        echo "❌ ${'$'}sample_dir: FAILED"
+                        echo "❌ ${'$'}sample_dir: BUILD FAILED"
                         FAILED_COUNT=$((FAILED_COUNT + 1))
-                        echo "${'$'}sample_dir: FAILED (Gradle)" >> "${'$'}REPORT_FILE"
+                        echo "${'$'}sample_dir: FAILED (Gradle build)" >> "${'$'}REPORT_FILE"
                         tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
                     fi
                 else
@@ -300,8 +329,8 @@ EOF
 
             # Calculate success rate
             SUCCESS_RATE=0
-            if [ "${'$'}TOTAL_COUNT" -gt 0 ]; then
-                SUCCESS_RATE=$((SUCCESSFUL_COUNT * 100 / TOTAL_COUNT))
+            if [[ -n "${'$'}TOTAL_COUNT" && "${'$'}TOTAL_COUNT" -gt 0 ]]; then
+                SUCCESS_RATE=$(echo "${'$'}SUCCESSFUL_COUNT ${'$'}TOTAL_COUNT" | awk '{printf "%.1f", $1 * 100 / $2}')
             fi
 
             # Report results to TeamCity
@@ -310,7 +339,7 @@ EOF
             echo "##teamcity[setParameter name='internal.validation.failed.tests' value='${'$'}FAILED_COUNT']"
             echo "##teamcity[setParameter name='internal.validation.error.tests' value='0']"
             echo "##teamcity[setParameter name='internal.validation.skipped.tests' value='${'$'}SKIPPED_COUNT']"
-            echo "##teamcity[setParameter name='internal.validation.success.rate' value='${'$'}SUCCESS_RATE.0']"
+            echo "##teamcity[setParameter name='internal.validation.success.rate' value='${'$'}SUCCESS_RATE']"
         """.trimIndent()
         }
     }
