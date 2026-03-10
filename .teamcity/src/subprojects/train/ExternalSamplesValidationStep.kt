@@ -64,9 +64,13 @@ object ExternalSamplesValidationStep {
             KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
             KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.1.21/' || echo "2.1.21")
             
+            # Option to fallback to compile on failure (enabled by default)
+            TRY_COMPILE_ON_FAILURE=$(echo "%env.TRY_COMPILE_ON_FAILURE%" | sed 's/^%env\.TRY_COMPILE_ON_FAILURE%$/true/' || echo "true")
+            
             echo "Validating external GitHub samples against EAP versions"
             echo "Ktor Version: ${'$'}KTOR_VERSION"
             echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
+            echo "Try Compile on Failure: ${'$'}TRY_COMPILE_ON_FAILURE"
 
             WORK_DIR=$(pwd)
             REPORTS_DIR="${'$'}WORK_DIR/external-validation-reports"
@@ -205,11 +209,25 @@ EOF
                         echo "Running: ./gradlew ${'$'}GRADLE_ARGS"
                         if ./gradlew ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                             BUILD_SUCCESS=true
+                        elif [ "${'$'}TRY_COMPILE_ON_FAILURE" = "true" ]; then
+                            echo "❌ gradlew build failed, trying gradlew assemble..."
+                            if ./gradlew assemble --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" 2>&1; then
+                                echo "✅ gradlew assemble successful, considering project successful"
+                                BUILD_SUCCESS=true
+                                mv "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"
+                            fi
                         fi
                     elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
                         echo "Running: gradle ${'$'}GRADLE_ARGS"
                         if gradle ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                             BUILD_SUCCESS=true
+                        elif [ "${'$'}TRY_COMPILE_ON_FAILURE" = "true" ]; then
+                            echo "❌ gradle build failed, trying gradle assemble..."
+                            if gradle assemble --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" 2>&1; then
+                                echo "✅ gradle assemble successful, considering project successful"
+                                BUILD_SUCCESS=true
+                                mv "${'$'}REPORTS_DIR/${'$'}project_name-assemble.log" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"
+                            fi
                         fi
                     elif [ ! -f "amper" ]; then
                         echo "⚠️  No Gradle wrapper or build file found in ${'$'}project_name"

@@ -87,8 +87,6 @@ beforeSettings { settings ->
             gradlePluginPortal()
         }
     }
-}
-settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
         repositories {
             maven {
@@ -101,7 +99,6 @@ settingsEvaluated { settings ->
                 url "https://redirector.kotlinlang.org/maven/dev"
             }
             mavenCentral()
-            gradlePluginPortal()
         }
     }
 }
@@ -168,6 +165,7 @@ org.gradle.jvmargs=-Xmx4g
 org.gradle.daemon=false
 org.gradle.parallel=false
 org.gradle.caching=false
+org.gradle.warning.mode=all
 EOF
             
             echo "Setup completed successfully"
@@ -271,9 +269,7 @@ EOF
                 fi
 
                 # Gradle sample
-                if [ -f "${'$'}sample_dir/gradle.properties" ]; then
-                    cp "${'$'}PROPERTIES_EAP" "${'$'}sample_dir/gradle.properties"
-                fi
+                cp "${'$'}PROPERTIES_EAP" "${'$'}sample_dir/gradle.properties"
 
                 if [ -f "${'$'}sample_dir/gradlew" ]; then
                     chmod +x "${'$'}sample_dir/gradlew"
