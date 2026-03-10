@@ -72,6 +72,23 @@ object InternalTestSuitesStep {
             mkdir -p samples
             cat > samples/gradle-eap-init.gradle <<EOF
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+import org.gradle.api.initialization.resolve.RepositoriesMode
+
+allprojects {
+    repositories {
+        maven {
+            url "https://redirector.kotlinlang.org/maven/ktor-eap"
+        }
+        maven {
+            url "https://redirector.kotlinlang.org/maven/compose-dev"
+        }
+        maven {
+            url "https://redirector.kotlinlang.org/maven/dev"
+        }
+        mavenCentral()
+        google()
+    }
+}
 
 beforeSettings { settings ->
     settings.pluginManagement {
@@ -91,6 +108,7 @@ beforeSettings { settings ->
         }
     }
     settings.dependencyResolutionManagement {
+        repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
         repositories {
             maven {
                 url "https://redirector.kotlinlang.org/maven/ktor-eap"
@@ -103,6 +121,13 @@ beforeSettings { settings ->
             }
             mavenCentral()
             google()
+        }
+    }
+
+gradle.allprojects {
+    configurations.all {
+        resolutionStrategy.dependencySubstitution {
+            substitute module("androidx.graphics:graphics-shapes") using module("androidx.graphics:graphics-shapes-android:1.0.1")
         }
     }
 }
@@ -167,6 +192,7 @@ logback_version=1.4.14
 exposed_version=0.59.0
 mongodb_version=5.3.1
 opentelemetry_version=1.46.0
+opentelemetry_sdk_extension_autoconfigure_version=1.46.0
 brotli_version=1.1.0
 h2_version=2.3.232
 kotlin.mpp.stability.nowarn=true
@@ -177,6 +203,7 @@ org.gradle.caching=false
 org.gradle.warning.mode=all
 org.gradle.java.installations.auto-download=true
 org.gradle.java.installations.auto-detect=true
+org.gradle.java.installations.fromEnv=true
 EOF
             
             echo "Setup completed successfully"
