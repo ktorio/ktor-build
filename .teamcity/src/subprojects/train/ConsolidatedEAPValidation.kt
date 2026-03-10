@@ -78,6 +78,7 @@ object ConsolidatedEAPValidation {
                 param("version.resolution.errors", "0")
 
                 // External validation parameters
+                param("env.TRY_COMPILE_ON_FAILURE", "true")
                 param("external.validation.total.samples", "0")
                 param("external.validation.successful.samples", "0")
                 param("external.validation.failed.samples", "0")
