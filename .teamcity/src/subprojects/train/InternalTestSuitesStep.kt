@@ -71,6 +71,23 @@ object InternalTestSuitesStep {
             echo "Creating EAP Gradle init script..."
             mkdir -p samples
             cat > samples/gradle-eap-init.gradle <<EOF
+beforeSettings { settings ->
+    settings.pluginManagement {
+        repositories {
+            maven {
+                url "https://redirector.kotlinlang.org/maven/ktor-eap"
+            }
+            maven {
+                url "https://redirector.kotlinlang.org/maven/compose-dev"
+            }
+            maven {
+                url "https://redirector.kotlinlang.org/maven/dev"
+            }
+            mavenCentral()
+            gradlePluginPortal()
+        }
+    }
+}
 settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
         repositories {
@@ -79,6 +96,9 @@ settingsEvaluated { settings ->
             }
             maven {
                 url "https://redirector.kotlinlang.org/maven/compose-dev"
+            }
+            maven {
+                url "https://redirector.kotlinlang.org/maven/dev"
             }
             mavenCentral()
             gradlePluginPortal()

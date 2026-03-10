@@ -28,6 +28,19 @@ object ExternalSamplesValidationStep {
                 docker pull rabbitmq:4.2.2-alpine || true
                 docker pull testcontainers/ryuk:0.11.0 || true
                 docker pull dpage/pgadmin4:latest || true
+                docker pull alpine:latest || true
+                docker pull ollama/ollama:latest || true
+                docker pull prom/prometheus:latest || true
+                docker pull grafana/grafana:latest || true
+                docker pull nginx:latest || true
+                
+                echo "Starting Ollama for ktor-ai-server..."
+                docker run -d --name ollama -p 11434:11434 ollama/ollama || true
+                
+                echo "Pulling llama3.2 model for Ollama..."
+                # Wait a bit for Ollama to start before pulling
+                sleep 5
+                docker exec ollama ollama pull llama3.2 || true
             """.trimIndent()
         }
 
@@ -133,7 +146,7 @@ kotlin.compiler.execution.strategy=in-process
 kotlin.incremental=true
 EOF
 
-            TOTAL_SAMPLES=${'$'}{#EXTERNAL_SAMPLE_DIRS[@]}
+            TOTAL_SAMPLES=${'$'}{'#'}EXTERNAL_SAMPLE_DIRS[@]}
             SUCCESSFUL_SAMPLES=0
             FAILED_SAMPLES=0
             SKIPPED_SAMPLES=0
@@ -168,6 +181,9 @@ EOF
                 
                 # Run validation (build/test)
                 BUILD_SUCCESS=false
+                
+                GRADLE_ARGS="build --no-daemon"
+
                 if [ -f "module.yaml" ] || [ -d ".amper" ] || [ -f "amper" ]; then
                     echo "Amper project detected. Updating versions in module.yaml or equivalent..."
                     # Simple sed replacement for versions if they exist in common locations
@@ -186,13 +202,13 @@ EOF
                 if [ "${'$'}BUILD_SUCCESS" = false ]; then
                     if [ -f "gradlew" ]; then
                         chmod +x gradlew
-                        echo "Running: ./gradlew build --no-daemon"
-                        if ./gradlew build --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                        echo "Running: ./gradlew ${'$'}GRADLE_ARGS"
+                        if ./gradlew ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                             BUILD_SUCCESS=true
                         fi
                     elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-                        echo "Running: gradle build --no-daemon"
-                        if gradle build --no-daemon > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                        echo "Running: gradle ${'$'}GRADLE_ARGS"
+                        if gradle ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                             BUILD_SUCCESS=true
                         fi
                     elif [ ! -f "amper" ]; then
