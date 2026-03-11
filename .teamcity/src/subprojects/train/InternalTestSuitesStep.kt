@@ -117,7 +117,7 @@ beforeSettings { settings ->
 
 settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
-        repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+        repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
         repositories {
             maven {
                 url = "https://redirector.kotlinlang.org/maven/ktor-eap"
