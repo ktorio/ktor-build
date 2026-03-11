@@ -107,6 +107,9 @@ beforeSettings { settings ->
             google()
         }
     }
+}
+
+settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
         try {
             repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
