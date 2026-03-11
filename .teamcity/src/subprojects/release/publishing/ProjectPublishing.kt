@@ -35,5 +35,9 @@ object ProjectPublishing : Project({
             withTrigger = TriggerType.NONE,
             buildNumber = releaseVersion,
         )
+
+        params {
+            param("reverse.dep.*.releaseVersion", "%releaseVersion%")
+        }
     }
 })
