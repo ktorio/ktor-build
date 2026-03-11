@@ -88,16 +88,17 @@ beforeSettings { settings ->
                     def v = System.getProperty("ktor_version")
                     if (v != null) {
                         try {
-                            def url = new URL("https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/plugin/io.ktor.plugin.gradle.plugin/${'$'}v/io.ktor.plugin.gradle.plugin-${'$'}v.pom")
+                            def urlStr = "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/plugin/io.ktor.plugin.gradle.plugin/" + v + "/io.ktor.plugin.gradle.plugin-" + v + ".pom"
+                            def url = new URL(urlStr)
                             def conn = (HttpURLConnection) url.openConnection()
                             conn.requestMethod = "HEAD"
                             if (conn.responseCode == 200 || conn.responseCode == 301 || conn.responseCode == 302 || conn.responseCode == 307) {
                                 useVersion(v)
                             } else {
-                                println("⚠️ Ktor plugin version ${'$'}v not found in EAP repo (HTTP ${'$'}{conn.responseCode}), using project version")
+                                println("⚠️ Ktor plugin version " + v + " not found in EAP repo (HTTP " + conn.responseCode + "), using project version")
                             }
                         } catch (Exception e) {
-                            println("⚠️ Failed to check Ktor plugin version ${'$'}v availability: ${'$'}{e.message}")
+                            println("⚠️ Failed to check Ktor plugin version " + v + " availability: " + e.message)
                         }
                     }
                 }
@@ -179,9 +180,27 @@ allprojects {
     }
     configurations.all {
         resolutionStrategy.eachDependency { details ->
-            if (details.requested.group == "io.ktor" && details.requested.name == "ktor-server-routing-openapi") {
+            if (details.requested.group == "io.ktor") {
                 def v = System.getProperty("ktor_version")
                 if (v != null) details.useVersion(v)
+            }
+            if (details.requested.group == "org.jetbrains.exposed") {
+                boolean hasExposedV1 = false
+                try {
+                    def srcDir = new File(project.projectDir, "src")
+                    if (srcDir.exists()) {
+                        srcDir.eachFileRecurse { file ->
+                            if (file.file && file.name.endsWith(".kt") && file.text.contains("org.jetbrains.exposed.v1")) {
+                                hasExposedV1 = true
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                if (!hasExposedV1) {
+                    def v = System.getProperty("exposed_version")
+                    if (v != null) details.useVersion(v)
+                }
             }
             if (details.requested.group == "androidx.annotation" && details.requested.name == "annotation") {
                  if (project.plugins.hasPlugin("org.jetbrains.kotlin.jvm") || project.plugins.hasPlugin("java")) {
@@ -197,10 +216,6 @@ allprojects {
     }
     afterProject { p ->
         p.extensions.extraProperties.set("mainClassName", "io.ktor.server.netty.EngineMain")
-        def kotlinExtension = p.extensions.findByName("kotlin")
-        if (kotlinExtension != null && kotlinExtension.respondsTo("jvmToolchain")) {
-            kotlinExtension.jvmToolchain(17)
-        }
         p.afterEvaluate {
             p.tasks.matching { it.name == "shadowJar" }.configureEach {
                 try {
