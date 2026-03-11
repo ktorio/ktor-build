@@ -123,8 +123,9 @@ beforeSettings { settings ->
             google()
         }
     }
+}
 
-gradle.allprojects {
+allprojects {
     configurations.all {
         resolutionStrategy.dependencySubstitution {
             substitute module("androidx.graphics:graphics-shapes") using module("androidx.graphics:graphics-shapes-android:1.0.1")
