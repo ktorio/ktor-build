@@ -70,37 +70,28 @@ object InternalTestSuitesStep {
             # Create EAP Gradle init script with correct Groovy syntax
             echo "Creating EAP Gradle init script..."
             mkdir -p samples
+            if [ ! -d "samples/.git" ]; then
+                echo "Cloning Ktor Samples repository..."
+                git clone https://github.com/ktorio/ktor-samples.git samples --depth 1
+            fi
             cat > samples/gradle-eap-init.gradle <<EOF
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.initialization.resolve.RepositoriesMode
-
-allprojects {
-    repositories {
-        maven {
-            url "https://redirector.kotlinlang.org/maven/ktor-eap"
-        }
-        maven {
-            url "https://redirector.kotlinlang.org/maven/compose-dev"
-        }
-        maven {
-            url "https://redirector.kotlinlang.org/maven/dev"
-        }
-        mavenCentral()
-        google()
-    }
-}
 
 beforeSettings { settings ->
     settings.pluginManagement {
         repositories {
             maven {
-                url "https://redirector.kotlinlang.org/maven/ktor-eap"
+                url = "https://redirector.kotlinlang.org/maven/ktor-eap"
             }
             maven {
-                url "https://redirector.kotlinlang.org/maven/compose-dev"
+                url = "https://redirector.kotlinlang.org/maven/dev"
             }
             maven {
-                url "https://redirector.kotlinlang.org/maven/dev"
+                url = "https://redirector.kotlinlang.org/maven/compose-dev"
+            }
+            maven {
+                url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
             }
             mavenCentral()
             gradlePluginPortal()
@@ -111,20 +102,24 @@ beforeSettings { settings ->
 
 settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
-        try {
-            repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-        } catch (Exception e) {
-            println "Note: Could not set repositoriesMode.PREFER_SETTINGS via init script: " + e.message
-        }
         repositories {
             maven {
-                url "https://redirector.kotlinlang.org/maven/ktor-eap"
+                url = "https://redirector.kotlinlang.org/maven/ktor-eap"
             }
             maven {
-                url "https://redirector.kotlinlang.org/maven/compose-dev"
+                url = "https://redirector.kotlinlang.org/maven/dev"
             }
             maven {
-                url "https://redirector.kotlinlang.org/maven/dev"
+                url = "https://redirector.kotlinlang.org/maven/compose-dev"
+            }
+            maven {
+                url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
+            }
+            maven {
+                url = "https://maven.google.com/"
+            }
+            maven {
+                url = "https://plugins.gradle.org/m2/"
             }
             mavenCentral()
             google()
@@ -133,6 +128,22 @@ settingsEvaluated { settings ->
 }
 
 allprojects {
+    repositories {
+        maven {
+            url = "https://redirector.kotlinlang.org/maven/ktor-eap"
+        }
+        maven {
+            url = "https://redirector.kotlinlang.org/maven/dev"
+        }
+        maven {
+            url = "https://redirector.kotlinlang.org/maven/compose-dev"
+        }
+        maven {
+            url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
+        }
+        mavenCentral()
+        google()
+    }
     configurations.all {
         resolutionStrategy.dependencySubstitution {
             substitute module("androidx.graphics:graphics-shapes") using module("androidx.graphics:graphics-shapes-android:1.0.1")
@@ -197,11 +208,12 @@ ktor_version=${'$'}KTOR_VERSION
 kotlin_version=${'$'}KOTLIN_VERSION
 ktor_compiler_plugin_version=${'$'}KTOR_COMPILER_PLUGIN_VERSION
 logback_version=1.4.14
-exposed_version=0.59.0
-mongodb_version=5.3.1
-opentelemetry_version=1.46.0
-opentelemetry_sdk_extension_autoconfigure_version=1.46.0
-opentelemetry_exporter_otlp_version=1.46.0
+exposed_version=0.58.0
+mongodb_version=5.1.0
+opentelemetry_version=2.14.0
+opentelemetry_semconv_version=1.28.0-alpha
+opentelemetry_sdk_extension_autoconfigure_version=1.56.0
+opentelemetry_exporter_otlp_version=1.56.0
 brotli_version=1.1.0
 h2_version=2.3.232
 kotlin.mpp.stability.nowarn=true
@@ -214,6 +226,8 @@ org.gradle.java.installations.auto-download=true
 org.gradle.java.installations.auto-detect=true
 org.gradle.java.installations.fromEnv=true
 org.gradle.java.installations.paths=${'$'}JAVA_HOME
+systemProp.org.gradle.java.installations.auto-download=true
+systemProp.org.gradle.java.installations.auto-detect=true
 EOF
             
             echo "Setup completed successfully"
