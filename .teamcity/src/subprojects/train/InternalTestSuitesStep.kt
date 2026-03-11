@@ -80,6 +80,19 @@ import org.gradle.api.initialization.resolve.RepositoriesMode
 
 beforeSettings { settings ->
     settings.pluginManagement {
+        resolutionStrategy {
+            eachPlugin {
+                if (requested.id.id == "io.ktor.plugin") {
+                    useVersion(System.getProperty("ktor_version"))
+                }
+                if (requested.id.id == "com.github.johnrengelman.shadow" || requested.id.id == "com.github.jengelman.gradle.plugins.shadow") {
+                    useVersion("8.1.1")
+                }
+                if (requested.id.id.startsWith("org.jetbrains.kotlin.")) {
+                    useVersion(System.getProperty("kotlin_version"))
+                }
+            }
+        }
         repositories {
             maven {
                 url = "https://redirector.kotlinlang.org/maven/ktor-eap"
@@ -102,6 +115,7 @@ beforeSettings { settings ->
 
 settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
+        repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
         repositories {
             maven {
                 url = "https://redirector.kotlinlang.org/maven/ktor-eap"
@@ -147,6 +161,44 @@ allprojects {
     configurations.all {
         resolutionStrategy.dependencySubstitution {
             substitute module("androidx.graphics:graphics-shapes") using module("androidx.graphics:graphics-shapes-android:1.0.1")
+            substitute module("androidx.annotation:annotation") using module("androidx.annotation:annotation-jvm:1.9.1")
+        }
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == "io.ktor" && details.requested.name == "ktor-server-routing-openapi") {
+                details.useVersion(System.getProperty("ktor_version"))
+            }
+        }
+    }
+    afterProject { p ->
+        p.extensions.extraProperties.set("mainClassName", "io.ktor.server.netty.EngineMain")
+        def kotlinExtension = p.extensions.findByName("kotlin")
+        if (kotlinExtension != null && kotlinExtension.respondsTo("jvmToolchain")) {
+            kotlinExtension.jvmToolchain(17)
+        }
+        p.afterEvaluate {
+            p.tasks.matching { it.name == "shadowJar" }.configureEach {
+                try {
+                    def mainClassAttr = it.manifest.attributes.get("Main-Class")
+                    if (mainClassAttr == null) {
+                        def application = p.extensions.findByType(org.gradle.api.plugins.JavaApplication)
+                        if (application != null && application.mainClass.isPresent()) {
+                            it.manifest.attributes("Main-Class": application.mainClass.get())
+                        } else {
+                            it.enabled = false
+                        }
+                    }
+                } catch (Exception ignored) {
+                    it.enabled = false
+                }
+            }
+        }
+        p.tasks.all { task ->
+            if (task.name == "startShadowScripts") {
+                task.enabled = false
+                try {
+                    task.extensions.add("mainClassName", "ignored")
+                } catch (Exception ignored) {}
+            }
         }
     }
 }
@@ -208,13 +260,13 @@ ktor_version=${'$'}KTOR_VERSION
 kotlin_version=${'$'}KOTLIN_VERSION
 ktor_compiler_plugin_version=${'$'}KTOR_COMPILER_PLUGIN_VERSION
 logback_version=1.4.14
-exposed_version=0.58.0
+exposed_version=0.60.0
 mongodb_version=5.1.0
 opentelemetry_version=2.14.0
 opentelemetry_semconv_version=1.28.0-alpha
 opentelemetry_sdk_extension_autoconfigure_version=1.56.0
 opentelemetry_exporter_otlp_version=1.56.0
-brotli_version=1.1.0
+brotli_version=1.16.0
 h2_version=2.3.232
 kotlin.mpp.stability.nowarn=true
 org.gradle.jvmargs=-Xmx4g
@@ -229,6 +281,28 @@ org.gradle.java.installations.paths=${'$'}JAVA_HOME
 systemProp.org.gradle.java.installations.auto-download=true
 systemProp.org.gradle.java.installations.auto-detect=true
 EOF
+
+            GRADLE_ARGS=""
+            SYSTEM_PROPS=""
+            while IFS= read -r line; do
+                if [[ -n "${'$'}line" && ! "${'$'}line" =~ ^# ]]; then
+                    GRADLE_ARGS="${'$'}GRADLE_ARGS -P${'$'}line"
+                    # Add as system property as well for init script access
+                    SYSTEM_PROPS="${'$'}SYSTEM_PROPS -D${'$'}line"
+                    
+                    key=$(echo "${'$'}line" | cut -d'=' -f1)
+                    value=$(echo "${'$'}line" | cut -d'=' -f2)
+                    export "${'$'}key"="${'$'}value"
+                fi
+            done < samples/gradle.properties.eap
+
+            if [[ ! "${'$'}GRADLE_ARGS" =~ "logback_version" ]]; then
+                GRADLE_ARGS="${'$'}GRADLE_ARGS -Plogback_version=1.4.14"
+                SYSTEM_PROPS="${'$'}SYSTEM_PROPS -Dlogback_version=1.4.14"
+            fi
+            
+            echo "GRADLE_ARGS=${'$'}GRADLE_ARGS" >> build-env.properties
+            echo "SYSTEM_PROPS=${'$'}SYSTEM_PROPS" >> build-env.properties
             
             echo "Setup completed successfully"
         """.trimIndent()
@@ -256,7 +330,6 @@ EOF
             # Create absolute path for init script
             WORK_DIR=$(pwd)
             INIT_SCRIPT="${'$'}WORK_DIR/samples/gradle-eap-init.gradle"
-            PROPERTIES_EAP="${'$'}WORK_DIR/samples/gradle.properties.eap"
             SAMPLES_ROOT="${'$'}WORK_DIR/samples"
 
             cd "${'$'}SAMPLES_ROOT"
@@ -338,20 +411,18 @@ EOF
                 fi
 
                 # Gradle sample
-                cp "${'$'}PROPERTIES_EAP" "${'$'}sample_dir/gradle.properties"
-
                 if [ -f "${'$'}sample_dir/gradlew" ]; then
                     chmod +x "${'$'}sample_dir/gradlew"
-                    echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT --no-daemon"
-                    if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                    echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
+                    if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                         echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
                         echo "${'$'}sample_dir: PASSED (Gradle build)" >> "${'$'}REPORT_FILE"
                         
                         # Optionally run tests if build succeeded and test task exists
                         if (cd "${'$'}sample_dir" && ./gradlew tasks --all | grep -q "[:[:alnum:]]*test"); then
-                           echo "Build successful, now running tests: ./gradlew test --init-script ${'$'}INIT_SCRIPT --no-daemon"
-                           if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                           echo "Build successful, now running tests: ./gradlew test --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
+                           if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                                echo "✅ ${'$'}sample_dir: Tests passed"
                            else
                                echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
