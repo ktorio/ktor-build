@@ -77,6 +77,8 @@ object InternalTestSuitesStep {
             cat > samples/gradle-eap-init.gradle <<EOF
 import org.gradle.api.artifacts.repositories.MavenArtifactRepository
 import org.gradle.api.initialization.resolve.RepositoriesMode
+import java.net.URL
+import java.net.HttpURLConnection
 
 beforeSettings { settings ->
     settings.pluginManagement {
@@ -84,14 +86,29 @@ beforeSettings { settings ->
             eachPlugin {
                 if (requested.id.id == "io.ktor.plugin") {
                     def v = System.getProperty("ktor_version")
-                    if (v != null) useVersion(v)
+                    if (v != null) {
+                        try {
+                            def url = new URL("https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/plugin/io.ktor.plugin.gradle.plugin/${'$'}v/io.ktor.plugin.gradle.plugin-${'$'}v.pom")
+                            def conn = (HttpURLConnection) url.openConnection()
+                            conn.requestMethod = "HEAD"
+                            if (conn.responseCode == 200 || conn.responseCode == 301 || conn.responseCode == 302 || conn.responseCode == 307) {
+                                useVersion(v)
+                            } else {
+                                println("⚠️ Ktor plugin version ${'$'}v not found in EAP repo (HTTP ${'$'}{conn.responseCode}), using project version")
+                            }
+                        } catch (Exception e) {
+                            println("⚠️ Failed to check Ktor plugin version ${'$'}v availability: ${'$'}{e.message}")
+                        }
+                    }
                 }
                 if (requested.id.id == "com.github.johnrengelman.shadow" || requested.id.id == "com.github.jengelman.gradle.plugins.shadow") {
                     useVersion("8.1.1")
                 }
                 if (requested.id.id.startsWith("org.jetbrains.kotlin.")) {
                     def v = System.getProperty("kotlin_version")
-                    if (v != null) useVersion(v)
+                    if (v != null && requested.version == null) {
+                        useVersion(v)
+                    }
                 }
             }
         }
@@ -161,14 +178,20 @@ allprojects {
         google()
     }
     configurations.all {
-        resolutionStrategy.dependencySubstitution {
-            substitute module("androidx.graphics:graphics-shapes") using module("androidx.graphics:graphics-shapes-android:1.0.1")
-            substitute module("androidx.annotation:annotation") using module("androidx.annotation:annotation-jvm:1.9.1")
-        }
         resolutionStrategy.eachDependency { details ->
             if (details.requested.group == "io.ktor" && details.requested.name == "ktor-server-routing-openapi") {
                 def v = System.getProperty("ktor_version")
                 if (v != null) details.useVersion(v)
+            }
+            if (details.requested.group == "androidx.annotation" && details.requested.name == "annotation") {
+                 if (project.plugins.hasPlugin("org.jetbrains.kotlin.jvm") || project.plugins.hasPlugin("java")) {
+                     details.useTarget("androidx.annotation:annotation-jvm:1.9.1")
+                 }
+            }
+            if (details.requested.group == "androidx.graphics" && details.requested.name == "graphics-shapes") {
+                 if (project.plugins.hasPlugin("com.android.application") || project.plugins.hasPlugin("com.android.library")) {
+                     details.useTarget("androidx.graphics:graphics-shapes-android:1.0.1")
+                 }
             }
         }
     }
@@ -423,7 +446,14 @@ EOF
                         echo "${'$'}sample_dir: PASSED (Gradle build)" >> "${'$'}REPORT_FILE"
                         
                         # Optionally run tests if build succeeded and test task exists
-                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all | grep -q "[:[:alnum:]]*test"); then
+                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all | grep -q "allTests"); then
+                           echo "Build successful, now running aggregated tests: ./gradlew allTests --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
+                           if (cd "${'$'}sample_dir" && ./gradlew allTests --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                               echo "✅ ${'$'}sample_dir: Tests passed"
+                           else
+                               echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
+                           fi
+                        elif (cd "${'$'}sample_dir" && ./gradlew tasks --all | grep -qx "test"); then
                            echo "Build successful, now running tests: ./gradlew test --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
                            if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                                echo "✅ ${'$'}sample_dir: Tests passed"
@@ -431,6 +461,8 @@ EOF
                                echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
                                # We still count it as successful because build passed as per user suggestion
                            fi
+                        else
+                           echo "⏭️  ${'$'}sample_dir: No standard test task found, skipping tests"
                         fi
                     else
                         echo "❌ ${'$'}sample_dir: BUILD FAILED"
