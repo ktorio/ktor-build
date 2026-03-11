@@ -108,7 +108,11 @@ beforeSettings { settings ->
         }
     }
     settings.dependencyResolutionManagement {
-        repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+        try {
+            repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+        } catch (Exception e) {
+            println "Note: Could not set repositoriesMode.PREFER_SETTINGS via init script: " + e.message
+        }
         repositories {
             maven {
                 url "https://redirector.kotlinlang.org/maven/ktor-eap"
@@ -194,6 +198,7 @@ exposed_version=0.59.0
 mongodb_version=5.3.1
 opentelemetry_version=1.46.0
 opentelemetry_sdk_extension_autoconfigure_version=1.46.0
+opentelemetry_exporter_otlp_version=1.46.0
 brotli_version=1.1.0
 h2_version=2.3.232
 kotlin.mpp.stability.nowarn=true
@@ -205,6 +210,7 @@ org.gradle.warning.mode=all
 org.gradle.java.installations.auto-download=true
 org.gradle.java.installations.auto-detect=true
 org.gradle.java.installations.fromEnv=true
+org.gradle.java.installations.paths=${'$'}JAVA_HOME
 EOF
             
             echo "Setup completed successfully"
