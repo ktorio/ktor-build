@@ -64,8 +64,8 @@ object InternalTestSuitesStep {
             mkdir -p "${'$'}REPORTS_DIR"
             
             # Store the absolute path in environment
-            echo "REPORTS_DIR=${'$'}REPORTS_DIR" > build-env.properties
-            echo "KOTLIN_VERSION=${'$'}KOTLIN_VERSION" >> build-env.properties
+            echo "REPORTS_DIR=\"${'$'}REPORTS_DIR\"" > build-env.properties
+            echo "KOTLIN_VERSION=\"${'$'}KOTLIN_VERSION\"" >> build-env.properties
 
             # Create EAP Gradle init script with correct Groovy syntax
             echo "Creating EAP Gradle init script..."
@@ -83,13 +83,15 @@ beforeSettings { settings ->
         resolutionStrategy {
             eachPlugin {
                 if (requested.id.id == "io.ktor.plugin") {
-                    useVersion(System.getProperty("ktor_version"))
+                    def v = System.getProperty("ktor_version")
+                    if (v != null) useVersion(v)
                 }
                 if (requested.id.id == "com.github.johnrengelman.shadow" || requested.id.id == "com.github.jengelman.gradle.plugins.shadow") {
                     useVersion("8.1.1")
                 }
                 if (requested.id.id.startsWith("org.jetbrains.kotlin.")) {
-                    useVersion(System.getProperty("kotlin_version"))
+                    def v = System.getProperty("kotlin_version")
+                    if (v != null) useVersion(v)
                 }
             }
         }
@@ -165,7 +167,8 @@ allprojects {
         }
         resolutionStrategy.eachDependency { details ->
             if (details.requested.group == "io.ktor" && details.requested.name == "ktor-server-routing-openapi") {
-                details.useVersion(System.getProperty("ktor_version"))
+                def v = System.getProperty("ktor_version")
+                if (v != null) details.useVersion(v)
             }
         }
     }
@@ -301,8 +304,8 @@ EOF
                 SYSTEM_PROPS="${'$'}SYSTEM_PROPS -Dlogback_version=1.4.14"
             fi
             
-            echo "GRADLE_ARGS=${'$'}GRADLE_ARGS" >> build-env.properties
-            echo "SYSTEM_PROPS=${'$'}SYSTEM_PROPS" >> build-env.properties
+            echo "GRADLE_ARGS=\"${'$'}GRADLE_ARGS\"" >> build-env.properties
+            echo "SYSTEM_PROPS=\"${'$'}SYSTEM_PROPS\"" >> build-env.properties
             
             echo "Setup completed successfully"
         """.trimIndent()
