@@ -290,8 +290,7 @@ EOF
                     echo "Sending Slack notification..."
                     BUILD_NUMBER=$(echo "${'$'}{BUILD_NUMBER:-}")
                     if [ -z "${'$'}BUILD_NUMBER" ]; then
-                        # Fallback to TeamCity parameter if environment variable is not set
-                        BUILD_NUMBER="%build.number%"
+                        BUILD_NUMBER="unknown"
                     fi
                     
                     STATUS_EMOJI=$(echo "%quality.gate.slack.status.emoji%" | grep -v "^%quality\.gate\.slack\.status\.emoji%$" || echo "⏳")
@@ -303,10 +302,7 @@ EOF
                     if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
                         SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER passed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
                     else
-                        TC_STATUS=$(echo "${'$'}{TEAMCITY_BUILD_STATUS_TEXT:-}")
-                        if [ -z "${'$'}TC_STATUS" ]; then
-                            TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "")
-                        fi
+                        TC_STATUS=$(echo "${'$'}{TEAMCITY_BUILD_STATUS_TEXT:-unknown}")
                         SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failed"
                         if [ -n "${'$'}TC_STATUS" ]; then
                             SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Status: ${'$'}{TC_STATUS};"
