@@ -328,6 +328,105 @@ EOF
         }
 
         steps.script {
+            name = "Step 3: Internal Test Suites - Run Plugin Samples"
+            scriptContent = """
+            #!/bin/bash
+            
+            echo "=== Step 3: Internal Test Suites - Build Plugin Samples ==="
+            
+            if [ -f build-env.properties ]; then
+                source build-env.properties
+            else
+                echo "❌ Environment file not found - setup step failed"
+                exit 1
+            fi
+
+            echo "Validating build plugin samples against EAP versions"
+            echo "Ktor Version: %env.KTOR_VERSION%"
+            echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
+            
+            BUILD_PLUGIN_DIR="${'$'}PWD/ktor-build-plugins"
+            INIT_SCRIPT="${'$'}PWD/samples/gradle-eap-init.gradle"
+
+            if [ ! -d "${'$'}BUILD_PLUGIN_DIR" ]; then
+                echo "⚠️  Build plugin repository not found at ${'$'}BUILD_PLUGIN_DIR, attempting to clone..."
+                git clone https://github.com/ktorio/ktor-build-plugins.git "${'$'}BUILD_PLUGIN_DIR" --depth 1
+            fi
+            
+            echo "✅ Using ktor-build-plugins repository: ${'$'}BUILD_PLUGIN_DIR"
+
+            check_deprecation_warnings_only() {
+                local log_file="${'$'}1"
+                if grep -q "DeprecationWarning" "${'$'}log_file" || grep -q "OpenJDK.*warning.*Sharing is only supported" "${'$'}log_file"; then
+                    if ! grep -q -E "(BUILD FAILED|COMPILATION ERROR|Test.*FAILED|Error:|Exception:|Failed to|Cannot resolve)" "${'$'}log_file"; then
+                        return 0  
+                    fi
+                fi
+                return 1  
+            }
+
+            validate_build_plugin_sample() {
+                local sample_name="${'$'}1"
+                local sample_dir="${'$'}BUILD_PLUGIN_DIR/samples/${'$'}sample_name"
+                local log_file="${'$'}REPORTS_DIR/plugin-sample-${'$'}sample_name.log"
+                
+                echo "🔄 [BUILD PLUGIN] Starting validation of sample: ${'$'}sample_name"
+                
+                if [ ! -d "${'$'}sample_dir" ]; then
+                    echo "⚠️  Build plugin sample ${'$'}sample_name: DIRECTORY_NOT_FOUND - skipping"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/skipped-plugin-samples.log"
+                    return 0
+                fi
+
+                echo "🔧 Building plugin sample: ${'$'}sample_name"
+                export NODE_OPTIONS="--no-deprecation --no-warnings"
+                
+                # Run build from ktor-build-plugins root using include-build
+                if (cd "${'$'}BUILD_PLUGIN_DIR" && timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) > "${'$'}log_file" 2>&1; then
+                    echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-plugin-samples.log"
+                elif check_deprecation_warnings_only "${'$'}log_file"; then
+                    echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL (deprecation warnings ignored)"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-plugin-samples.log"
+                else
+                    echo "❌ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD FAILED"
+                    echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-plugin-samples.log"
+                    tail -n 10 "${'$'}log_file" || true
+                fi
+            }
+            
+            # Discover build plugin samples
+            BUILD_PLUGIN_SAMPLES=()
+            if [ -d "${'$'}BUILD_PLUGIN_DIR/samples" ]; then
+                for d in "${'$'}BUILD_PLUGIN_DIR/samples"/*; do
+                    [ -d "${'$'}d" ] || continue
+                    sample_name="$(basename "${'$'}d")"
+                    if [[ "${'$'}sample_name" =~ ^(\.git|\.github|\.idea|\.gradle|gradle|buildSrc|docs?|scripts?|out|build|tmp|node_modules)$ ]]; then
+                        continue
+                    fi
+                    if [ -f "${'$'}d/build.gradle.kts" ] || [ -f "${'$'}d/build.gradle" ] || [ -f "${'$'}d/pom.xml" ]; then
+                        BUILD_PLUGIN_SAMPLES+=("${'$'}sample_name")
+                    fi
+                done
+            fi
+            
+            if [ "${'$'}{#BUILD_PLUGIN_SAMPLES[@]}" -eq 0 ]; then
+                echo "⚠️  No build plugin samples discovered in ${'$'}BUILD_PLUGIN_DIR/samples"
+            else
+                echo "Discovered ${'$'}{#BUILD_PLUGIN_SAMPLES[@]} build plugin samples:"
+                printf '  - %s\n' "${'$'}{BUILD_PLUGIN_SAMPLES[@]}" | sort
+            fi
+            
+            echo "=== Processing Build Plugin Samples ==="
+            for sample in "${'$'}{BUILD_PLUGIN_SAMPLES[@]}"; do
+                validate_build_plugin_sample "${'$'}sample"
+            done
+            
+            echo "=== Build plugin samples validation completed ==="
+        """.trimIndent()
+        }
+
+        steps.script {
             name = "Step 3: Internal Test Suites - Run Samples"
             scriptContent = """
             #!/bin/bash
@@ -469,6 +568,26 @@ EOF
                     echo "${'$'}sample_dir: SKIPPED (No Gradle wrapper)" >> "${'$'}REPORT_FILE"
                 fi
             done
+
+            # Build Plugin Samples
+            if [ -f "${'$'}REPORTS_DIR/successful-plugin-samples.log" ]; then
+                count=$(wc -l < "${'$'}REPORTS_DIR/successful-plugin-samples.log" | xargs)
+                SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + count))
+                TOTAL_COUNT=$((TOTAL_COUNT + count))
+                echo "Adding ${'$'}count successful plugin samples to summary"
+            fi
+            if [ -f "${'$'}REPORTS_DIR/failed-plugin-samples.log" ]; then
+                count=$(wc -l < "${'$'}REPORTS_DIR/failed-plugin-samples.log" | xargs)
+                FAILED_COUNT=$((FAILED_COUNT + count))
+                TOTAL_COUNT=$((TOTAL_COUNT + count))
+                echo "Adding ${'$'}count failed plugin samples to summary"
+            fi
+            if [ -f "${'$'}REPORTS_DIR/skipped-plugin-samples.log" ]; then
+                count=$(wc -l < "${'$'}REPORTS_DIR/skipped-plugin-samples.log" | xargs)
+                SKIPPED_COUNT=$((SKIPPED_COUNT + count))
+                TOTAL_COUNT=$((TOTAL_COUNT + count))
+                echo "Adding ${'$'}count skipped plugin samples to summary"
+            fi
 
             echo "-----------------------------------"
             echo "Internal Validation Summary:"
