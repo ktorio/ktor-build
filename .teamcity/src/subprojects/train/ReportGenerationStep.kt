@@ -305,13 +305,13 @@ EOF
                     else
                         TC_STATUS=$(echo "${'$'}{TEAMCITY_BUILD_STATUS_TEXT:-}")
                         if [ -z "${'$'}TC_STATUS" ]; then
-                            TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "unknown")
+                            TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "")
                         fi
-                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failedStatus: "
+                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failed"
                         if [ -n "${'$'}TC_STATUS" ]; then
-                            SLACK_MESSAGE="${'$'}SLACK_MESSAGE${'$'}TC_STATUS; "
+                            SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Status: ${'$'}{TC_STATUS};"
                         fi
-                        SLACK_MESSAGE="${'$'}SLACK_MESSAGEquality gate validation failed (new) (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+                        SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Quality gate validation failed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
                     fi
                     
                     curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${'$'}SLACK_MESSAGE\"}" "${'$'}SLACK_WEBHOOK_URL" > /dev/null 2>&1 || true
