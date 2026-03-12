@@ -102,9 +102,6 @@ beforeSettings { settings ->
                         }
                     }
                 }
-                if (requested.id.id == "com.github.johnrengelman.shadow" || requested.id.id == "com.github.jengelman.gradle.plugins.shadow") {
-                    useVersion("8.1.1")
-                }
                 if (requested.id.id.startsWith("org.jetbrains.kotlin.")) {
                     def v = System.getProperty("kotlin_version")
                     if (v != null && requested.version == null) {
@@ -183,34 +180,6 @@ allprojects {
             if (details.requested.group == "io.ktor") {
                 def v = System.getProperty("ktor_version")
                 if (v != null) details.useVersion(v)
-            }
-            if (details.requested.group == "org.jetbrains.exposed") {
-                boolean hasExposedV1 = false
-                try {
-                    def srcDir = new File(project.projectDir, "src")
-                    if (srcDir.exists()) {
-                        srcDir.eachFileRecurse { file ->
-                            if (file.file && file.name.endsWith(".kt") && file.text.contains("org.jetbrains.exposed.v1")) {
-                                hasExposedV1 = true
-                            }
-                        }
-                    }
-                } catch (Exception ignored) {}
-
-                if (!hasExposedV1) {
-                    def v = System.getProperty("exposed_version")
-                    if (v != null) details.useVersion(v)
-                }
-            }
-            if (details.requested.group == "androidx.annotation" && details.requested.name == "annotation") {
-                 if (project.plugins.hasPlugin("org.jetbrains.kotlin.jvm") || project.plugins.hasPlugin("java")) {
-                     details.useTarget("androidx.annotation:annotation-jvm:1.9.1")
-                 }
-            }
-            if (details.requested.group == "androidx.graphics" && details.requested.name == "graphics-shapes") {
-                 if (project.plugins.hasPlugin("com.android.application") || project.plugins.hasPlugin("com.android.library")) {
-                     details.useTarget("androidx.graphics:graphics-shapes-android:1.0.1")
-                 }
             }
         }
     }
@@ -300,15 +269,6 @@ EOF
 ktor_version=${'$'}KTOR_VERSION
 kotlin_version=${'$'}KOTLIN_VERSION
 ktor_compiler_plugin_version=${'$'}KTOR_COMPILER_PLUGIN_VERSION
-logback_version=1.4.14
-exposed_version=0.60.0
-mongodb_version=5.1.0
-opentelemetry_version=2.14.0
-opentelemetry_semconv_version=1.28.0-alpha
-opentelemetry_sdk_extension_autoconfigure_version=1.56.0
-opentelemetry_exporter_otlp_version=1.56.0
-brotli_version=1.16.0
-h2_version=2.3.232
 kotlin.mpp.stability.nowarn=true
 org.gradle.jvmargs=-Xmx4g
 org.gradle.daemon=false
@@ -336,11 +296,6 @@ EOF
                     export "${'$'}key"="${'$'}value"
                 fi
             done < samples/gradle.properties.eap
-
-            if [[ ! "${'$'}GRADLE_ARGS" =~ "logback_version" ]]; then
-                GRADLE_ARGS="${'$'}GRADLE_ARGS -Plogback_version=1.4.14"
-                SYSTEM_PROPS="${'$'}SYSTEM_PROPS -Dlogback_version=1.4.14"
-            fi
             
             echo "GRADLE_ARGS=\"${'$'}GRADLE_ARGS\"" >> build-env.properties
             echo "SYSTEM_PROPS=\"${'$'}SYSTEM_PROPS\"" >> build-env.properties
