@@ -266,6 +266,50 @@ EOF
 
                 echo "HTML report generated at quality-gate-reports/quality-gate-report.html"
                 
+                # Choose emojis based on status
+                if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                    MAIN_EMOJI="✅"
+                    STATUS_COLOR="SUCCESS"
+                else
+                    MAIN_EMOJI="❌"
+                    STATUS_COLOR="FAILED"
+                fi
+
+                # Create enhanced build status text with key metrics
+                STATUS_LINE1="${'$'}MAIN_EMOJI EAP ${'$'}KTOR_VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
+                STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
+
+                # Combine into single-line status for TeamCity service message
+                STATUS_TEXT="${'$'}STATUS_LINE1 | ${'$'}STATUS_LINE2"
+
+                echo "##teamcity[buildStatus text='${'$'}STATUS_TEXT']"
+
+                # Send Slack notification
+                SLACK_WEBHOOK_URL=$(echo "%env.SLACK_WEBHOOK_URL%" | grep -v "^%env\.SLACK_WEBHOOK_URL%$" || echo "")
+                if [ -n "${'$'}SLACK_WEBHOOK_URL" ]; then
+                    echo "Sending Slack notification..."
+                    BUILD_NUMBER="%build.number%"
+                    
+                    STATUS_EMOJI=$(echo "%quality.gate.slack.status.emoji%" | grep -v "^%quality\.gate\.slack\.status\.emoji%$" || echo "⏳")
+                    
+                    PROJECT_NAME=$(echo "%system.teamcity.projectName%" | grep -v "^%system\.teamcity\.projectName%$")
+                    BUILD_TYPE_NAME=$(echo "%teamcity.buildType.name%" | grep -v "^%teamcity\.buildType\.name%$")
+                    PROJECT_PATH="${'$'}PROJECT_NAME / ${'$'}BUILD_TYPE_NAME"
+                    
+                    if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER passed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+                    else
+                        TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "")
+                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failedStatus: "
+                        if [ -n "${'$'}TC_STATUS" ]; then
+                            SLACK_MESSAGE="${'$'}SLACK_MESSAGE${'$'}TC_STATUS; "
+                        fi
+                        SLACK_MESSAGE="${'$'}SLACK_MESSAGEquality gate validation failed (new) (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+                    fi
+                    
+                    curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${'$'}SLACK_MESSAGE\"}" "${'$'}SLACK_WEBHOOK_URL" > /dev/null 2>&1 || true
+                fi
+                
                 echo "=== Step 5: Report Generation Completed ==="
             """.trimIndent()
         }
