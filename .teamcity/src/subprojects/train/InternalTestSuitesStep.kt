@@ -278,7 +278,7 @@ org.gradle.warning.mode=all
 org.gradle.java.installations.auto-download=true
 org.gradle.java.installations.auto-detect=true
 org.gradle.java.installations.fromEnv=true
-org.gradle.java.installations.paths=${'$'}JAVA_HOME
+org.gradle.java.installations.paths=${Env.JDK_LTS}
 systemProp.org.gradle.java.installations.auto-download=true
 systemProp.org.gradle.java.installations.auto-detect=true
 EOF
