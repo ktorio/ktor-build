@@ -305,7 +305,7 @@ EOF
                     else
                         TC_STATUS=$(echo "${'$'}{TEAMCITY_BUILD_STATUS_TEXT:-}")
                         if [ -z "${'$'}TC_STATUS" ]; then
-                            TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "")
+                            TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "unknown")
                         fi
                         SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failedStatus: "
                         if [ -n "${'$'}TC_STATUS" ]; then
