@@ -292,9 +292,9 @@ EOF
                     
                     STATUS_EMOJI=$(echo "%quality.gate.slack.status.emoji%" | grep -v "^%quality\.gate\.slack\.status\.emoji%$" || echo "⏳")
                     
-                    PROJECT_NAME=$(echo "%system.teamcity.projectName%" | grep -v "^%system\.teamcity\.projectName%$")
-                    BUILD_TYPE_NAME=$(echo "%teamcity.buildType.name%" | grep -v "^%teamcity\.buildType\.name%$")
-                    PROJECT_PATH="${'$'}PROJECT_NAME / ${'$'}BUILD_TYPE_NAME"
+                    TC_PROJECT_NAME=$(echo "${'$'}{TEAMCITY_PROJECT_NAME:-}" | grep -v "^$" || echo "%system.teamcity.projectName%" | grep -v "^%system\.teamcity\.projectName%$" || echo "JetBrains / Ktor")
+                    TC_BUILD_NAME=$(echo "${'$'}{TEAMCITY_BUILDCONF_NAME:-}" | grep -v "^$" || echo "%teamcity.buildType.name%" | grep -v "^%teamcity\.buildType\.name%$" || echo "Consolidated EAP Validation")
+                    PROJECT_PATH="${'$'}TC_PROJECT_NAME / ${'$'}TC_BUILD_NAME"
                     
                     if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
                         SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER passed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
