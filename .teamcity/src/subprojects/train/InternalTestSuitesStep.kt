@@ -64,10 +64,12 @@ object InternalTestSuitesStep {
             REPORTS_DIR="${'$'}PWD/internal-validation-reports"
             mkdir -p "${'$'}REPORTS_DIR"
             
+            JDK_VERSION="${JDKEntry.JavaLTS.version}"
+
             # Store the absolute path in environment
             echo "REPORTS_DIR=\"${'$'}REPORTS_DIR\"" > build-env.properties
             echo "KOTLIN_VERSION=\"${'$'}KOTLIN_VERSION\"" >> build-env.properties
-            echo "JDK_VERSION=\"${JDKEntry.JavaLTS.version}\"" >> build-env.properties
+            echo "JDK_VERSION=\"${'$'}JDK_VERSION\"" >> build-env.properties
 
             # Create EAP Gradle init script with correct Groovy syntax
             echo "Creating EAP Gradle init script..."
