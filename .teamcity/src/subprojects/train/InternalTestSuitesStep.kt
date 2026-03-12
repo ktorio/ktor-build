@@ -136,7 +136,7 @@ beforeSettings { settings ->
 
 settingsEvaluated { settings ->
     settings.dependencyResolutionManagement {
-        repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+        repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
         repositories {
             maven {
                 url = "https://redirector.kotlinlang.org/maven/ktor-eap"
@@ -381,10 +381,27 @@ EOF
                 echo "🔧 Building plugin sample: ${'$'}sample_name"
                 export NODE_OPTIONS="--no-deprecation --no-warnings"
                 
-                # Run build from ktor-build-plugins root using include-build
-                if (cd "${'$'}BUILD_PLUGIN_DIR" && timeout 300 ./gradlew clean build --include-build "samples/${'$'}sample_name" --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) > "${'$'}log_file" 2>&1; then
+                # Determine which gradlew to use
+                local gradlew_cmd="../../gradlew"
+                if [ -f "${'$'}sample_dir/gradlew" ]; then
+                    chmod +x "${'$'}sample_dir/gradlew"
+                    gradlew_cmd="./gradlew"
+                fi
+
+                # Run build from sample directory
+                if (cd "${'$'}sample_dir" && timeout 300 ${'$'}gradlew_cmd clean assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) > "${'$'}log_file" 2>&1; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL"
                     echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-plugin-samples.log"
+                    
+                    # Run tests if possible
+                    if (cd "${'$'}sample_dir" && ${'$'}gradlew_cmd tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon 2>/dev/null | grep -q "test"); then
+                        echo "Build successful, now running tests: ${'$'}gradlew_cmd test"
+                        if (cd "${'$'}sample_dir" && timeout 300 ${'$'}gradlew_cmd test --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}log_file" 2>&1; then
+                            echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: Tests passed"
+                        else
+                            echo "⚠️  [BUILD PLUGIN] Sample ${'$'}sample_name: Tests failed"
+                        fi
+                    fi
                 elif check_deprecation_warnings_only "${'$'}log_file"; then
                     echo "✅ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD SUCCESSFUL (deprecation warnings ignored)"
                     echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/successful-plugin-samples.log"
