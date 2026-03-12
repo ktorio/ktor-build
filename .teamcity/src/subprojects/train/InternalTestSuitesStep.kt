@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import dsl.*
 import subprojects.*
+import subprojects.build.*
 
 /**
  * Step 3: Internal Test Suites
@@ -66,6 +67,7 @@ object InternalTestSuitesStep {
             # Store the absolute path in environment
             echo "REPORTS_DIR=\"${'$'}REPORTS_DIR\"" > build-env.properties
             echo "KOTLIN_VERSION=\"${'$'}KOTLIN_VERSION\"" >> build-env.properties
+            echo "JDK_VERSION=\"${JDKEntry.JavaLTS.version}\"" >> build-env.properties
 
             # Create EAP Gradle init script with correct Groovy syntax
             echo "Creating EAP Gradle init script..."
@@ -185,6 +187,19 @@ allprojects {
     }
     afterProject { p ->
         p.extensions.extraProperties.set("mainClassName", "io.ktor.server.netty.EngineMain")
+        def jdkVersion = System.getProperty("jdk_version")
+        if (jdkVersion != null) {
+            def v = Integer.parseInt(jdkVersion)
+            p.plugins.withId("org.jetbrains.kotlin.jvm") {
+                def kotlin = p.extensions.findByName("kotlin")
+                if (kotlin != null && kotlin.hasProperty("jvmToolchain")) {
+                    kotlin.jvmToolchain(v)
+                }
+            }
+            if (p.hasProperty("java") && p.java.hasProperty("toolchain")) {
+                p.java.toolchain.languageVersion = JavaLanguageVersion.of(v)
+            }
+        }
         p.afterEvaluate {
             p.tasks.matching { it.name == "shadowJar" }.configureEach {
                 try {
@@ -266,6 +281,7 @@ EOF
             
             # Setup Gradle properties for EAP
             cat > samples/gradle.properties.eap <<EOF
+jdk_version=${'$'}JDK_VERSION
 ktor_version=${'$'}KTOR_VERSION
 kotlin_version=${'$'}KOTLIN_VERSION
 ktor_compiler_plugin_version=${'$'}KTOR_COMPILER_PLUGIN_VERSION
