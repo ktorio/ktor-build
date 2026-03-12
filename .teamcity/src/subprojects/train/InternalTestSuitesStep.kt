@@ -84,6 +84,23 @@ import org.gradle.api.initialization.resolve.RepositoriesMode
 import java.net.URL
 import java.net.HttpURLConnection
 
+def addEapRepos(handler) {
+    handler.maven {
+        url = "https://redirector.kotlinlang.org/maven/ktor-eap"
+    }
+    handler.maven {
+        url = "https://redirector.kotlinlang.org/maven/dev"
+    }
+    handler.maven {
+        url = "https://redirector.kotlinlang.org/maven/compose-dev"
+    }
+    handler.maven {
+        url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
+    }
+    handler.mavenCentral()
+    handler.google()
+}
+
 beforeSettings { settings ->
     settings.pluginManagement {
         resolutionStrategy {
@@ -115,80 +132,45 @@ beforeSettings { settings ->
             }
         }
         repositories {
-            maven {
-                url = "https://redirector.kotlinlang.org/maven/ktor-eap"
-            }
-            maven {
-                url = "https://redirector.kotlinlang.org/maven/dev"
-            }
-            maven {
-                url = "https://redirector.kotlinlang.org/maven/compose-dev"
-            }
-            maven {
-                url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
-            }
-            mavenCentral()
+            addEapRepos(it)
             gradlePluginPortal()
-            google()
         }
     }
 }
 
 settingsEvaluated { settings ->
-    settings.dependencyResolutionManagement {
-        repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-        repositories {
-            maven {
-                url = "https://redirector.kotlinlang.org/maven/ktor-eap"
-            }
-            maven {
-                url = "https://redirector.kotlinlang.org/maven/dev"
-            }
-            maven {
-                url = "https://redirector.kotlinlang.org/maven/compose-dev"
-            }
-            maven {
-                url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
-            }
+    def mode = settings.dependencyResolutionManagement.repositoriesMode.get()
+    gradle.ext.eap_repositories_mode = mode
+    if (mode != RepositoriesMode.PREFER_PROJECT) {
+        settings.dependencyResolutionManagement.repositories {
+            addEapRepos(it)
             maven {
                 url = "https://maven.google.com/"
             }
             maven {
                 url = "https://plugins.gradle.org/m2/"
             }
-            mavenCentral()
-            google()
         }
     }
 }
 
 allprojects {
-    repositories {
-        maven {
-            url = "https://redirector.kotlinlang.org/maven/ktor-eap"
-        }
-        maven {
-            url = "https://redirector.kotlinlang.org/maven/dev"
-        }
-        maven {
-            url = "https://redirector.kotlinlang.org/maven/compose-dev"
-        }
-        maven {
-            url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
-        }
-        mavenCentral()
-        google()
-    }
-    configurations.all {
-        resolutionStrategy.eachDependency { details ->
-            if (details.requested.group == "io.ktor") {
-                def v = System.getProperty("ktor_version")
-                if (v != null) details.useVersion(v)
+    afterProject { p ->
+        def mode = p.gradle.ext.has("eap_repositories_mode") ? p.gradle.ext.eap_repositories_mode : RepositoriesMode.PREFER_PROJECT
+        if (mode == RepositoriesMode.PREFER_PROJECT) {
+            p.repositories {
+                addEapRepos(it)
             }
         }
-    }
-    afterProject { p ->
         p.extensions.extraProperties.set("mainClassName", "io.ktor.server.netty.EngineMain")
+        p.configurations.all {
+            resolutionStrategy.eachDependency { details ->
+                if (details.requested.group == "io.ktor") {
+                    def v = System.getProperty("ktor_version")
+                    if (v != null) details.useVersion(v)
+                }
+            }
+        }
         def jdkVersion = System.getProperty("jdk_version")
         if (jdkVersion != null) {
             def v = Integer.parseInt(jdkVersion)
