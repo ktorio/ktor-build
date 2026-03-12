@@ -439,14 +439,14 @@ EOF
                         echo "${'$'}sample_dir: PASSED (Gradle build)" >> "${'$'}REPORT_FILE"
                         
                         # Optionally run tests if build succeeded and test task exists
-                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all | grep -q "allTests"); then
+                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon 2>/dev/null | grep -q "allTests"); then
                            echo "Build successful, now running aggregated tests: ./gradlew allTests --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
                            if (cd "${'$'}sample_dir" && ./gradlew allTests --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                                echo "✅ ${'$'}sample_dir: Tests passed"
                            else
                                echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
                            fi
-                        elif (cd "${'$'}sample_dir" && ./gradlew tasks --all | grep -qx "test"); then
+                        elif (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon 2>/dev/null | grep -qx "test"); then
                            echo "Build successful, now running tests: ./gradlew test --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
                            if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                                echo "✅ ${'$'}sample_dir: Tests passed"
