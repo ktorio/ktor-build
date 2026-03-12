@@ -288,18 +288,25 @@ EOF
                 SLACK_WEBHOOK_URL=$(echo "%env.SLACK_WEBHOOK_URL%" | grep -v "^%env\.SLACK_WEBHOOK_URL%$" || echo "")
                 if [ -n "${'$'}SLACK_WEBHOOK_URL" ]; then
                     echo "Sending Slack notification..."
-                    BUILD_NUMBER="%build.number%"
+                    BUILD_NUMBER=$(echo "${'$'}{BUILD_NUMBER:-}")
+                    if [ -z "${'$'}BUILD_NUMBER" ]; then
+                        # Fallback to TeamCity parameter if environment variable is not set
+                        BUILD_NUMBER="%build.number%"
+                    fi
                     
                     STATUS_EMOJI=$(echo "%quality.gate.slack.status.emoji%" | grep -v "^%quality\.gate\.slack\.status\.emoji%$" || echo "⏳")
                     
-                    TC_PROJECT_NAME=$(echo "${'$'}{TEAMCITY_PROJECT_NAME:-}" | grep -v "^$" || echo "%system.teamcity.projectName%" | grep -v "^%system\.teamcity\.projectName%$" || echo "JetBrains / Ktor")
-                    TC_BUILD_NAME=$(echo "${'$'}{TEAMCITY_BUILDCONF_NAME:-}" | grep -v "^$" || echo "%teamcity.buildType.name%" | grep -v "^%teamcity\.buildType\.name%$" || echo "Consolidated EAP Validation")
+                    TC_PROJECT_NAME=$(echo "${'$'}{TEAMCITY_PROJECT_NAME:-JetBrains / Ktor}")
+                    TC_BUILD_NAME=$(echo "${'$'}{TEAMCITY_BUILDCONF_NAME:-Consolidated EAP Validation}")
                     PROJECT_PATH="${'$'}TC_PROJECT_NAME / ${'$'}TC_BUILD_NAME"
                     
                     if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
                         SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER passed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
                     else
-                        TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "")
+                        TC_STATUS=$(echo "${'$'}{TEAMCITY_BUILD_STATUS_TEXT:-}")
+                        if [ -z "${'$'}TC_STATUS" ]; then
+                            TC_STATUS=$(echo "%teamcity.build.status.text%" | grep -v "^%teamcity\.build\.status\.text%$" || echo "")
+                        fi
                         SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failedStatus: "
                         if [ -n "${'$'}TC_STATUS" ]; then
                             SLACK_MESSAGE="${'$'}SLACK_MESSAGE${'$'}TC_STATUS; "
