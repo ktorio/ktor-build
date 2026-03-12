@@ -201,6 +201,11 @@ allprojects {
             if (p.hasProperty("java") && p.java.hasProperty("toolchain")) {
                 p.java.toolchain.languageVersion = JavaLanguageVersion.of(v)
             }
+            p.tasks.withType(JavaCompile).configureEach {
+                it.javaCompiler = p.javaToolchains.compilerFor {
+                    languageVersion = JavaLanguageVersion.of(v)
+                }
+            }
         }
         p.afterEvaluate {
             p.tasks.matching { it.name == "shadowJar" }.configureEach {
