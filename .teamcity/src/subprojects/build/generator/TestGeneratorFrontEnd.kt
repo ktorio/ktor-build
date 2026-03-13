@@ -13,7 +13,7 @@ object TestGeneratorFrontEnd : BuildType({
     params {
         password("github.token.ktor.generator.website", VcsToken.PROJECT_GENERATOR, display = ParameterDisplay.HIDDEN)
 
-        password("env.GITHUB_TOKEN", value = "%github.actions.dispatch.pat%", display = ParameterDisplay.HIDDEN)
+        password("env.GITHUB_TOKEN", value = "%github.token.ktor.generator.website%", display = ParameterDisplay.HIDDEN)
 
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
