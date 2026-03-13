@@ -12,6 +12,7 @@ object TestGeneratorFrontEnd : BuildType({
 
     params {
         githubAppTokenRequirement(VcsToken.PROJECT_GENERATOR)
+        param("env.GITHUB_TOKEN", VcsToken.PROJECT_GENERATOR_RESOLVED)
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
     }
@@ -34,18 +35,21 @@ object TestGeneratorFrontEnd : BuildType({
                 REPO="ktor-generator-website"
                 WORKFLOW_FILE="playwright-tests.yml"
 
-                GITHUB_TOKEN="${VcsToken.PROJECT_GENERATOR_RESOLVED}"
+                GITHUB_TOKEN="%env.GITHUB_TOKEN%"
                 BRANCH_NAME="%teamcity.build.branch%"
                 SPACE_USERNAME="%env.SPACE_USERNAME%"
                 SPACE_PASSWORD="%env.SPACE_PASSWORD%"
 
                 echo "Original branch name: ${'$'}BRANCH_NAME"
+                echo "DEBUG: GITHUB_TOKEN length: ${'$'}{#GITHUB_TOKEN}"
 
                 fail_if_unresolved_or_empty() {
                   local name="${'$'}1"
                   local value="${'$'}2"
                   if [ -z "${'$'}value" ]; then
                     echo "ERROR: ${'$'}name is not set"
+                    echo "DEBUG: Value of ${'$'}name is empty."
+                    env | grep "teamcity.github.app.token" || true
                     exit 1
                   fi
                   if [[ "${'$'}value" == *"%"* ]]; then
@@ -174,6 +178,7 @@ for r in data.get("workflow_runs",[]):
                 if [[ -z "${'$'}run_id" || "${'$'}run_id" == "null" ]]; then
                   echo "ERROR: Could not locate the GitHub Actions run for request_id=${'$'}REQUEST_ID"
                   echo "Make sure the workflow has: run-name: \"... (request_id=${'$'}{{ inputs.request_id }})\""
+                  echo "DEBUG: runs_json starts with: ${'$'}{runs_json:0:100}"
                   exit 1
                 fi
 
