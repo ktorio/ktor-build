@@ -35,7 +35,12 @@ object TestGeneratorFrontEnd : BuildType({
                 REPO="ktor-generator-website"
                 WORKFLOW_FILE="playwright-tests.yml"
 
-                GITHUB_TOKEN="%env.GITHUB_TOKEN%"
+                GITHUB_TOKEN="${VcsToken.PROJECT_GENERATOR_RESOLVED}"
+
+                if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
+                   GITHUB_TOKEN="%env.GITHUB_TOKEN%"
+                fi
+
                 if [[ "${'$'}GITHUB_TOKEN" == "" || "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
                    GITHUB_TOKEN="%teamcity.github.app.token.CID_821a66c1c2972c7bca80580557b4a475%"
                 fi
@@ -43,11 +48,6 @@ object TestGeneratorFrontEnd : BuildType({
                 if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
                     echo "ERROR: GITHUB_TOKEN is not resolved (contains '%')"
                     env | grep "teamcity.github.app.token" || true
-                    GITHUB_TOKEN="${VcsToken.PROJECT_GENERATOR_RESOLVED}"
-                fi
-
-                if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
-                    echo "CRITICAL ERROR: GITHUB_TOKEN is STILL not resolved even after interpolation attempt."
                     exit 1
                 fi
 
