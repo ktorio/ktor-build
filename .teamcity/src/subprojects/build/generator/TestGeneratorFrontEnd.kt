@@ -11,8 +11,6 @@ object TestGeneratorFrontEnd : BuildType({
     name = "Test generator frontend"
 
     params {
-        githubAppTokenRequirement(VcsToken.PROJECT_GENERATOR)
-        param("env.GITHUB_TOKEN", VcsToken.PROJECT_GENERATOR_RESOLVED)
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
     }
@@ -35,38 +33,18 @@ object TestGeneratorFrontEnd : BuildType({
                 REPO="ktor-generator-website"
                 WORKFLOW_FILE="playwright-tests.yml"
 
-                GITHUB_TOKEN="${VcsToken.PROJECT_GENERATOR_RESOLVED}"
-
-                if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
-                   GITHUB_TOKEN="%env.GITHUB_TOKEN%"
-                fi
-
-                if [[ "${'$'}GITHUB_TOKEN" == "" || "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
-                   GITHUB_TOKEN="%teamcity.github.app.token.CID_821a66c1c2972c7bca80580557b4a475%"
-                fi
-
-                if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
-                    echo "ERROR: GITHUB_TOKEN is not resolved (contains '%')"
-                    env | grep "teamcity.github.app.token" || true
-                    exit 1
-                fi
-
+                GITHUB_TOKEN="%teamcity.github.app.token.CID_821a66c1c2972c7bca80580557b4a475%"
                 BRANCH_NAME="%teamcity.build.branch%"
                 SPACE_USERNAME="%env.SPACE_USERNAME%"
                 SPACE_PASSWORD="%env.SPACE_PASSWORD%"
 
                 echo "Original branch name: ${'$'}BRANCH_NAME"
-                echo "DEBUG: GITHUB_TOKEN length: ${'$'}{#GITHUB_TOKEN}"
-                echo "DEBUG: env | grep 'teamcity.github.app.token':"
-                env | grep "teamcity.github.app.token" || true
 
                 fail_if_unresolved_or_empty() {
                   local name="${'$'}1"
                   local value="${'$'}2"
                   if [ -z "${'$'}value" ]; then
                     echo "ERROR: ${'$'}name is not set"
-                    echo "DEBUG: Value of ${'$'}name is empty."
-                    env | grep "teamcity.github.app.token" || true
                     exit 1
                   fi
                   if [[ "${'$'}value" == *"%"* ]]; then
@@ -75,6 +53,7 @@ object TestGeneratorFrontEnd : BuildType({
                   fi
                 }
 
+                fail_if_unresolved_or_empty "GITHUB_TOKEN" "${'$'}GITHUB_TOKEN"
                 fail_if_unresolved_or_empty "SPACE_USERNAME" "${'$'}SPACE_USERNAME"
                 fail_if_unresolved_or_empty "SPACE_PASSWORD" "${'$'}SPACE_PASSWORD"
 
