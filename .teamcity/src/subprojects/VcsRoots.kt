@@ -10,6 +10,13 @@ internal object VcsToken {
     const val BENCHMARKS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:6b3b0c69-150d-46dd-9cd9-14d05921e87a"
     const val KTOR_CLI = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:144c067e-37f6-4a71-a0aa-ffa2f5a2c8ba"
     const val BUILD_PLUGINS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:622b9b62-9484-4cc4-9a11-2c8d978378ee"
+
+    val PROJECT_GENERATOR_RESOLVED = resolveToken(PROJECT_GENERATOR)
+}
+
+private fun resolveToken(token: String): String {
+    val cid = token.substringAfter("tc_token_id:").substringBefore(":")
+    return "%teamcity.github.app.token.$cid%"
 }
 
 /*

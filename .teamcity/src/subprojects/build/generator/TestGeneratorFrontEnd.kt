@@ -11,10 +11,7 @@ object TestGeneratorFrontEnd : BuildType({
     name = "Test generator frontend"
 
     params {
-        password("github.token.ktor.generator.website", VcsToken.PROJECT_GENERATOR, display = ParameterDisplay.HIDDEN)
-
-        password("env.GITHUB_TOKEN", value = "%github.token.ktor.generator.website%", display = ParameterDisplay.HIDDEN)
-
+        password("env.GITHUB_TOKEN", value = VcsToken.PROJECT_GENERATOR_RESOLVED, display = ParameterDisplay.HIDDEN)
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
     }
