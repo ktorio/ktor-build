@@ -11,7 +11,6 @@ object TestGeneratorFrontEnd : BuildType({
     name = "Test generator frontend"
 
     params {
-        githubAppTokenRequirement(VcsToken.PROJECT_GENERATOR)
         param("env.GITHUB_TOKEN", VcsToken.PROJECT_GENERATOR_RESOLVED)
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)

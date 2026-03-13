@@ -26,9 +26,6 @@ fun BuildFeatures.githubAppToken(token: String) {
     }
 }
 
-fun ParametrizedWithType.githubAppTokenRequirement(token: String) {
-    param("teamcity.github.app.token.${token.substringAfter("tc_token_id:").substringBefore(":")}", "")
-}
 
 /*
  * Note: According to the documentation, branchSpec *must not* contain patterns matching pull requests
