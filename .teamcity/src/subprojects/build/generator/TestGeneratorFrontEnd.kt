@@ -226,6 +226,9 @@ print(run.get("html_url") or "")
     }
 
     defaultBuildFeatures()
+    features {
+        githubAppToken(VcsToken.PROJECT_GENERATOR)
+    }
     addSlackNotifications(
         channel = "#ktor-website-generator-tests",
         buildFailed = true

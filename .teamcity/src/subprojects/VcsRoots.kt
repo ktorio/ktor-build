@@ -19,6 +19,13 @@ private fun resolveToken(token: String): String {
     return "%teamcity.github.app.token.$cid%"
 }
 
+fun BuildFeatures.githubAppToken(token: String) {
+    feature {
+        type = "teamcity.github.app.token.feature"
+        param("connectionId", token.substringAfter("tc_token_id:").substringBefore(":"))
+    }
+}
+
 /*
  * Note: According to the documentation, branchSpec *must not* contain patterns matching pull requests
  * if the "Pull Requests" feature is used.
