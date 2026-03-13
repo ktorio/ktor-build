@@ -139,28 +139,22 @@ beforeSettings { settings ->
 }
 
 settingsEvaluated { settings ->
-    def mode = settings.dependencyResolutionManagement.repositoriesMode.get()
-    gradle.ext.eap_repositories_mode = mode
-    if (mode != RepositoriesMode.PREFER_PROJECT) {
-        settings.dependencyResolutionManagement.repositories {
-            addEapRepos(it)
-            maven {
-                url = "https://maven.google.com/"
-            }
-            maven {
-                url = "https://plugins.gradle.org/m2/"
-            }
+    settings.dependencyResolutionManagement.repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    settings.dependencyResolutionManagement.repositories {
+        addEapRepos(it)
+        maven {
+            url = "https://maven.google.com/"
+        }
+        maven {
+            url = "https://plugins.gradle.org/m2/"
         }
     }
 }
 
 allprojects {
     afterProject { p ->
-        def mode = p.gradle.ext.has("eap_repositories_mode") ? p.gradle.ext.eap_repositories_mode : RepositoriesMode.PREFER_PROJECT
-        if (mode == RepositoriesMode.PREFER_PROJECT) {
-            p.repositories {
-                addEapRepos(it)
-            }
+        p.repositories {
+            addEapRepos(it)
         }
         p.extensions.extraProperties.set("mainClassName", "io.ktor.server.netty.EngineMain")
         p.configurations.all {
@@ -390,23 +384,37 @@ EOF
                 else
                     echo "❌ [BUILD PLUGIN] Sample ${'$'}sample_name: BUILD FAILED"
                     echo "${'$'}sample_name" >> "${'$'}REPORTS_DIR/failed-plugin-samples.log"
-                    tail -n 10 "${'$'}log_file" || true
+                    echo "--- Last 100 lines of build log for ${'$'}sample_name ---"
+                    tail -n 100 "${'$'}log_file" || true
+                    echo "--- End of build log for ${'$'}sample_name ---"
                 fi
             }
             
             # Discover build plugin samples
             BUILD_PLUGIN_SAMPLES=()
             if [ -d "${'$'}BUILD_PLUGIN_DIR/samples" ]; then
-                for d in "${'$'}BUILD_PLUGIN_DIR/samples"/*; do
-                    [ -d "${'$'}d" ] || continue
-                    sample_name="$(basename "${'$'}d")"
-                    if [[ "${'$'}sample_name" =~ ^(\.git|\.github|\.idea|\.gradle|gradle|buildSrc|docs?|scripts?|out|build|tmp|node_modules)$ ]]; then
-                        continue
-                    fi
-                    if [ -f "${'$'}d/build.gradle.kts" ] || [ -f "${'$'}d/build.gradle" ] || [ -f "${'$'}d/pom.xml" ]; then
-                        BUILD_PLUGIN_SAMPLES+=("${'$'}sample_name")
-                    fi
-                done
+                echo "Discovering included samples in ${'$'}BUILD_PLUGIN_DIR..."
+                INCLUDED_SAMPLES=$(cd "${'$'}BUILD_PLUGIN_DIR" && ./gradlew projects --no-daemon 2>/dev/null | grep "Project ':samples:" | cut -d':' -f3 | tr -d "'" | sort -u)
+                
+                if [ -n "${'$'}INCLUDED_SAMPLES" ]; then
+                    while read -r sample_name; do
+                        if [ -n "${'$'}sample_name" ]; then
+                            BUILD_PLUGIN_SAMPLES+=("${'$'}sample_name")
+                        fi
+                    done <<< "${'$'}INCLUDED_SAMPLES"
+                else
+                    echo "⚠️ Could not discover included samples via gradlew, falling back to directory listing..."
+                    for d in "${'$'}BUILD_PLUGIN_DIR/samples"/*; do
+                        [ -d "${'$'}d" ] || continue
+                        sample_name="$(basename "${'$'}d")"
+                        if [[ "${'$'}sample_name" =~ ^(\.git|\.github|\.idea|\.gradle|gradle|buildSrc|docs?|scripts?|out|build|tmp|node_modules)$ ]]; then
+                            continue
+                        fi
+                        if [ -f "${'$'}d/build.gradle.kts" ] || [ -f "${'$'}d/build.gradle" ] || [ -f "${'$'}d/pom.xml" ]; then
+                            BUILD_PLUGIN_SAMPLES+=("${'$'}sample_name")
+                        fi
+                    done
+                fi
             fi
             
             if [ "${'$'}{#BUILD_PLUGIN_SAMPLES[@]}" -eq 0 ]; then
