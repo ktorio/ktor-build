@@ -26,8 +26,10 @@ fun BuildFeatures.githubAppToken(token: String) {
     }
 }
 
-fun ParametrizedWithType.githubAppTokenRequirement(token: String) {
-    param("teamcity.github.app.token.${token.substringAfter("tc_token_id:").substringBefore(":")}", "any value")
+fun BuildType.githubAppTokenRequirement(token: String) {
+    requirements {
+        exists("teamcity.github.app.token.${token.substringAfter("tc_token_id:").substringBefore(":")}")
+    }
 }
 
 
