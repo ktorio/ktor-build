@@ -43,6 +43,11 @@ object TestGeneratorFrontEnd : BuildType({
                 if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
                     echo "ERROR: GITHUB_TOKEN is not resolved (contains '%')"
                     env | grep "teamcity.github.app.token" || true
+                    GITHUB_TOKEN="${VcsToken.PROJECT_GENERATOR_RESOLVED}"
+                fi
+
+                if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
+                    echo "CRITICAL ERROR: GITHUB_TOKEN is STILL not resolved even after interpolation attempt."
                     exit 1
                 fi
 
@@ -52,6 +57,8 @@ object TestGeneratorFrontEnd : BuildType({
 
                 echo "Original branch name: ${'$'}BRANCH_NAME"
                 echo "DEBUG: GITHUB_TOKEN length: ${'$'}{#GITHUB_TOKEN}"
+                echo "DEBUG: env | grep 'teamcity.github.app.token':"
+                env | grep "teamcity.github.app.token" || true
 
                 fail_if_unresolved_or_empty() {
                   local name="${'$'}1"

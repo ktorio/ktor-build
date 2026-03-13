@@ -28,7 +28,7 @@ fun BuildFeatures.githubAppToken(token: String) {
 
 fun ParametrizedWithType.githubAppTokenRequirement(token: String) {
     val tokenName = "teamcity.github.app.token.${token.substringAfter("tc_token_id:").substringBefore(":")}"
-    param(tokenName, "")
+    param(tokenName, "%$tokenName%")
 }
 
 
