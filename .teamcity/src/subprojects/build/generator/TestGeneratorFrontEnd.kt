@@ -36,6 +36,16 @@ object TestGeneratorFrontEnd : BuildType({
                 WORKFLOW_FILE="playwright-tests.yml"
 
                 GITHUB_TOKEN="%env.GITHUB_TOKEN%"
+                if [[ "${'$'}GITHUB_TOKEN" == "" || "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
+                   GITHUB_TOKEN="%teamcity.github.app.token.CID_821a66c1c2972c7bca80580557b4a475%"
+                fi
+
+                if [[ "${'$'}GITHUB_TOKEN" == "%"*"%" ]]; then
+                    echo "ERROR: GITHUB_TOKEN is not resolved (contains '%')"
+                    env | grep "teamcity.github.app.token" || true
+                    exit 1
+                fi
+
                 BRANCH_NAME="%teamcity.build.branch%"
                 SPACE_USERNAME="%env.SPACE_USERNAME%"
                 SPACE_PASSWORD="%env.SPACE_PASSWORD%"
@@ -58,7 +68,6 @@ object TestGeneratorFrontEnd : BuildType({
                   fi
                 }
 
-                fail_if_unresolved_or_empty "GITHUB_TOKEN" "${'$'}GITHUB_TOKEN"
                 fail_if_unresolved_or_empty "SPACE_USERNAME" "${'$'}SPACE_USERNAME"
                 fail_if_unresolved_or_empty "SPACE_PASSWORD" "${'$'}SPACE_PASSWORD"
 
