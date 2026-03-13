@@ -11,6 +11,7 @@ object TestGeneratorFrontEnd : BuildType({
     name = "Test generator frontend"
 
     params {
+        param("teamcity.github.app.token.CID_821a66c1c2972c7bca80580557b4a475", "")
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
     }
