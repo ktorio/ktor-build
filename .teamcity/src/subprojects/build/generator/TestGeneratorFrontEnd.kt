@@ -11,7 +11,6 @@ object TestGeneratorFrontEnd : BuildType({
     name = "Test generator frontend"
 
     params {
-        password("env.GITHUB_TOKEN", value = VcsToken.PROJECT_GENERATOR_RESOLVED, display = ParameterDisplay.HIDDEN)
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
     }
@@ -34,7 +33,7 @@ object TestGeneratorFrontEnd : BuildType({
                 REPO="ktor-generator-website"
                 WORKFLOW_FILE="playwright-tests.yml"
 
-                GITHUB_TOKEN="%env.GITHUB_TOKEN%"
+                GITHUB_TOKEN="${VcsToken.PROJECT_GENERATOR_RESOLVED}"
                 BRANCH_NAME="%teamcity.build.branch%"
                 SPACE_USERNAME="%env.SPACE_USERNAME%"
                 SPACE_PASSWORD="%env.SPACE_PASSWORD%"
