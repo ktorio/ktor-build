@@ -11,7 +11,6 @@ object TestGeneratorFrontEnd : BuildType({
     name = "Test generator frontend"
 
     params {
-        password("env.GITHUB_TOKEN", value = "%teamcity.github.app.token.CID_821a66c1c2972c7bca80580557b4a475%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
     }
@@ -34,6 +33,7 @@ object TestGeneratorFrontEnd : BuildType({
                 REPO="ktor-generator-website"
                 WORKFLOW_FILE="playwright-tests.yml"
 
+                GITHUB_TOKEN="%teamcity.github.app.token.PROJECT_EXT_7%"
                 BRANCH_NAME="%teamcity.build.branch%"
                 SPACE_USERNAME="%env.SPACE_USERNAME%"
                 SPACE_PASSWORD="%env.SPACE_PASSWORD%"
@@ -227,7 +227,10 @@ print(run.get("html_url") or "")
 
     defaultBuildFeatures()
     features {
-        githubAppToken(VcsToken.PROJECT_GENERATOR)
+        feature {
+            type = "teamcity.github.app.token.feature"
+            param("connectionId", "PROJECT_EXT_7")
+        }
     }
     addSlackNotifications(
         channel = "#ktor-website-generator-tests",
