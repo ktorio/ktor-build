@@ -53,7 +53,7 @@ object TestGeneratorFrontEnd : BuildType({
                   fi
                 }
                 
-                if [ -z "${'$'}{'$'}{GITHUB_TOKEN:-}" ]; then
+                if [ -z "${'$'}{GITHUB_TOKEN:-}" ]; then
                   echo "ERROR: GITHUB_TOKEN is not set (gitHubAppBuildScopedToken feature may have failed)"
                   exit 1
                 fi
