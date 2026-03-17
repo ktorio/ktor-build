@@ -234,6 +234,7 @@ print(run.get("html_url") or "")
         gitHubAppBuildScopedToken {
             connectionId = "PROJECT_EXT_7"
             parameterName = "env.GITHUB_TOKEN"
+            targetRepositories = "ktor-generator-website"
         }
     }
     addSlackNotifications(
