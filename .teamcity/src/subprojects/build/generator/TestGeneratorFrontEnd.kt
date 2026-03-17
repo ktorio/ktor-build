@@ -14,6 +14,7 @@ object TestGeneratorFrontEnd : BuildType({
     params {
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
+        password("env.GITHUB_PAT_FALLBACK", value = "%github.actions.pat%", display = ParameterDisplay.HIDDEN)
     }
 
     vcs {
@@ -52,9 +53,18 @@ object TestGeneratorFrontEnd : BuildType({
                     exit 1
                   fi
                 }
-                
-                if [ -z "${'$'}{GITHUB_TOKEN:-}" ]; then
-                  echo "ERROR: GITHUB_TOKEN is not set (gitHubAppBuildScopedToken feature may have failed)"
+
+                # Resolve GITHUB_TOKEN: prefer GitHub App scoped token, fall back to PAT
+                if [ -n "${'$'}{GITHUB_TOKEN:-}" ]; then
+                  echo "Using GitHub App scoped token (env.GITHUB_TOKEN)"
+                elif [ -n "${'$'}{GITHUB_PAT_FALLBACK:-}" ] && [[ "${'$'}{GITHUB_PAT_FALLBACK}" != *"%"* ]]; then
+                  echo "WARNING: GITHUB_TOKEN is not set (gitHubAppBuildScopedToken feature may have failed)"
+                  echo "Falling back to GITHUB_PAT_FALLBACK"
+                  export GITHUB_TOKEN="${'$'}GITHUB_PAT_FALLBACK"
+                else
+                  echo "ERROR: Neither GITHUB_TOKEN (GitHub App) nor GITHUB_PAT_FALLBACK is available"
+                  echo "Check the gitHubAppBuildScopedToken feature (connection PROJECT_EXT_7)"
+                  echo "and ensure github.actions.pat is configured in TeamCity parameters."
                   exit 1
                 fi
 
