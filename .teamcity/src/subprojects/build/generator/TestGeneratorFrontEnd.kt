@@ -2,6 +2,7 @@ package subprojects.build.generator
 
 import dsl.addSlackNotifications
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.gitHubAppBuildScopedToken
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
@@ -13,7 +14,6 @@ object TestGeneratorFrontEnd : BuildType({
     params {
         password("env.SPACE_USERNAME", value = "%space.packages.apl.user%", display = ParameterDisplay.HIDDEN)
         password("env.SPACE_PASSWORD", value = "%space.packages.apl.token%", display = ParameterDisplay.HIDDEN)
-        password("env.GITHUB_TOKEN", value = "%teamcity.github.app.token.PROJECT_EXT_7%", display = ParameterDisplay.HIDDEN)
     }
 
     vcs {
@@ -34,7 +34,6 @@ object TestGeneratorFrontEnd : BuildType({
                 REPO="ktor-generator-website"
                 WORKFLOW_FILE="playwright-tests.yml"
 
-                GITHUB_TOKEN="%env.GITHUB_TOKEN%"
                 BRANCH_NAME="%teamcity.build.branch%"
                 SPACE_USERNAME="%env.SPACE_USERNAME%"
                 SPACE_PASSWORD="%env.SPACE_PASSWORD%"
@@ -53,8 +52,12 @@ object TestGeneratorFrontEnd : BuildType({
                     exit 1
                   fi
                 }
+                
+                if [ -z "${'$'}{'$'}{GITHUB_TOKEN:-}" ]; then
+                  echo "ERROR: GITHUB_TOKEN is not set (gitHubAppBuildScopedToken feature may have failed)"
+                  exit 1
+                fi
 
-                fail_if_unresolved_or_empty "GITHUB_TOKEN" "${'$'}GITHUB_TOKEN"
                 fail_if_unresolved_or_empty "SPACE_USERNAME" "${'$'}SPACE_USERNAME"
                 fail_if_unresolved_or_empty "SPACE_PASSWORD" "${'$'}SPACE_PASSWORD"
 
@@ -228,9 +231,9 @@ print(run.get("html_url") or "")
 
     defaultBuildFeatures()
     features {
-        feature {
-            type = "teamcity.github.app.token.feature"
-            param("connectionId", "PROJECT_EXT_7")
+        gitHubAppBuildScopedToken {
+            connectionId = "PROJECT_EXT_7"
+            parameterName = "env.GITHUB_TOKEN"
         }
     }
     addSlackNotifications(
