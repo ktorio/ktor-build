@@ -135,10 +135,11 @@ object ConsolidatedEAPValidation {
             }
 
             triggers {
-                finishBuildTrigger {
-                    buildType = "KtorPublish_AllEAP"
-                    successfulOnly = true
-                    branchFilter = "+:*"
+                schedule {
+                    schedulingPolicy = daily {
+                        hour = 22
+                    }
+                    triggerBuild = always()
                 }
             }
 
