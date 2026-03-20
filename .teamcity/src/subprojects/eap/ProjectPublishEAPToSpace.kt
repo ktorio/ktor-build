@@ -43,7 +43,7 @@ object ProjectPublishEAPToSpace : Project({
             coreEap()
         }
         triggers {
-            nightlyEAPBranchesTrigger()
+            weeklyEapBranchesTrigger()
         }
         dependencies {
             builds.mapNotNull { it.id }.forEach { id ->

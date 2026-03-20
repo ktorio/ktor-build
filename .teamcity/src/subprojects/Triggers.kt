@@ -2,6 +2,7 @@ package subprojects
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
+import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger.DAY.*
 
 /**
  * A set of common branch filters.
@@ -48,9 +49,10 @@ fun Triggers.onChangeAllBranchesTrigger() {
     }
 }
 
-fun Triggers.nightlyEAPBranchesTrigger() {
+fun Triggers.weeklyEapBranchesTrigger() {
     schedule {
-        schedulingPolicy = daily {
+        schedulingPolicy = weekly {
+            dayOfWeek = Sunday
             hour = 20
         }
         triggerBuild = always()
