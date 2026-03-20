@@ -52,7 +52,7 @@ object ProjectGradlePlugin : Project({
         }
 
         triggers {
-            nightlyEAPBranchesTrigger()
+            weeklyEapBranchesTrigger()
         }
 
         steps {
