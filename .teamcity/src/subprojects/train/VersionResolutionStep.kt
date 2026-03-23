@@ -102,12 +102,12 @@ object VersionResolutionStep {
                             VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (EAP_SUCCESS)\n"
                         fi
                     else
-                        KOTLIN_VERSION="2.1.21"
+                        KOTLIN_VERSION="2.3.10"
                         echo "⚠️ Using fallback Kotlin version: ${'$'}KOTLIN_VERSION"
                         VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (FALLBACK)\n"
                     fi
                 else
-                    KOTLIN_VERSION="2.1.21"
+                    KOTLIN_VERSION="2.3.10"
                     echo "⚠️ Failed to fetch Kotlin EAP version, using stable fallback: ${'$'}KOTLIN_VERSION"
                     VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (FALLBACK)\n"
                 fi

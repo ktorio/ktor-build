@@ -4,6 +4,7 @@ import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
+import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger.DAY.Sunday
 import subprojects.*
 import subprojects.build.*
 
@@ -72,7 +73,7 @@ object ConsolidatedEAPValidation {
                 // Version parameters
                 param("env.KTOR_VERSION", "")
                 param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
-                param("env.KOTLIN_VERSION", "2.1.21")
+                param("env.KOTLIN_VERSION", "2.3.10")
 
                 // Version resolution parameters
                 param("version.resolution.errors", "0")
@@ -136,7 +137,8 @@ object ConsolidatedEAPValidation {
 
             triggers {
                 schedule {
-                    schedulingPolicy = daily {
+                    schedulingPolicy = weekly {
+                        dayOfWeek = Sunday
                         hour = 22
                     }
                     triggerBuild = always()

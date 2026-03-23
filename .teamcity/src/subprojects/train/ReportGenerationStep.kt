@@ -22,7 +22,7 @@ object ReportGenerationStep {
 
                 # Read all runtime parameter values with safe defaults and parameter extraction
                 KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | grep -v "^%env\.KTOR_VERSION%$" || echo "unknown")
-                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | grep -E '^[0-9.]+$' || echo "2.1.21")
+                KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | grep -E '^[0-9.]+$' || echo "2.3.10")
                 KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | grep -v "^%env\.KTOR_COMPILER_PLUGIN_VERSION%$" || echo "N/A")
                 
                 # Handle built-in TeamCity parameters safely
