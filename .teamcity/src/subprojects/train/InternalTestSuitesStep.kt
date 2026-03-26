@@ -424,6 +424,13 @@ EOF
                         FAILED_COUNT=$((FAILED_COUNT + 1))
                         echo "${'$'}sample_dir: FAILED (Maven build)" >> "${'$'}REPORT_FILE"
                         tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
+                        
+                        # Package failed sample as a reproducer artifact
+                        echo "📦 Packaging ${'$'}sample_dir as reproducer artifact..."
+                        mkdir -p "${'$'}WORK_DIR/failed-samples"
+                        (cd "${'$'}SAMPLES_ROOT" && zip -r "${'$'}WORK_DIR/failed-samples/${'$'}sample_dir.zip" "${'$'}sample_dir" \
+                            -x "${'$'}sample_dir/target/*" \
+                        ) || echo "⚠️  Failed to package ${'$'}sample_dir reproducer"
                     fi
                     continue
                 fi
@@ -461,6 +468,18 @@ EOF
                         FAILED_COUNT=$((FAILED_COUNT + 1))
                         echo "${'$'}sample_dir: FAILED (Gradle build)" >> "${'$'}REPORT_FILE"
                         tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
+                        
+                        # Package failed sample as a reproducer artifact (includes init script for EAP resolution)
+                        echo "📦 Packaging ${'$'}sample_dir as reproducer artifact..."
+                        mkdir -p "${'$'}WORK_DIR/failed-samples"
+                        # Copy the init script into the sample
+                        cp "${'$'}INIT_SCRIPT" "${'$'}sample_dir/gradle-eap-init.gradle" || true
+                        (cd "${'$'}SAMPLES_ROOT" && zip -r "${'$'}WORK_DIR/failed-samples/${'$'}sample_dir.zip" "${'$'}sample_dir" \
+                            -x "${'$'}sample_dir/.gradle/*" \
+                            -x "${'$'}sample_dir/build/*" \
+                            -x "${'$'}sample_dir/*/build/*" \
+                            -x "${'$'}sample_dir/.kotlin/*" \
+                        ) || echo "⚠️  Failed to package ${'$'}sample_dir reproducer"
                     fi
                 else
                     echo "⚠️  No Gradle wrapper found for ${'$'}sample_dir"

@@ -273,6 +273,16 @@ EOF
                     tail -n 20 "${'$'}REPORTS_DIR/${'$'}project_name-build.log"
                     FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
                     touch "${'$'}REPORTS_DIR/${'$'}project_name.failed"
+                    
+                    # Package failed sample as a reproducer artifact
+                    echo "📦 Packaging ${'$'}project_name as reproducer artifact..."
+                    mkdir -p "${'$'}WORK_DIR/failed-samples"
+                    (cd "${'$'}SAMPLES_DIR" && zip -r "${'$'}WORK_DIR/failed-samples/${'$'}project_name.zip" "${'$'}project_name" \
+                        -x "${'$'}project_name/.gradle/*" \
+                        -x "${'$'}project_name/build/*" \
+                        -x "${'$'}project_name/*/build/*" \
+                        -x "${'$'}project_name/.kotlin/*" \
+                    ) || echo "⚠️  Failed to package ${'$'}project_name reproducer"
                 fi
                 
                 cd "${'$'}WORK_DIR"

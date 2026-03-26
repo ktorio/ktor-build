@@ -58,6 +58,7 @@ object ConsolidatedEAPValidation {
                 external-validation-reports => external-validation-reports.zip  
                 internal-validation-reports => internal-validation-reports.zip
                 quality-gate-reports => quality-gate-reports.zip
+                failed-samples/*.zip => failed-samples.zip
             """.trimIndent()
 
             params {
