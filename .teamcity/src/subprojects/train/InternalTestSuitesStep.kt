@@ -510,7 +510,7 @@ EOF
                 sed -i -E "s|(val[[:space:]]+(ktor_version|ktorVersion|KTOR_VERSION)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}gradle_file"
 
                 # Rewrite def ktor_version = "VERSION" / ext.ktor_version = "VERSION" (Groovy)
-                sed -i -E "s|((def\|ext\.)[[:space:]]*(ktor_version\|ktorVersion)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}gradle_file"
+                sed -i -E "s|((def|ext\.)[[:space:]]*(ktor_version|ktorVersion)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}gradle_file"
 
                 # Rewrite kotlin plugin versions: kotlin("jvm") version "VERSION"
                 sed -i -E "s|(kotlin\([[:space:]]*[\"'][^\"']+[\"'][[:space:]]*\)[[:space:]]+version[[:space:]]+)[\"'][^\"']+[\"']|\1\"${'$'}kotlin_ver\"|g" "${'$'}gradle_file"
@@ -537,11 +537,11 @@ EOF
                 before_hash=$(md5sum "${'$'}toml_file" | awk '{print $1}')
 
                 # Rewrite ktor = "VERSION" or ktor-version = "VERSION" (framework version)
-                sed -i -E "s|^([[:space:]]*(ktor\|ktor-version\|ktor_version\|ktorVersion)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}toml_file"
+                sed -i -E "s|^([[:space:]]*(ktor|ktor-version|ktor_version|ktorVersion)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}toml_file"
 
                 # Rewrite ktor-compiler-plugin versions — only if plugin version is known
                 if [ -n "${'$'}ktor_plugin_ver" ]; then
-                    sed -i -E "s|^([[:space:]]*(ktor-plugin\|ktor_plugin\|ktor-compiler-plugin\|ktor_compiler_plugin\|ktor-compiler-plugin-version)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_plugin_ver\"|g" "${'$'}toml_file"
+                    sed -i -E "s|^([[:space:]]*(ktor-plugin|ktor_plugin|ktor-compiler-plugin|ktor_compiler_plugin|ktor-compiler-plugin-version)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_plugin_ver\"|g" "${'$'}toml_file"
                 fi
 
                 # Rewrite kotlin = "VERSION"
@@ -569,15 +569,15 @@ EOF
                 before_hash=$(md5sum "${'$'}props_file" | awk '{print $1}')
 
                 # Ktor framework version
-                sed -i -E "s|^([[:space:]]*(ktor_version\|ktorVersion\|ktor\.version\|ktor_Version\|KTOR_VERSION)[[:space:]]*=[[:space:]]*).*|\1${'$'}ktor_ver|g" "${'$'}props_file"
+                sed -i -E "s|^([[:space:]]*(ktor_version|ktorVersion|ktor\.version|ktor_Version|KTOR_VERSION)[[:space:]]*=[[:space:]]*).*|\1${'$'}ktor_ver|g" "${'$'}props_file"
 
                 # Ktor compiler plugin version — only if provided
                 if [ -n "${'$'}ktor_plugin_ver" ]; then
-                    sed -i -E "s|^([[:space:]]*(ktor_compiler_plugin_version\|ktor_plugin_version\|ktorPluginVersion\|ktor\.plugin\.version)[[:space:]]*=[[:space:]]*).*|\1${'$'}ktor_plugin_ver|g" "${'$'}props_file"
+                    sed -i -E "s|^([[:space:]]*(ktor_compiler_plugin_version|ktor_plugin_version|ktorPluginVersion|ktor\.plugin\.version)[[:space:]]*=[[:space:]]*).*|\1${'$'}ktor_plugin_ver|g" "${'$'}props_file"
                 fi
 
                 # Kotlin version
-                sed -i -E "s|^([[:space:]]*(kotlin_version\|kotlinVersion\|kotlin\.version\|kotlin_Version\|KOTLIN_VERSION)[[:space:]]*=[[:space:]]*).*|\1${'$'}kotlin_ver|g" "${'$'}props_file"
+                sed -i -E "s|^([[:space:]]*(kotlin_version|kotlinVersion|kotlin\.version|kotlin_Version|KOTLIN_VERSION)[[:space:]]*=[[:space:]]*).*|\1${'$'}kotlin_ver|g" "${'$'}props_file"
 
                 local after_hash
                 after_hash=$(md5sum "${'$'}props_file" | awk '{print $1}')
