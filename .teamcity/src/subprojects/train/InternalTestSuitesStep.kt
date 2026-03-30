@@ -343,6 +343,7 @@ EOF
         
             echo "Validating internal Ktor samples against EAP versions"
             echo "Ktor Version: %env.KTOR_VERSION%"
+            echo "Ktor Plugin Version: %env.KTOR_COMPILER_PLUGIN_VERSION%"
             echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
 
             # Create absolute path for init script
@@ -357,6 +358,7 @@ EOF
             echo "Ktor EAP Sample Validation Report" > "${'$'}REPORT_FILE"
             echo "Timestamp: $(date)" >> "${'$'}REPORT_FILE"
             echo "Ktor Version: %env.KTOR_VERSION%" >> "${'$'}REPORT_FILE"
+            echo "Ktor Plugin Version: %env.KTOR_COMPILER_PLUGIN_VERSION%" >> "${'$'}REPORT_FILE"
             echo "-----------------------------------" >> "${'$'}REPORT_FILE"
 
             TOTAL_COUNT=0
@@ -365,6 +367,273 @@ EOF
             SKIPPED_COUNT=0
 
             IGNORE_REGEX='^(\.git|\.github|\.idea|\.gradle|gradle|buildSrc|docs?|scripts?|out|build|tmp|node_modules)$'
+
+            is_stable_kotlin_version() {
+                local ver="${'$'}1"
+                if [[ "${'$'}ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    return 0
+                fi
+                return 1
+            }
+
+           patch_maven_pom() {
+                local pom_file="${'$'}1"
+                local ktor_ver="${'$'}2"
+                local kotlin_ver="${'$'}3"
+
+                [ -f "${'$'}pom_file" ] || return 0
+
+                echo "  [patcher] Patching Maven POM: ${'$'}pom_file"
+                local before_hash
+                before_hash=$(md5sum "${'$'}pom_file" | awk '{print $1}')
+
+                local patch_kotlin=false
+                if is_stable_kotlin_version "${'$'}kotlin_ver"; then
+                    patch_kotlin=true
+                else
+                    if grep -q "kotlin-maven-plugin" "${'$'}pom_file"; then
+                        echo "  [patcher]   ⏭️ Skipping Kotlin version patch in Maven POM (dev version: ${'$'}kotlin_ver, POM uses kotlin-maven-plugin)"
+                    else
+                        patch_kotlin=true
+                    fi
+                fi
+
+                # --- 1. Rewrite io.ktor BOM version in dependencyManagement ---
+                perl -0777 -i -pe '
+                    s{
+                        (<dependency>\s*
+                            <groupId>io\.ktor</groupId>\s*
+                            <artifactId>ktor-bom</artifactId>\s*
+                            <version>)[^<]+(</version>)
+                    }{${'$'}{1}'"${'$'}ktor_ver"'${'$'}{2}}gsx;
+                ' "${'$'}pom_file"
+
+                # --- 2. Rewrite any explicit io.ktor dependency versions ---
+                perl -0777 -i -pe '
+                    s{
+                        (<dependency>\s*
+                            <groupId>io\.ktor</groupId>\s*
+                            <artifactId>[^<]+</artifactId>\s*
+                            <version>)[^<]+(</version>)
+                    }{${'$'}{1}'"${'$'}ktor_ver"'${'$'}{2}}gsx;
+                ' "${'$'}pom_file"
+
+                # --- 3. Rewrite io.ktor plugin versions in <build><plugins> ---
+                perl -0777 -i -pe '
+                    s{
+                        (<plugin>\s*
+                            <groupId>io\.ktor</groupId>\s*
+                            <artifactId>[^<]+</artifactId>\s*
+                            <version>)[^<]+(</version>)
+                    }{${'$'}{1}'"${'$'}ktor_ver"'${'$'}{2}}gsx;
+                ' "${'$'}pom_file"
+
+                # --- 4. Rewrite kotlin-maven-plugin version (only if safe) ---
+                if [ "${'$'}patch_kotlin" = true ]; then
+                    perl -0777 -i -pe '
+                        s{
+                            (<(?:plugin|dependency)>\s*
+                                (?:<groupId>org\.jetbrains\.kotlin</groupId>\s*)?
+                                <artifactId>kotlin-maven-plugin</artifactId>\s*
+                                (?:<groupId>org\.jetbrains\.kotlin</groupId>\s*)?
+                                <version>)[^<]+(</version>)
+                        }{${'$'}{1}'"${'$'}kotlin_ver"'${'$'}{2}}gsx;
+                    ' "${'$'}pom_file"
+                fi
+
+                # --- 5. Rewrite <properties> entries for ktor versions (always) ---
+                sed -i -E "s|(<ktor\.version>)[^<]+(</ktor\.version>)|\1${'$'}ktor_ver\2|g" "${'$'}pom_file"
+                sed -i -E "s|(<ktor_version>)[^<]+(</ktor_version>)|\1${'$'}ktor_ver\2|g" "${'$'}pom_file"
+
+                if [ "${'$'}patch_kotlin" = true ]; then
+                    sed -i -E "s|(<kotlin\.version>)[^<]+(</kotlin\.version>)|\1${'$'}kotlin_ver\2|g" "${'$'}pom_file"
+                    sed -i -E "s|(<kotlin_version>)[^<]+(</kotlin_version>)|\1${'$'}kotlin_ver\2|g" "${'$'}pom_file"
+                fi
+
+                # --- 6. Inject EAP repository if not already present ---
+                if ! grep -q "ktor-eap" "${'$'}pom_file"; then
+                    if grep -q "<repositories>" "${'$'}pom_file"; then
+                        sed -i '/<repositories>/a \
+        <repository>\
+            <id>ktor-eap-patched</id>\
+            <url>https://redirector.kotlinlang.org/maven/ktor-eap</url>\
+            <releases><enabled>true</enabled></releases>\
+            <snapshots><enabled>true</enabled></snapshots>\
+        </repository>' "${'$'}pom_file"
+                    else
+                        sed -i '/<\/project>/i \
+    <repositories>\
+        <repository>\
+            <id>ktor-eap-patched</id>\
+            <url>https://redirector.kotlinlang.org/maven/ktor-eap</url>\
+            <releases><enabled>true</enabled></releases>\
+            <snapshots><enabled>true</enabled></snapshots>\
+        </repository>\
+        <repository>\
+            <id>kotlin-eap-patched</id>\
+            <url>https://redirector.kotlinlang.org/maven/dev</url>\
+            <releases><enabled>true</enabled></releases>\
+            <snapshots><enabled>true</enabled></snapshots>\
+        </repository>\
+    </repositories>' "${'$'}pom_file"
+                    fi
+                    echo "  [patcher]   Injected EAP repositories"
+                fi
+
+                local after_hash
+                after_hash=$(md5sum "${'$'}pom_file" | awk '{print $1}')
+                if [ "${'$'}before_hash" != "${'$'}after_hash" ]; then
+                    echo "  [patcher]   ✅ Patched ${'$'}pom_file"
+                else
+                    echo "  [patcher]   ℹ️  No changes needed in ${'$'}pom_file"
+                fi
+            }
+
+            patch_gradle_file() {
+                local gradle_file="${'$'}1"
+                local ktor_ver="${'$'}2"
+                local kotlin_ver="${'$'}3"
+
+                [ -f "${'$'}gradle_file" ] || return 0
+
+                echo "  [patcher] Patching Gradle file: ${'$'}gradle_file"
+                local before_hash
+                before_hash=$(md5sum "${'$'}gradle_file" | awk '{print $1}')
+
+                # Rewrite "io.ktor:ARTIFACT:VERSION" -> "io.ktor:ARTIFACT:KTOR_VERSION"
+                sed -i -E "s|([\"'])io\.ktor:([a-zA-Z0-9_-]+):[^\"']+\1|\1io.ktor:\2:${'$'}ktor_ver\1|g" "${'$'}gradle_file"
+
+                # Rewrite id("io.ktor.plugin") version "VERSION"
+                sed -i -E "s|(id[[:space:]]*\(?[\"']io\.ktor\.plugin[\"']\)?[[:space:]]+version[[:space:]]+)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}gradle_file"
+
+                # Rewrite val ktor_version = "VERSION" / val ktorVersion = "VERSION"
+                sed -i -E "s|(val[[:space:]]+(ktor_version|ktorVersion|KTOR_VERSION)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}gradle_file"
+
+                # Rewrite def ktor_version = "VERSION" / ext.ktor_version = "VERSION" (Groovy)
+                sed -i -E "s|((def\|ext\.)[[:space:]]*(ktor_version\|ktorVersion)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}gradle_file"
+
+                # Rewrite kotlin plugin versions: kotlin("jvm") version "VERSION"
+                sed -i -E "s|(kotlin\([[:space:]]*[\"'][^\"']+[\"'][[:space:]]*\)[[:space:]]+version[[:space:]]+)[\"'][^\"']+[\"']|\1\"${'$'}kotlin_ver\"|g" "${'$'}gradle_file"
+
+                local after_hash
+                after_hash=$(md5sum "${'$'}gradle_file" | awk '{print $1}')
+                if [ "${'$'}before_hash" != "${'$'}after_hash" ]; then
+                    echo "  [patcher]   ✅ Patched ${'$'}gradle_file"
+                else
+                    echo "  [patcher]   ℹ️  No changes needed in $(basename ${'$'}gradle_file)"
+                fi
+            }
+
+            patch_version_catalog() {
+                local toml_file="${'$'}1"
+                local ktor_ver="${'$'}2"
+                local kotlin_ver="${'$'}3"
+                local ktor_plugin_ver="${'$'}4"
+
+                [ -f "${'$'}toml_file" ] || return 0
+
+                echo "  [patcher] Patching version catalog: ${'$'}toml_file"
+                local before_hash
+                before_hash=$(md5sum "${'$'}toml_file" | awk '{print $1}')
+
+                # Rewrite ktor = "VERSION" or ktor-version = "VERSION" (framework version)
+                sed -i -E "s|^([[:space:]]*(ktor\|ktor-version\|ktor_version\|ktorVersion)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_ver\"|g" "${'$'}toml_file"
+
+                # Rewrite ktor-compiler-plugin versions — only if plugin version is known
+                if [ -n "${'$'}ktor_plugin_ver" ]; then
+                    sed -i -E "s|^([[:space:]]*(ktor-plugin\|ktor_plugin\|ktor-compiler-plugin\|ktor_compiler_plugin\|ktor-compiler-plugin-version)[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}ktor_plugin_ver\"|g" "${'$'}toml_file"
+                fi
+
+                # Rewrite kotlin = "VERSION"
+                sed -i -E "s|^([[:space:]]*kotlin[[:space:]]*=[[:space:]]*)[\"'][^\"']+[\"']|\1\"${'$'}kotlin_ver\"|g" "${'$'}toml_file"
+
+                local after_hash
+                after_hash=$(md5sum "${'$'}toml_file" | awk '{print $1}')
+                if [ "${'$'}before_hash" != "${'$'}after_hash" ]; then
+                    echo "  [patcher]   ✅ Patched ${'$'}toml_file"
+                else
+                    echo "  [patcher]   ℹ️  No changes needed in libs.versions.toml"
+                fi
+            }
+
+            patch_gradle_properties() {
+                local props_file="${'$'}1"
+                local ktor_ver="${'$'}2"
+                local kotlin_ver="${'$'}3"
+                local ktor_plugin_ver="${'$'}4"
+
+                [ -f "${'$'}props_file" ] || return 0
+
+                echo "  [patcher] Patching gradle.properties: ${'$'}props_file"
+                local before_hash
+                before_hash=$(md5sum "${'$'}props_file" | awk '{print $1}')
+
+                # Ktor framework version
+                sed -i -E "s|^([[:space:]]*(ktor_version\|ktorVersion\|ktor\.version\|ktor_Version\|KTOR_VERSION)[[:space:]]*=[[:space:]]*).*|\1${'$'}ktor_ver|g" "${'$'}props_file"
+
+                # Ktor compiler plugin version — only if provided
+                if [ -n "${'$'}ktor_plugin_ver" ]; then
+                    sed -i -E "s|^([[:space:]]*(ktor_compiler_plugin_version\|ktor_plugin_version\|ktorPluginVersion\|ktor\.plugin\.version)[[:space:]]*=[[:space:]]*).*|\1${'$'}ktor_plugin_ver|g" "${'$'}props_file"
+                fi
+
+                # Kotlin version
+                sed -i -E "s|^([[:space:]]*(kotlin_version\|kotlinVersion\|kotlin\.version\|kotlin_Version\|KOTLIN_VERSION)[[:space:]]*=[[:space:]]*).*|\1${'$'}kotlin_ver|g" "${'$'}props_file"
+
+                local after_hash
+                after_hash=$(md5sum "${'$'}props_file" | awk '{print $1}')
+                if [ "${'$'}before_hash" != "${'$'}after_hash" ]; then
+                    echo "  [patcher]   ✅ Patched ${'$'}props_file"
+                else
+                    echo "  [patcher]   ℹ️  No changes needed in gradle.properties"
+                fi
+            }
+
+            patch_sample_build_files() {
+                local sample_path="${'$'}1"
+                local ktor_ver="${'$'}2"
+                local kotlin_ver="${'$'}3"
+                local ktor_plugin_ver="${'$'}4"
+
+                echo "🔧 Patching build files in ${'$'}sample_path for EAP versions..."
+                echo "   Ktor framework: ${'$'}ktor_ver"
+                echo "   Ktor plugin:    ${'$'}ktor_plugin_ver"
+                echo "   Kotlin:         ${'$'}kotlin_ver"
+
+                while IFS= read -r -d '' file; do
+                    local filename
+                    filename=$(basename "${'$'}file")
+
+                    case "${'$'}filename" in
+                        pom.xml)
+                            patch_maven_pom "${'$'}file" "${'$'}ktor_ver" "${'$'}kotlin_ver"
+                            ;;
+                        *.gradle|*.gradle.kts)
+                            patch_gradle_file "${'$'}file" "${'$'}ktor_ver" "${'$'}kotlin_ver" "${'$'}ktor_plugin_ver"
+                            ;;
+                        libs.versions.toml)
+                            patch_version_catalog "${'$'}file" "${'$'}ktor_ver" "${'$'}kotlin_ver" "${'$'}ktor_plugin_ver"
+                            ;;
+                        gradle.properties)
+                            patch_gradle_properties "${'$'}file" "${'$'}ktor_ver" "${'$'}kotlin_ver" "${'$'}ktor_plugin_ver"
+                            ;;
+                    esac
+                done < <(find "${'$'}sample_path" \
+                    -not -path "*/target/*" \
+                    -not -path "*/build/*" \
+                    -not -path "*/.gradle/*" \
+                    -not -path "*/.idea/*" \
+                    -not -path "*/.git/*" \
+                    -not -path "*/.kotlin/*" \
+                    -not -path "*/node_modules/*" \
+                    \( -name "pom.xml" \
+                       -o -name "*.gradle" \
+                       -o -name "*.gradle.kts" \
+                       -o -name "libs.versions.toml" \
+                       -o -name "gradle.properties" \
+                    \) -print0)
+
+                echo "🔧 Patching complete for ${'$'}sample_path"
+            }
 
             is_buildable_dir() {
                 local dir="${'$'}1"
@@ -404,17 +673,18 @@ EOF
 
                 TOTAL_COUNT=$((TOTAL_COUNT + 1))
                 echo "Validating sample: ${'$'}sample_dir..."
+                patch_sample_build_files "${'$'}sample_dir" "%env.KTOR_VERSION%" "${'$'}KOTLIN_VERSION" "%env.KTOR_COMPILER_PLUGIN_VERSION%"
 
                 # Maven sample
                 if [ -f "${'$'}sample_dir/pom.xml" ]; then
                     echo "Maven sample detected. Running: mvn compile -B"
-                    if mvn -f "${'$'}sample_dir/pom.xml" compile -B -Dktor.version=%env.KTOR_VERSION% -Dkotlin.version=${'$'}KOTLIN_VERSION > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                    if mvn -f "${'$'}sample_dir/pom.xml" compile -B > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                         echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
                         echo "${'$'}sample_dir: PASSED (Maven build)" >> "${'$'}REPORT_FILE"
                         
                         echo "Build successful, now running tests: mvn test -B"
-                        if mvn -f "${'$'}sample_dir/pom.xml" test -B -Dktor.version=%env.KTOR_VERSION% -Dkotlin.version=${'$'}KOTLIN_VERSION >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                        if mvn -f "${'$'}sample_dir/pom.xml" test -B >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                              echo "✅ ${'$'}sample_dir: Tests passed"
                         else
                              echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
@@ -458,7 +728,6 @@ EOF
                                echo "✅ ${'$'}sample_dir: Tests passed"
                            else
                                echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
-                               # We still count it as successful because build passed as per user suggestion
                            fi
                         else
                            echo "⏭️  ${'$'}sample_dir: No standard test task found, skipping tests"
