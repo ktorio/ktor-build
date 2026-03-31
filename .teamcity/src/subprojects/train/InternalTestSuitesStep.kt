@@ -88,7 +88,7 @@ beforeSettings { settings ->
         resolutionStrategy {
             eachPlugin {
                 if (requested.id.id == "io.ktor.plugin") {
-                    def v = System.getProperty("ktor_version")
+                    def v = System.getProperty("ktor_compiler_plugin_version")
                     if (v != null) {
                         try {
                             def urlStr = "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/plugin/io.ktor.plugin.gradle.plugin/" + v + "/io.ktor.plugin.gradle.plugin-" + v + ".pom"
