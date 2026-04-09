@@ -18,16 +18,17 @@ object PublishPluginRegistry : BuildType({
     steps {
         gradle {
             name = "Build plugin registry"
-            tasks = "packageRegistry"
+            tasks = "kslExportToCbor"
             jdkHome = Env.JDK_LTS
         }
         script {
             name = "Upload registry archive to Space"
             scriptContent = """
+                tar -czf repository.tar.gz -C export .
                 curl -i \
                   -H "Authorization: Bearer %env.PUBLISHING_TOKEN%" \
                   https://packages.jetbrains.team/files/p/ktor/files/plugin-registry/ \
-                  --upload-file build/distributions/registry.tar.gz
+                  --upload-file ./repository.tar.gz
             """
         }
     }
