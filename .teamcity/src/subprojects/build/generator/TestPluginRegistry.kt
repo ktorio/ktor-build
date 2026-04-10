@@ -22,6 +22,10 @@ object TestPluginRegistry : BuildType({
 
     defaultBuildFeatures()
 
+    requirements {
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
+    }
+
     triggers {
         onChangeDefaultOrPullRequest()
     }
