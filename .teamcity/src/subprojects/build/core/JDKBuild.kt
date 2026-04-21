@@ -19,6 +19,10 @@ class JDKBuild(
         root(VCSCore)
     }
 
+    params {
+        extraGradleParams()
+    }
+
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
 
@@ -34,7 +38,8 @@ class JDKBuild(
 
         gradle {
             name = "Build and Run Tests"
-            tasks = "cleanJvmTest jvmTest --continue -Ptest.jdk=${osJdkEntry.jdkEntry.version}"
+            tasks = "cleanJvmTest jvmTest"
+            gradleParams = "--continue -Ptest.jdk=${osJdkEntry.jdkEntry.version} $GradleParams"
             jdkHome = Env.JDK_LTS
             enableStacktrace = true
         }

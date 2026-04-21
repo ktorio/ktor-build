@@ -17,6 +17,10 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
         root(VCSCore)
     }
 
+    params {
+        extraGradleParams()
+    }
+
     cancelPreviousBuilds()
     val rustEnabled = enableRustForRelevantChanges(entry.os)
 
@@ -44,7 +48,8 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
         val testTask = entry.targetTask(suffix = "Test")
         gradle {
             name = "Build and Run Tests"
-            tasks = "$cleanTestTask $testTask --info --continue"
+            tasks = "$cleanTestTask $testTask"
+            gradleParams = "--info --continue $GradleParams"
             jdkHome = Env.JDK_LTS
         }
     }

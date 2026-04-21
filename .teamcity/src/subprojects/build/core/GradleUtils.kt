@@ -2,9 +2,11 @@ package subprojects.build.core
 
 import jetbrains.buildServer.configs.kotlin.*
 
-public fun ParametrizedWithType.extraGradleParams() {
+val GradleParams = ParameterRef("gradle_params")
+
+fun ParametrizedWithType.extraGradleParams() {
     text(
-        name = "gradle_params",
+        name = GradleParams.name,
         label = "Gradle Parameters",
         description = "Additional Gradle parameters to pass to the build",
         value = "",

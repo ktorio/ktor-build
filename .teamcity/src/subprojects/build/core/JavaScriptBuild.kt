@@ -16,11 +16,16 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
         root(VCSCore)
     }
 
+    params {
+        extraGradleParams()
+    }
+
     cancelPreviousBuilds()
     steps {
         gradle {
             name = "Build Js"
-            tasks = "cleanJsTest jsTest --continue --info -Penable-js-tests"
+            tasks = "cleanJsTest jsTest"
+            gradleParams = "-Penable-js-tests --continue --info $GradleParams"
             setupDockerForJavaScriptTests(jsEntry)
         }
     }

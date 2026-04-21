@@ -16,11 +16,16 @@ class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
         root(VCSCore)
     }
 
+    params {
+        extraGradleParams()
+    }
+
     cancelPreviousBuilds()
     steps {
         gradle {
             name = "Build Wasm Js"
-            tasks = "cleanWasmJsTest wasmJsTest --continue --info -Penable-js-tests"
+            tasks = "cleanWasmJsTest wasmJsTest"
+            gradleParams = "--continue --info -Penable-js-tests $GradleParams"
             setupDockerForJavaScriptTests(jsEntry)
         }
     }

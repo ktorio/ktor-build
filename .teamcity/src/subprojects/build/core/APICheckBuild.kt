@@ -27,7 +27,8 @@ object APICheckBuild : BuildType({
 
         gradle {
             name = "API Check"
-            tasks = "checkLegacyAbi %gradle_params%"
+            tasks = "checkLegacyAbi"
+            gradleParams = "$GradleParams"
             jdkHome = Env.JDK_LTS
         }
     }

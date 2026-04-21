@@ -18,12 +18,16 @@ object CodeStyleVerify : BuildType({
         root(VCSCore)
     }
 
+    params {
+        extraGradleParams()
+    }
+
     cancelPreviousBuilds()
     steps {
         gradle {
             name = "Run ktlint"
             tasks = "lintKotlin"
-            gradleParams = "-PenableCodeStyle=true"
+            gradleParams = "-PenableCodeStyle=true $GradleParams"
             jdkHome = Env.JDK_LTS
         }
     }
