@@ -3,7 +3,6 @@ package subprojects.release
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import subprojects.*
-import subprojects.build.generator.PublishPluginRegistry
 
 var samplesBuild: BuildType? = null
 var apiBuild: BuildType? = null
@@ -63,10 +62,6 @@ object ReleaseBuild : BuildType({
                 snapshot(it) {
                 }
             }
-        }
-        snapshot(PublishPluginRegistry) {
-            onDependencyFailure = FailureAction.IGNORE
-            reuseBuilds = ReuseBuilds.NO
         }
     }
 })

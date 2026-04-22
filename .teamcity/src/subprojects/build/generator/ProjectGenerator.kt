@@ -6,9 +6,9 @@ object ProjectGenerator : Project({
     id("ProjectKtorGenerator")
     name = "Project Generator"
     description = "Code for start.ktor.io"
-    
+
     /**
-     *
+     * Publishes the plugin registry to the Space file repository.
      */
     buildType(PublishPluginRegistry)
 
