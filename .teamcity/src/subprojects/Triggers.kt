@@ -8,9 +8,9 @@ import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger.DAY.*
  * A set of common branch filters.
  *
  * Note that branches in branch filters should be references by
- * [logical names](https://www.jetbrains.com/help/teamcity/2024.07/working-with-feature-branches.html#Logical+Branch+Name).
+ * [logical names](https://www.jetbrains.com/help/teamcity/latest/working-with-feature-branches.html#Logical+Branch+Name).
  *
- * [Docs: Branch Filter Format](https://www.jetbrains.com/help/teamcity/2024.07/branch-filter.html#Branch+Filter+Format)
+ * [Docs: Branch Filter Format](https://www.jetbrains.com/help/teamcity/latest/branch-filter.html#Branch+Filter+Format)
  */
 object BranchFilter {
     const val AllBranches = "+:*"
@@ -20,31 +20,14 @@ object BranchFilter {
     const val DefaultOrPullRequest = "$DefaultBranch\n$ReleaseBranches\n$PullRequest"
 }
 
-/**
- * A set of common trigger rules.
- *
- * [Docs: VCS Trigger Rules](https://www.jetbrains.com/help/teamcity/2024.07/configuring-vcs-triggers.html#vcs-trigger-rules-1)
- */
-object TriggerRules {
-    val IgnoreNonCodeChanges = """
-        -:*.md
-        -:.gitignore
-    """.trimIndent()
-}
-
-fun Triggers.onChangeDefaultOrPullRequest(additionalTriggerRules: String = "") {
+fun Triggers.onChangeDefaultOrPullRequest() {
     vcs {
-        triggerRules = listOf(
-            TriggerRules.IgnoreNonCodeChanges,
-            additionalTriggerRules,
-        ).joinToString("\n")
         branchFilter = BranchFilter.DefaultOrPullRequest
     }
 }
 
 fun Triggers.onChangeAllBranchesTrigger() {
     vcs {
-        triggerRules = TriggerRules.IgnoreNonCodeChanges
         branchFilter = BranchFilter.AllBranches
     }
 }
