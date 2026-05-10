@@ -19,6 +19,12 @@ object PublishPluginRegistry : BuildType({
         gradle {
             name = "Build plugin registry"
             tasks = "kslExportToCbor"
+            this.gradleParams = listOfNotNull(
+                gradleParams,
+                "--no-configuration-cache",
+                "--info",
+                "--stacktrace",
+            ).joinToString(" ")
             jdkHome = Env.JDK_LTS
         }
         script {
