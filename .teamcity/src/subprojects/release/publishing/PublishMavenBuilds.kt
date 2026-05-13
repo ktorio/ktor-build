@@ -3,8 +3,8 @@ package subprojects.release.publishing
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
+import subprojects.build.core.*
 import subprojects.release.*
-import subprojects.build.core.extraGradleParams
 
 const val releaseVersion = "%releaseVersion%"
 
@@ -123,7 +123,7 @@ object PublishMacOSNativeToMaven : BuildType({
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
     requirements {
-        agent(Agents.OS.MacOS)
+        agent(Agents.OS.MacOS, Agents.Arch.Arm64)
     }
     failureConditions {
         executionTimeoutMin = 8 * 60

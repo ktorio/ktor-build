@@ -103,6 +103,7 @@ fun Project.publishKotlinxHtmlMacOsToSpace() = buildType {
         Agents.OS.MacOS,
         MACOS_PUBLISH_TASKS.joinToString(" "),
         GPG_MACOS_GRADLE_ARGS,
+        osArch = Agents.Arch.Arm64,
     )
 }
 
@@ -141,6 +142,7 @@ private fun BuildType.releaseToSpace(
     os: Agents.OS,
     publishTasks: String,
     gradleParameters: String = GPG_DEFAULT_GRADLE_ARGS,
+    osArch: Agents.Arch = Agents.Arch.X64,
 ) {
     id("PublishKotlinxHtmlToSpace_$platformName")
     name = "Publish kotlinx.html $platformName to Space"
@@ -170,6 +172,6 @@ private fun BuildType.releaseToSpace(
     }
 
     requirements {
-        agent(os)
+        agent(os, osArch)
     }
 }

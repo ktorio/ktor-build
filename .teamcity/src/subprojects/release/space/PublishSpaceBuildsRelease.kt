@@ -128,7 +128,7 @@ object PublishMacOSNativeToSpaceRelease : BuildType({
     }
 
     requirements {
-        agent(Agents.OS.MacOS)
+        agent(Agents.OS.MacOS, Agents.Arch.Arm64)
     }
 })
 
