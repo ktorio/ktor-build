@@ -74,9 +74,8 @@ data class NativeEntry(
             target = "mingwX64",
         )
 
-        val All = listOf(
+        val Default = listOf(
             LinuxX64,
-            MacOSX64,
             MacOSArm64,
             MingwX64,
         )

@@ -17,7 +17,7 @@ object ProjectCore : Project({
     val jpmsCheck = JPMSCheckBuild
     val apiCheck = APICheckBuild
     val osJdkBuilds = osJdks.map(::JDKBuild)
-    val nativeBuilds = NativeEntry.All.map(::NativeBuild)
+    val nativeBuilds = NativeEntry.Default.map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
     val wasmJsBuilds = javaScriptEngines.map(::WasmJsBuild)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
@@ -29,6 +29,7 @@ object ProjectCore : Project({
 
     // Builds to be run manually on demand
     buildType(DependenciesCheckBuild())
+    buildType(NativeBuild(NativeEntry.MacOSX64))
     buildType(JDKBuild(OSJDKEntry(Agents.OS.Windows, JDKEntry.Java11)))
 
     buildType {
