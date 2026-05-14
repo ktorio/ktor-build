@@ -134,7 +134,7 @@ beforeSettings { settings ->
 }
 
 settingsEvaluated { settings ->
-    settings.dependencyResolutionManagement.repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    settings.dependencyResolutionManagement.repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     settings.dependencyResolutionManagement {
         repositories {
             maven {

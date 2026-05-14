@@ -206,16 +206,33 @@ EOF
                             ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1
                         }
 
-                        echo "Running: ./amper build"
-                        if run_amper_build; then
-                            BUILD_SUCCESS=true
-                        elif grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
-                            echo "⚠️  Detected stale Amper cache — clearing ${'$'}AMPER_M2 and retrying once"
-                            rm -rf "${'$'}AMPER_M2"
+                        attempt=1
+                        max_attempts=4
+                        while [ ${'$'}attempt -le ${'$'}max_attempts ]; do
+                            echo "Running: ./amper build (attempt ${'$'}attempt/${'$'}max_attempts)"
                             if run_amper_build; then
                                 BUILD_SUCCESS=true
+                                break
                             fi
-                        fi
+
+                            if [ ${'$'}attempt -eq ${'$'}max_attempts ]; then
+                                break
+                            fi
+
+                            if grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                                echo "⚠️  Detected stale Amper cache — clearing ${'$'}AMPER_M2 and retrying"
+                                rm -rf "${'$'}AMPER_M2"
+                            elif grep -qE "actual: 429|HTTP/[0-9.]+ 429|response code.*429" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                                delay=$((attempt * 30))
+                                echo "⚠️  Detected Maven Central rate-limit (HTTP 429) — waiting ${'$'}{delay}s before retry"
+                                sleep ${'$'}delay
+                            else
+                                # Non-retryable failure
+                                break
+                            fi
+
+                            attempt=$((attempt + 1))
+                        done
 
                         if [ "${'$'}BUILD_SUCCESS" = true ]; then
                             echo "Build successful, now running tests: ./amper test"
