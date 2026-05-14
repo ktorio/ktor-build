@@ -142,7 +142,7 @@ kotlin_version=${'$'}KOTLIN_VERSION
 ktor_version=${'$'}KTOR_VERSION
 logback_version=1.4.14
 kotlin.mpp.stability.nowarn=true
-org.gradle.jvmargs=-Xmx2g
+org.gradle.jvmargs=-Xmx4g
 org.gradle.daemon=false
 org.gradle.parallel=false
 org.gradle.caching=false
@@ -195,16 +195,35 @@ EOF
                     
                     if [ -f "amper" ]; then
                         chmod +x amper
+
+                        AMPER_M2="${'$'}HOME/.cache/Amper/.m2.cache"
+                        if [ -d "${'$'}AMPER_M2" ]; then
+                            echo "Pruning empty entries in Amper m2 cache at ${'$'}AMPER_M2"
+                            find "${'$'}AMPER_M2" -type d -empty -delete 2>/dev/null || true
+                        fi
+
+                        run_amper_build() {
+                            ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1
+                        }
+
                         echo "Running: ./amper build"
-                        if ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
-                             BUILD_SUCCESS=true
-                             
-                             echo "Build successful, now running tests: ./amper test"
-                             if ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
-                                 echo "✅ ${'$'}project_name: Tests passed"
-                             else
-                                 echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
-                             fi
+                        if run_amper_build; then
+                            BUILD_SUCCESS=true
+                        elif grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                            echo "⚠️  Detected stale Amper cache — clearing ${'$'}AMPER_M2 and retrying once"
+                            rm -rf "${'$'}AMPER_M2"
+                            if run_amper_build; then
+                                BUILD_SUCCESS=true
+                            fi
+                        fi
+
+                        if [ "${'$'}BUILD_SUCCESS" = true ]; then
+                            echo "Build successful, now running tests: ./amper test"
+                            if ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                echo "✅ ${'$'}project_name: Tests passed"
+                            else
+                                echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                            fi
                         fi
                     fi
                 fi

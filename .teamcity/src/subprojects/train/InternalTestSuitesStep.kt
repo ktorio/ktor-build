@@ -134,8 +134,8 @@ beforeSettings { settings ->
 }
 
 settingsEvaluated { settings ->
+    settings.dependencyResolutionManagement.repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     settings.dependencyResolutionManagement {
-        repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
         repositories {
             maven {
                 url = "https://redirector.kotlinlang.org/maven/ktor-eap"
@@ -157,6 +157,30 @@ settingsEvaluated { settings ->
             }
             mavenCentral()
             google()
+            ivy {
+                url = "https://nodejs.org/dist"
+                patternLayout {
+                    artifact("v[revision]/[artifact](-v[revision]-[classifier]).[ext]")
+                }
+                metadataSources { artifact() }
+                content { includeModule("org.nodejs", "node") }
+            }
+            ivy {
+                url = "https://github.com/yarnpkg/yarn/releases/download"
+                patternLayout {
+                    artifact("v[revision]/[artifact](-v[revision]).[ext]")
+                }
+                metadataSources { artifact() }
+                content { includeModule("com.yarnpkg", "yarn") }
+            }
+            ivy {
+                url = "https://github.com/WebAssembly/binaryen/releases/download"
+                patternLayout {
+                    artifact("version_[revision]/[artifact]-version_[revision]-[classifier].[ext]")
+                }
+                metadataSources { artifact() }
+                content { includeModule("com.github.webassembly", "binaryen") }
+            }
         }
     }
 }
