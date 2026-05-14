@@ -1,5 +1,6 @@
 package subprojects.release.publishing
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -120,6 +121,13 @@ object PublishMacOSNativeToMaven : BuildType({
         publishingParams()
     }
     steps {
+        script {
+            name = "Install Cocoapods"
+            scriptContent = bashScript("""
+                rvm use ${'$'}{RUBY_VERSION#*-}
+                gem install cocoapods
+            """)
+        }
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
     requirements {
