@@ -80,6 +80,24 @@ object ExternalSamplesValidationStep {
             mkdir -p "${'$'}REPORTS_DIR"
             mkdir -p "${'$'}SAMPLES_DIR"
 
+            mkdir -p "${'$'}HOME/.m2"
+            cat > "${'$'}HOME/.m2/settings.xml" <<'SETTINGS_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <mirrors>
+        <mirror>
+            <id>jetbrains-cache-central</id>
+            <name>JetBrains cache-redirector mirror of Maven Central</name>
+            <url>https://cache-redirector.jetbrains.com/repo1.maven.org/maven2</url>
+            <mirrorOf>central</mirrorOf>
+        </mirror>
+    </mirrors>
+</settings>
+SETTINGS_EOF
+            echo "Wrote ~/.m2/settings.xml with JetBrains cache-redirector mirror"
+
                 # Define external sample repositories
                 declare -A EXTERNAL_SAMPLES=(
                     ["ktor-ai-server"]="https://github.com/nomisRev/ktor-ai-server.git"
@@ -192,6 +210,20 @@ EOF
                     echo "Amper project detected. Updating versions in module.yaml or equivalent..."
                     find . -name "*.yaml" -type f -exec sed -i "s/ktor: .*/ktor: ${'$'}KTOR_VERSION/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
+
+                    MIRROR_URL="https://cache-redirector.jetbrains.com/repo1.maven.org/maven2"
+                    while IFS= read -r -d '' yaml; do
+                        if grep -q "cache-redirector.jetbrains.com" "${'$'}yaml"; then
+                            continue
+                        fi
+                        if grep -q "^repositories:" "${'$'}yaml"; then
+                            sed -i "/^repositories:/a\\  - ${'$'}MIRROR_URL" "${'$'}yaml"
+                        else
+                            { printf 'repositories:\n  - %s\n' "${'$'}MIRROR_URL"; cat "${'$'}yaml"; } > "${'$'}yaml.tmp" \
+                                && mv "${'$'}yaml.tmp" "${'$'}yaml"
+                        fi
+                        echo "  ✅ Injected cache-redirector mirror into ${'$'}yaml"
+                    done < <(find . \( -name "module.yaml" -o -name "project.yaml" -o -name "template.yaml" \) -type f -print0)
                     
                     if [ -f "amper" ]; then
                         chmod +x amper
@@ -206,33 +238,16 @@ EOF
                             ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1
                         }
 
-                        attempt=1
-                        max_attempts=4
-                        while [ ${'$'}attempt -le ${'$'}max_attempts ]; do
-                            echo "Running: ./amper build (attempt ${'$'}attempt/${'$'}max_attempts)"
+                        echo "Running: ./amper build"
+                        if run_amper_build; then
+                            BUILD_SUCCESS=true
+                        elif grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                            echo "⚠️  Detected stale Amper cache — clearing ${'$'}AMPER_M2 and retrying once"
+                            rm -rf "${'$'}AMPER_M2"
                             if run_amper_build; then
                                 BUILD_SUCCESS=true
-                                break
                             fi
-
-                            if [ ${'$'}attempt -eq ${'$'}max_attempts ]; then
-                                break
-                            fi
-
-                            if grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
-                                echo "⚠️  Detected stale Amper cache — clearing ${'$'}AMPER_M2 and retrying"
-                                rm -rf "${'$'}AMPER_M2"
-                            elif grep -qE "actual: 429|HTTP/[0-9.]+ 429|response code.*429" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
-                                delay=$((attempt * 30))
-                                echo "⚠️  Detected Maven Central rate-limit (HTTP 429) — waiting ${'$'}{delay}s before retry"
-                                sleep ${'$'}delay
-                            else
-                                # Non-retryable failure
-                                break
-                            fi
-
-                            attempt=$((attempt + 1))
-                        done
+                        fi
 
                         if [ "${'$'}BUILD_SUCCESS" = true ]; then
                             echo "Build successful, now running tests: ./amper test"
