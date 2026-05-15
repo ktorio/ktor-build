@@ -210,6 +210,7 @@ EOF
                     echo "Amper project detected. Updating versions in module.yaml or equivalent..."
                     find . -name "*.yaml" -type f -exec sed -i "s/ktor: .*/ktor: ${'$'}KTOR_VERSION/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
+                    find . -name "*.yaml" -type f -exec sed -i 's|\${'$'}kotlin-test-junit|\${'$'}libs.kotlin.test|g' {} +
 
                     while IFS= read -r -d '' toml; do
                         echo "  [patcher] Patching version catalog: ${'$'}toml"
@@ -239,6 +240,26 @@ EOF
                     
                     if [ -f "amper" ]; then
                         chmod +x amper
+
+                        AMPER_META_URL="https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/amper/cli/maven-metadata.xml"
+                        LATEST_AMPER_VERSION=$(curl -sSfL --max-time 15 "${'$'}AMPER_META_URL" 2>/dev/null \
+                            | grep -oE "<latest>[^<]+</latest>" | sed -E 's#</?latest>##g' | head -1 || true)
+                        if [ -n "${'$'}LATEST_AMPER_VERSION" ]; then
+                            AMPER_SHA_URL="https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/amper/cli/${'$'}LATEST_AMPER_VERSION/cli-${'$'}LATEST_AMPER_VERSION-dist.tgz.sha256"
+                            LATEST_AMPER_SHA256=$(curl -sSfL --max-time 15 "${'$'}AMPER_SHA_URL" 2>/dev/null | tr -d '[:space:]' || true)
+                            if [ -n "${'$'}LATEST_AMPER_SHA256" ]; then
+                                OLD_AMPER_VERSION=$(grep -E '^amper_version=' amper | head -1 | cut -d= -f2)
+                                if [ "${'$'}OLD_AMPER_VERSION" != "${'$'}LATEST_AMPER_VERSION" ]; then
+                                    echo "Upgrading amper wrapper: ${'$'}OLD_AMPER_VERSION → ${'$'}LATEST_AMPER_VERSION"
+                                    sed -i -E "s|^(amper_version=).*$|\1${'$'}LATEST_AMPER_VERSION|" amper
+                                    sed -i -E "s|^(amper_sha256=).*$|\1${'$'}LATEST_AMPER_SHA256|" amper
+                                fi
+                            else
+                                echo "⚠️  Could not fetch sha256 for Amper ${'$'}LATEST_AMPER_VERSION — keeping pinned wrapper version"
+                            fi
+                        else
+                            echo "⚠️  Could not resolve latest Amper version — keeping pinned wrapper version"
+                        fi
 
                         AMPER_M2="${'$'}HOME/.cache/Amper/.m2.cache"
                         if [ -d "${'$'}AMPER_M2" ]; then
