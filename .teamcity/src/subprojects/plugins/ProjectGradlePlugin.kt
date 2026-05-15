@@ -8,9 +8,8 @@ import subprojects.build.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 
-private const val PublishCompilerPlugin = ":ktor-compiler-plugin:publish"
-private const val PublishPluginsToPluginPortal = ":plugin:publishPlugins $PublishCompilerPlugin"
-private const val PublishPluginsToSpace = ":plugin:publish $PublishCompilerPlugin"
+private const val PublishPluginsToPluginPortal = ":plugin:publishPlugins"
+private const val PublishPluginsToSpace = ":plugin:publish"
 
 object ProjectGradlePlugin : Project({
     id("ProjectKtorGradlePlugin")
