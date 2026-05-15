@@ -211,18 +211,30 @@ EOF
                     find . -name "*.yaml" -type f -exec sed -i "s/ktor: .*/ktor: ${'$'}KTOR_VERSION/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
 
-                    MIRROR_URL="https://cache-redirector.jetbrains.com/repo1.maven.org/maven2"
+                    while IFS= read -r -d '' toml; do
+                        echo "  [patcher] Patching version catalog: ${'$'}toml"
+                        sed -i -E "s@^([[:space:]]*(ktor|ktor-version|ktor_version|ktorVersion)[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KTOR_VERSION\3@g" "${'$'}toml"
+                        sed -i -E "s@^([[:space:]]*kotlin[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KOTLIN_VERSION\2@g" "${'$'}toml"
+                    done < <(find . -name "libs.versions.toml" -type f -not -path "*/build/*" -not -path "*/.gradle/*" -print0)
+
+                    REPOS_TO_INJECT="$(printf '  - %s\n' \
+                        "https://redirector.kotlinlang.org/maven/ktor-eap" \
+                        "https://redirector.kotlinlang.org/maven/dev" \
+                        "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2")"
                     while IFS= read -r -d '' yaml; do
-                        if grep -q "cache-redirector.jetbrains.com" "${'$'}yaml"; then
+                        if grep -q "redirector.kotlinlang.org/maven/ktor-eap" "${'$'}yaml"; then
                             continue
                         fi
                         if grep -q "^repositories:" "${'$'}yaml"; then
-                            sed -i "/^repositories:/a\\  - ${'$'}MIRROR_URL" "${'$'}yaml"
+                            awk -v reps="${'$'}REPOS_TO_INJECT" '
+                                /^repositories:/ && !done { print; print reps; done=1; next }
+                                { print }
+                            ' "${'$'}yaml" > "${'$'}yaml.tmp" && mv "${'$'}yaml.tmp" "${'$'}yaml"
                         else
-                            { printf 'repositories:\n  - %s\n' "${'$'}MIRROR_URL"; cat "${'$'}yaml"; } > "${'$'}yaml.tmp" \
+                            { printf 'repositories:\n%s\n' "${'$'}REPOS_TO_INJECT"; cat "${'$'}yaml"; } > "${'$'}yaml.tmp" \
                                 && mv "${'$'}yaml.tmp" "${'$'}yaml"
                         fi
-                        echo "  ✅ Injected cache-redirector mirror into ${'$'}yaml"
+                        echo "  ✅ Injected EAP repos into ${'$'}yaml"
                     done < <(find . \( -name "module.yaml" -o -name "project.yaml" -o -name "template.yaml" \) -type f -print0)
                     
                     if [ -f "amper" ]; then
