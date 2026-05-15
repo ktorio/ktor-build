@@ -261,11 +261,16 @@ EOF
                             echo "⚠️  Could not resolve latest Amper version — keeping pinned wrapper version"
                         fi
 
-                        AMPER_M2="${'$'}HOME/.cache/Amper/.m2.cache"
-                        if [ -d "${'$'}AMPER_M2" ]; then
-                            echo "Pruning empty entries in Amper m2 cache at ${'$'}AMPER_M2"
-                            find "${'$'}AMPER_M2" -type d -empty -delete 2>/dev/null || true
-                        fi
+                        AMPER_M2_PATHS=(
+                            "${'$'}HOME/.cache/Amper/.m2.cache"
+                            "${'$'}HOME/.cache/JetBrains/Amper/.m2.cache"
+                        )
+                        for p in "${'$'}{AMPER_M2_PATHS[@]}"; do
+                            if [ -d "${'$'}p" ]; then
+                                echo "Pruning empty entries in Amper m2 cache at ${'$'}p"
+                                find "${'$'}p" -type d -empty -delete 2>/dev/null || true
+                            fi
+                        done
 
                         run_amper_build() {
                             ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1
@@ -284,13 +289,15 @@ EOF
                                 break
                             fi
 
-                            if grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
-                                echo "⚠️  Detected stale Amper cache — clearing ${'$'}AMPER_M2 and retrying"
-                                rm -rf "${'$'}AMPER_M2"
-                            elif grep -qE "actual: 429|HTTP/[0-9.]+ 429|response code.*429" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                            if grep -qE "actual: 429|HTTP/[0-9.]+ 429|response code.*429" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
                                 delay=$((attempt * 60))
                                 echo "⚠️  Detected Maven Central rate-limit (HTTP 429) — waiting ${'$'}{delay}s before retry"
                                 sleep ${'$'}delay
+                            elif grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                                echo "⚠️  Detected stale Amper cache — clearing and retrying"
+                                for p in "${'$'}{AMPER_M2_PATHS[@]}"; do
+                                    [ -d "${'$'}p" ] && rm -rf "${'$'}p"
+                                done
                             else
                                 break
                             fi
