@@ -124,6 +124,7 @@ object PublishMacOSNativeToSpaceRelease : BuildType({
         configureReleaseVersion()
     }
     steps {
+        installCocoapods()
         releaseToSpace(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
     }
 

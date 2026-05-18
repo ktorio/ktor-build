@@ -120,6 +120,7 @@ object PublishMacOSNativeToSpace : BuildType({
         coreEap()
     }
     steps {
+        installCocoapods()
         releaseToSpace(DARWIN_PUBLISH_TASK)
     }
     params {
