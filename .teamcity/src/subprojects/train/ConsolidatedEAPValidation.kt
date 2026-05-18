@@ -12,7 +12,7 @@ object EapConstants {
     const val KTOR_EAP_METADATA_URL =
         "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/ktor-bom/maven-metadata.xml"
     const val KTOR_COMPILER_PLUGIN_METADATA_URL =
-        "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/ktor-compiler-plugin/maven-metadata.xml"
+        "https://redirector.kotlinlang.org/maven/ktor-eap/io/ktor/plugin/io.ktor.plugin.gradle.plugin/maven-metadata.xml"
     const val KOTLIN_EAP_METADATA_URL =
         "https://redirector.kotlinlang.org/maven/dev/org/jetbrains/kotlin/kotlin-compiler-embeddable/maven-metadata.xml"
 }

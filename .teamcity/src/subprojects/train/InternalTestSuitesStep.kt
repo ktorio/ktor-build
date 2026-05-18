@@ -126,9 +126,9 @@ beforeSettings { settings ->
             maven {
                 url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
             }
-            mavenCentral()
-            gradlePluginPortal()
-            google()
+            maven { url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/" }
+            maven { url = "https://cache-redirector.jetbrains.com/plugins.gradle.org/m2/" }
+            maven { url = "https://cache-redirector.jetbrains.com/dl.google.com/dl/android/maven2/" }
         }
     }
 }
@@ -150,13 +150,13 @@ settingsEvaluated { settings ->
                 url = "https://packages.jetbrains.team/maven/p/kt/wasm-experimental/"
             }
             maven {
-                url = "https://maven.google.com/"
+                url = "https://cache-redirector.jetbrains.com/maven.google.com/"
             }
             maven {
-                url = "https://plugins.gradle.org/m2/"
+                url = "https://cache-redirector.jetbrains.com/plugins.gradle.org/m2/"
             }
-            mavenCentral()
-            google()
+            maven { url = "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/" }
+            maven { url = "https://cache-redirector.jetbrains.com/dl.google.com/dl/android/maven2/" }
             ivy {
                 url = "https://nodejs.org/dist"
                 patternLayout {

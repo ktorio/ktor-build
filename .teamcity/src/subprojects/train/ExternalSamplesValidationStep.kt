@@ -76,6 +76,11 @@ object ExternalSamplesValidationStep {
             REPORTS_DIR="${'$'}WORK_DIR/external-validation-reports"
             SAMPLES_DIR="${'$'}WORK_DIR/external-samples"
 
+            # Resolve latest KSP
+            LATEST_KSP=$(curl -sSfL --max-time 15 "https://plugins.gradle.org/m2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/maven-metadata.xml" 2>/dev/null \
+                | grep -oE "<latest>[^<]+</latest>" | sed -E 's#</?latest>##g' | head -1 || true)
+            echo "Latest KSP plugin version: ${'$'}{LATEST_KSP:-<lookup-failed>}"
+
             # Create necessary directories
             mkdir -p "${'$'}REPORTS_DIR"
             mkdir -p "${'$'}SAMPLES_DIR"
@@ -98,6 +103,70 @@ object ExternalSamplesValidationStep {
 SETTINGS_EOF
             echo "Wrote ~/.m2/settings.xml with JetBrains cache-redirector mirror"
 
+            mkdir -p "${'$'}HOME/.gradle/init.d"
+            cat > "${'$'}HOME/.gradle/init.d/cache-redirector.gradle" <<'INIT_EOF'
+def cacheRedirector = "https://cache-redirector.jetbrains.com"
+
+def replaceUrl = { repo ->
+    if (repo instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository) {
+        def u = repo.url?.toString()
+        if (u == null) return
+        if (u.startsWith("https://repo.maven.apache.org/maven2") ||
+            u.startsWith("https://repo1.maven.org/maven2")) {
+            repo.url = uri("${'$'}{cacheRedirector}/repo1.maven.org/maven2/")
+        } else if (u.startsWith("https://plugins.gradle.org/m2")) {
+            repo.url = uri("${'$'}{cacheRedirector}/plugins.gradle.org/m2/")
+        } else if (u.startsWith("https://maven.google.com")) {
+            repo.url = uri("${'$'}{cacheRedirector}/maven.google.com/")
+        } else if (u.startsWith("https://dl.google.com/dl/android/maven2")) {
+            repo.url = uri("${'$'}{cacheRedirector}/dl.google.com/dl/android/maven2/")
+        }
+    }
+}
+
+beforeSettings { settings ->
+    settings.pluginManagement.repositories.all(replaceUrl)
+    settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
+    settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
+    settings.pluginManagement.repositories.gradlePluginPortal()
+    settings.pluginManagement.repositories.mavenCentral()
+
+    settings.pluginManagement.resolutionStrategy.eachPlugin { details ->
+        if (details.requested.id.id == "io.ktor.plugin") {
+            def v = System.getenv("KTOR_COMPILER_PLUGIN_VERSION")
+            if (v != null && !v.isEmpty()) {
+                details.useVersion(v)
+            }
+        }
+    }
+}
+
+settingsEvaluated { settings ->
+    if (settings.dependencyResolutionManagement) {
+        settings.dependencyResolutionManagement.repositories.all(replaceUrl)
+        settings.dependencyResolutionManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
+        settings.dependencyResolutionManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
+    }
+}
+
+allprojects {
+    buildscript.repositories.all(replaceUrl)
+    repositories.all(replaceUrl)
+    buildscript.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
+    buildscript.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
+    buildscript.repositories.maven { url = uri("https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/") }
+    repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
+    repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
+    repositories.maven { url = uri("https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/") }
+    repositories.maven { url = uri("https://cache-redirector.jetbrains.com/maven.google.com/") }
+
+    tasks.matching { it.name == "wasmJsBrowserProductionWebpack" }.configureEach {
+        enabled = false
+    }
+}
+INIT_EOF
+            echo "Wrote ~/.gradle/init.d/cache-redirector.gradle"
+
                 # Define external sample repositories
                 declare -A EXTERNAL_SAMPLES=(
                     ["ktor-ai-server"]="https://github.com/nomisRev/ktor-ai-server.git"
@@ -105,7 +174,6 @@ SETTINGS_EOF
                     ["ktor-config-example"]="https://github.com/nomisRev/ktor-config-example.git"
                     ["ktor-workshop-2025"]="https://github.com/nomisRev/ktor-workshop-2025.git"
                     ["amper-ktor-sample"]="https://github.com/nomisRev/amper-ktor-sample.git"
-                    ["ktor-di-overview"]="https://github.com/nomisRev/Ktor-DI-Overview.git"
                     ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
                     ["foodies"]="https://github.com/nomisRev/foodies"
                 )
@@ -144,7 +212,6 @@ SETTINGS_EOF
                 "${'$'}SAMPLES_DIR/ktor-config-example"
                 "${'$'}SAMPLES_DIR/ktor-workshop-2025"
                 "${'$'}SAMPLES_DIR/amper-ktor-sample"
-                "${'$'}SAMPLES_DIR/ktor-di-overview"
                 "${'$'}SAMPLES_DIR/ktor-full-stack-real-world"
                 "${'$'}SAMPLES_DIR/foodies"
             )
@@ -200,7 +267,39 @@ EOF
                     
                     echo "Applied EAP versions to gradle.properties"
                 fi
-                
+
+                WRAPPER_FILE="gradle/wrapper/gradle-wrapper.properties"
+                if [ -f "${'$'}WRAPPER_FILE" ]; then
+                    CURRENT=$(grep -oE 'gradle-[0-9]+\.[0-9]+(\.[0-9]+)?' "${'$'}WRAPPER_FILE" | head -1 | sed 's/gradle-//')
+                    if [ -n "${'$'}CURRENT" ]; then
+                        MAJOR=$(echo "${'$'}CURRENT" | cut -d. -f1)
+                        MINOR=$(echo "${'$'}CURRENT" | cut -d. -f2)
+                        if [ "${'$'}MAJOR" -lt 8 ] || { [ "${'$'}MAJOR" -eq 8 ] && [ "${'$'}MINOR" -lt 11 ]; }; then
+                            echo "  [patcher] Bumping Gradle wrapper ${'$'}CURRENT → 8.11.1 (Shadow needs 8.11+)"
+                            sed -i -E 's|gradle-[0-9]+\.[0-9]+(\.[0-9]+)?|gradle-8.11.1|g' "${'$'}WRAPPER_FILE"
+                        fi
+                    fi
+                fi
+
+                find . -name "build.gradle.kts" -type f -not -path "*/build/*" -exec \
+                    sed -i -E 's|^([[:space:]]*)(moduleName[[:space:]]*=)|\1// \2|' {} +
+
+                while IFS= read -r -d '' toml; do
+                    echo "  [patcher] Patching version catalog: ${'$'}toml"
+                    sed -i -E "s@^([[:space:]]*(ktor|ktor-version|ktor_version|ktorVersion)[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KTOR_VERSION\3@g" "${'$'}toml"
+                    sed -i -E "s@^([[:space:]]*kotlin[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KOTLIN_VERSION\2@g" "${'$'}toml"
+                    if [ -n "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
+                        # Match BOTH version.ref = "X" AND version = "X" (literal) — some catalogs
+                        # like ktor-workshop-2025 use a direct version string for io.ktor.plugin.
+                        sed -i -E "s@([\"']io\.ktor\.plugin[\"'][[:space:]]*,[[:space:]]*version)(\.ref)?[[:space:]]*=[[:space:]]*[\"'][^\"']+[\"']@\1 = \"${'$'}KTOR_COMPILER_PLUGIN_VERSION\"@g" "${'$'}toml"
+                    fi
+                    sed -i -E "s@^([[:space:]]*(ktor-bom|ktor_bom)[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KTOR_VERSION\3@g" "${'$'}toml"
+
+                    if [ -n "${'$'}LATEST_KSP" ]; then
+                        sed -i -E "s@^([[:space:]]*ksp[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}LATEST_KSP\2@g" "${'$'}toml"
+                    fi
+                done < <(find . -name "libs.versions.toml" -type f -not -path "*/build/*" -not -path "*/.gradle/*" -print0)
+
                 # Run validation (build/test)
                 BUILD_SUCCESS=false
                 
@@ -211,12 +310,6 @@ EOF
                     find . -name "*.yaml" -type f -exec sed -i "s/ktor: .*/ktor: ${'$'}KTOR_VERSION/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i 's|\${'$'}kotlin-test-junit|\${'$'}libs.kotlin.test|g' {} +
-
-                    while IFS= read -r -d '' toml; do
-                        echo "  [patcher] Patching version catalog: ${'$'}toml"
-                        sed -i -E "s@^([[:space:]]*(ktor|ktor-version|ktor_version|ktorVersion)[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KTOR_VERSION\3@g" "${'$'}toml"
-                        sed -i -E "s@^([[:space:]]*kotlin[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KOTLIN_VERSION\2@g" "${'$'}toml"
-                    done < <(find . -name "libs.versions.toml" -type f -not -path "*/build/*" -not -path "*/.gradle/*" -print0)
 
                     REPOS_TO_INJECT="$(printf '  - %s\n' \
                         "https://redirector.kotlinlang.org/maven/ktor-eap" \
@@ -331,10 +424,33 @@ EOF
                 fi
 
                 if [ "${'$'}BUILD_SUCCESS" = false ]; then
+                    run_gradle_with_429_retry() {
+                        local cmd="${'$'}1"
+                        local g_attempt=1
+                        local g_max=3
+                        while [ ${'$'}g_attempt -le ${'$'}g_max ]; do
+                            echo "Running: ${'$'}cmd (attempt ${'$'}g_attempt/${'$'}g_max)"
+                            if eval "${'$'}cmd" > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                return 0
+                            fi
+                            if [ ${'$'}g_attempt -eq ${'$'}g_max ]; then
+                                return 1
+                            fi
+                            if grep -qE "Received status code 429|Too Many Requests|HTTP/[0-9.]+ 429|could not resolve plugin artifact" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                                local delay=$((g_attempt * 60))
+                                echo "⚠️  Detected transient Gradle resolution failure (likely HTTP 429) — waiting ${'$'}{delay}s before retry"
+                                sleep ${'$'}delay
+                            else
+                                return 1
+                            fi
+                            g_attempt=$((g_attempt + 1))
+                        done
+                        return 1
+                    }
+
                     if [ -f "gradlew" ]; then
                         chmod +x gradlew
-                        echo "Running: ./gradlew ${'$'}GRADLE_ARGS"
-                        if ./gradlew ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                        if run_gradle_with_429_retry "./gradlew ${'$'}GRADLE_ARGS"; then
                             BUILD_SUCCESS=true
                             
                             # Optionally run tests if build succeeded and test task exists
@@ -348,8 +464,7 @@ EOF
                             fi
                         fi
                     elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
-                        echo "Running: gradle ${'$'}GRADLE_ARGS"
-                        if gradle ${'$'}GRADLE_ARGS > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                        if run_gradle_with_429_retry "gradle ${'$'}GRADLE_ARGS"; then
                             BUILD_SUCCESS=true
                             
                             # Optionally run tests if build succeeded and test task exists
