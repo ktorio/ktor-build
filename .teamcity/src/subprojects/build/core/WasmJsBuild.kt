@@ -9,7 +9,10 @@ import subprojects.build.*
 class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
     id("KtorMatrixWasmJs_${jsEntry.name}".toId())
     name = "WasmJS on ${jsEntry.name}"
-    val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
+    val artifactsToPublish = formatArtifacts(
+        "+:**/build/**/*.jar",
+        "+:**/build/**/yarn.lock",
+    )
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
     vcs {
