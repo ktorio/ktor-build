@@ -103,7 +103,7 @@ val osJdks = listOf(
     OSJDKEntry(OS.Linux, JDKEntry.JavaLTS), // Latest LTS
 )
 
-val js = JSEntry("Chrome/Node.js", "ghcr.io/ktorio/devcontainer:20260516")
+val js = JSEntry("Chrome/Node.js", "ghcr.io/ktorio/devcontainer:20260520")
 
 val javaScriptEngines = listOf(js)
 
