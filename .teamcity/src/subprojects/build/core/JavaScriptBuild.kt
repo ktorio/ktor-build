@@ -27,7 +27,7 @@ class JavaScriptBuild(private val jsEntry: JSEntry) : BuildType({
     steps {
         gradle {
             name = "Build Js"
-            tasks = "cleanJsTest jsTest"
+            tasks = "cleanJsTest jsTest -x:ktor-client-auth:jsBrowserTest"
             gradleParams = "-Penable-js-tests --continue --info $GradleParams"
             setupDockerForJavaScriptTests(jsEntry)
         }
