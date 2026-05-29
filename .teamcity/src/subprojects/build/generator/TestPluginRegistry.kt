@@ -15,7 +15,7 @@ object TestPluginRegistry : BuildType({
     steps {
         gradle {
             name = "Test plugin registry"
-            tasks = ":test:kotest"
+            tasks = ":test:test"
             jdkHome = Env.JDK_LTS
         }
     }
