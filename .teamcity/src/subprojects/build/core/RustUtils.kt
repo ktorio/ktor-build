@@ -36,6 +36,10 @@ fun BuildSteps.setupRustAarch64CrossCompilation(os: OS) {
         name = "Setup Rust aarch64 cross compilation"
         scriptContent = bashScript(
             """
+            # A workaround for:
+            #   The repository 'http://package.perforce.com/apt/ubuntu focal InRelease' is not signed. 
+            sudo rm /etc/apt/sources.list.d/perforce.list
+    
             sudo apt-get update
             sudo apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross
             
