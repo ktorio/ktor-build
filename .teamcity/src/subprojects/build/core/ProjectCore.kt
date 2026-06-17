@@ -25,6 +25,17 @@ object ProjectCore : Project({
     val allBuilds = osJdkBuilds + nativeBuilds + javaScriptBuilds + apiCheck + jpmsCheck + wasmJsBuilds
     val allBuildsWithStress = allBuilds + stressTestBuilds
 
+    // API check should be run on macOS for correctness, but we have a very limited number of macOS agents, so we use
+    // the same agent for API check and native build. This way we should also benefit from sharing Gradle build results.
+    val macOsArm64Build = nativeBuilds.first { it.entry == NativeEntry.MacOSArm64 }
+    macOsArm64Build.dependencies {
+        snapshot(apiCheck) {
+            onDependencyFailure = FailureAction.IGNORE
+            onDependencyCancel = FailureAction.IGNORE
+            runOnSameAgent = true
+        }
+    }
+
     allBuildsWithStress.forEach(::buildType)
 
     // Builds to be run manually on demand

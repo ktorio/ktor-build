@@ -7,7 +7,7 @@ import subprojects.*
 import subprojects.Agents.OS
 import subprojects.build.*
 
-class NativeBuild(private val entry: NativeEntry) : BuildType({
+internal class NativeBuild(val entry: NativeEntry) : BuildType({
     id("KtorMatrixNative_${entry.id}".toId())
     name = "${entry.name} ${entry.arch}"
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib")

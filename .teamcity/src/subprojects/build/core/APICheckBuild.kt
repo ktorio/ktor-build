@@ -20,11 +20,9 @@ object APICheckBuild : BuildType({
     }
 
     cancelPreviousBuilds()
-    enableRustForRelevantChanges(Agents.OS.Linux)
+    enableRustForRelevantChanges(Agents.OS.MacOS)
 
     steps {
-        setupRustAarch64CrossCompilation(os = Agents.OS.Linux)
-
         gradle {
             name = "API Check"
             tasks = "checkLegacyAbi"
@@ -36,6 +34,6 @@ object APICheckBuild : BuildType({
     defaultBuildFeatures()
 
     requirements {
-        agent(Agents.OS.Linux)
+        agent(Agents.OS.MacOS, Agents.Arch.Arm64)
     }
 })
