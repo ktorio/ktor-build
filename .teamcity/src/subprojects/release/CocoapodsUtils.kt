@@ -7,10 +7,11 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 fun BuildSteps.installCocoapods() {
     script {
         name = "Install Cocoapods"
+        // Cocoapods is already installed via homebrew, and it uses Ruby 4.
+        // We reinstall it to use the default Ruby version.
         scriptContent = bashScript("""
-            if ! command -v pod >/dev/null 2>&1; then                                                                                                                                                                                                                                                                                
-              gem install cocoapods --no-document                                                                                                                                                                                                                                                                                    
-            fi         
+            brew uninstall cocoapods || true
+            gem install cocoapods --no-document
             pod --version
         """)
     }
