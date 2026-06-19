@@ -111,8 +111,7 @@ private val LibcurlPushChanges = BuildType({
     }
 
     params {
-        param("env.GITHUB_USER", VCSUsername)
-        password("env.GITHUB_PASSWORD", VCSToken)
+        password("env.GITHUB_TOKEN", "n/a")
     }
 
     dependencies {
@@ -132,13 +131,13 @@ private val LibcurlPushChanges = BuildType({
         script {
             name = "Push changes"
             scriptContent = bashScript("""
-                BRANCH_NAME="teamcity/libcurl-update"
+                branch_name="teamcity/libcurl-update"
 
                 git config user.name "TeamCity"
                 git config user.email "teamcity@jetbrains.com"
-                git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/ktor.git"
+                git remote set-url origin "https://oauth2:${'$'}{GITHUB_TOKEN}@github.com/ktorio/ktor.git"
 
-                git switch --create ${'$'}BRANCH_NAME
+                git switch --create ${'$'}branch_name
 
                 git add ktor-client/ktor-client-curl/
                 if git diff --cached --quiet; then
@@ -147,12 +146,18 @@ private val LibcurlPushChanges = BuildType({
                 fi
 
                 git commit -m "Update libcurl binaries"
-                git push origin ${'$'}BRANCH_NAME
+                git push origin ${'$'}branch_name
             """)
         }
     }
 
     features {
         perfmon {}
+
+        gitHubAppBuildScopedToken {
+            parameterName = "env.GITHUB_TOKEN"
+            connectionId = "PROJECT_EXT_7"
+            targetRepositories = "ktor"
+        }
     }
 })
