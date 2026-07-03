@@ -71,6 +71,13 @@ object ConsolidatedEAPValidation {
                 // Optional Slack webhook for detailed notifications
                 password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
 
+                // YouTrack integration: on failure the investigation step files a KTOR issue.
+                password("env.YOUTRACK_TOKEN", "%system.youtrack.token%")
+                param("env.YOUTRACK_URL", "https://youtrack.jetbrains.com")
+                param("env.YOUTRACK_PROJECT", "KTOR")
+                param("env.YOUTRACK_TAG", "ktor-eap-validation")
+                param("quality.gate.youtrack.issue", "")
+
                 // Version parameters
                 param("env.KTOR_VERSION", "")
                 param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
@@ -133,7 +140,13 @@ object ConsolidatedEAPValidation {
                 ExternalSamplesValidationStep.apply(this)
                 InternalTestSuitesStep.apply(this)
                 QualityGateEvaluationStep.apply(this)
+                FailureInvestigationStep.apply(this)
                 ReportGenerationStep.apply(this)
+            }
+
+            features {
+                githubPullRequestsLoader(VCSCore.id)
+                githubCommitStatusPublisher(VCSCore.id)
             }
 
             triggers {
@@ -143,6 +156,11 @@ object ConsolidatedEAPValidation {
                         hour = 22
                     }
                     triggerBuild = always()
+                }
+
+                vcs {
+                    branchFilter = BranchFilter.DefaultOrPullRequest
+                    triggerRules = "+:root=${VCSCore.id}:**"
                 }
             }
 

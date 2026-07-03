@@ -70,6 +70,7 @@ object ReportGenerationStep {
                 RECOMMENDATIONS=$(echo "%quality.gate.recommendations%" | grep -v "^%quality\.gate\.recommendations%$" || echo "Quality gate evaluation not completed")
                 NEXT_STEPS=$(echo "%quality.gate.next.steps%" | grep -v "^%quality\.gate\.next\.steps%$" || echo "Review validation results")
                 FAILURE_REASONS=$(echo "%quality.gate.failure.reasons%" | grep -v "^%quality\.gate\.failure\.reasons%$" || echo "")
+                YOUTRACK_ISSUE=$(echo "%quality.gate.youtrack.issue%" | grep -v "^%quality\.gate\.youtrack\.issue%$" || echo "")
 
                 VERSION_ERRORS=$(echo "%version.resolution.errors%" | grep -E '^[0-9]+$' || echo "0")
 
@@ -105,6 +106,11 @@ object ReportGenerationStep {
                 CRITICAL_ISSUES_COLOR="#cb2431"
                 if [ "${'$'}TOTAL_CRITICAL" = "0" ]; then
                     CRITICAL_ISSUES_COLOR="#22863a"
+                fi
+
+                YOUTRACK_BANNER=""
+                if [ -n "${'$'}YOUTRACK_ISSUE" ]; then
+                    YOUTRACK_BANNER="<div style=\"margin-top: 20px; padding: 12px 16px; background-color: #f1f8ff; border: 1px solid #0366d6; border-radius: 6px; font-size: 15px;\">🔗 <strong>Ktor issue filed:</strong> <a href=\"${'$'}YOUTRACK_ISSUE\">${'$'}YOUTRACK_ISSUE</a></div>"
                 fi
 
                 FAILURE_REASONS_BLOCK=""
@@ -184,6 +190,7 @@ EOF
                 </div>
             </div>
         </div>
+        ${'$'}{YOUTRACK_BANNER}
     </div>
 
     <div class="grid">
@@ -308,6 +315,9 @@ EOF
                             SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Status: ${'$'}{TC_STATUS};"
                         fi
                         SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Quality gate validation failed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+                        if [ -n "${'$'}YOUTRACK_ISSUE" ]; then
+                            SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | YouTrack: ${'$'}YOUTRACK_ISSUE"
+                        fi
                     fi
                     
                     curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"${'$'}SLACK_MESSAGE\"}" "${'$'}SLACK_WEBHOOK_URL" > /dev/null 2>&1 || true

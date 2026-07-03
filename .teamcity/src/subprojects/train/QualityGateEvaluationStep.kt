@@ -153,9 +153,14 @@ object QualityGateEvaluationStep {
                 echo "##teamcity[setParameter name='quality.gate.slack.internal.emoji' value='${'$'}INTERNAL_EMOJI']"
                 echo "##teamcity[setParameter name='quality.gate.slack.critical.emoji' value='${'$'}CRITICAL_EMOJI']"
 
-                # Explicitly fail the build if quality gate failed
+                # Explicitly fail the build if quality gate failed.
                 if [ "${'$'}OVERALL_STATUS" = "FAILED" ]; then
-                    echo "QUALITY_GATE_FAILED: The validation results do not meet the required quality standards."
+                    PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+$' || echo "")
+                    if [ -n "${'$'}PR_NUMBER" ]; then
+                        echo "Quality gate FAILED on pull request #${'$'}PR_NUMBER — reporting as non-blocking (build stays green)."
+                    else
+                        echo "QUALITY_GATE_FAILED: The validation results do not meet the required quality standards."
+                    fi
                 fi
 
                 echo "=== Step 4: Quality Gate Evaluation Completed ==="

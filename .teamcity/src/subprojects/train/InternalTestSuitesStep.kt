@@ -525,7 +525,8 @@ EOF
                 before_hash=$(md5sum "${'$'}gradle_file" | awk '{print $1}')
 
                 # Rewrite "io.ktor:ARTIFACT:VERSION" -> "io.ktor:ARTIFACT:KTOR_VERSION"
-                sed -i -E "s@([\"'])io\.ktor:([a-zA-Z0-9_-]+):[^\"']+\1@\1io.ktor:\2:${'$'}ktor_ver\1@g" "${'$'}gradle_file"
+                sed -i -E "s@\"io\.ktor:([a-zA-Z0-9_-]+):[^\"]+\"@\"io.ktor:\1:${'$'}ktor_ver\"@g" "${'$'}gradle_file"
+                sed -i -E "s@'io\.ktor:([a-zA-Z0-9_-]+):[^']+'@'io.ktor:\1:${'$'}ktor_ver'@g" "${'$'}gradle_file"
 
                 # Rewrite id("io.ktor.plugin") version "VERSION"
                 sed -i -E "s@(id[[:space:]]*[(]?[\"']io\.ktor\.plugin[\"'][)]?[[:space:]]+version[[:space:]]+[\"'])[^\"']+([\"'])@\1${'$'}ktor_ver\2@g" "${'$'}gradle_file"
