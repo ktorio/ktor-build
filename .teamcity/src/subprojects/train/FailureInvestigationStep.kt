@@ -44,10 +44,8 @@ object FailureInvestigationStep {
                 INTERNAL_PASSED=$(echo "%internal.validation.passed.tests%" | grep -E '^[0-9]+$' || echo "0")
                 INTERNAL_FAILED=$(echo "%internal.validation.failed.tests%" | grep -E '^[0-9]+$' || echo "0")
 
-                PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+$' || echo "")
                 SERVER_URL=$(echo "%teamcity.serverUrl%" | grep -v "^%teamcity\.serverUrl%$" || echo "")
                 BUILD_ID=$(echo "%teamcity.build.id%" | grep -E '^[0-9]+$' || echo "")
-                VCS_NUMBER=$(echo "%build.vcs.number%" | grep -v "^%build\.vcs\.number%$" || echo "unknown")
                 BUILD_LINK="(local build)"
                 if [ -n "${'$'}SERVER_URL" ] && [ -n "${'$'}BUILD_ID" ]; then
                     BUILD_LINK="${'$'}SERVER_URL/viewLog.html?buildId=${'$'}BUILD_ID"
