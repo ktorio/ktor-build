@@ -155,6 +155,7 @@ object ConsolidatedEAPValidation {
                         dayOfWeek = Sunday
                         hour = 22
                     }
+                    branchFilter = BranchFilter.DefaultBranch
                     triggerBuild = always()
                 }
 
