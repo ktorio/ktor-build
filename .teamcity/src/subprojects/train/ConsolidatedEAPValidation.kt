@@ -1,6 +1,5 @@
 package subprojects.train
 
-import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
@@ -82,6 +81,11 @@ object ConsolidatedEAPValidation {
                 param("env.KTOR_VERSION", "")
                 param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
                 param("env.KOTLIN_VERSION", "2.3.10")
+
+                // PR builds parameters
+                param("env.KTOR_PR_TARGETS", "")
+                param("env.KTOR_PR_REPO", "")
+                param("env.KTOR_PR_REPO_DIR", "")
 
                 // Version resolution parameters
                 param("version.resolution.errors", "0")
@@ -173,13 +177,6 @@ object ConsolidatedEAPValidation {
                     reverse = false
                 }
             }
-
-            addSlackNotifications(
-                channel = "#ktor-projects-on-eap",
-                buildFailed = true,
-                buildFinishedSuccessfully = true
-            )
-
             requirements {
                 agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
                 exists("env.JAVA_HOME")

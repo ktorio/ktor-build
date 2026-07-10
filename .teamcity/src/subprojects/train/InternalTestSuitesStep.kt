@@ -83,6 +83,8 @@ import org.gradle.api.initialization.resolve.RepositoriesMode
 import java.net.URL
 import java.net.HttpURLConnection
 
+def ktorPrRepo = System.getenv("KTOR_PR_REPO")?.trim()
+
 beforeSettings { settings ->
     settings.pluginManagement {
         resolutionStrategy {
@@ -114,6 +116,7 @@ beforeSettings { settings ->
             }
         }
         repositories {
+            if (ktorPrRepo) maven { url = ktorPrRepo; allowInsecureProtocol = true }
             maven {
                 url = "https://redirector.kotlinlang.org/maven/ktor-eap"
             }
@@ -137,6 +140,7 @@ settingsEvaluated { settings ->
     settings.dependencyResolutionManagement.repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     settings.dependencyResolutionManagement {
         repositories {
+            if (ktorPrRepo) maven { url = ktorPrRepo; allowInsecureProtocol = true }
             maven {
                 url = "https://redirector.kotlinlang.org/maven/ktor-eap"
             }
@@ -187,6 +191,7 @@ settingsEvaluated { settings ->
 
 allprojects {
     repositories {
+        if (ktorPrRepo) maven { url = ktorPrRepo }
         maven {
             url = "https://redirector.kotlinlang.org/maven/ktor-eap"
         }
@@ -262,16 +267,25 @@ EOF
             # Create Maven settings with EAP repositories
             echo "Creating Maven settings for EAP repositories..."
             mkdir -p ~/.m2
+
+            PR_REPO_MAVEN=""
+            PR_PLUGIN_REPO_MAVEN=""
+            if [ -n "${'$'}{KTOR_PR_REPO:-}" ]; then
+                PR_REPO_MAVEN="<repository><id>ktor-pr-local</id><url>${'$'}KTOR_PR_REPO</url><releases><enabled>true</enabled></releases><snapshots><enabled>true</enabled></snapshots></repository>"
+                PR_PLUGIN_REPO_MAVEN="<pluginRepository><id>ktor-pr-local-plugins</id><url>${'$'}KTOR_PR_REPO</url></pluginRepository>"
+            fi
+
             cat > ~/.m2/settings.xml <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
                               http://maven.apache.org/xsd/settings-1.0.0.xsd">
     <profiles>
         <profile>
             <id>ktor-eap</id>
             <repositories>
+                ${'$'}PR_REPO_MAVEN
                 <repository>
                     <id>ktor-eap-repo</id>
                     <url>https://redirector.kotlinlang.org/maven/ktor-eap</url>
@@ -292,6 +306,7 @@ EOF
                 </repository>
             </repositories>
             <pluginRepositories>
+                ${'$'}PR_PLUGIN_REPO_MAVEN
                 <pluginRepository>
                     <id>ktor-eap-plugins</id>
                     <url>https://redirector.kotlinlang.org/maven/ktor-eap</url>
@@ -375,8 +390,43 @@ EOF
             INIT_SCRIPT="${'$'}WORK_DIR/samples/gradle-eap-init.gradle"
             SAMPLES_ROOT="${'$'}WORK_DIR/samples"
 
+            # Serve the PR file repo over HTTPS (self-signed cert, trusted via a combined truststore)
+            PR_REPO_SERVER_PID=""
+            PR_REPO_TLS_TMP=""
+            stop_pr_repo_server() {
+                [ -n "${'$'}PR_REPO_SERVER_PID" ] && kill "${'$'}PR_REPO_SERVER_PID" 2>/dev/null || true
+                [ -n "${'$'}PR_REPO_TLS_TMP" ] && rm -rf "${'$'}PR_REPO_TLS_TMP" 2>/dev/null || true
+            }
+            trap stop_pr_repo_server EXIT
+            if [ -n "${'$'}{KTOR_PR_REPO:-}" ] && [ -d "${'$'}{KTOR_PR_REPO_DIR:-}" ]; then
+                PR_PORT=$(printf '%s' "${'$'}KTOR_PR_REPO" | sed -E 's#.*://[^:/]+:([0-9]+).*#\1#')
+                [ -n "${'$'}PR_PORT" ] || PR_PORT=8347
+                PR_REPO_TLS_TMP=$(mktemp -d)
+                PR_CACERTS="${'$'}JAVA_HOME/lib/security/cacerts"
+                [ -f "${'$'}PR_CACERTS" ] || PR_CACERTS="${'$'}JAVA_HOME/jre/lib/security/cacerts"
+                "${'$'}JAVA_HOME/bin/keytool" -genkeypair -keyalg RSA -keysize 2048 -alias srv -keystore "${'$'}PR_REPO_TLS_TMP/server.p12" \
+                    -storetype PKCS12 -storepass changeit -validity 3650 -dname "CN=localhost" -ext "SAN=DNS:localhost,IP:127.0.0.1" >/dev/null 2>&1
+                openssl pkcs12 -in "${'$'}PR_REPO_TLS_TMP/server.p12" -out "${'$'}PR_REPO_TLS_TMP/server.pem" -nodes -passin pass:changeit >/dev/null 2>&1
+                "${'$'}JAVA_HOME/bin/keytool" -exportcert -alias srv -keystore "${'$'}PR_REPO_TLS_TMP/server.p12" -storepass changeit -rfc -file "${'$'}PR_REPO_TLS_TMP/cert.pem" >/dev/null 2>&1
+                cp "${'$'}PR_CACERTS" "${'$'}PR_REPO_TLS_TMP/truststore.jks"
+                "${'$'}JAVA_HOME/bin/keytool" -importcert -noprompt -alias ktor-pr-repo -file "${'$'}PR_REPO_TLS_TMP/cert.pem" -keystore "${'$'}PR_REPO_TLS_TMP/truststore.jks" -storepass changeit >/dev/null 2>&1
+                printf '%s\n' \
+                    'import http.server, ssl, sys, functools' \
+                    'ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(sys.argv[3])' \
+                    'h = functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[2])' \
+                    'srv = http.server.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), h)' \
+                    'srv.socket = ctx.wrap_socket(srv.socket, server_side=True)' \
+                    'srv.serve_forever()' \
+                    > "${'$'}PR_REPO_TLS_TMP/serve.py"
+                python3 "${'$'}PR_REPO_TLS_TMP/serve.py" "${'$'}PR_PORT" "${'$'}KTOR_PR_REPO_DIR" "${'$'}PR_REPO_TLS_TMP/server.pem" > "${'$'}WORK_DIR/pr-repo-https.log" 2>&1 &
+                PR_REPO_SERVER_PID=$!
+                export JAVA_TOOL_OPTIONS="${'$'}{JAVA_TOOL_OPTIONS:-} -Djavax.net.ssl.trustStore=${'$'}PR_REPO_TLS_TMP/truststore.jks -Djavax.net.ssl.trustStorePassword=changeit"
+                for i in $(seq 1 30); do curl -sfk "${'$'}KTOR_PR_REPO/io/ktor/ktor-bom/" >/dev/null 2>&1 && break; sleep 1; done
+                echo "🔒 Serving PR repo ${'$'}KTOR_PR_REPO_DIR at ${'$'}KTOR_PR_REPO (pid ${'$'}PR_REPO_SERVER_PID)"
+            fi
+
             cd "${'$'}SAMPLES_ROOT"
-        
+
             # Create a summary report file
             REPORT_FILE="${'$'}REPORTS_DIR/samples-summary.txt"
             echo "Ktor EAP Sample Validation Report" > "${'$'}REPORT_FILE"
@@ -384,6 +434,50 @@ EOF
             echo "Ktor Version: %env.KTOR_VERSION%" >> "${'$'}REPORT_FILE"
             echo "Ktor Plugin Version: %env.KTOR_COMPILER_PLUGIN_VERSION%" >> "${'$'}REPORT_FILE"
             echo "-----------------------------------" >> "${'$'}REPORT_FILE"
+
+            # PR diff-scoping for sample selection
+            PR_TARGETS="%env.KTOR_PR_TARGETS%"
+            case "${'$'}PR_TARGETS" in *KTOR_PR_TARGETS*) PR_TARGETS="";; esac
+
+            compute_pr_platforms() {
+                local sets="${'$'}1" out=""
+                [ -z "${'$'}sets" ] && { echo "ALL"; return; }
+                echo "${'$'}sets" | grep -qw common && { echo "ALL"; return; }
+                echo "${'$'}sets" | grep -qwE 'jvm'                                                                    && out="${'$'}out jvm"
+                echo "${'$'}sets" | grep -qwE 'web|js|wasmJs'                                                          && out="${'$'}out web"
+                echo "${'$'}sets" | grep -qwE 'posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative' && out="${'$'}out native"
+                echo "${'$'}sets" | grep -qwE 'wasmWasi'                                                               && out="${'$'}out wasmWasi"
+                echo "${'$'}sets" | grep -qwE 'android'                                                                && out="${'$'}out android"
+                echo "${'$'}sets" | grep -qwE 'nonJvm'                                                                 && out="${'$'}out web native wasmWasi"
+                echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
+            }
+            PR_PLATFORMS="$(compute_pr_platforms "${'$'}PR_TARGETS")"
+            echo "PR-affected platforms for sample selection: ${'$'}{PR_PLATFORMS:-ALL}"
+
+            detect_sample_platforms() {
+                local dir="${'$'}1" out="" content=""
+                content=$(find "${'$'}dir" -maxdepth 3 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -exec cat {} + 2>/dev/null)
+                [ -z "${'$'}content" ] && { echo "jvm"; return; }
+                echo "${'$'}content" | grep -qE '(^|[^A-Za-z])jvm[[:space:]]*[({]|kotlin\("jvm"\)|"application"|org\.jetbrains\.kotlin\.jvm' && out="${'$'}out jvm"
+                echo "${'$'}content" | grep -qE '(^|[^A-Za-z])js[[:space:]]*[({]|wasmJs[[:space:]]*[({]' && out="${'$'}out web"
+                echo "${'$'}content" | grep -qE 'linuxX64|linuxArm64|mingwX64|macosX64|macosArm64|iosX64|iosArm64|iosSimulatorArm64|watchos|tvos' && out="${'$'}out native"
+                echo "${'$'}content" | grep -qE 'wasmWasi[[:space:]]*[({]' && out="${'$'}out wasmWasi"
+                echo "${'$'}content" | grep -qE 'androidTarget[[:space:]]*[({]|com\.android\.(application|library)' && out="${'$'}out android"
+                [ -z "${'$'}out" ] && out="jvm"
+                echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
+            }
+
+            sample_in_scope() {
+                local dir="${'$'}1"
+                { [ "${'$'}PR_PLATFORMS" = "ALL" ] || [ -z "${'$'}PR_PLATFORMS" ]; } && return 0
+                local sp p
+                sp="$(detect_sample_platforms "${'$'}dir")"
+                for p in ${'$'}sp; do
+                    echo "${'$'}PR_PLATFORMS" | grep -qw "${'$'}p" && return 0
+                done
+                echo "⏭️  Skipping $(basename "${'$'}dir"): targets [${'$'}sp] not in PR-affected platforms [${'$'}PR_PLATFORMS]"
+                return 1
+            }
 
             TOTAL_COUNT=0
             SUCCESSFUL_COUNT=0
@@ -698,7 +792,28 @@ EOF
 
                 TOTAL_COUNT=$((TOTAL_COUNT + 1))
                 echo "Validating sample: ${'$'}sample_dir..."
-                patch_sample_build_files "${'$'}sample_dir" "%env.KTOR_VERSION%" "${'$'}KOTLIN_VERSION" "%env.KTOR_COMPILER_PLUGIN_VERSION%"
+
+                if ! sample_in_scope "${'$'}sample_dir"; then
+                    SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                    echo "${'$'}sample_dir: SKIPPED (platform not affected by PR)" >> "${'$'}REPORT_FILE"
+                    continue
+                fi
+
+                # Use the sample's own Kotlin, but never below the Ktor-build Kotlin
+                SAMPLE_KOTLIN="${'$'}KOTLIN_VERSION"
+                DETECTED_KOTLIN=$( {
+                    grep -hoE '^[[:space:]]*kotlin[[:space:]]*=[[:space:]]*"[^"]+"' "${'$'}sample_dir/gradle/libs.versions.toml" 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/'
+                    grep -hoE '^[[:space:]]*kotlin_version[[:space:]]*=[[:space:]]*[^[:space:]]+' "${'$'}sample_dir/gradle.properties" 2>/dev/null | sed -E 's/.*=[[:space:]]*//'
+                } | grep -E '^[0-9]' | sort -V | tail -1 )
+                if [ -n "${'$'}DETECTED_KOTLIN" ]; then
+                    SAMPLE_KOTLIN=$(printf '%s\n%s\n' "${'$'}DETECTED_KOTLIN" "${'$'}KOTLIN_VERSION" | sort -V | tail -1)
+                    [ "${'$'}SAMPLE_KOTLIN" != "${'$'}KOTLIN_VERSION" ] && \
+                        echo "  [patcher] Building ${'$'}sample_dir with its own Kotlin ${'$'}SAMPLE_KOTLIN (>= Ktor-build ${'$'}KOTLIN_VERSION)"
+                fi
+                # Override the global kotlin_version 
+                KOTLIN_OVERRIDE="-Pkotlin_version=${'$'}SAMPLE_KOTLIN -Dkotlin_version=${'$'}SAMPLE_KOTLIN"
+
+                patch_sample_build_files "${'$'}sample_dir" "%env.KTOR_VERSION%" "${'$'}SAMPLE_KOTLIN" "%env.KTOR_COMPILER_PLUGIN_VERSION%"
 
                 # Maven sample
                 if [ -f "${'$'}sample_dir/pom.xml" ]; then
@@ -733,23 +848,23 @@ EOF
                 # Gradle sample
                 if [ -f "${'$'}sample_dir/gradlew" ]; then
                     chmod +x "${'$'}sample_dir/gradlew"
-                    echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
-                    if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                    echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon"
+                    if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                         echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
                         echo "${'$'}sample_dir: PASSED (Gradle build)" >> "${'$'}REPORT_FILE"
                         
                         # Optionally run tests if build succeeded and test task exists
-                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon 2>/dev/null | grep -q "allTests"); then
-                           echo "Build successful, now running aggregated tests: ./gradlew allTests --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
-                           if (cd "${'$'}sample_dir" && ./gradlew allTests --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon 2>/dev/null | grep -q "allTests"); then
+                           echo "Build successful, now running aggregated tests: ./gradlew allTests --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon"
+                           if (cd "${'$'}sample_dir" && ./gradlew allTests --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                                echo "✅ ${'$'}sample_dir: Tests passed"
                            else
                                echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
                            fi
-                        elif (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon 2>/dev/null | grep -qx "test"); then
-                           echo "Build successful, now running tests: ./gradlew test --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon"
-                           if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                        elif (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon 2>/dev/null | grep -qx "test"); then
+                           echo "Build successful, now running tests: ./gradlew test --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon"
+                           if (cd "${'$'}sample_dir" && ./gradlew test --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                                echo "✅ ${'$'}sample_dir: Tests passed"
                            else
                                echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"

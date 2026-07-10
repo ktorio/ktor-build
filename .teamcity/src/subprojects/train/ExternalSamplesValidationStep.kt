@@ -72,6 +72,87 @@ object ExternalSamplesValidationStep {
             echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
             echo "Try Compile on Failure: ${'$'}TRY_COMPILE_ON_FAILURE"
 
+            # PR diff-scoping for sample selection
+            PR_TARGETS="%env.KTOR_PR_TARGETS%"
+            case "${'$'}PR_TARGETS" in *KTOR_PR_TARGETS*) PR_TARGETS="";; esac
+
+            compute_pr_platforms() {
+                local sets="${'$'}1" out=""
+                [ -z "${'$'}sets" ] && { echo "ALL"; return; }
+                echo "${'$'}sets" | grep -qw common && { echo "ALL"; return; }
+                echo "${'$'}sets" | grep -qwE 'jvm'                                                                    && out="${'$'}out jvm"
+                echo "${'$'}sets" | grep -qwE 'web|js|wasmJs'                                                          && out="${'$'}out web"
+                echo "${'$'}sets" | grep -qwE 'posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative' && out="${'$'}out native"
+                echo "${'$'}sets" | grep -qwE 'wasmWasi'                                                               && out="${'$'}out wasmWasi"
+                echo "${'$'}sets" | grep -qwE 'android'                                                                && out="${'$'}out android"
+                echo "${'$'}sets" | grep -qwE 'nonJvm'                                                                 && out="${'$'}out web native wasmWasi"
+                echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
+            }
+            PR_PLATFORMS="$(compute_pr_platforms "${'$'}PR_TARGETS")"
+            echo "PR-affected platforms for sample selection: ${'$'}{PR_PLATFORMS:-ALL}"
+
+            # Detect which platforms a sample project targets
+            detect_sample_platforms() {
+                local dir="${'$'}1" out="" content=""
+                content=$(find "${'$'}dir" -maxdepth 3 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -exec cat {} + 2>/dev/null)
+                [ -z "${'$'}content" ] && { echo "jvm"; return; }
+                echo "${'$'}content" | grep -qE '(^|[^A-Za-z])jvm[[:space:]]*[({]|kotlin\("jvm"\)|"application"|org\.jetbrains\.kotlin\.jvm' && out="${'$'}out jvm"
+                echo "${'$'}content" | grep -qE '(^|[^A-Za-z])js[[:space:]]*[({]|wasmJs[[:space:]]*[({]' && out="${'$'}out web"
+                echo "${'$'}content" | grep -qE 'linuxX64|linuxArm64|mingwX64|macosX64|macosArm64|iosX64|iosArm64|iosSimulatorArm64|watchos|tvos' && out="${'$'}out native"
+                echo "${'$'}content" | grep -qE 'wasmWasi[[:space:]]*[({]' && out="${'$'}out wasmWasi"
+                echo "${'$'}content" | grep -qE 'androidTarget[[:space:]]*[({]|com\.android\.(application|library)' && out="${'$'}out android"
+                [ -z "${'$'}out" ] && out="jvm"
+                echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
+            }
+
+            # Detects if the sample should run given the PR scope
+            sample_in_scope() {
+                local dir="${'$'}1"
+                { [ "${'$'}PR_PLATFORMS" = "ALL" ] || [ -z "${'$'}PR_PLATFORMS" ]; } && return 0
+                local sp p
+                sp="$(detect_sample_platforms "${'$'}dir")"
+                for p in ${'$'}sp; do
+                    echo "${'$'}PR_PLATFORMS" | grep -qw "${'$'}p" && return 0
+                done
+                echo "⏭️  Skipping $(basename "${'$'}dir"): targets [${'$'}sp] not in PR-affected platforms [${'$'}PR_PLATFORMS]"
+                return 1
+            }
+
+            # Serve the PR file repo over HTTPS (self-signed cert, trusted via a combined truststore)
+            PR_REPO_SERVER_PID=""
+            PR_REPO_TLS_TMP=""
+            stop_pr_repo_server() {
+                [ -n "${'$'}PR_REPO_SERVER_PID" ] && kill "${'$'}PR_REPO_SERVER_PID" 2>/dev/null || true
+                [ -n "${'$'}PR_REPO_TLS_TMP" ] && rm -rf "${'$'}PR_REPO_TLS_TMP" 2>/dev/null || true
+            }
+            trap stop_pr_repo_server EXIT
+            if [ -n "${'$'}{KTOR_PR_REPO:-}" ] && [ -d "${'$'}{KTOR_PR_REPO_DIR:-}" ]; then
+                PR_PORT=$(printf '%s' "${'$'}KTOR_PR_REPO" | sed -E 's#.*://[^:/]+:([0-9]+).*#\1#')
+                [ -n "${'$'}PR_PORT" ] || PR_PORT=8347
+                PR_REPO_TLS_TMP=$(mktemp -d)
+                PR_CACERTS="${'$'}JAVA_HOME/lib/security/cacerts"
+                [ -f "${'$'}PR_CACERTS" ] || PR_CACERTS="${'$'}JAVA_HOME/jre/lib/security/cacerts"
+                "${'$'}JAVA_HOME/bin/keytool" -genkeypair -keyalg RSA -keysize 2048 -alias srv -keystore "${'$'}PR_REPO_TLS_TMP/server.p12" \
+                    -storetype PKCS12 -storepass changeit -validity 3650 -dname "CN=localhost" -ext "SAN=DNS:localhost,IP:127.0.0.1" >/dev/null 2>&1
+                openssl pkcs12 -in "${'$'}PR_REPO_TLS_TMP/server.p12" -out "${'$'}PR_REPO_TLS_TMP/server.pem" -nodes -passin pass:changeit >/dev/null 2>&1
+                "${'$'}JAVA_HOME/bin/keytool" -exportcert -alias srv -keystore "${'$'}PR_REPO_TLS_TMP/server.p12" -storepass changeit -rfc -file "${'$'}PR_REPO_TLS_TMP/cert.pem" >/dev/null 2>&1
+                cp "${'$'}PR_CACERTS" "${'$'}PR_REPO_TLS_TMP/truststore.jks"
+                "${'$'}JAVA_HOME/bin/keytool" -importcert -noprompt -alias ktor-pr-repo -file "${'$'}PR_REPO_TLS_TMP/cert.pem" -keystore "${'$'}PR_REPO_TLS_TMP/truststore.jks" -storepass changeit >/dev/null 2>&1
+                printf '%s\n' \
+                    'import http.server, ssl, sys, functools' \
+                    'ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(sys.argv[3])' \
+                    'h = functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[2])' \
+                    'srv = http.server.ThreadingHTTPServer(("127.0.0.1", int(sys.argv[1])), h)' \
+                    'srv.socket = ctx.wrap_socket(srv.socket, server_side=True)' \
+                    'srv.serve_forever()' \
+                    > "${'$'}PR_REPO_TLS_TMP/serve.py"
+                python3 "${'$'}PR_REPO_TLS_TMP/serve.py" "${'$'}PR_PORT" "${'$'}KTOR_PR_REPO_DIR" "${'$'}PR_REPO_TLS_TMP/server.pem" > pr-repo-https.log 2>&1 &
+                PR_REPO_SERVER_PID=$!
+                export JAVA_TOOL_OPTIONS="${'$'}{JAVA_TOOL_OPTIONS:-} -Djavax.net.ssl.trustStore=${'$'}PR_REPO_TLS_TMP/truststore.jks -Djavax.net.ssl.trustStorePassword=changeit"
+                for i in $(seq 1 30); do curl -sfk "${'$'}KTOR_PR_REPO/io/ktor/ktor-bom/" >/dev/null 2>&1 && break; sleep 1; done
+                echo "🔒 Serving PR repo ${'$'}KTOR_PR_REPO_DIR at ${'$'}KTOR_PR_REPO (pid ${'$'}PR_REPO_SERVER_PID)"
+            fi
+
             WORK_DIR=$(pwd)
             REPORTS_DIR="${'$'}WORK_DIR/external-validation-reports"
             SAMPLES_DIR="${'$'}WORK_DIR/external-samples"
@@ -86,7 +167,13 @@ object ExternalSamplesValidationStep {
             mkdir -p "${'$'}SAMPLES_DIR"
 
             mkdir -p "${'$'}HOME/.m2"
-            cat > "${'$'}HOME/.m2/settings.xml" <<'SETTINGS_EOF'
+
+            PR_MAVEN_PROFILE=""
+            if [ -n "${'$'}{KTOR_PR_REPO:-}" ]; then
+                PR_MAVEN_PROFILE="<profiles><profile><id>ktor-pr-local</id><repositories><repository><id>ktor-pr-local</id><url>${'$'}KTOR_PR_REPO</url><releases><enabled>true</enabled></releases><snapshots><enabled>true</enabled></snapshots></repository></repositories><pluginRepositories><pluginRepository><id>ktor-pr-local-plugins</id><url>${'$'}KTOR_PR_REPO</url></pluginRepository></pluginRepositories></profile></profiles><activeProfiles><activeProfile>ktor-pr-local</activeProfile></activeProfiles>"
+            fi
+
+            cat > "${'$'}HOME/.m2/settings.xml" <<SETTINGS_EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -99,6 +186,7 @@ object ExternalSamplesValidationStep {
             <mirrorOf>central</mirrorOf>
         </mirror>
     </mirrors>
+    ${'$'}PR_MAVEN_PROFILE
 </settings>
 SETTINGS_EOF
             echo "Wrote ~/.m2/settings.xml with JetBrains cache-redirector mirror"
@@ -106,6 +194,8 @@ SETTINGS_EOF
             mkdir -p "${'$'}HOME/.gradle/init.d"
             cat > "${'$'}HOME/.gradle/init.d/cache-redirector.gradle" <<'INIT_EOF'
 def cacheRedirector = "https://cache-redirector.jetbrains.com"
+
+def ktorPrRepo = System.getenv("KTOR_PR_REPO")?.trim()
 
 def replaceUrl = { repo ->
     if (repo instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository) {
@@ -126,6 +216,7 @@ def replaceUrl = { repo ->
 
 beforeSettings { settings ->
     settings.pluginManagement.repositories.all(replaceUrl)
+    if (ktorPrRepo) settings.pluginManagement.repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
     settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
     settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
     settings.pluginManagement.repositories.gradlePluginPortal()
@@ -144,6 +235,7 @@ beforeSettings { settings ->
 settingsEvaluated { settings ->
     if (settings.dependencyResolutionManagement) {
         settings.dependencyResolutionManagement.repositories.all(replaceUrl)
+        if (ktorPrRepo) settings.dependencyResolutionManagement.repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
         settings.dependencyResolutionManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
         settings.dependencyResolutionManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
     }
@@ -152,6 +244,8 @@ settingsEvaluated { settings ->
 allprojects {
     buildscript.repositories.all(replaceUrl)
     repositories.all(replaceUrl)
+    if (ktorPrRepo) buildscript.repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
+    if (ktorPrRepo) repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
     buildscript.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
     buildscript.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
     buildscript.repositories.maven { url = uri("https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/") }
@@ -252,12 +346,30 @@ EOF
                     SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
                     continue
                 fi
-                
+
+                if ! sample_in_scope "${'$'}project_dir"; then
+                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                    continue
+                fi
+
                 cd "${'$'}project_dir"
-                
+
+                # Pick the Kotlin version for this sample
+                SAMPLE_KOTLIN="${'$'}KOTLIN_VERSION"
+                DETECTED_KOTLIN=$( {
+                    grep -hoE '^[[:space:]]*kotlin[[:space:]]*=[[:space:]]*"[^"]+"' gradle/libs.versions.toml 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/'
+                    grep -hoE '^[[:space:]]*kotlin_version[[:space:]]*=[[:space:]]*[^[:space:]]+' gradle.properties 2>/dev/null | sed -E 's/.*=[[:space:]]*//'
+                } | grep -E '^[0-9]' | sort -V | tail -1 )
+                if [ -n "${'$'}DETECTED_KOTLIN" ]; then
+                    SAMPLE_KOTLIN=$(printf '%s\n%s\n' "${'$'}DETECTED_KOTLIN" "${'$'}KOTLIN_VERSION" | sort -V | tail -1)
+                fi
+                [ "${'$'}SAMPLE_KOTLIN" != "${'$'}KOTLIN_VERSION" ] && \
+                    echo "  [patcher] Building ${'$'}project_name with its own Kotlin ${'$'}SAMPLE_KOTLIN (>= Ktor-build ${'$'}KOTLIN_VERSION)"
+
                 # Apply EAP versions
                 if [ -f "gradle.properties" ]; then
                     cp "${'$'}WORK_DIR/gradle.properties.eap" gradle.properties
+                    sed -i -E "s@^([[:space:]]*kotlin_version[[:space:]]*=).*@\1${'$'}SAMPLE_KOTLIN@" gradle.properties
                     
                     # Enable AndroidX if it seems necessary
                     if grep -rnE "androidx|android" . > /dev/null 2>&1; then
@@ -287,7 +399,7 @@ EOF
                 while IFS= read -r -d '' toml; do
                     echo "  [patcher] Patching version catalog: ${'$'}toml"
                     sed -i -E "s@^([[:space:]]*(ktor|ktor-version|ktor_version|ktorVersion)[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KTOR_VERSION\3@g" "${'$'}toml"
-                    sed -i -E "s@^([[:space:]]*kotlin[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KOTLIN_VERSION\2@g" "${'$'}toml"
+                    sed -i -E "s@^([[:space:]]*kotlin[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}SAMPLE_KOTLIN\2@g" "${'$'}toml"
                     if [ -n "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
                         # Match BOTH version.ref = "X" AND version = "X" (literal) — some catalogs
                         # like ktor-workshop-2025 use a direct version string for io.ktor.plugin.
@@ -308,10 +420,11 @@ EOF
                 if [ -f "module.yaml" ] || [ -d ".amper" ] || [ -f "amper" ]; then
                     echo "Amper project detected. Updating versions in module.yaml or equivalent..."
                     find . -name "*.yaml" -type f -exec sed -i "s/ktor: .*/ktor: ${'$'}KTOR_VERSION/g" {} +
-                    find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
+                    find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}SAMPLE_KOTLIN/g" {} +
                     find . -name "*.yaml" -type f -exec sed -i 's|\${'$'}kotlin-test-junit|\${'$'}libs.kotlin.test|g' {} +
 
                     REPOS_TO_INJECT="$(printf '  - %s\n' \
+                        ${'$'}{KTOR_PR_REPO:+"${'$'}KTOR_PR_REPO"} \
                         "https://redirector.kotlinlang.org/maven/ktor-eap" \
                         "https://redirector.kotlinlang.org/maven/dev" \
                         "https://cache-redirector.jetbrains.com/repo1.maven.org/maven2")"
