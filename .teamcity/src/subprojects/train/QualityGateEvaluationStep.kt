@@ -156,6 +156,9 @@ object QualityGateEvaluationStep {
                 # Explicitly fail the build if quality gate failed.
                 if [ "${'$'}OVERALL_STATUS" = "FAILED" ]; then
                     PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+$' || echo "")
+                    if [ -z "${'$'}PR_NUMBER" ]; then
+                        PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
+                    fi
                     if [ -n "${'$'}PR_NUMBER" ]; then
                         echo "Quality gate FAILED on pull request #${'$'}PR_NUMBER — reporting as non-blocking (build stays green)."
                     else

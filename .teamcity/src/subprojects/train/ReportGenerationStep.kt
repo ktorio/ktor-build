@@ -24,7 +24,22 @@ object ReportGenerationStep {
                 KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | grep -v "^%env\.KTOR_VERSION%$" || echo "unknown")
                 KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | grep -E '^[0-9.]+$' || echo "2.3.10")
                 KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | grep -v "^%env\.KTOR_COMPILER_PLUGIN_VERSION%$" || echo "N/A")
-                
+
+                # Detect PR context
+                PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+${'$'}' || echo "")
+                if [ -z "${'$'}PR_NUMBER" ]; then
+                    PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
+                fi
+                if [ -n "${'$'}PR_NUMBER" ]; then
+                    VALIDATION_TITLE="Ktor PR Validation"
+                    VALIDATION_LABEL="PR #${'$'}PR_NUMBER"
+                    VERSION_LABEL="PR #${'$'}PR_NUMBER (${'$'}KTOR_VERSION)"
+                else
+                    VALIDATION_TITLE="Ktor EAP Validation"
+                    VALIDATION_LABEL="EAP ${'$'}KTOR_VERSION"
+                    VERSION_LABEL="EAP ${'$'}KTOR_VERSION"
+                fi
+
                 # Handle built-in TeamCity parameters safely
                 BUILD_VCS_NUMBER="unknown"
                 if [ -n "${'$'}{teamcity_build_vcs_number:-}" ]; then
@@ -125,7 +140,7 @@ EOF
                 fi
 
                 echo "=== Report Data Summary ==="
-                echo "EAP Version: ${'$'}KTOR_VERSION"
+                echo "Validation Target: ${'$'}VERSION_LABEL"
                 echo "Overall Status: ${'$'}OVERALL_STATUS"
                 echo "Overall Score: ${'$'}OVERALL_SCORE/100"
                 echo "Critical Issues: ${'$'}TOTAL_CRITICAL"
@@ -169,7 +184,7 @@ EOF
         <div class="header">
             <div>
                 <h1>Quality Gate Report</h1>
-                <div style="color: #666;">Ktor EAP Validation • ${'$'}{KTOR_VERSION}</div>
+                <div style="color: #666;">${'$'}{VALIDATION_TITLE} • ${'$'}{KTOR_VERSION}</div>
             </div>
             <span class="status-badge ${'$'}{STATUS_CLASS}">${'$'}{OVERALL_STATUS}</span>
         </div>
@@ -283,7 +298,7 @@ EOF
                 fi
 
                 # Create enhanced build status text with key metrics
-                STATUS_LINE1="${'$'}MAIN_EMOJI EAP ${'$'}KTOR_VERSION: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
+                STATUS_LINE1="${'$'}MAIN_EMOJI ${'$'}VALIDATION_LABEL: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
                 STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
 
                 # Combine into single-line status for TeamCity service message
@@ -307,10 +322,10 @@ EOF
                     PROJECT_PATH="${'$'}TC_PROJECT_NAME / ${'$'}TC_BUILD_NAME"
                     
                     if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER passed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER passed — ${'$'}VERSION_LABEL (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
                     else
                         TC_STATUS=$(echo "${'$'}{TEAMCITY_BUILD_STATUS_TEXT:-unknown}")
-                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failed"
+                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failed — ${'$'}VERSION_LABEL"
                         if [ -n "${'$'}TC_STATUS" ]; then
                             SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Status: ${'$'}{TC_STATUS};"
                         fi

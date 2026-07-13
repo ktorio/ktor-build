@@ -37,6 +37,9 @@ object VersionResolutionStep {
 
                 # Detect pull request context. When set, validate the samples against the Ktor version built FROM the merge request sources.
                 PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+${'$'}' || echo "")
+                if [ -z "${'$'}PR_NUMBER" ]; then
+                    PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
+                fi
 
                 if [ -n "${'$'}PR_NUMBER" ]; then
                     echo "🔀 Pull request #${'$'}PR_NUMBER detected — building Ktor from merge request sources"
