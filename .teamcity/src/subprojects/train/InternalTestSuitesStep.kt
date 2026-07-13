@@ -623,7 +623,9 @@ EOF
                 sed -i -E "s@'io\.ktor:([a-zA-Z0-9_-]+):[^']+'@'io.ktor:\1:${'$'}ktor_ver'@g" "${'$'}gradle_file"
 
                 # Rewrite id("io.ktor.plugin") version "VERSION"
-                sed -i -E "s@(id[[:space:]]*[(]?[\"']io\.ktor\.plugin[\"'][)]?[[:space:]]+version[[:space:]]+[\"'])[^\"']+([\"'])@\1${'$'}ktor_ver\2@g" "${'$'}gradle_file"
+                if [ -n "${'$'}ktor_plugin_ver" ]; then
+                    sed -i -E "s@(id[[:space:]]*[(]?[\"']io\.ktor\.plugin[\"'][)]?[[:space:]]+version[[:space:]]+[\"'])[^\"']+([\"'])@\1${'$'}ktor_plugin_ver\2@g" "${'$'}gradle_file"
+                fi
 
                 # Rewrite val ktor_version = "VERSION" / val ktorVersion = "VERSION"
                 sed -i -E "s@(val[[:space:]]+(ktor_version|ktorVersion|KTOR_VERSION)[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}ktor_ver\3@g" "${'$'}gradle_file"

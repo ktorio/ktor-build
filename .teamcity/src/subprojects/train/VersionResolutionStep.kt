@@ -122,7 +122,25 @@ object VersionResolutionStep {
                     echo "✅ Ktor PR build available in local file repo: ${'$'}KTOR_PR_REPO_DIR (${'$'}KTOR_VERSION)"
                     VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: ${'$'}KTOR_VERSION (PR_BUILD; sets: ${'$'}{CHANGED_SETS:-all})\n"
 
-                    VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: EAP_FALLBACK (separate repo)\n"
+                    echo "Fetching latest Ktor Gradle plugin EAP version (build tooling; not built from the PR)..."
+                    if KTOR_PLUGIN_METADATA=$(curl "${'$'}{CURL_FLAGS[@]}" "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}"); then
+                        KTOR_COMPILER_PLUGIN_VERSION=$(echo "${'$'}KTOR_PLUGIN_METADATA" \
+                            | grep -oE "<version>[^<]+</version>" \
+                            | sed -E 's#</?version>##g' \
+                            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+-eap-[0-9]+${'$'}' \
+                            | grep -vE -- "(-SNAPSHOT|SNAPSHOT)" \
+                            | grep -vE -- "(^|[-.])openapi(${'$'}|[-.])" \
+                            | sort -V \
+                            | tail -1 || true)
+                    fi
+                    if [ -n "${'$'}KTOR_COMPILER_PLUGIN_VERSION" ]; then
+                        echo "✅ Using Ktor Gradle plugin EAP version: ${'$'}KTOR_COMPILER_PLUGIN_VERSION"
+                        echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}KTOR_COMPILER_PLUGIN_VERSION']"
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: ${'$'}KTOR_COMPILER_PLUGIN_VERSION (EAP; build tooling, not from PR)\n"
+                    else
+                        echo "⚠️  Could not resolve a Ktor Gradle plugin EAP version — samples will keep their declared plugin version."
+                        VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Compiler Plugin: UNRESOLVED (samples keep declared version)\n"
+                    fi
 
                     # Prefer the Kotlin version the PR sources build with, for metadata compatibility.
                     if [ -f ktor/gradle/libs.versions.toml ]; then

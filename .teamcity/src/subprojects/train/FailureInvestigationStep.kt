@@ -29,6 +29,16 @@ object FailureInvestigationStep {
                     exit 0
                 fi
 
+                # Never file YouTrack issues for pull request runs
+                PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+${'$'}' || echo "")
+                if [ -z "${'$'}PR_NUMBER" ]; then
+                    PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
+                fi
+                if [ -n "${'$'}PR_NUMBER" ]; then
+                    echo "Pull request #${'$'}PR_NUMBER run — skipping YouTrack issue filing (PR failures are non-blocking and not tracked as EAP regressions)."
+                    exit 0
+                fi
+
                 KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | grep -v "^%env\.KTOR_VERSION%$" || echo "")
                 [ -z "${'$'}KTOR_VERSION" ] && KTOR_VERSION="unknown"
                 KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | grep -E '^[0-9.]+' || echo "unknown")
