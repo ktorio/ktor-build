@@ -87,6 +87,10 @@ object ConsolidatedEAPValidation {
                 param("env.KTOR_PR_REPO", "")
                 param("env.KTOR_PR_REPO_DIR", "")
 
+                // Declare the PR-context parameters with empty defaults
+                param("teamcity.pullRequest.number", "")
+                param("teamcity.pullRequest.targetBranch", "")
+
                 // Version resolution parameters
                 param("version.resolution.errors", "0")
 
