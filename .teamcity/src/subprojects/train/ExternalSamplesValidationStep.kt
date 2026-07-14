@@ -118,6 +118,43 @@ object ExternalSamplesValidationStep {
                 return 1
             }
 
+            PR_PUBLISHED_PLATFORMS=""
+            if [ -n "${'$'}{KTOR_PR_REPO_DIR:-}" ] && [ -d "${'$'}{KTOR_PR_REPO_DIR:-}/io/ktor" ]; then
+                KROOT="${'$'}KTOR_PR_REPO_DIR/io/ktor"
+                plat_published() {
+                    local suf
+                    for suf in "$@"; do
+                        compgen -G "${'$'}KROOT/*${'$'}suf" >/dev/null 2>&1 && return 0
+                    done
+                    return 1
+                }
+                plat_published '-jvm'                 && PR_PUBLISHED_PLATFORMS="${'$'}PR_PUBLISHED_PLATFORMS jvm"
+                plat_published '-js' '-wasm-js'        && PR_PUBLISHED_PLATFORMS="${'$'}PR_PUBLISHED_PLATFORMS web"
+                plat_published '-wasm-wasi'            && PR_PUBLISHED_PLATFORMS="${'$'}PR_PUBLISHED_PLATFORMS wasmWasi"
+                plat_published '-android'             && PR_PUBLISHED_PLATFORMS="${'$'}PR_PUBLISHED_PLATFORMS android"
+                plat_published '-linuxx64' '-linuxarm64' '-macosx64' '-macosarm64' '-mingwx64' \
+                               '-iosx64' '-iosarm64' '-iossimulatorarm64' '-watchosarm64' '-watchosx64' \
+                               '-watchossimulatorarm64' '-tvosarm64' '-tvosx64' '-tvossimulatorarm64' \
+                                                      && PR_PUBLISHED_PLATFORMS="${'$'}PR_PUBLISHED_PLATFORMS native"
+                PR_PUBLISHED_PLATFORMS=$(echo "${'$'}PR_PUBLISHED_PLATFORMS" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' ')
+                echo "PR repo published platforms: ${'$'}{PR_PUBLISHED_PLATFORMS:-<none detected>}"
+            fi
+
+            sample_buildable_in_pr() {
+                local dir="${'$'}1"
+                [ -z "${'$'}{KTOR_PR_REPO_DIR:-}" ] && return 0     # not a PR run — no restriction
+                [ -z "${'$'}PR_PUBLISHED_PLATFORMS" ] && return 0   # detection failed — don't over-skip
+                local sp p
+                sp="$(detect_sample_platforms "${'$'}dir")"
+                for p in ${'$'}sp; do
+                    if ! echo "${'$'}PR_PUBLISHED_PLATFORMS" | grep -qw "${'$'}p"; then
+                        echo "⏭️  Skipping $(basename "${'$'}dir"): needs '${'$'}p' but PR repo only published [${'$'}PR_PUBLISHED_PLATFORMS]"
+                        return 1
+                    fi
+                done
+                return 0
+            }
+
             # Serve the PR file repo over HTTPS (self-signed cert, trusted via a combined truststore)
             PR_REPO_SERVER_PID=""
             PR_REPO_TLS_TMP=""
@@ -348,6 +385,11 @@ EOF
                 fi
 
                 if ! sample_in_scope "${'$'}project_dir"; then
+                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                    continue
+                fi
+
+                if ! sample_buildable_in_pr "${'$'}project_dir"; then
                     SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
                     continue
                 fi

@@ -55,14 +55,32 @@ object VersionResolutionStep {
                     # Scope the build to the KMP targets the PR actually touches
                     BASE_BRANCH=$(echo "%teamcity.pullRequest.targetBranch%" | sed -E 's#^refs/heads/##')
                     [ -z "${'$'}BASE_BRANCH" ] && BASE_BRANCH="main"
+                    echo "Determining changed source sets against base branch: ${'$'}BASE_BRANCH"
                     CHANGED_SETS=""
-                    if (cd ktor && git fetch --no-tags --depth 200 origin "${'$'}BASE_BRANCH" >/dev/null 2>&1); then
+                    CHANGED_FILES=""
+                    (cd ktor && git fetch --no-tags --depth 500 origin "${'$'}BASE_BRANCH") 2>&1 \
+                        | sed 's/^/  [git fetch] /' | head -20 || echo "  ⚠️  git fetch origin ${'$'}BASE_BRANCH failed"
+                    BASE_SHA=$(cd ktor && git merge-base HEAD FETCH_HEAD 2>/dev/null || true)
+                    if [ -z "${'$'}BASE_SHA" ]; then
+                        echo "  merge-base not found (shallow history?) — deepening history and retrying"
+                        (cd ktor && git fetch --no-tags --unshallow origin "${'$'}BASE_BRANCH" 2>/dev/null \
+                            || git fetch --no-tags --deepen=2000 origin "${'$'}BASE_BRANCH" 2>/dev/null) || true
                         BASE_SHA=$(cd ktor && git merge-base HEAD FETCH_HEAD 2>/dev/null || true)
-                        if [ -n "${'$'}BASE_SHA" ]; then
-                            CHANGED_SETS=$( (cd ktor && git diff --name-only "${'$'}BASE_SHA"...HEAD 2>/dev/null) \
-                                | grep -oE '/(common|jvm|posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative|android|js|wasmJs|wasmWasi|web|nonJvm)/' \
-                                | sed 's#/##g' | sort -u | tr '\n' ' ' || true)
-                        fi
+                    fi
+                    if [ -n "${'$'}BASE_SHA" ]; then
+                        echo "  Base SHA: ${'$'}BASE_SHA"
+                        CHANGED_FILES=$(cd ktor && git diff --name-only "${'$'}BASE_SHA"...HEAD 2>/dev/null || true)
+                    else
+                        echo "  Still no merge-base — falling back to two-dot diff against FETCH_HEAD"
+                        CHANGED_FILES=$(cd ktor && git diff --name-only FETCH_HEAD HEAD 2>/dev/null || true)
+                    fi
+                    if [ -n "${'$'}CHANGED_FILES" ]; then
+                        echo "  Changed files: $(printf '%s\n' "${'$'}CHANGED_FILES" | grep -c . || true)"
+                        CHANGED_SETS=$(printf '%s\n' "${'$'}CHANGED_FILES" \
+                            | grep -oE '/(common|jvm|posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative|android|js|wasmJs|wasmWasi|web|nonJvm)/' \
+                            | sed 's#/##g' | sort -u | tr '\n' ' ' || true)
+                    else
+                        echo "  ⚠️  Could not determine changed files — scoping will be skipped (full suite runs)"
                     fi
                     echo "PR touches source sets: ${'$'}{CHANGED_SETS:-<undetermined — will publish all targets>}"
 
