@@ -234,6 +234,9 @@ def cacheRedirector = "https://cache-redirector.jetbrains.com"
 
 def ktorPrRepo = System.getenv("KTOR_PR_REPO")?.trim()
 
+def kotlinV = System.getenv("KOTLIN_VERSION")
+def kotlinIsDev = kotlinV != null && (kotlinV.contains("-dev") || kotlinV.contains("-Beta") || kotlinV.contains("-RC") || kotlinV.contains("-M") || kotlinV.toLowerCase().contains("eap") || kotlinV.contains("SNAPSHOT"))
+
 def replaceUrl = { repo ->
     if (repo instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository) {
         def u = repo.url?.toString()
@@ -253,11 +256,11 @@ def replaceUrl = { repo ->
 
 beforeSettings { settings ->
     settings.pluginManagement.repositories.all(replaceUrl)
-    if (ktorPrRepo) settings.pluginManagement.repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
-    settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
-    settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
     settings.pluginManagement.repositories.gradlePluginPortal()
     settings.pluginManagement.repositories.mavenCentral()
+    if (ktorPrRepo) settings.pluginManagement.repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
+    settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
+    if (kotlinIsDev) settings.pluginManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
 
     settings.pluginManagement.resolutionStrategy.eachPlugin { details ->
         if (details.requested.id.id == "io.ktor.plugin") {
@@ -274,7 +277,7 @@ settingsEvaluated { settings ->
         settings.dependencyResolutionManagement.repositories.all(replaceUrl)
         if (ktorPrRepo) settings.dependencyResolutionManagement.repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
         settings.dependencyResolutionManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
-        settings.dependencyResolutionManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
+        if (kotlinIsDev) settings.dependencyResolutionManagement.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
     }
 }
 
@@ -284,10 +287,10 @@ allprojects {
     if (ktorPrRepo) buildscript.repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
     if (ktorPrRepo) repositories.maven { url = uri(ktorPrRepo); allowInsecureProtocol = true }
     buildscript.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
-    buildscript.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
+    if (kotlinIsDev) buildscript.repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
     buildscript.repositories.maven { url = uri("https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/") }
     repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/ktor-eap") }
-    repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
+    if (kotlinIsDev) repositories.maven { url = uri("https://redirector.kotlinlang.org/maven/dev") }
     repositories.maven { url = uri("https://cache-redirector.jetbrains.com/repo1.maven.org/maven2/") }
     repositories.maven { url = uri("https://cache-redirector.jetbrains.com/maven.google.com/") }
 

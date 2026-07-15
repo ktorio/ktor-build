@@ -110,21 +110,7 @@ object VersionResolutionStep {
                         echo "Branch build (${'$'}{BUILD_BRANCH:-unknown}) — validating all targets (no diff scoping)"
                     fi
 
-                    # Map touched source sets → target groups to DISABLE (jvm always stays on).
-                    SCOPE_APPLIED=0
-                    {
-                        echo ""
-                        echo "# --- ConsolidatedEAPValidation source scope (auto-generated) ---"
-                        if [ -n "${'$'}CHANGED_SETS" ]; then
-                            echo "${'$'}CHANGED_SETS" | grep -qwE 'web|js|wasmJs|nonJvm|common'                                       || { echo "target.web=false";      SCOPE_APPLIED=1; }
-                            echo "${'$'}CHANGED_SETS" | grep -qwE 'posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative|nonJvm' || { echo "target.posix=false";    SCOPE_APPLIED=1; }
-                            echo "${'$'}CHANGED_SETS" | grep -qwE 'wasmWasi|nonJvm'                                                   || { echo "target.wasmWasi=false"; SCOPE_APPLIED=1; }
-                            echo "${'$'}CHANGED_SETS" | grep -qwE 'android'                                                           || { echo "target.android=false";  SCOPE_APPLIED=1; }
-                        fi
-                        [ "${'$'}SCOPE_APPLIED" = "1" ] && echo "ktorbuild.ignoreExtraSourceSets=true"
-                    } >> ktor/gradle.properties
-                    echo "Applied target scope to ktor/gradle.properties:"
-                    grep -E '^(target\.|ktorbuild\.ignoreExtraSourceSets)' ktor/gradle.properties || echo "  (all targets enabled)"
+                    echo "PR-affected source sets (used for sample scoping only): ${'$'}{CHANGED_SETS:-<all>}"
 
                     # Publish to a local FILE repository
                     KTOR_PR_REPO_DIR="$(pwd)/ktor-pr-repo"
