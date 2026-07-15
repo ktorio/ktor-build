@@ -29,13 +29,11 @@ object FailureInvestigationStep {
                     exit 0
                 fi
 
-                # Never file YouTrack issues for pull request runs
-                PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+${'$'}' || echo "")
-                if [ -z "${'$'}PR_NUMBER" ]; then
-                    PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
-                fi
-                if [ -n "${'$'}PR_NUMBER" ]; then
-                    echo "Pull request #${'$'}PR_NUMBER run — skipping YouTrack issue filing (PR failures are non-blocking and not tracked as EAP regressions)."
+                # Only the scheduled PUBLISHED-EAP run files YouTrack issues.
+                EAP_VALIDATION_MODE=$(echo "%env.EAP_VALIDATION_MODE%" | grep -v '%env\.EAP_VALIDATION_MODE%' || echo "")
+                [ -z "${'$'}EAP_VALIDATION_MODE" ] && EAP_VALIDATION_MODE="source"
+                if [ "${'$'}EAP_VALIDATION_MODE" != "published" ]; then
+                    echo "Source-validation run (mode=${'$'}EAP_VALIDATION_MODE) — skipping YouTrack issue filing (not an EAP regression)."
                     exit 0
                 fi
 

@@ -35,60 +35,86 @@ object VersionResolutionStep {
                 KTOR_COMPILER_PLUGIN_VERSION=""
                 KOTLIN_VERSION=""
 
-                # Detect pull request context. When set, validate the samples against the Ktor version built FROM the merge request sources.
+                # Decide WHAT to validate:
+                [ -z "${'$'}EAP_VALIDATION_MODE" ] && EAP_VALIDATION_MODE="source"
+
                 PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+${'$'}' || echo "")
                 if [ -z "${'$'}PR_NUMBER" ]; then
                     PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
                 fi
 
-                if [ -n "${'$'}PR_NUMBER" ]; then
-                    echo "🔀 Pull request #${'$'}PR_NUMBER detected — building Ktor from merge request sources"
+                if [ "${'$'}EAP_VALIDATION_MODE" != "published" ]; then
+                    echo "🔨 Source-validation mode — building Ktor from the checked-out sources"
 
                     if [ ! -d ktor ]; then
-                        echo "❌ Ktor sources not found in ./ktor checkout — cannot validate the PR"
+                        echo "❌ Ktor sources not found in ./ktor checkout — cannot validate from source"
                         exit 1
                     fi
 
-                    # Unique, deterministic version so samples can only resolve it from Maven Local.
-                    KTOR_VERSION="0.0.0-pr${'$'}{PR_NUMBER}-local"
+                    # Identify the source being validated: PR number → branch name → short commit SHA.
+                    BUILD_BRANCH=$(echo "%teamcity.build.branch%" | grep -v '%teamcity\.build\.branch%' || echo "")
+                    KTOR_SHA=$(cd ktor && git rev-parse --short HEAD 2>/dev/null || echo "")
+                    if [ -n "${'$'}PR_NUMBER" ]; then
+                        SOURCE_ID="pr${'$'}PR_NUMBER"
+                        SOURCE_DESC="pull request #${'$'}PR_NUMBER"
+                    else
+                        SAFE_BRANCH=$(printf '%s' "${'$'}{BUILD_BRANCH:-source}" | sed -E 's#[^A-Za-z0-9]+#-#g; s#^-+##; s#-+${'$'}##' | cut -c1-40)
+                        [ -z "${'$'}SAFE_BRANCH" ] && SAFE_BRANCH="source"
+                        SOURCE_ID="${'$'}SAFE_BRANCH${'$'}{KTOR_SHA:+-${'$'}KTOR_SHA}"
+                        SOURCE_DESC="branch ${'$'}{BUILD_BRANCH:-<unknown>}"
+                    fi
+                    # Unique, deterministic version so samples can only resolve it from the local source repo.
+                    KTOR_VERSION="0.0.0-${'$'}{SOURCE_ID}-local"
+                    echo "Validating ${'$'}SOURCE_DESC → Ktor ${'$'}KTOR_VERSION"
 
-                    # Scope the build to the KMP targets the PR actually touches
-                    BASE_BRANCH=$(echo "%teamcity.pullRequest.targetBranch%" | sed -E 's#^refs/heads/##')
-                    [ -z "${'$'}BASE_BRANCH" ] && BASE_BRANCH="main"
-                    echo "Determining changed source sets against base branch: ${'$'}BASE_BRANCH"
+                    # Determine the base to diff against for KMP target scoping.
                     CHANGED_SETS=""
                     CHANGED_FILES=""
-                    (cd ktor && git fetch --no-tags --depth 500 origin "${'$'}BASE_BRANCH") 2>&1 \
-                        | sed 's/^/  [git fetch] /' | head -20 || echo "  ⚠️  git fetch origin ${'$'}BASE_BRANCH failed"
-                    BASE_SHA=$(cd ktor && git merge-base HEAD FETCH_HEAD 2>/dev/null || true)
-                    if [ -z "${'$'}BASE_SHA" ]; then
-                        echo "  merge-base not found (shallow history?) — deepening history and retrying"
-                        (cd ktor && git fetch --no-tags --unshallow origin "${'$'}BASE_BRANCH" 2>/dev/null \
-                            || git fetch --no-tags --deepen=2000 origin "${'$'}BASE_BRANCH" 2>/dev/null) || true
-                        BASE_SHA=$(cd ktor && git merge-base HEAD FETCH_HEAD 2>/dev/null || true)
-                    fi
-                    if [ -n "${'$'}BASE_SHA" ]; then
-                        echo "  Base SHA: ${'$'}BASE_SHA"
-                        CHANGED_FILES=$(cd ktor && git diff --name-only "${'$'}BASE_SHA"...HEAD 2>/dev/null || true)
+                    if [ -n "${'$'}PR_NUMBER" ]; then
+                        BASE_BRANCH=$(echo "%teamcity.pullRequest.targetBranch%" | sed -E 's#^refs/heads/##' | grep -v '%teamcity\.pullRequest\.targetBranch%' || echo "")
+                        NPARENTS=$(cd ktor && git rev-list --parents -n1 HEAD 2>/dev/null | wc -w)
+                        if [ "${'$'}{NPARENTS:-0}" -ge 3 ]; then
+                            echo "PR checkout is a merge commit — diffing the PR against its base parent (HEAD^1)"
+                            [ -z "${'$'}BASE_BRANCH" ] && BASE_BRANCH="(merge base parent)"
+                            CHANGED_FILES=$(cd ktor && git diff --name-only 'HEAD^1' HEAD 2>/dev/null || true)
+                        else
+                            [ -z "${'$'}BASE_BRANCH" ] && BASE_BRANCH="main"
+                            echo "Determining changed source sets against base branch: ${'$'}BASE_BRANCH"
+                            (cd ktor && git fetch --no-tags --depth 500 origin "${'$'}BASE_BRANCH") 2>&1 \
+                                | sed 's/^/  [git fetch] /' | head -20 || echo "  ⚠️  git fetch origin ${'$'}BASE_BRANCH failed"
+                            BASE_SHA=$(cd ktor && git merge-base HEAD FETCH_HEAD 2>/dev/null || true)
+                            if [ -z "${'$'}BASE_SHA" ]; then
+                                echo "  merge-base not found (shallow history?) — deepening history and retrying"
+                                (cd ktor && git fetch --no-tags --unshallow origin "${'$'}BASE_BRANCH" 2>/dev/null \
+                                    || git fetch --no-tags --deepen=2000 origin "${'$'}BASE_BRANCH" 2>/dev/null) || true
+                                BASE_SHA=$(cd ktor && git merge-base HEAD FETCH_HEAD 2>/dev/null || true)
+                            fi
+                            if [ -n "${'$'}BASE_SHA" ]; then
+                                echo "  Base SHA: ${'$'}BASE_SHA"
+                                CHANGED_FILES=$(cd ktor && git diff --name-only "${'$'}BASE_SHA"...HEAD 2>/dev/null || true)
+                            else
+                                echo "  Still no merge-base — falling back to two-dot diff against FETCH_HEAD"
+                                CHANGED_FILES=$(cd ktor && git diff --name-only FETCH_HEAD HEAD 2>/dev/null || true)
+                            fi
+                        fi
+                        if [ -n "${'$'}CHANGED_FILES" ]; then
+                            echo "  Changed files: $(printf '%s\n' "${'$'}CHANGED_FILES" | grep -c . || true) (base: ${'$'}BASE_BRANCH)"
+                            CHANGED_SETS=$(printf '%s\n' "${'$'}CHANGED_FILES" \
+                                | grep -oE '/(common|jvm|posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative|android|js|wasmJs|wasmWasi|web|nonJvm)/' \
+                                | sed 's#/##g' | sort -u | tr '\n' ' ' || true)
+                        else
+                            echo "  ⚠️  Could not determine changed files — scoping skipped (all targets)"
+                        fi
+                        echo "PR touches source sets: ${'$'}{CHANGED_SETS:-<undetermined — will validate all targets>}"
                     else
-                        echo "  Still no merge-base — falling back to two-dot diff against FETCH_HEAD"
-                        CHANGED_FILES=$(cd ktor && git diff --name-only FETCH_HEAD HEAD 2>/dev/null || true)
+                        echo "Branch build (${'$'}{BUILD_BRANCH:-unknown}) — validating all targets (no diff scoping)"
                     fi
-                    if [ -n "${'$'}CHANGED_FILES" ]; then
-                        echo "  Changed files: $(printf '%s\n' "${'$'}CHANGED_FILES" | grep -c . || true)"
-                        CHANGED_SETS=$(printf '%s\n' "${'$'}CHANGED_FILES" \
-                            | grep -oE '/(common|jvm|posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative|android|js|wasmJs|wasmWasi|web|nonJvm)/' \
-                            | sed 's#/##g' | sort -u | tr '\n' ' ' || true)
-                    else
-                        echo "  ⚠️  Could not determine changed files — scoping will be skipped (full suite runs)"
-                    fi
-                    echo "PR touches source sets: ${'$'}{CHANGED_SETS:-<undetermined — will publish all targets>}"
 
                     # Map touched source sets → target groups to DISABLE (jvm always stays on).
                     SCOPE_APPLIED=0
                     {
                         echo ""
-                        echo "# --- ConsolidatedEAPValidation PR scope (auto-generated) ---"
+                        echo "# --- ConsolidatedEAPValidation source scope (auto-generated) ---"
                         if [ -n "${'$'}CHANGED_SETS" ]; then
                             echo "${'$'}CHANGED_SETS" | grep -qwE 'web|js|wasmJs|nonJvm|common'                                       || { echo "target.web=false";      SCOPE_APPLIED=1; }
                             echo "${'$'}CHANGED_SETS" | grep -qwE 'posix|nix|linux|windows|mingw|darwin|macos|ios|tvos|watchos|androidNative|nonJvm' || { echo "target.posix=false";    SCOPE_APPLIED=1; }
@@ -121,24 +147,24 @@ object VersionResolutionStep {
                         '}' \
                         > ktor/pr-publish-repo.init.gradle
 
-                    echo "Publishing Ktor ${'$'}KTOR_VERSION from PR sources to ${'$'}KTOR_PR_REPO_URL (this can take a while)..."
+                    echo "Publishing Ktor ${'$'}KTOR_VERSION from ${'$'}SOURCE_DESC to ${'$'}KTOR_PR_REPO_URL (this can take a while)..."
                     chmod +x ktor/gradlew || true
                     if ! (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
                             ./gradlew publishAllPublicationsToPrLocalFileRepository \
                               -Pversion="${'$'}KTOR_VERSION" \
                               --init-script pr-publish-repo.init.gradle --no-daemon --stacktrace); then
-                        echo "❌ Failed to build/publish Ktor from the PR sources."
-                        echo "   A PR check must validate the PR's own Ktor — refusing to fall back to a published EAP."
+                        echo "❌ Failed to build/publish Ktor from the checked-out sources (${'$'}SOURCE_DESC)."
+                        echo "   A source check must validate the actual sources — refusing to fall back to a published EAP."
                         exit 1
                     fi
 
                     # Verify the artifacts actually landed in the file repo.
                     if [ ! -d "${'$'}KTOR_PR_REPO_DIR/io/ktor/ktor-bom/${'$'}KTOR_VERSION" ]; then
-                        echo "❌ Ktor ${'$'}KTOR_VERSION not found in ${'$'}KTOR_PR_REPO_DIR after publish — cannot validate the PR"
+                        echo "❌ Ktor ${'$'}KTOR_VERSION not found in ${'$'}KTOR_PR_REPO_DIR after publish — cannot validate"
                         exit 1
                     fi
-                    echo "✅ Ktor PR build available in local file repo: ${'$'}KTOR_PR_REPO_DIR (${'$'}KTOR_VERSION)"
-                    VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: ${'$'}KTOR_VERSION (PR_BUILD; sets: ${'$'}{CHANGED_SETS:-all})\n"
+                    echo "✅ Ktor source build available in local file repo: ${'$'}KTOR_PR_REPO_DIR (${'$'}KTOR_VERSION)"
+                    VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: ${'$'}KTOR_VERSION (SOURCE_BUILD: ${'$'}SOURCE_DESC; sets: ${'$'}{CHANGED_SETS:-all})\n"
 
                     echo "Fetching latest Ktor Gradle plugin EAP version (build tooling; not built from the PR)..."
                     if KTOR_PLUGIN_METADATA=$(curl "${'$'}{CURL_FLAGS[@]}" "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}"); then

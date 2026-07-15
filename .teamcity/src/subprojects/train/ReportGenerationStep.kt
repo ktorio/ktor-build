@@ -25,19 +25,26 @@ object ReportGenerationStep {
                 KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | grep -E '^[0-9.]+$' || echo "2.3.10")
                 KTOR_COMPILER_PLUGIN_VERSION=$(echo "%env.KTOR_COMPILER_PLUGIN_VERSION%" | grep -v "^%env\.KTOR_COMPILER_PLUGIN_VERSION%$" || echo "N/A")
 
-                # Detect PR context
+                # Label the run by what it validated: the published EAP (scheduled), a PR, or a branch source build.
+                EAP_VALIDATION_MODE=$(echo "%env.EAP_VALIDATION_MODE%" | grep -v '%env\.EAP_VALIDATION_MODE%' || echo "")
+                [ -z "${'$'}EAP_VALIDATION_MODE" ] && EAP_VALIDATION_MODE="source"
                 PR_NUMBER=$(echo "%teamcity.pullRequest.number%" | grep -E '^[0-9]+${'$'}' || echo "")
                 if [ -z "${'$'}PR_NUMBER" ]; then
                     PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
                 fi
-                if [ -n "${'$'}PR_NUMBER" ]; then
+                BUILD_BRANCH=$(echo "%teamcity.build.branch%" | grep -v '%teamcity\.build\.branch%' || echo "")
+                if [ "${'$'}EAP_VALIDATION_MODE" = "published" ]; then
+                    VALIDATION_TITLE="Ktor EAP Validation"
+                    VALIDATION_LABEL="EAP ${'$'}KTOR_VERSION"
+                    VERSION_LABEL="EAP ${'$'}KTOR_VERSION"
+                elif [ -n "${'$'}PR_NUMBER" ]; then
                     VALIDATION_TITLE="Ktor PR Validation"
                     VALIDATION_LABEL="PR #${'$'}PR_NUMBER"
                     VERSION_LABEL="PR #${'$'}PR_NUMBER (${'$'}KTOR_VERSION)"
                 else
-                    VALIDATION_TITLE="Ktor EAP Validation"
-                    VALIDATION_LABEL="EAP ${'$'}KTOR_VERSION"
-                    VERSION_LABEL="EAP ${'$'}KTOR_VERSION"
+                    VALIDATION_TITLE="Ktor Source Validation"
+                    VALIDATION_LABEL="branch ${'$'}{BUILD_BRANCH:-source}"
+                    VERSION_LABEL="branch ${'$'}{BUILD_BRANCH:-source} (${'$'}KTOR_VERSION)"
                 fi
 
                 # Handle built-in TeamCity parameters safely

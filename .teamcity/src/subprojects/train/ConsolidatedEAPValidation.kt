@@ -77,6 +77,9 @@ object ConsolidatedEAPValidation {
                 param("env.YOUTRACK_TAG", "ktor-eap-validation")
                 param("quality.gate.youtrack.issue", "")
 
+                // Validation mode: "source" (default) builds Ktor from the checked-out sources.
+                param("env.EAP_VALIDATION_MODE", "source")
+
                 // Version parameters
                 param("env.KTOR_VERSION", "")
                 param("env.KTOR_COMPILER_PLUGIN_VERSION", "")
@@ -165,6 +168,7 @@ object ConsolidatedEAPValidation {
                     }
                     branchFilter = BranchFilter.DefaultBranch
                     triggerBuild = always()
+                    param("env.EAP_VALIDATION_MODE", "published")
                 }
 
                 vcs {
