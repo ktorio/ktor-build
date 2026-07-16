@@ -155,6 +155,20 @@ object ExternalSamplesValidationStep {
                 return 0
             }
 
+            # Print the root-cause section of a failed build log. 
+            print_failure_excerpt() {
+                local log="${'$'}1" start
+                [ -f "${'$'}log" ] || return 0
+                start=$(grep -nE "FAILURE: Build failed with an exception|BUILD FAILURE" "${'$'}log" | tail -1 | cut -d: -f1)
+                if [ -n "${'$'}start" ]; then
+                    echo "----- build log from failure banner (capped 150 lines) -----"
+                    tail -n +"${'$'}start" "${'$'}log" | head -n 150
+                else
+                    echo "----- build log (last 80 lines) -----"
+                    tail -n 80 "${'$'}log"
+                fi
+            }
+
             # Serve the PR file repo over HTTPS (self-signed cert, trusted via a combined truststore)
             PR_REPO_SERVER_PID=""
             PR_REPO_TLS_TMP=""
@@ -678,8 +692,7 @@ EOF
                     touch "${'$'}REPORTS_DIR/${'$'}project_name.passed"
                 else
                     echo "❌ ${'$'}project_name: VALIDATION FAILED"
-                    echo "Last 20 lines of build log:"
-                    tail -n 20 "${'$'}REPORTS_DIR/${'$'}project_name-build.log"
+                    print_failure_excerpt "${'$'}REPORTS_DIR/${'$'}project_name-build.log"
                     FAILED_SAMPLES=$((FAILED_SAMPLES + 1))
                     touch "${'$'}REPORTS_DIR/${'$'}project_name.failed"
                     

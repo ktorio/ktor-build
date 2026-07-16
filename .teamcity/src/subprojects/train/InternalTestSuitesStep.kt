@@ -480,6 +480,7 @@ EOF
             }
 
             PR_PUBLISHED_PLATFORMS=""
+            PR_PUBLISHED_NATIVE=""
             if [ -n "${'$'}{KTOR_PR_REPO_DIR:-}" ] && [ -d "${'$'}{KTOR_PR_REPO_DIR:-}/io/ktor" ]; then
                 KROOT="${'$'}KTOR_PR_REPO_DIR/io/ktor"
                 plat_published() {
@@ -499,7 +500,27 @@ EOF
                                                       && PR_PUBLISHED_PLATFORMS="${'$'}PR_PUBLISHED_PLATFORMS native"
                 PR_PUBLISHED_PLATFORMS=$(echo "${'$'}PR_PUBLISHED_PLATFORMS" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' ')
                 echo "PR repo published platforms: ${'$'}{PR_PUBLISHED_PLATFORMS:-<none detected>}"
+
+                plat_published '-linuxx64' '-linuxarm64'  && PR_PUBLISHED_NATIVE="${'$'}PR_PUBLISHED_NATIVE linux"
+                plat_published '-macosx64' '-macosarm64' '-iosx64' '-iosarm64' '-iossimulatorarm64' \
+                               '-watchosarm64' '-watchosx64' '-watchossimulatorarm64' \
+                               '-tvosarm64' '-tvosx64' '-tvossimulatorarm64' \
+                                                          && PR_PUBLISHED_NATIVE="${'$'}PR_PUBLISHED_NATIVE apple"
+                plat_published '-mingwx64'                && PR_PUBLISHED_NATIVE="${'$'}PR_PUBLISHED_NATIVE mingw"
+                PR_PUBLISHED_NATIVE=$(echo "${'$'}PR_PUBLISHED_NATIVE" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' ')
+                echo "PR repo published native families: ${'$'}{PR_PUBLISHED_NATIVE:-<none detected>}"
             fi
+
+            # Which native OS-families does a sample declare targets for?
+            detect_sample_native() {
+                local dir="${'$'}1" out="" content=""
+                # Strip // comments so commented-out targets (e.g. `// mingwX64(...)`) don't trigger a skip.
+                content=$(find "${'$'}dir" -maxdepth 3 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -exec cat {} + 2>/dev/null | sed 's://.*::')
+                echo "${'$'}content" | grep -qE 'linuxX64|linuxArm64' && out="${'$'}out linux"
+                echo "${'$'}content" | grep -qE 'macosX64|macosArm64|iosX64|iosArm64|iosSimulatorArm64|watchos|tvos' && out="${'$'}out apple"
+                echo "${'$'}content" | grep -qE 'mingwX64' && out="${'$'}out mingw"
+                echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
+            }
 
             sample_buildable_in_pr() {
                 local dir="${'$'}1"
@@ -513,7 +534,32 @@ EOF
                         return 1
                     fi
                 done
+                # Native is published for at least one family.
+                if echo "${'$'}sp" | grep -qw native; then
+                    local nf f
+                    nf="$(detect_sample_native "${'$'}dir")"
+                    for f in ${'$'}nf; do
+                        if ! echo "${'$'}PR_PUBLISHED_NATIVE" | grep -qw "${'$'}f"; then
+                            echo "⏭️  Skipping $(basename "${'$'}dir"): needs native '${'$'}f' but PR repo published native [${'$'}{PR_PUBLISHED_NATIVE:-none}]"
+                            return 1
+                        fi
+                    done
+                fi
                 return 0
+            }
+
+            # Print the root-cause section of a failed build log.
+            print_failure_excerpt() {
+                local log="${'$'}1" start
+                [ -f "${'$'}log" ] || return 0
+                start=$(grep -nE "FAILURE: Build failed with an exception|BUILD FAILURE" "${'$'}log" | tail -1 | cut -d: -f1)
+                if [ -n "${'$'}start" ]; then
+                    echo "----- build log from failure banner (capped 150 lines) -----"
+                    tail -n +"${'$'}start" "${'$'}log" | head -n 150
+                else
+                    echo "----- build log (last 80 lines) -----"
+                    tail -n 80 "${'$'}log"
+                fi
             }
 
             TOTAL_COUNT=0
@@ -672,6 +718,9 @@ EOF
 
                 # Rewrite kotlin plugin versions: kotlin("jvm") version "VERSION"
                 sed -i -E "s@(kotlin[(][[:space:]]*[\"'][^\"']+[\"'][[:space:]]*[)][[:space:]]+version[[:space:]]+[\"'])[^\"']+([\"'])@\1${'$'}kotlin_ver\2@g" "${'$'}gradle_file"
+
+                # Relax FAIL_ON_PROJECT_REPOS → PREFER_PROJECT (settings.gradle[.kts]).
+                sed -i "s@FAIL_ON_PROJECT_REPOS@PREFER_PROJECT@g" "${'$'}gradle_file"
 
                 local after_hash
                 after_hash=$(md5sum "${'$'}gradle_file" | awk '{print $1}')
@@ -878,7 +927,7 @@ EOF
                         echo "❌ ${'$'}sample_dir: BUILD FAILED"
                         FAILED_COUNT=$((FAILED_COUNT + 1))
                         echo "${'$'}sample_dir: FAILED (Maven build)" >> "${'$'}REPORT_FILE"
-                        tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
+                        print_failure_excerpt "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
                         
                         # Package failed sample as a reproducer artifact
                         echo "📦 Packaging ${'$'}sample_dir as reproducer artifact..."
@@ -921,7 +970,7 @@ EOF
                         echo "❌ ${'$'}sample_dir: BUILD FAILED"
                         FAILED_COUNT=$((FAILED_COUNT + 1))
                         echo "${'$'}sample_dir: FAILED (Gradle build)" >> "${'$'}REPORT_FILE"
-                        tail -n 10 "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
+                        print_failure_excerpt "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
                         
                         # Package failed sample as a reproducer artifact (includes init script for EAP resolution)
                         echo "📦 Packaging ${'$'}sample_dir as reproducer artifact..."
