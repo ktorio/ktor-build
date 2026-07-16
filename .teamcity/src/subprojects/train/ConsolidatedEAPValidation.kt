@@ -1,6 +1,7 @@
 package subprojects.train
 
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger.DAY.Sunday
@@ -146,6 +147,22 @@ object ConsolidatedEAPValidation {
                 VersionResolutionStep.applyPublish(this)
                 ExternalSamplesValidationStep.apply(this, os)
                 InternalTestSuitesStep.apply(this, os)
+
+                script {
+                    name = "Finalize per-OS results"
+                    executionMode = BuildStep.ExecutionMode.ALWAYS
+                    scriptContent = """
+                        #!/bin/bash
+                        OS="${EapSampleRouting.osId(os)}"
+                        mkdir -p os-results external-validation-reports internal-validation-reports failed-samples
+                        [ -f "os-results/${'$'}{OS}-external.properties" ] || printf 'external_total=0\nexternal_successful=0\nexternal_failed=0\nexternal_skipped=0\n' > "os-results/${'$'}{OS}-external.properties"
+                        [ -f "os-results/${'$'}{OS}-internal.properties" ] || printf 'internal_total=0\ninternal_passed=0\ninternal_failed=0\ninternal_error=0\ninternal_skipped=0\n' > "os-results/${'$'}{OS}-internal.properties"
+                        # Placeholders so the (possibly empty) report dirs still publish as artifacts.
+                        touch external-validation-reports/.keep internal-validation-reports/.keep failed-samples/.keep
+                        echo "Finalized os-results for ${'$'}OS:"
+                        cat "os-results/${'$'}{OS}-external.properties" "os-results/${'$'}{OS}-internal.properties"
+                    """.trimIndent()
+                }
             }
 
             features { githubPullRequestsLoader(VCSCore.id) }
