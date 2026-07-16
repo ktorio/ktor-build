@@ -322,6 +322,7 @@ INIT_EOF
                     ["amper-ktor-sample"]="https://github.com/nomisRev/amper-ktor-sample.git"
                     ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
                     ["foodies"]="https://github.com/nomisRev/foodies"
+                    ["ktkit"]="https://github.com/smyrgeorge/ktkit"
                 )
 
             echo "Cloning external sample repositories..."
@@ -360,6 +361,7 @@ INIT_EOF
                 "${'$'}SAMPLES_DIR/amper-ktor-sample"
                 "${'$'}SAMPLES_DIR/ktor-full-stack-real-world"
                 "${'$'}SAMPLES_DIR/foodies"
+                "${'$'}SAMPLES_DIR/ktkit"
             )
 
             echo "External sample projects to validate:"
@@ -388,11 +390,26 @@ EOF
 
             echo "Starting validation of ${'$'}TOTAL_SAMPLES projects..."
 
+            # JDK selection: every sample builds on the pinned JDK by default. Capture the pinned JDK here so
+            # each iteration can restore it before applying any per-sample override.
+            ORIGINAL_JAVA_HOME="${'$'}{JAVA_HOME:-}"
+            ORIGINAL_PATH="${'$'}PATH"
+            KTKIT_JAVA_HOME="${Env.JDK_21}"
+
             for project_dir in "${'$'}{EXTERNAL_SAMPLE_DIRS[@]}"; do
                 project_name=$(basename "${'$'}project_dir")
                 echo "---------------------------------------------------"
                 echo "Validating ${'$'}project_name..."
-                
+
+                # Reset to the pinned JDK, then override for the samples that need a specific one.
+                if [ -n "${'$'}ORIGINAL_JAVA_HOME" ]; then export JAVA_HOME="${'$'}ORIGINAL_JAVA_HOME"; else unset JAVA_HOME; fi
+                export PATH="${'$'}ORIGINAL_PATH"
+                if [ "${'$'}project_name" = "ktkit" ] && [ -n "${'$'}KTKIT_JAVA_HOME" ] && [ -d "${'$'}KTKIT_JAVA_HOME" ]; then
+                    export JAVA_HOME="${'$'}KTKIT_JAVA_HOME"
+                    export PATH="${'$'}KTKIT_JAVA_HOME/bin:${'$'}ORIGINAL_PATH"
+                    echo "  [jdk] Building ${'$'}project_name on JDK 21 (${'$'}JAVA_HOME)"
+                fi
+
                 if [ ! -d "${'$'}project_dir" ]; then
                     echo "⚠️  Project directory not found: ${'$'}project_dir"
                     SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
