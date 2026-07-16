@@ -140,6 +140,17 @@ object ExternalSamplesValidationStep {
                 echo "PR repo published platforms: ${'$'}{PR_PUBLISHED_PLATFORMS:-<none detected>}"
             fi
 
+            # Native samples are validated on the macOS agent only.
+            sample_native_supported_on_host() {
+                local dir="${'$'}1"
+                [ "$(uname -s)" = "Linux" ] || return 0
+                local sp
+                sp="$(detect_sample_platforms "${'$'}dir")"
+                echo "${'$'}sp" | grep -qw native || return 0
+                echo "⏭️  Skipping $(basename "${'$'}dir"): native targets [${'$'}sp] are not validated on Linux agents"
+                return 1
+            }
+
             sample_buildable_in_pr() {
                 local dir="${'$'}1"
                 [ -z "${'$'}{KTOR_PR_REPO_DIR:-}" ] && return 0     # not a PR run — no restriction
@@ -431,6 +442,11 @@ EOF
                 fi
 
                 if ! sample_in_scope "${'$'}project_dir"; then
+                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
+                    continue
+                fi
+
+                if ! sample_native_supported_on_host "${'$'}project_dir"; then
                     SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
                     continue
                 fi
