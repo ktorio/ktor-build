@@ -288,12 +288,13 @@ EOF
                 echo "  Mode:            ${'$'}EAP_VALIDATION_MODE"
 
                 # Re-publish versions as env.* build params so the external/internal steps can read them.
-                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}{KTOR_VERSION:-}']"
-                echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}{KOTLIN_VERSION:-2.3.10}']"
-                echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-}']"
-                echo "##teamcity[setParameter name='env.KTOR_PR_TARGETS' value='${'$'}{KTOR_PR_TARGETS:-}']"
-                echo "##teamcity[setParameter name='env.EAP_VALIDATION_MODE' value='${'$'}EAP_VALIDATION_MODE']"
-                echo "##teamcity[setParameter name='version.resolution.errors' value='${'$'}{VERSION_RESOLUTION_ERRORS:-0}']"
+                emit() { [ -n "${'$'}2" ] && echo "##teamcity[setParameter name='${'$'}1' value='${'$'}2']" || true; }
+                emit env.KTOR_VERSION "${'$'}{KTOR_VERSION:-}"
+                emit env.KOTLIN_VERSION "${'$'}{KOTLIN_VERSION:-2.3.10}"
+                emit env.KTOR_COMPILER_PLUGIN_VERSION "${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-}"
+                emit env.KTOR_PR_TARGETS "${'$'}{KTOR_PR_TARGETS:-}"
+                emit env.EAP_VALIDATION_MODE "${'$'}EAP_VALIDATION_MODE"
+                emit version.resolution.errors "${'$'}{VERSION_RESOLUTION_ERRORS:-0}"
 
                 if [ "${'$'}EAP_VALIDATION_MODE" = "published" ]; then
                     echo "Published-EAP mode — nothing to build; samples resolve from the published EAP repo."
@@ -326,12 +327,40 @@ EOF
                     '}' \
                     > ktor/pr-publish-repo.init.gradle
 
+                # Route Ktor's own dependency/plugin resolution through the PUBLIC cache-redirector.
+                printf '%s\n' \
+                    'def swap = { u ->' \
+                    '    if (u == null) return null' \
+                    '    def n = u.replace("https://artifacts-caching-proxy.aws.intellij.net/", "https://cache-redirector.jetbrains.com/")' \
+                    '             .replace("http://artifacts-caching-proxy.aws.intellij.net/", "https://cache-redirector.jetbrains.com/")' \
+                    '    n = n.replace("cache-redirector.jetbrains.com/repo.maven.apache.org/", "cache-redirector.jetbrains.com/repo1.maven.org/")' \
+                    '    return n' \
+                    '}' \
+                    'def replace = { repo ->' \
+                    '    if (repo instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository) {' \
+                    '        def u = repo.url?.toString()' \
+                    '        def n = swap(u)' \
+                    '        if (n != null && n != u) repo.url = n' \
+                    '    }' \
+                    '}' \
+                    'beforeSettings { settings -> settings.pluginManagement.repositories.all(replace) }' \
+                    'settingsEvaluated { settings ->' \
+                    '    settings.pluginManagement.repositories.all(replace)' \
+                    '    if (settings.dependencyResolutionManagement) settings.dependencyResolutionManagement.repositories.all(replace)' \
+                    '}' \
+                    'allprojects {' \
+                    '    buildscript.repositories.all(replace)' \
+                    '    repositories.all(replace)' \
+                    '}' \
+                    > ktor/pr-cache-redirector.init.gradle
+
                 echo "Publishing Ktor ${'$'}KTOR_VERSION from the checked-out sources to ${'$'}KTOR_PR_REPO_URL (this can take a while)..."
                 chmod +x ktor/gradlew || true
                 if ! (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
                         ./gradlew publishAllPublicationsToPrLocalFileRepository \
                           -Pversion="${'$'}KTOR_VERSION" \
-                          --init-script pr-publish-repo.init.gradle --no-daemon --stacktrace); then
+                          --init-script pr-publish-repo.init.gradle \
+                          --init-script pr-cache-redirector.init.gradle --no-daemon --stacktrace); then
                     echo "❌ Failed to build/publish Ktor from the checked-out sources."
                     echo "   A source check must validate the actual sources — refusing to fall back to a published EAP."
                     exit 1
