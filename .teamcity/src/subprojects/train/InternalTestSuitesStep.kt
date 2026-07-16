@@ -464,7 +464,7 @@ EOF
 
             detect_sample_platforms() {
                 local dir="${'$'}1" out="" content=""
-                content=$(find "${'$'}dir" -maxdepth 3 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -exec cat {} + 2>/dev/null)
+                content=$(find "${'$'}dir" -maxdepth 8 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -not -path '*/.git/*' -not -path '*/.gradle/*' -not -path '*/node_modules/*' -exec cat {} + 2>/dev/null)
                 [ -z "${'$'}content" ] && { echo "jvm"; return; }
                 echo "${'$'}content" | grep -qE '(^|[^A-Za-z])jvm[[:space:]]*[({]|kotlin\("jvm"\)|"application"|org\.jetbrains\.kotlin\.jvm' && out="${'$'}out jvm"
                 echo "${'$'}content" | grep -qE '(^|[^A-Za-z])js[[:space:]]*[({]|wasmJs[[:space:]]*[({]' && out="${'$'}out web"
@@ -523,7 +523,7 @@ EOF
             detect_sample_native() {
                 local dir="${'$'}1" out="" content=""
                 # Strip // comments so commented-out targets (e.g. `// mingwX64(...)`) don't trigger a skip.
-                content=$(find "${'$'}dir" -maxdepth 3 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -exec cat {} + 2>/dev/null | sed 's://.*::')
+                content=$(find "${'$'}dir" -maxdepth 8 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -not -path '*/.git/*' -not -path '*/.gradle/*' -not -path '*/node_modules/*' -exec cat {} + 2>/dev/null | sed 's://.*::')
                 echo "${'$'}content" | grep -qE 'linuxX64|linuxArm64' && out="${'$'}out linux"
                 echo "${'$'}content" | grep -qE 'macosX64|macosArm64|iosX64|iosArm64|iosSimulatorArm64|watchos|tvos' && out="${'$'}out apple"
                 echo "${'$'}content" | grep -qE 'mingwX64' && out="${'$'}out mingw"
