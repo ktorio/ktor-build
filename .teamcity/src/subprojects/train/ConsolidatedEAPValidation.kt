@@ -72,6 +72,7 @@ object ConsolidatedEAPValidation {
     private fun ParametrizedWithType.eapValidatorParams() {
         param("env.TRY_COMPILE_ON_FAILURE", "true")
         param("env.ANDROID_HOME", "%android-sdk.location%")
+        param("env.JAVA_HOME", Env.JDK_LTS)
         defaultGradleParams()
     }
 
@@ -158,11 +159,9 @@ object ConsolidatedEAPValidation {
                     }
                     Agents.OS.MacOS -> {
                         agent(Agents.OS.MacOS, Agents.Arch.Arm64, Agents.MEDIUM)
-                        exists("env.JAVA_HOME")
                     }
                     Agents.OS.Windows -> {
                         agent(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
-                        exists("env.JAVA_HOME")
                     }
                 }
             }
