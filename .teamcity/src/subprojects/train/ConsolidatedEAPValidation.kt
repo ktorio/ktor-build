@@ -69,9 +69,9 @@ object ConsolidatedEAPValidation {
         param("version.resolution.errors", "0")
     }
 
-    private fun ParametrizedWithType.eapValidatorParams() {
+    private fun ParametrizedWithType.eapValidatorParams(os: Agents.OS) {
         param("env.TRY_COMPILE_ON_FAILURE", "true")
-        param("env.ANDROID_HOME", "%android-sdk.location%")
+        if (os == Agents.OS.Linux) param("env.ANDROID_HOME", "%android-sdk.location%")
         param("env.JAVA_HOME", Env.JDK_LTS)
         defaultGradleParams()
     }
@@ -120,7 +120,7 @@ object ConsolidatedEAPValidation {
 
             params {
                 eapVersionParams()
-                eapValidatorParams()
+                eapValidatorParams(os)
             }
 
             vcs {

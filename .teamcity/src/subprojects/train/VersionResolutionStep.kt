@@ -287,7 +287,7 @@ EOF
                 echo "  PR targets:      ${'$'}{KTOR_PR_TARGETS:-<all>}"
                 echo "  Mode:            ${'$'}EAP_VALIDATION_MODE"
 
-                # Re-publish versions so the external/internal steps can read them via %env.*%.
+                # Re-publish versions as env.* build params so the external/internal steps can read them.
                 echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}{KTOR_VERSION:-}']"
                 echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}{KOTLIN_VERSION:-2.3.10}']"
                 echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-}']"
