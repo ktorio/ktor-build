@@ -10,56 +10,64 @@ import subprojects.*
  * Processes all samples and reports results
  */
 object ExternalSamplesValidationStep {
-    fun apply(steps: BuildSteps) {
-        steps.script {
-            name = "Prerequisites: Accept Android SDK licenses"
-            scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
-        }
+    fun apply(steps: BuildSteps, os: Agents.OS) {
+        val targetOs = EapSampleRouting.osId(os)
 
-        steps.script {
-            name = "Prerequisites: Warm up Docker images"
-            scriptContent = """
-                #!/bin/bash
-                echo "Pulling common Docker images used by external samples..."
-                docker pull postgres:16-alpine || true
-                docker pull postgres:18-alpine || true
-                docker pull redis:7-alpine || true
-                docker pull quay.io/keycloak/keycloak:26.5.2 || true
-                docker pull rabbitmq:4.2.2-alpine || true
-                docker pull testcontainers/ryuk:0.11.0 || true
-                docker pull dpage/pgadmin4:latest || true
-                docker pull alpine:latest || true
-                docker pull ollama/ollama:latest || true
-                docker pull prom/prometheus:latest || true
-                docker pull grafana/grafana:latest || true
-                docker pull nginx:latest || true
-                
-                echo "Starting Ollama for ktor-ai-server..."
-                docker run -d --name ollama -p 11434:11434 ollama/ollama || true
-                
-                echo "Pulling llama3.2 model for Ollama..."
-                # Wait a bit for Ollama to start before pulling
-                sleep 5
-                docker exec ollama ollama pull llama3.2 || true
-            """.trimIndent()
-        }
+        if (os == Agents.OS.Linux) {
+            steps.script {
+                name = "Prerequisites: Accept Android SDK licenses"
+                scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
+            }
 
-        steps.script {
-            name = "Prerequisites: Install Playwright browsers"
-            scriptContent = """
-                #!/bin/bash
-                echo "Installing Playwright browsers..."
-                npx playwright install --with-deps chromium || true
-            """.trimIndent()
+            steps.script {
+                name = "Prerequisites: Warm up Docker images"
+                scriptContent = """
+                    #!/bin/bash
+                    echo "Pulling common Docker images used by external samples..."
+                    docker pull postgres:16-alpine || true
+                    docker pull postgres:18-alpine || true
+                    docker pull redis:7-alpine || true
+                    docker pull quay.io/keycloak/keycloak:26.5.2 || true
+                    docker pull rabbitmq:4.2.2-alpine || true
+                    docker pull testcontainers/ryuk:0.11.0 || true
+                    docker pull dpage/pgadmin4:latest || true
+                    docker pull alpine:latest || true
+                    docker pull ollama/ollama:latest || true
+                    docker pull prom/prometheus:latest || true
+                    docker pull grafana/grafana:latest || true
+                    docker pull nginx:latest || true
+
+                    echo "Starting Ollama for ktor-ai-server..."
+                    docker run -d --name ollama -p 11434:11434 ollama/ollama || true
+
+                    echo "Pulling llama3.2 model for Ollama..."
+                    # Wait a bit for Ollama to start before pulling
+                    sleep 5
+                    docker exec ollama ollama pull llama3.2 || true
+                """.trimIndent()
+            }
+
+            steps.script {
+                name = "Prerequisites: Install Playwright browsers"
+                scriptContent = """
+                    #!/bin/bash
+                    echo "Installing Playwright browsers..."
+                    npx playwright install --with-deps chromium || true
+                """.trimIndent()
+            }
         }
 
         steps.script {
             name = "Step 2: External Samples Validation"
             scriptContent = """
             #!/bin/bash
-            
+
             echo "=== Step 2: External Samples Validation ==="
-            
+
+            EAP_TARGET_OS="$targetOs"
+            EAP_ACTIVE_OSES="${EapSampleRouting.activeIds}"
+            echo "Validator OS: ${'$'}EAP_TARGET_OS (active matrix: ${'$'}EAP_ACTIVE_OSES)"
+
             # Get current parameter values or use fallback defaults
             KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | sed 's/^%env\.KTOR_VERSION%$//' || echo "")
             KOTLIN_VERSION=$(echo "%env.KOTLIN_VERSION%" | sed 's/^%env\.KOTLIN_VERSION%$/2.3.10/' || echo "2.3.10")
@@ -105,6 +113,17 @@ object ExternalSamplesValidationStep {
                 echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
             }
 
+            detect_sample_native() {
+                local dir="${'$'}1" out="" content=""
+                content=$(find "${'$'}dir" -maxdepth 3 \( -name '*.gradle.kts' -o -name '*.gradle' -o -name 'module.yaml' -o -name '*.versions.toml' \) -not -path '*/build/*' -exec cat {} + 2>/dev/null | sed 's://.*::')
+                echo "${'$'}content" | grep -qE 'linuxX64|linuxArm64' && out="${'$'}out linux"
+                echo "${'$'}content" | grep -qE 'macosX64|macosArm64|iosX64|iosArm64|iosSimulatorArm64|watchos|tvos' && out="${'$'}out apple"
+                echo "${'$'}content" | grep -qE 'mingwX64' && out="${'$'}out mingw"
+                echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
+            }
+
+${EapSampleRouting.routingBash.prependIndent("            ")}
+
             # Detects if the sample should run given the PR scope
             sample_in_scope() {
                 local dir="${'$'}1"
@@ -139,17 +158,6 @@ object ExternalSamplesValidationStep {
                 PR_PUBLISHED_PLATFORMS=$(echo "${'$'}PR_PUBLISHED_PLATFORMS" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' ')
                 echo "PR repo published platforms: ${'$'}{PR_PUBLISHED_PLATFORMS:-<none detected>}"
             fi
-
-            # Native samples are validated on the macOS agent only.
-            sample_native_supported_on_host() {
-                local dir="${'$'}1"
-                [ "$(uname -s)" = "Linux" ] || return 0
-                local sp
-                sp="$(detect_sample_platforms "${'$'}dir")"
-                echo "${'$'}sp" | grep -qw native || return 0
-                echo "⏭️  Skipping $(basename "${'$'}dir"): native targets [${'$'}sp] are not validated on Linux agents"
-                return 1
-            }
 
             sample_buildable_in_pr() {
                 local dir="${'$'}1"
@@ -408,7 +416,8 @@ kotlin.compiler.execution.strategy=in-process
 kotlin.incremental=true
 EOF
 
-            TOTAL_SAMPLES=${'$'}{#EXTERNAL_SAMPLE_DIRS[@]}
+            # Counts only the samples this OS owns
+            TOTAL_SAMPLES=0
             SUCCESSFUL_SAMPLES=0
             FAILED_SAMPLES=0
             SKIPPED_SAMPLES=0
@@ -426,6 +435,11 @@ EOF
                 echo "---------------------------------------------------"
                 echo "Validating ${'$'}project_name..."
 
+                if ! sample_routes_here "${'$'}project_dir"; then
+                    continue
+                fi
+                TOTAL_SAMPLES=$((TOTAL_SAMPLES + 1))
+
                 # Reset to the pinned JDK, then override for the samples that need a specific one.
                 if [ -n "${'$'}ORIGINAL_JAVA_HOME" ]; then export JAVA_HOME="${'$'}ORIGINAL_JAVA_HOME"; else unset JAVA_HOME; fi
                 export PATH="${'$'}ORIGINAL_PATH"
@@ -442,11 +456,6 @@ EOF
                 fi
 
                 if ! sample_in_scope "${'$'}project_dir"; then
-                    SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
-                    continue
-                fi
-
-                if ! sample_native_supported_on_host "${'$'}project_dir"; then
                     SKIPPED_SAMPLES=$((SKIPPED_SAMPLES + 1))
                     continue
                 fi
@@ -745,7 +754,17 @@ EOF
             echo "##teamcity[setParameter name='external.validation.failed.samples' value='${'$'}FAILED_SAMPLES']"
             echo "##teamcity[setParameter name='external.validation.skipped.samples' value='${'$'}SKIPPED_SAMPLES']"
             echo "##teamcity[setParameter name='external.validation.success.rate' value='${'$'}SUCCESS_RATE']"
-            
+
+            # Persist this OS's counts for the aggregator build to sum.
+            mkdir -p os-results
+            cat > "os-results/${'$'}{EAP_TARGET_OS}-external.properties" <<EOF
+external_total=${'$'}TOTAL_SAMPLES
+external_successful=${'$'}SUCCESSFUL_SAMPLES
+external_failed=${'$'}FAILED_SAMPLES
+external_skipped=${'$'}SKIPPED_SAMPLES
+EOF
+            echo "Wrote os-results/${'$'}{EAP_TARGET_OS}-external.properties"
+
             echo "=== Step 2: External Samples Validation Completed ==="
         """.trimIndent()
         }

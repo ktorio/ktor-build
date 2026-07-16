@@ -12,27 +12,31 @@ import subprojects.build.*
  * Runs tests and processes results regardless of failures
  */
 object InternalTestSuitesStep {
-    fun apply(steps: BuildSteps) {
-        steps.script {
-            name = "Prerequisites: Accept Android SDK licenses"
-            scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
-        }
+    fun apply(steps: BuildSteps, os: Agents.OS) {
+        val targetOs = EapSampleRouting.osId(os)
 
-        steps.script {
-            name = "Prerequisites: Warm up Docker images"
-            scriptContent = """
-                #!/bin/bash
-                echo "Pulling common Docker images used by internal samples..."
-                docker pull mongo:6.0 || true
-                docker pull mongodb/mongodb-community-server:8.2-ubi8 || true
-                docker pull jaegertracing/all-in-one:latest || true
-                docker pull postgres:18.0-alpine || true
-            """.trimIndent()
-        }
+        if (os == Agents.OS.Linux) {
+            steps.script {
+                name = "Prerequisites: Accept Android SDK licenses"
+                scriptContent = "yes | JAVA_HOME=${Env.JDK_LTS} %env.ANDROID_SDKMANAGER_PATH% --licenses"
+            }
 
-        steps.script {
-            name = "Prerequisites: Install pulseaudio for WebRTC tests"
-            scriptFile("install_pulseaudio.sh")
+            steps.script {
+                name = "Prerequisites: Warm up Docker images"
+                scriptContent = """
+                    #!/bin/bash
+                    echo "Pulling common Docker images used by internal samples..."
+                    docker pull mongo:6.0 || true
+                    docker pull mongodb/mongodb-community-server:8.2-ubi8 || true
+                    docker pull jaegertracing/all-in-one:latest || true
+                    docker pull postgres:18.0-alpine || true
+                """.trimIndent()
+            }
+
+            steps.script {
+                name = "Prerequisites: Install pulseaudio for WebRTC tests"
+                scriptFile("install_pulseaudio.sh")
+            }
         }
 
         steps.script {
@@ -371,7 +375,11 @@ EOF
             #!/bin/bash
         
             echo "=== Step 3: Internal Test Suites - Run Samples ==="
-        
+
+            EAP_TARGET_OS="$targetOs"
+            EAP_ACTIVE_OSES="${EapSampleRouting.activeIds}"
+            echo "Validator OS: ${'$'}EAP_TARGET_OS (active matrix: ${'$'}EAP_ACTIVE_OSES)"
+
             # Source EAP environment variables
             if [ -f build-env.properties ]; then
                 source build-env.properties
@@ -521,6 +529,8 @@ EOF
                 echo "${'$'}content" | grep -qE 'mingwX64' && out="${'$'}out mingw"
                 echo "${'$'}out" | tr ' ' '\n' | grep -v '^${'$'}' | sort -u | tr '\n' ' '
             }
+
+${EapSampleRouting.routingBash.prependIndent("            ")}
 
             sample_buildable_in_pr() {
                 local dir="${'$'}1"
@@ -878,6 +888,11 @@ EOF
             for sample_dir in "${'$'}{SAMPLE_PROJECTS[@]}"; do
                 [ -d "${'$'}sample_dir" ] || continue
 
+                # Only validate (and count) the samples routed to this OS.
+                if ! sample_routes_here "${'$'}sample_dir"; then
+                    continue
+                fi
+
                 TOTAL_COUNT=$((TOTAL_COUNT + 1))
                 echo "Validating sample: ${'$'}sample_dir..."
 
@@ -1011,6 +1026,17 @@ EOF
             echo "##teamcity[setParameter name='internal.validation.error.tests' value='0']"
             echo "##teamcity[setParameter name='internal.validation.skipped.tests' value='${'$'}SKIPPED_COUNT']"
             echo "##teamcity[setParameter name='internal.validation.success.rate' value='${'$'}SUCCESS_RATE']"
+
+            # Persist this OS's counts for the aggregator build to sum.
+            mkdir -p "${'$'}WORK_DIR/os-results"
+            cat > "${'$'}WORK_DIR/os-results/${'$'}{EAP_TARGET_OS}-internal.properties" <<EOF
+internal_total=${'$'}TOTAL_COUNT
+internal_passed=${'$'}SUCCESSFUL_COUNT
+internal_failed=${'$'}FAILED_COUNT
+internal_error=0
+internal_skipped=${'$'}SKIPPED_COUNT
+EOF
+            echo "Wrote os-results/${'$'}{EAP_TARGET_OS}-internal.properties"
         """.trimIndent()
         }
     }

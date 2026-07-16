@@ -4,18 +4,20 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 
 /**
- * Step 1: Version Resolution
+ * Step 1: Version Resolution (resolve-only) and the per-OS PR publish.
  *
- * For scheduled / default-branch builds fetches the latest published EAP versions
- * for the Ktor framework, compiler plugin, and Kotlin.
+ * [applyResolveOnly] runs once in the shared `EAPResolveVersions` build: it decides WHAT to
+ * validate (latest published EAP versions, or the `0.0.0-<source>-local` version string for a
+ * PR/branch source build) and which source sets a PR touched, then writes `eap-version.properties`
+ * for the per-OS validators to consume. It does NOT build Ktor.
  *
- * For pull request builds it from the merge request sources (the `./ktor` checkout)
- * and publishes it to Maven Local.
- *
- * Continues even if some versions fail to fetch.
+ * [applyPublish] runs in each per-OS validator: it reads `eap-version.properties`, re-publishes the
+ * resolved versions as build parameters, and — in source mode — builds and publishes the PR's Ktor
+ * from the checked-out sources into a host-local `file://` repo. Each host publishes the klibs it
+ * can build (Ktor enables native targets by host), so no targets are disabled.
  */
 object VersionResolutionStep {
-    fun apply(steps: BuildSteps) {
+    fun applyResolveOnly(steps: BuildSteps) {
         steps.script {
             name = "Step 1: Version Resolution"
             scriptContent = """
@@ -34,6 +36,7 @@ object VersionResolutionStep {
                 KTOR_VERSION=""
                 KTOR_COMPILER_PLUGIN_VERSION=""
                 KOTLIN_VERSION=""
+                CHANGED_SETS=""
 
                 # Decide WHAT to validate:
                 [ -z "${'$'}EAP_VALIDATION_MODE" ] && EAP_VALIDATION_MODE="source"
@@ -44,7 +47,7 @@ object VersionResolutionStep {
                 fi
 
                 if [ "${'$'}EAP_VALIDATION_MODE" != "published" ]; then
-                    echo "🔨 Source-validation mode — building Ktor from the checked-out sources"
+                    echo "🔨 Source-validation mode — resolving the version string for the checked-out sources"
 
                     if [ ! -d ktor ]; then
                         echo "❌ Ktor sources not found in ./ktor checkout — cannot validate from source"
@@ -68,7 +71,6 @@ object VersionResolutionStep {
                     echo "Validating ${'$'}SOURCE_DESC → Ktor ${'$'}KTOR_VERSION"
 
                     # Determine the base to diff against for KMP target scoping.
-                    CHANGED_SETS=""
                     CHANGED_FILES=""
                     if [ -n "${'$'}PR_NUMBER" ]; then
                         BASE_BRANCH=$(echo "%teamcity.pullRequest.targetBranch%" | sed -E 's#^refs/heads/##' | grep -v '%teamcity\.pullRequest\.targetBranch%' || echo "")
@@ -112,45 +114,12 @@ object VersionResolutionStep {
 
                     echo "PR-affected source sets (used for sample scoping only): ${'$'}{CHANGED_SETS:-<all>}"
 
-                    # Publish to a local FILE repository
-                    KTOR_PR_REPO_DIR="$(pwd)/ktor-pr-repo"
-                    rm -rf "${'$'}KTOR_PR_REPO_DIR"; mkdir -p "${'$'}KTOR_PR_REPO_DIR"
-                    KTOR_PR_REPO_URL="file://${'$'}KTOR_PR_REPO_DIR"
-                    KTOR_PR_REPO_HTTP_URL="https://127.0.0.1:8347"
-
-                    printf '%s\n' \
-                        'def repoUrl = System.getenv("KTOR_PR_REPO_OUT")' \
-                        'if (repoUrl) {' \
-                        '  gradle.rootProject { root ->' \
-                        '    root.allprojects { project ->' \
-                        '      project.plugins.withId("maven-publish") {' \
-                        '        project.extensions.configure(org.gradle.api.publish.PublishingExtension) { publishing ->' \
-                        '          publishing.repositories.maven { repo -> repo.name = "prLocalFile"; repo.url = project.uri(repoUrl) }' \
-                        '        }' \
-                        '      }' \
-                        '    }' \
-                        '  }' \
-                        '}' \
-                        > ktor/pr-publish-repo.init.gradle
-
-                    echo "Publishing Ktor ${'$'}KTOR_VERSION from ${'$'}SOURCE_DESC to ${'$'}KTOR_PR_REPO_URL (this can take a while)..."
-                    chmod +x ktor/gradlew || true
-                    if ! (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
-                            ./gradlew publishAllPublicationsToPrLocalFileRepository \
-                              -Pversion="${'$'}KTOR_VERSION" \
-                              --init-script pr-publish-repo.init.gradle --no-daemon --stacktrace); then
-                        echo "❌ Failed to build/publish Ktor from the checked-out sources (${'$'}SOURCE_DESC)."
-                        echo "   A source check must validate the actual sources — refusing to fall back to a published EAP."
-                        exit 1
-                    fi
-
-                    # Verify the artifacts actually landed in the file repo.
-                    if [ ! -d "${'$'}KTOR_PR_REPO_DIR/io/ktor/ktor-bom/${'$'}KTOR_VERSION" ]; then
-                        echo "❌ Ktor ${'$'}KTOR_VERSION not found in ${'$'}KTOR_PR_REPO_DIR after publish — cannot validate"
-                        exit 1
-                    fi
-                    echo "✅ Ktor source build available in local file repo: ${'$'}KTOR_PR_REPO_DIR (${'$'}KTOR_VERSION)"
+                    echo "✅ Resolved source version: ${'$'}KTOR_VERSION (${'$'}SOURCE_DESC; sets: ${'$'}{CHANGED_SETS:-all})"
+                    echo "   Each per-OS validator will build & publish Ktor from these sources for its own targets."
                     VERSION_REPORT="${'$'}VERSION_REPORT- Ktor Framework: ${'$'}KTOR_VERSION (SOURCE_BUILD: ${'$'}SOURCE_DESC; sets: ${'$'}{CHANGED_SETS:-all})\n"
+
+                    echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
+                    echo "##teamcity[setParameter name='env.KTOR_PR_TARGETS' value='${'$'}CHANGED_SETS']"
 
                     echo "Fetching latest Ktor Gradle plugin EAP version (build tooling; not built from the PR)..."
                     if KTOR_PLUGIN_METADATA=$(curl "${'$'}{CURL_FLAGS[@]}" "${EapConstants.KTOR_COMPILER_PLUGIN_METADATA_URL}"); then
@@ -181,11 +150,6 @@ object VersionResolutionStep {
                             VERSION_REPORT="${'$'}VERSION_REPORT- Kotlin: ${'$'}KOTLIN_VERSION (FROM_PR)\n"
                         fi
                     fi
-
-                    echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}KTOR_VERSION']"
-                    echo "##teamcity[setParameter name='env.KTOR_PR_TARGETS' value='${'$'}CHANGED_SETS']"
-                    echo "##teamcity[setParameter name='env.KTOR_PR_REPO' value='${'$'}KTOR_PR_REPO_HTTP_URL']"
-                    echo "##teamcity[setParameter name='env.KTOR_PR_REPO_DIR' value='${'$'}KTOR_PR_REPO_DIR']"
                 else
                     echo "Fetching latest EAP versions for Ktor framework, compiler plugin, and Kotlin"
 
@@ -282,7 +246,108 @@ object VersionResolutionStep {
                 echo -e "${'$'}VERSION_REPORT" > version-resolution-reports/versions.txt
                 echo "##teamcity[setParameter name='version.resolution.errors' value='${'$'}FETCH_ERRORS']"
 
+                # Hand off the resolved versions to the per-OS validator builds.
+                cat > eap-version.properties <<EOF
+KTOR_VERSION="${'$'}KTOR_VERSION"
+KOTLIN_VERSION="${'$'}KOTLIN_VERSION"
+KTOR_COMPILER_PLUGIN_VERSION="${'$'}KTOR_COMPILER_PLUGIN_VERSION"
+KTOR_PR_TARGETS="${'$'}CHANGED_SETS"
+EAP_VALIDATION_MODE="${'$'}EAP_VALIDATION_MODE"
+VERSION_RESOLUTION_ERRORS="${'$'}FETCH_ERRORS"
+EOF
+                echo "Wrote eap-version.properties:"
+                cat eap-version.properties
+
                 echo "=== Version Resolution Completed ==="
+            """.trimIndent()
+        }
+    }
+
+    fun applyPublish(steps: BuildSteps) {
+        steps.script {
+            name = "Step 1b: Publish PR Ktor for this OS"
+            scriptContent = """
+                #!/bin/bash
+                set -e
+
+                echo "=== Step 1b: Publish PR Ktor for this OS ==="
+
+                if [ ! -f eap-version.properties ]; then
+                    echo "❌ eap-version.properties not found — the resolve build artifact was not downloaded"
+                    exit 1
+                fi
+                # shellcheck disable=SC1091
+                source eap-version.properties
+                [ -z "${'$'}{EAP_VALIDATION_MODE:-}" ] && EAP_VALIDATION_MODE="source"
+
+                echo "Resolved versions from EAPResolveVersions:"
+                echo "  Ktor:            ${'$'}{KTOR_VERSION:-<none>}"
+                echo "  Kotlin:          ${'$'}{KOTLIN_VERSION:-<none>}"
+                echo "  Compiler plugin: ${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-<none>}"
+                echo "  PR targets:      ${'$'}{KTOR_PR_TARGETS:-<all>}"
+                echo "  Mode:            ${'$'}EAP_VALIDATION_MODE"
+
+                # Re-publish versions so the external/internal steps can read them via %env.*%.
+                echo "##teamcity[setParameter name='env.KTOR_VERSION' value='${'$'}{KTOR_VERSION:-}']"
+                echo "##teamcity[setParameter name='env.KOTLIN_VERSION' value='${'$'}{KOTLIN_VERSION:-2.3.10}']"
+                echo "##teamcity[setParameter name='env.KTOR_COMPILER_PLUGIN_VERSION' value='${'$'}{KTOR_COMPILER_PLUGIN_VERSION:-}']"
+                echo "##teamcity[setParameter name='env.KTOR_PR_TARGETS' value='${'$'}{KTOR_PR_TARGETS:-}']"
+                echo "##teamcity[setParameter name='env.EAP_VALIDATION_MODE' value='${'$'}EAP_VALIDATION_MODE']"
+                echo "##teamcity[setParameter name='version.resolution.errors' value='${'$'}{VERSION_RESOLUTION_ERRORS:-0}']"
+
+                if [ "${'$'}EAP_VALIDATION_MODE" = "published" ]; then
+                    echo "Published-EAP mode — nothing to build; samples resolve from the published EAP repo."
+                    exit 0
+                fi
+
+                if [ ! -d ktor ]; then
+                    echo "❌ Ktor sources not found in ./ktor checkout — cannot validate from source"
+                    exit 1
+                fi
+
+                # Publish to a host-local FILE repository. The external/internal steps serve it over HTTPS.
+                KTOR_PR_REPO_DIR="$(pwd)/ktor-pr-repo"
+                rm -rf "${'$'}KTOR_PR_REPO_DIR"; mkdir -p "${'$'}KTOR_PR_REPO_DIR"
+                KTOR_PR_REPO_URL="file://${'$'}KTOR_PR_REPO_DIR"
+                KTOR_PR_REPO_HTTP_URL="https://127.0.0.1:8347"
+
+                printf '%s\n' \
+                    'def repoUrl = System.getenv("KTOR_PR_REPO_OUT")' \
+                    'if (repoUrl) {' \
+                    '  gradle.rootProject { root ->' \
+                    '    root.allprojects { project ->' \
+                    '      project.plugins.withId("maven-publish") {' \
+                    '        project.extensions.configure(org.gradle.api.publish.PublishingExtension) { publishing ->' \
+                    '          publishing.repositories.maven { repo -> repo.name = "prLocalFile"; repo.url = project.uri(repoUrl) }' \
+                    '        }' \
+                    '      }' \
+                    '    }' \
+                    '  }' \
+                    '}' \
+                    > ktor/pr-publish-repo.init.gradle
+
+                echo "Publishing Ktor ${'$'}KTOR_VERSION from the checked-out sources to ${'$'}KTOR_PR_REPO_URL (this can take a while)..."
+                chmod +x ktor/gradlew || true
+                if ! (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
+                        ./gradlew publishAllPublicationsToPrLocalFileRepository \
+                          -Pversion="${'$'}KTOR_VERSION" \
+                          --init-script pr-publish-repo.init.gradle --no-daemon --stacktrace); then
+                    echo "❌ Failed to build/publish Ktor from the checked-out sources."
+                    echo "   A source check must validate the actual sources — refusing to fall back to a published EAP."
+                    exit 1
+                fi
+
+                # Verify the artifacts actually landed in the file repo.
+                if [ ! -d "${'$'}KTOR_PR_REPO_DIR/io/ktor/ktor-bom/${'$'}KTOR_VERSION" ]; then
+                    echo "❌ Ktor ${'$'}KTOR_VERSION not found in ${'$'}KTOR_PR_REPO_DIR after publish — cannot validate"
+                    exit 1
+                fi
+                echo "✅ Ktor source build available in local file repo: ${'$'}KTOR_PR_REPO_DIR (${'$'}KTOR_VERSION)"
+
+                echo "##teamcity[setParameter name='env.KTOR_PR_REPO' value='${'$'}KTOR_PR_REPO_HTTP_URL']"
+                echo "##teamcity[setParameter name='env.KTOR_PR_REPO_DIR' value='${'$'}KTOR_PR_REPO_DIR']"
+
+                echo "=== Step 1b Completed ==="
             """.trimIndent()
         }
     }
