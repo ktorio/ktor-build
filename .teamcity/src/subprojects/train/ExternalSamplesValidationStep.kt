@@ -624,6 +624,10 @@ EOF
                                 delay=$((attempt * 60))
                                 echo "⚠️  Detected Maven Central rate-limit (HTTP 429) — waiting ${'$'}{delay}s before retry"
                                 sleep ${'$'}delay
+                            elif grep -qE "Connection refused|Connection reset|onnection timed out|connect timed out|Read timed out|SocketTimeoutException|SocketException|Got socket exception|UnknownHostException|nodename nor servname provided|Temporary failure in name resolution|Name or service not known|No route to host|Network is unreachable|Premature end of Content-Length" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                                delay=$((attempt * 60))
+                                echo "⚠️  Detected transient network failure (connection refused, DNS, timeout) — waiting ${'$'}{delay}s before retry"
+                                sleep ${'$'}delay
                             elif grep -q "missing on disk" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
                                 echo "⚠️  Detected stale Amper cache — clearing and retrying"
                                 for p in "${'$'}{AMPER_M2_PATHS[@]}"; do
@@ -674,9 +678,9 @@ EOF
                             if [ ${'$'}g_attempt -eq ${'$'}g_max ]; then
                                 return 1
                             fi
-                            if grep -qE "Received status code 429|Too Many Requests|HTTP/[0-9.]+ 429|could not resolve plugin artifact" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                            if grep -qE "Received status code 429|Too Many Requests|HTTP/[0-9.]+ 429|could not resolve plugin artifact|Connection refused|Connection reset|onnection timed out|connect timed out|Read timed out|SocketTimeoutException|SocketException|Got socket exception|UnknownHostException|nodename nor servname provided|Temporary failure in name resolution|Name or service not known|No route to host|Network is unreachable|Premature end of Content-Length" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
                                 local delay=$((g_attempt * 60))
-                                echo "⚠️  Detected transient Gradle resolution failure (likely HTTP 429) — waiting ${'$'}{delay}s before retry"
+                                echo "⚠️  Detected transient Gradle resolution/network failure (HTTP 429, connection refused, DNS, timeout) — waiting ${'$'}{delay}s before retry"
                                 sleep ${'$'}delay
                             else
                                 return 1
