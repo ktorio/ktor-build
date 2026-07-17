@@ -347,21 +347,32 @@ INIT_EOF
             echo "Wrote ~/.gradle/init.d/cache-redirector.gradle"
 
                 # Define external sample repositories
-                declare -A EXTERNAL_SAMPLES=(
-                    ["ktor-ai-server"]="https://github.com/nomisRev/ktor-ai-server.git"
-                    ["ktor-native-server"]="https://github.com/nomisRev/ktor-native-server.git"
-                    ["ktor-config-example"]="https://github.com/nomisRev/ktor-config-example.git"
-                    ["ktor-workshop-2025"]="https://github.com/nomisRev/ktor-workshop-2025.git"
-                    ["amper-ktor-sample"]="https://github.com/nomisRev/amper-ktor-sample.git"
-                    ["ktor-full-stack-real-world"]="https://github.com/nomisRev/ktor-full-stack-real-world.git"
-                    ["foodies"]="https://github.com/nomisRev/foodies"
-                    ["ktkit"]="https://github.com/smyrgeorge/ktkit"
+                EXTERNAL_SAMPLE_NAMES=(
+                    "ktor-ai-server"
+                    "ktor-native-server"
+                    "ktor-config-example"
+                    "ktor-workshop-2025"
+                    "amper-ktor-sample"
+                    "ktor-full-stack-real-world"
+                    "foodies"
+                    "ktkit"
+                )
+                EXTERNAL_SAMPLE_URLS=(
+                    "https://github.com/nomisRev/ktor-ai-server.git"
+                    "https://github.com/nomisRev/ktor-native-server.git"
+                    "https://github.com/nomisRev/ktor-config-example.git"
+                    "https://github.com/nomisRev/ktor-workshop-2025.git"
+                    "https://github.com/nomisRev/amper-ktor-sample.git"
+                    "https://github.com/nomisRev/ktor-full-stack-real-world.git"
+                    "https://github.com/nomisRev/foodies"
+                    "https://github.com/smyrgeorge/ktkit"
                 )
 
             echo "Cloning external sample repositories..."
             clone_pids=()
-            for sample_name in "${'$'}{!EXTERNAL_SAMPLES[@]}"; do
-                sample_url="${'$'}{EXTERNAL_SAMPLES[${'$'}sample_name]}"
+            for i in "${'$'}{!EXTERNAL_SAMPLE_NAMES[@]}"; do
+                sample_name="${'$'}{EXTERNAL_SAMPLE_NAMES[${'$'}i]}"
+                sample_url="${'$'}{EXTERNAL_SAMPLE_URLS[${'$'}i]}"
                 target_dir="${'$'}SAMPLES_DIR/${'$'}sample_name"
                 
                 (
