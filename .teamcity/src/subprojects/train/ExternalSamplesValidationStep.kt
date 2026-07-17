@@ -165,13 +165,14 @@ ${EapSampleRouting.routingBash.prependIndent("            ")}
                 [ -z "${'$'}PR_PUBLISHED_PLATFORMS" ] && return 0   # detection failed — don't over-skip
                 local sp p
                 sp="$(detect_sample_platforms "${'$'}dir")"
+                # Run the sample if the PR published artifacts for AT LEAST ONE platform it targets.
                 for p in ${'$'}sp; do
-                    if ! echo "${'$'}PR_PUBLISHED_PLATFORMS" | grep -qw "${'$'}p"; then
-                        echo "⏭️  Skipping $(basename "${'$'}dir"): needs '${'$'}p' but PR repo only published [${'$'}PR_PUBLISHED_PLATFORMS]"
-                        return 1
+                    if echo "${'$'}PR_PUBLISHED_PLATFORMS" | grep -qw "${'$'}p"; then
+                        return 0
                     fi
                 done
-                return 0
+                echo "⏭️  Skipping $(basename "${'$'}dir"): none of its platforms [${'$'}sp] were published by the PR repo [${'$'}PR_PUBLISHED_PLATFORMS]"
+                return 1
             }
 
             # Print the root-cause section of a failed build log. 
