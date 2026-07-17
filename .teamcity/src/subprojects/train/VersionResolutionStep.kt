@@ -356,11 +356,32 @@ EOF
 
                 echo "Publishing Ktor ${'$'}KTOR_VERSION from the checked-out sources to ${'$'}KTOR_PR_REPO_URL (this can take a while)..."
                 chmod +x ktor/gradlew || true
-                if ! (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
+
+                run_ktor_publish() {
+                    (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
                         ./gradlew publishAllPublicationsToPrLocalFileRepository \
                           -Pversion="${'$'}KTOR_VERSION" \
                           --init-script pr-publish-repo.init.gradle \
-                          --init-script pr-cache-redirector.init.gradle --no-daemon --stacktrace); then
+                          --init-script pr-cache-redirector.init.gradle --no-daemon --stacktrace) 2>&1 | tee ktor-publish.log
+                    return ${'$'}{PIPESTATUS[0]}
+                }
+
+                # Retry with backoff on network errors only; fail fast on genuine compile/publish errors.
+                PUBLISH_OK=false
+                PUBLISH_MAX=3
+                for attempt in $(seq 1 ${'$'}PUBLISH_MAX); do
+                    echo "▶️  Ktor publish attempt ${'$'}attempt/${'$'}PUBLISH_MAX"
+                    if run_ktor_publish; then PUBLISH_OK=true; break; fi
+                    if [ ${'$'}attempt -lt ${'$'}PUBLISH_MAX ] && grep -qiE "Connection refused|Connection reset|Read timed out|Could not GET|Could not get resource|received status code 429|Too Many Requests|Premature end of|Network is unreachable|connect timed out|Remote host (closed|terminated)" ktor-publish.log; then
+                        delay=$((attempt * 60))
+                        echo "⚠️  Transient network failure during publish — retrying in ${'$'}{delay}s"
+                        sleep ${'$'}delay
+                    else
+                        break
+                    fi
+                done
+
+                if [ "${'$'}PUBLISH_OK" != true ]; then
                     echo "❌ Failed to build/publish Ktor from the checked-out sources."
                     echo "   A source check must validate the actual sources — refusing to fall back to a published EAP."
                     exit 1
