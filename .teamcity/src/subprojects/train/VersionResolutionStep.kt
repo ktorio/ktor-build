@@ -327,7 +327,7 @@ EOF
                     '}' \
                     > ktor/pr-publish-repo.init.gradle
 
-                # Init script for the source publish:
+                # Route Ktor's dependency/plugin resolution through the PUBLIC cache-redirector
                 printf '%s\n' \
                     'def swap = { u ->' \
                     '    if (u == null) return null' \
@@ -352,19 +352,19 @@ EOF
                     '    buildscript.repositories.all(replace)' \
                     '    repositories.all(replace)' \
                     '}' \
-                    'allprojects {' \
-                    '    if (name == "ktor-client-webrtc" && System.getProperty("os.name").toLowerCase().contains("mac")) {' \
-                    '        tasks.configureEach { it.enabled = false }' \
-                    '    }' \
-                    '}' \
                     > ktor/pr-cache-redirector.init.gradle
 
                 echo "Publishing Ktor ${'$'}KTOR_VERSION from the checked-out sources to ${'$'}KTOR_PR_REPO_URL (this can take a while)..."
                 chmod +x ktor/gradlew || true
 
+                PUBLISH_EXCLUDES=""
+                if [ "$(uname -s)" = "Darwin" ]; then
+                    PUBLISH_EXCLUDES="-x :ktor-client-webrtc:publishAllPublicationsToPrLocalFileRepository"
+                fi
+
                 run_ktor_publish() {
                     (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
-                        ./gradlew publishAllPublicationsToPrLocalFileRepository \
+                        ./gradlew publishAllPublicationsToPrLocalFileRepository ${'$'}PUBLISH_EXCLUDES \
                           -Pversion="${'$'}KTOR_VERSION" \
                           --init-script pr-publish-repo.init.gradle \
                           --init-script pr-cache-redirector.init.gradle --no-daemon --stacktrace) 2>&1 | tee ktor-publish.log
