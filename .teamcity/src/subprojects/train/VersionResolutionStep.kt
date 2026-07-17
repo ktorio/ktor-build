@@ -327,7 +327,7 @@ EOF
                     '}' \
                     > ktor/pr-publish-repo.init.gradle
 
-                # Route Ktor's own dependency/plugin resolution through the PUBLIC cache-redirector.
+                # Init script for the source publish:
                 printf '%s\n' \
                     'def swap = { u ->' \
                     '    if (u == null) return null' \
@@ -351,6 +351,11 @@ EOF
                     'allprojects {' \
                     '    buildscript.repositories.all(replace)' \
                     '    repositories.all(replace)' \
+                    '}' \
+                    'allprojects {' \
+                    '    if (name == "ktor-client-webrtc" && System.getProperty("os.name").toLowerCase().contains("mac")) {' \
+                    '        tasks.configureEach { it.enabled = false }' \
+                    '    }' \
                     '}' \
                     > ktor/pr-cache-redirector.init.gradle
 
