@@ -25,6 +25,12 @@ object InternalTestSuitesStep {
                 name = "Prerequisites: Warm up Docker images"
                 scriptContent = """
                     #!/bin/bash
+                    # Docker services back the sample integration tests, which run on scheduled sweeps only.
+                    RUN_TESTS=${'$'}(echo "%env.EAP_RUN_TESTS%" | sed 's/^%env\.EAP_RUN_TESTS%${'$'}/false/')
+                    if [ "${'$'}RUN_TESTS" != "true" ]; then
+                        echo "EAP_RUN_TESTS != true (PR/branch run) — skipping Docker image warm-up (tests don't run)."
+                        exit 0
+                    fi
                     echo "Pulling common Docker images used by internal samples..."
                     docker pull mongo:6.0 || true
                     docker pull mongodb/mongodb-community-server:8.2-ubi8 || true
@@ -337,8 +343,8 @@ ktor_compiler_plugin_version=${'$'}KTOR_COMPILER_PLUGIN_VERSION
 kotlin.mpp.stability.nowarn=true
 org.gradle.jvmargs=-Xmx4g
 org.gradle.daemon=false
-org.gradle.parallel=false
-org.gradle.caching=false
+org.gradle.parallel=true
+org.gradle.caching=true
 org.gradle.warning.mode=all
 org.gradle.java.installations.auto-download=true
 org.gradle.java.installations.auto-detect=true
@@ -388,10 +394,15 @@ EOF
                 exit 1
             fi
         
+            # Sample test suites run only on the scheduled sweep; PR/branch runs validate `assemble` only.
+            RUN_TESTS=$(echo "%env.EAP_RUN_TESTS%" | sed 's/^%env\.EAP_RUN_TESTS%$/false/')
+            [ "${'$'}RUN_TESTS" = "true" ] || RUN_TESTS="false"
+
             echo "Validating internal Ktor samples against EAP versions"
             echo "Ktor Version: %env.KTOR_VERSION%"
             echo "Ktor Plugin Version: %env.KTOR_COMPILER_PLUGIN_VERSION%"
             echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
+            echo "Run sample tests: ${'$'}RUN_TESTS (false = assemble-only PR/branch run)"
 
             # Create absolute path for init script
             WORK_DIR=$(pwd)
@@ -931,12 +942,16 @@ ${EapSampleRouting.routingBash.prependIndent("            ")}
                         echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
                         echo "${'$'}sample_dir: PASSED (Maven build)" >> "${'$'}REPORT_FILE"
-                        
-                        echo "Build successful, now running tests: mvn test -B"
-                        if mvn -f "${'$'}sample_dir/pom.xml" test -B >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
-                             echo "✅ ${'$'}sample_dir: Tests passed"
+
+                        if [ "${'$'}RUN_TESTS" = true ]; then
+                            echo "Build successful, now running tests: mvn test -B"
+                            if mvn -f "${'$'}sample_dir/pom.xml" test -B >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                                 echo "✅ ${'$'}sample_dir: Tests passed"
+                            else
+                                 echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
+                            fi
                         else
-                             echo "⚠️  ${'$'}sample_dir: Tests failed (but build passed)"
+                            echo "⏭️  ${'$'}sample_dir: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
                         fi
                     else
                         echo "❌ ${'$'}sample_dir: BUILD FAILED"
@@ -957,14 +972,16 @@ ${EapSampleRouting.routingBash.prependIndent("            ")}
                 # Gradle sample
                 if [ -f "${'$'}sample_dir/gradlew" ]; then
                     chmod +x "${'$'}sample_dir/gradlew"
-                    echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon"
-                    if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                    echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --build-cache --parallel --no-daemon"
+                    if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --build-cache --parallel --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                         echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
                         echo "${'$'}sample_dir: PASSED (Gradle build)" >> "${'$'}REPORT_FILE"
-                        
-                        # Optionally run tests if build succeeded and test task exists
-                        if (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon 2>/dev/null | grep -q "allTests"); then
+
+                        # Optionally run tests if build succeeded and test task exists (scheduled sweep only).
+                        if [ "${'$'}RUN_TESTS" != true ]; then
+                           echo "⏭️  ${'$'}sample_dir: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
+                        elif (cd "${'$'}sample_dir" && ./gradlew tasks --all --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon 2>/dev/null | grep -q "allTests"); then
                            echo "Build successful, now running aggregated tests: ./gradlew allTests --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon"
                            if (cd "${'$'}sample_dir" && ./gradlew allTests --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --no-daemon) >> "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
                                echo "✅ ${'$'}sample_dir: Tests passed"

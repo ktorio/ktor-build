@@ -74,6 +74,7 @@ object ConsolidatedEAPValidation {
         param("env.TRY_COMPILE_ON_FAILURE", "true")
         if (os == Agents.OS.Linux) param("env.ANDROID_HOME", "%android-sdk.location%")
         param("env.JAVA_HOME", Env.JDK_LTS)
+        param("env.EAP_RUN_TESTS", "false")
         defaultGradleParams()
     }
 
@@ -305,9 +306,11 @@ object ConsolidatedEAPValidation {
                         dayOfWeek = Sunday
                         hour = 22
                     }
+                    withPendingChangesOnly = false
                     branchFilter = BranchFilter.DefaultBranch
                     triggerBuild = always()
                     param("reverse.dep.*.env.EAP_VALIDATION_MODE", "published")
+                    param("reverse.dep.*.env.EAP_RUN_TESTS", "true")
                 }
 
                 vcs {

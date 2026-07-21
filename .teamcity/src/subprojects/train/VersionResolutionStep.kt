@@ -362,12 +362,50 @@ EOF
                     PUBLISH_EXCLUDES="-x :ktor-client-webrtc:publishAllPublicationsToPrLocalFileRepository"
                 fi
 
+                # --- PR-scoped native publishing --------------------------------------------------
+                SCOPE_INIT=""
+                SCOPE_TARGETS="${'$'}{KTOR_PR_TARGETS:-}"
+                want_apple=false; want_linux=false; want_androidnative=false
+                if [ -z "${'$'}SCOPE_TARGETS" ]; then
+                    # Undetermined diff (branch build / diff failure) — publish everything, don't under-validate.
+                    want_apple=true; want_linux=true; want_androidnative=true
+                else
+                    # Shared/umbrella source sets affect all native targets → publish everything.
+                    echo "${'$'}SCOPE_TARGETS" | grep -qwE 'common|posix|nix|nonJvm' && { want_apple=true; want_linux=true; want_androidnative=true; }
+                    echo "${'$'}SCOPE_TARGETS" | grep -qwE 'macos|ios|tvos|watchos|darwin|apple' && want_apple=true
+                    echo "${'$'}SCOPE_TARGETS" | grep -qwE 'linux' && want_linux=true
+                    echo "${'$'}SCOPE_TARGETS" | grep -qwE 'androidNative' && want_androidnative=true
+                fi
+
+                APPLE_TOKENS='MacosX64|MacosArm64|IosX64|IosArm64|IosSimulatorArm64|WatchosArm32|WatchosArm64|WatchosX64|WatchosSimulatorArm64|WatchosDeviceArm64|TvosArm64|TvosX64|TvosSimulatorArm64'
+                LINUX_TOKENS='LinuxX64|LinuxArm64'
+                ANDROIDNATIVE_TOKENS='AndroidNativeArm32|AndroidNativeArm64|AndroidNativeX86|AndroidNativeX64'
+                DISABLE_TOKENS=""
+                [ "${'$'}want_apple" = false ]         && DISABLE_TOKENS="${'$'}{DISABLE_TOKENS:+${'$'}DISABLE_TOKENS|}${'$'}APPLE_TOKENS"
+                [ "${'$'}want_linux" = false ]         && DISABLE_TOKENS="${'$'}{DISABLE_TOKENS:+${'$'}DISABLE_TOKENS|}${'$'}LINUX_TOKENS"
+                [ "${'$'}want_androidnative" = false ] && DISABLE_TOKENS="${'$'}{DISABLE_TOKENS:+${'$'}DISABLE_TOKENS|}${'$'}ANDROIDNATIVE_TOKENS"
+
+                if [ -n "${'$'}DISABLE_TOKENS" ]; then
+                    echo "🎯 PR touched source sets [${'$'}{SCOPE_TARGETS:-<all>}] — native families to build: apple=${'$'}want_apple linux=${'$'}want_linux androidNative=${'$'}want_androidnative"
+                    cat > ktor/pr-target-scope.init.gradle <<SCOPE_EOF
+def disablePattern = ~/(?i).*(${'$'}DISABLE_TOKENS).*/
+allprojects {
+    tasks.matching { disablePattern.matcher(it.name).matches() }.configureEach { it.enabled = false }
+}
+SCOPE_EOF
+                    SCOPE_INIT="--init-script pr-target-scope.init.gradle"
+                else
+                    echo "🎯 Publishing all native families (PR touched shared sets, native-broad sets, or targets undetermined)"
+                fi
+                # ----------------------------------------------------------------------------------
+
                 run_ktor_publish() {
                     (cd ktor && KTOR_PR_REPO_OUT="${'$'}KTOR_PR_REPO_URL" \
-                        ./gradlew publishAllPublicationsToPrLocalFileRepository ${'$'}PUBLISH_EXCLUDES \
+                        ./gradlew publishAllPublicationsToPrLocalFileRepository ${'$'}PUBLISH_EXCLUDES ${'$'}SCOPE_INIT \
                           -Pversion="${'$'}KTOR_VERSION" \
                           --init-script pr-publish-repo.init.gradle \
-                          --init-script pr-cache-redirector.init.gradle --no-daemon --stacktrace) 2>&1 | tee ktor-publish.log
+                          --init-script pr-cache-redirector.init.gradle \
+                          --build-cache --parallel --no-daemon --stacktrace) 2>&1 | tee ktor-publish.log
                     return ${'$'}{PIPESTATUS[0]}
                 }
 

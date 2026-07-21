@@ -23,6 +23,12 @@ object ExternalSamplesValidationStep {
                 name = "Prerequisites: Warm up Docker images"
                 scriptContent = """
                     #!/bin/bash
+                    # Docker services back the sample integration tests, which run on scheduled sweeps only.
+                    RUN_TESTS=${'$'}(echo "%env.EAP_RUN_TESTS%" | sed 's/^%env\.EAP_RUN_TESTS%${'$'}/false/')
+                    if [ "${'$'}RUN_TESTS" != "true" ]; then
+                        echo "EAP_RUN_TESTS != true (PR/branch run) — skipping Docker image warm-up (tests don't run)."
+                        exit 0
+                    fi
                     echo "Pulling common Docker images used by external samples..."
                     docker pull postgres:16-alpine || true
                     docker pull postgres:18-alpine || true
@@ -51,6 +57,12 @@ object ExternalSamplesValidationStep {
                 name = "Prerequisites: Install Playwright browsers"
                 scriptContent = """
                     #!/bin/bash
+                    # Playwright backs sample browser tests, which run on scheduled sweeps only.
+                    RUN_TESTS=${'$'}(echo "%env.EAP_RUN_TESTS%" | sed 's/^%env\.EAP_RUN_TESTS%${'$'}/false/')
+                    if [ "${'$'}RUN_TESTS" != "true" ]; then
+                        echo "EAP_RUN_TESTS != true (PR/branch run) — skipping Playwright install (tests don't run)."
+                        exit 0
+                    fi
                     echo "Installing Playwright browsers..."
                     npx playwright install --with-deps chromium || true
                 """.trimIndent()
@@ -74,11 +86,16 @@ object ExternalSamplesValidationStep {
             
             # Option to fallback to compile on failure (enabled by default)
             TRY_COMPILE_ON_FAILURE=$(echo "%env.TRY_COMPILE_ON_FAILURE%" | sed 's/^%env\.TRY_COMPILE_ON_FAILURE%$/true/' || echo "true")
-            
+
+            # Sample test suites run only on the scheduled sweep; PR/branch runs validate `assemble` only.
+            RUN_TESTS=$(echo "%env.EAP_RUN_TESTS%" | sed 's/^%env\.EAP_RUN_TESTS%$/false/')
+            [ "${'$'}RUN_TESTS" = "true" ] || RUN_TESTS="false"
+
             echo "Validating external GitHub samples against EAP versions"
             echo "Ktor Version: ${'$'}KTOR_VERSION"
             echo "Kotlin Version: ${'$'}KOTLIN_VERSION"
             echo "Try Compile on Failure: ${'$'}TRY_COMPILE_ON_FAILURE"
+            echo "Run sample tests: ${'$'}RUN_TESTS (false = assemble-only PR/branch run)"
 
             # PR diff-scoping for sample selection
             PR_TARGETS="%env.KTOR_PR_TARGETS%"
@@ -422,8 +439,8 @@ logback_version=1.4.14
 kotlin.mpp.stability.nowarn=true
 org.gradle.jvmargs=-Xmx4g
 org.gradle.daemon=false
-org.gradle.parallel=false
-org.gradle.caching=false
+org.gradle.parallel=true
+org.gradle.caching=true
 kotlin.compiler.execution.strategy=in-process
 kotlin.incremental=true
 EOF
@@ -540,7 +557,10 @@ EOF
                 # Run validation (build/test)
                 BUILD_SUCCESS=false
                 
-                GRADLE_ARGS="assemble --no-daemon"
+                # --build-cache reuses a per-agent local Gradle cache persisted in the Gradle home
+                # across runs (checkout is clean-wiped, the Gradle home is not); --parallel builds
+                # multi-module samples concurrently. Daemon stays off for isolation on shared agents.
+                GRADLE_ARGS="assemble --no-daemon --build-cache --parallel"
 
                 if [ -f "module.yaml" ] || [ -d ".amper" ] || [ -f "amper" ]; then
                     echo "Amper project detected. Updating versions in module.yaml or equivalent..."
@@ -640,13 +660,15 @@ EOF
                             attempt=$((attempt + 1))
                         done
 
-                        if [ "${'$'}BUILD_SUCCESS" = true ]; then
+                        if [ "${'$'}BUILD_SUCCESS" = true ] && [ "${'$'}RUN_TESTS" = true ]; then
                             echo "Build successful, now running tests: ./amper test"
                             if ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                                 echo "✅ ${'$'}project_name: Tests passed"
                             else
                                 echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
                             fi
+                        elif [ "${'$'}BUILD_SUCCESS" = true ]; then
+                            echo "⏭️  ${'$'}project_name: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
                         fi
                     fi
                 fi
@@ -656,11 +678,15 @@ EOF
                     echo "Maven sample detected. Running: mvn compile -B"
                     if mvn compile -B -Dktor.version="${'$'}KTOR_VERSION" -Dkotlin.version="${'$'}KOTLIN_VERSION" > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                         BUILD_SUCCESS=true
-                        echo "Build successful, now running tests: mvn test -B"
-                        if mvn test -B -Dktor.version="${'$'}KTOR_VERSION" -Dkotlin.version="${'$'}KOTLIN_VERSION" >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
-                             echo "✅ ${'$'}project_name: Tests passed"
+                        if [ "${'$'}RUN_TESTS" = true ]; then
+                            echo "Build successful, now running tests: mvn test -B"
+                            if mvn test -B -Dktor.version="${'$'}KTOR_VERSION" -Dkotlin.version="${'$'}KOTLIN_VERSION" >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                 echo "✅ ${'$'}project_name: Tests passed"
+                            else
+                                 echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                            fi
                         else
-                             echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                            echo "⏭️  ${'$'}project_name: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
                         fi
                     fi
                 fi
@@ -694,29 +720,33 @@ EOF
                         chmod +x gradlew
                         if run_gradle_with_429_retry "./gradlew ${'$'}GRADLE_ARGS"; then
                             BUILD_SUCCESS=true
-                            
-                            # Optionally run tests if build succeeded and test task exists
-                            if ./gradlew tasks --all | grep -q "[:[:alnum:]]*test"; then
+
+                            # Optionally run tests if build succeeded and test task exists (scheduled sweep only).
+                            if [ "${'$'}RUN_TESTS" = true ] && ./gradlew tasks --all | grep -q "[:[:alnum:]]*test"; then
                                 echo "Build successful, now running tests: ./gradlew test --no-daemon"
                                 if ./gradlew test --no-daemon >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                                     echo "✅ ${'$'}project_name: Tests passed"
                                 else
                                     echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
                                 fi
+                            elif [ "${'$'}RUN_TESTS" != true ]; then
+                                echo "⏭️  ${'$'}project_name: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
                             fi
                         fi
                     elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
                         if run_gradle_with_429_retry "gradle ${'$'}GRADLE_ARGS"; then
                             BUILD_SUCCESS=true
-                            
-                            # Optionally run tests if build succeeded and test task exists
-                            if gradle tasks --all | grep -q "[:[:alnum:]]*test"; then
+
+                            # Optionally run tests if build succeeded and test task exists (scheduled sweep only).
+                            if [ "${'$'}RUN_TESTS" = true ] && gradle tasks --all | grep -q "[:[:alnum:]]*test"; then
                                 echo "Build successful, now running tests: gradle test --no-daemon"
                                 if gradle test --no-daemon >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                                     echo "✅ ${'$'}project_name: Tests passed"
                                 else
                                     echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
                                 fi
+                            elif [ "${'$'}RUN_TESTS" != true ]; then
+                                echo "⏭️  ${'$'}project_name: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
                             fi
                         fi
                     elif [ ! -f "amper" ] && [ ! -f "pom.xml" ]; then
