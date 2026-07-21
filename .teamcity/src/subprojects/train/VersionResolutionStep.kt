@@ -409,14 +409,15 @@ SCOPE_EOF
                     return ${'$'}{PIPESTATUS[0]}
                 }
 
-                # Retry with backoff on network errors only; fail fast on genuine compile/publish errors.
+                # Retry with capped exponential backoff on network errors only; fail fast on genuine compile/publish errors.
                 PUBLISH_OK=false
-                PUBLISH_MAX=3
+                PUBLISH_MAX=5
                 for attempt in $(seq 1 ${'$'}PUBLISH_MAX); do
                     echo "▶️  Ktor publish attempt ${'$'}attempt/${'$'}PUBLISH_MAX"
                     if run_ktor_publish; then PUBLISH_OK=true; break; fi
                     if [ ${'$'}attempt -lt ${'$'}PUBLISH_MAX ] && grep -qiE "Connection refused|Connection reset|Read timed out|Could not GET|Could not get resource|received status code 429|Too Many Requests|Premature end of|Network is unreachable|connect timed out|Remote host (closed|terminated)" ktor-publish.log; then
-                        delay=$((attempt * 60))
+                        delay=$((60 * (1 << (attempt - 1))))
+                        [ ${'$'}delay -gt 300 ] && delay=300
                         echo "⚠️  Transient network failure during publish — retrying in ${'$'}{delay}s"
                         sleep ${'$'}delay
                     else
