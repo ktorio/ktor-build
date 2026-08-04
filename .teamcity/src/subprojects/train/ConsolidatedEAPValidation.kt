@@ -309,8 +309,11 @@ object ConsolidatedEAPValidation {
                     withPendingChangesOnly = false
                     branchFilter = BranchFilter.DefaultBranch
                     triggerBuild = always()
-                    param("reverse.dep.*.env.EAP_VALIDATION_MODE", "published")
-                    param("reverse.dep.*.env.EAP_RUN_TESTS", "true")
+
+                    buildParams {
+                        param("reverse.dep.*.env.EAP_VALIDATION_MODE", "published")
+                        param("reverse.dep.*.env.EAP_RUN_TESTS", "true")
+                    }
                 }
 
                 vcs {
