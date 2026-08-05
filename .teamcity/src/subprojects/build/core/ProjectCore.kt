@@ -52,6 +52,7 @@ object ProjectCore : Project({
     }
 
     buildType(CodeStyleVerify)
+    buildType(CoreFlakyTestNotifier)
 })
 
 enum class TriggerType {
