@@ -15,7 +15,7 @@ import subprojects.build.*
 object CoreFlakyTestNotifier : BuildType({
     id("KtorCore_FlakyTestNotifier")
     name = "Flaky Test Notifier"
-    description = "Notifies @ktor-team-members on Slack when Build All Core detects flaky tests (result changed after retry)"
+    description = "Notifies @ktor-incident-responders on Slack when Build All Core detects flaky tests (result changed after retry)"
 
     params {
         password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")

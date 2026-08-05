@@ -69,12 +69,12 @@ if [ -z "$SLACK_WEBHOOK_URL" ] || echo "$SLACK_WEBHOOK_URL" | grep -q '%.*%'; th
   exit 0
 fi
 
-# @-mention the @ktor-team-members user group when its Slack id is configured;
+# @-mention the @ktor-incident-responders user group when its Slack id is configured;
 if [ -n "$SUBTEAM_ID" ] && ! echo "$SUBTEAM_ID" | grep -q '%.*%'; then
-  MENTION="<!subteam^$SUBTEAM_ID|@ktor-team-members>"
+  MENTION="<!subteam^$SUBTEAM_ID|@ktor-incident-responders>"
 else
   echo "slack.ktor.team.subteam.id user group is not set."
-  MENTION="@ktor-team-members"
+  MENTION="@ktor-incident-responders"
 fi
 
 # Keep the message readable when many tests flip.
