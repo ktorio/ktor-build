@@ -1,17 +1,34 @@
 #!/bin/bash
 set -euo pipefail
 
-WATCHED_BUILD_TYPE="KtorCore_All"
+WATCHED_BUILD_TYPE="Ktor_KtorCore_All"
 SUBTEAM_ID="%slack.ktor.team.subteam.id%"
 BUILD_URL="%teamcity.serverUrl%/viewLog.html?buildId=%teamcity.build.id%"
 
+# Cross-build-config REST reads need a real access token: the per-build credential
+# (teamcity.auth.*) is scoped to this build and cannot read KtorCore_All's data.
+TC_REST_TOKEN="${TC_REST_TOKEN:-}"
+if [ -z "$TC_REST_TOKEN" ] || echo "$TC_REST_TOKEN" | grep -q '%.*%'; then
+  echo "TC_REST_TOKEN is not configured; cannot query the TeamCity REST API."
+  echo "Provide a TeamCity access token (View rights on the Ktor Core project) via the env.TC_REST_TOKEN secure parameter."
+  exit 1
+fi
+
 function teamcityApiRequest() {
   local route=$1; shift
-  curl --silent --fail-with-body \
-    --user "%system.teamcity.auth.userId%:%system.teamcity.auth.password%" \
+  local out status
+  out=$(curl --silent --show-error --write-out $'\n%{http_code}' \
+    --header "Authorization: Bearer $TC_REST_TOKEN" \
     "%teamcity.serverUrl%/app/rest$route" \
     --header "Accept: application/json" \
-    "$@"
+    "$@")
+  status=${out##*$'\n'}
+  if [ "$status" -ge 400 ]; then
+    echo "TeamCity REST $route -> HTTP $status" >&2
+    echo "${out%$'\n'*}" >&2
+    return 1
+  fi
+  echo "${out%$'\n'*}"
 }
 
 # 1. Most recent finished KtorCore_All builds on the default branch, newest first.

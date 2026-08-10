@@ -19,6 +19,7 @@ object CoreFlakyTestNotifier : BuildType({
 
     params {
         password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
+        password("env.TC_REST_TOKEN", "%system.teamcity.rest.token%")
         param("slack.ktor.team.subteam.id", "%system.slack.ktor.team.subteam.id%")
     }
 
@@ -31,7 +32,7 @@ object CoreFlakyTestNotifier : BuildType({
 
     triggers {
         finishBuildTrigger {
-            buildType = "KtorCore_All"
+            buildType = "Ktor_KtorCore_All"
             successfulOnly = false
             branchFilter = BranchFilter.DefaultBranch
         }
