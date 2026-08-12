@@ -21,7 +21,7 @@ object ProjectBenchmarks : Project({
         id("AllocationTests")
         name = "Allocation tests"
 
-        val ktorVersion = BuildKtorForAllocationBenchmarks.depParamRefs["ktorBenchmarkVersion"].ref
+        val ktorVersion = BuildKtorForAllocationBenchmarks.depParamRefs.buildNumber.ref
 
         vcs {
             root(VCSCore, "+:.=>ktor")
@@ -134,14 +134,13 @@ private object BuildKtorForAllocationBenchmarks : BuildType({
                 ktorVersion="${'$'}(<VERSION)"
                 ktorVersion="${'$'}{ktorVersion%-SNAPSHOT}-BENCHMARKS.%build.counter%"
                 echo "##teamcity[buildNumber '${'$'}ktorVersion']"
-                echo "##teamcity[setParameter name='ktorBenchmarkVersion' value='${'$'}ktorVersion']"
                 """
             )
         }
         gradle {
             tasks = JVM_AND_COMMON_PUBLISH_TASK
             gradleParams = "$EXCLUDE_DOKA_GENERATION " +
-                "-PreleaseVersion=%ktorBenchmarkVersion% " +
+                "-PreleaseVersion=%build.number% " +
                 "-Dmaven.repo.local=$MAVEN_LOCAL_PATH"
             jdkHome = Env.JDK_LTS
         }
@@ -152,7 +151,6 @@ private object BuildKtorForAllocationBenchmarks : BuildType({
     }
 
     params {
-        param("ktorBenchmarkVersion", "")
         param("system.teamcity.default.properties", "teamcity.default.properties")
     }
 
