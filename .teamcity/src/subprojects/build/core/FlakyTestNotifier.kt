@@ -15,12 +15,21 @@ import subprojects.build.*
 object CoreFlakyTestNotifier : BuildType({
     id("KtorCore_FlakyTestNotifier")
     name = "Flaky Test Notifier"
-    description = "Notifies @ktor-incident-responders on Slack when Build All Core detects flaky tests (result changed after retry)"
+    description = "Consolidates flaky tests from TeamCity (retry-diff) and Develocity (28d) and notifies @ktor-incident-responders on Slack"
+
+    // The consolidated report is surfaced as the "Flaky Tests" build report tab (see ProjectCore).
+    artifactRules = """
+        flaky-report.json
+        flaky-report.md
+        flaky-report.html
+    """.trimIndent()
 
     params {
         password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
         password("env.TC_REST_TOKEN", "%system.teamcity.rest.token%")
+        password("env.DV_ACCESS_KEY", "%system.develocity.access.key%")
         param("slack.ktor.team.subteam.id", "%system.slack.ktor.team.subteam.id%")
+        param("quarantine.build.type", FLAKY_TEST_BUILD_EXTERNAL_ID)
     }
 
     steps {
@@ -33,6 +42,12 @@ object CoreFlakyTestNotifier : BuildType({
     triggers {
         finishBuildTrigger {
             buildType = "Ktor_KtorCore_All"
+            successfulOnly = false
+            branchFilter = BranchFilter.DefaultBranch
+        }
+
+        finishBuildTrigger {
+            buildType = FLAKY_TEST_BUILD_EXTERNAL_ID
             successfulOnly = false
             branchFilter = BranchFilter.DefaultBranch
         }

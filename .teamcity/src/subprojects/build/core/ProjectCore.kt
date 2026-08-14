@@ -14,6 +14,15 @@ object ProjectCore : Project({
         defaultGradleParams()
     }
 
+    features {
+        feature {
+            type = "ReportTab"
+            param("type", "BuildReportTab")
+            param("title", "Flaky Tests")
+            param("startPage", "flaky-report.html")
+        }
+    }
+
     val jpmsCheck = JPMSCheckBuild
     val apiCheck = APICheckBuild
     val osJdkBuilds = osJdks.map(::JDKBuild)
@@ -52,6 +61,7 @@ object ProjectCore : Project({
     }
 
     buildType(CodeStyleVerify)
+    buildType(CoreFlakyTestBuild)
     buildType(CoreFlakyTestNotifier)
 })
 
