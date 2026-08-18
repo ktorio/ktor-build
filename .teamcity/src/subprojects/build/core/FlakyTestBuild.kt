@@ -75,7 +75,6 @@ object CoreFlakyTestBuild : BuildType({
             name = "Run quarantined tests (JS, WasmJs)"
             tasks = "jsNodeTest wasmJsNodeTest"
             gradleParams = "-Pktor.tests.flaky=only -Penable-js-tests --continue --info $GradleParams"
-            jdkHome = Env.JDK_LTS
             setupDockerForJavaScriptTests(js)
         }
 
