@@ -35,7 +35,7 @@ object CoreFlakyTestNotifier : BuildType({
     steps {
         script {
             name = "Detect flaky tests and notify Slack"
-            scriptFile("notify_flaky_tests.sh")
+            flakyNotifierScript()
         }
     }
 
