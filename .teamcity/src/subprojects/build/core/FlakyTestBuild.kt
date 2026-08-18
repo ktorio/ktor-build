@@ -66,7 +66,7 @@ object CoreFlakyTestBuild : BuildType({
         gradle {
             name = "Run quarantined tests (JVM)"
             tasks = "flakyTest"
-            gradleParams = "--continue --info -Ptest.jdk=${JDKEntry.JavaLTS.version} $GradleParams"
+            gradleParams = "--continue -Ptest.jdk=${JDKEntry.JavaLTS.version} $GradleParams"
             jdkHome = Env.JDK_LTS
             enableStacktrace = true
         }
@@ -74,14 +74,14 @@ object CoreFlakyTestBuild : BuildType({
         gradle {
             name = "Run quarantined tests (JS, WasmJs)"
             tasks = "jsNodeTest wasmJsNodeTest"
-            gradleParams = "-Pktor.tests.flaky=only -Penable-js-tests --continue --info $GradleParams"
+            gradleParams = "-Pktor.tests.flaky=only -Penable-js-tests --continue $GradleParams"
             setupDockerForJavaScriptTests(js)
         }
 
         gradle {
             name = "Run quarantined tests (Native)"
             tasks = "linuxX64Test"
-            gradleParams = "-Pktor.tests.flaky=only --continue --info $GradleParams"
+            gradleParams = "-Pktor.tests.flaky=only --continue $GradleParams"
             jdkHome = Env.JDK_LTS
         }
     }
