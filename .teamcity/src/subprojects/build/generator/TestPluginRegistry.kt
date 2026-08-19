@@ -4,12 +4,17 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.core.extraGradleParams
 
 object TestPluginRegistry : BuildType({
     id("KtorPluginRegistryVerify")
     name = "Test plugin registry"
     vcs {
         root(VCSPluginRegistry)
+    }
+
+    params {
+        extraGradleParams()
     }
 
     steps {
