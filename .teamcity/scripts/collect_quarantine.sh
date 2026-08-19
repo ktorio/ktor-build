@@ -1,7 +1,8 @@
 #!/bin/bash
-# Reports on the quarantined tests run by the scheduled "Flaky (Quarantined) Tests" build.
+# Reports on the quarantined tests run by the scheduled "Flaky (Quarantined) Tests" builds
+# (one per OS: Linux + per-OS native — see QUARANTINE_BUILD_TYPES).
 #
-# Across the last QUARANTINE_RUNS runs each test gets a verdict:
+# Across the last QUARANTINE_RUNS runs of each build, every test gets a verdict:
 #   still-flaky      : both passed and failed  -> genuinely flaky, keep quarantined
 #   always-failing   : only ever failed        -> not flaky, it is broken; fix or @Ignore it
 #   stable-candidate : only ever passed        -> ready to un-quarantine
@@ -10,8 +11,9 @@ set -euo pipefail
 SCRIPTS_DIR="${FLAKY_SCRIPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
 source "$SCRIPTS_DIR/lib_flaky.sh"
 
-QUARANTINE_BUILD_TYPE="${QUARANTINE_BUILD_TYPE:-Ktor_KtorCore_FlakyTest}"
-WATCHED_BUILD_TYPE="${WATCHED_BUILD_TYPE:-Ktor_KtorCore_All}"
+# Space-separated list of quarantine build external ids (Linux + per-OS native). Falls back to the
+# legacy single QUARANTINE_BUILD_TYPE, then to the Linux build, so older callers still work.
+QUARANTINE_BUILD_TYPES="${QUARANTINE_BUILD_TYPES:-${QUARANTINE_BUILD_TYPE:-Ktor_KtorCore_FlakyTest}}"
 QUARANTINE_RUNS="${QUARANTINE_RUNS:-7}"
 # A test needs this many clean runs before it is suggested for un-quarantining.
 QUARANTINE_STABLE_RUNS="${QUARANTINE_STABLE_RUNS:-3}"
@@ -19,7 +21,7 @@ QUARANTINE_STABLE_RUNS="${QUARANTINE_STABLE_RUNS:-3}"
 OCC_CAP="${TC_TEST_OCCURRENCE_CAP:-10000}"
 
 emit_empty() {
-  jq -n --arg bt "$QUARANTINE_BUILD_TYPE" '
+  jq -n --arg bt "$QUARANTINE_BUILD_TYPES" '
     {available: false, buildType: $bt, runs: 0, tests: [],
      counts: {stillFlaky: 0, alwaysFailing: 0, stableCandidate: 0}}'
 }
@@ -30,65 +32,44 @@ if ! require_tc_token; then
   exit 0
 fi
 
-BUILDS_JSON=$(teamcityApiRequest \
-  "/builds?locator=buildType:$QUARANTINE_BUILD_TYPE,branch:(default:true),state:finished,count:$QUARANTINE_RUNS&fields=build(id)") || {
-  echo "Cannot read $QUARANTINE_BUILD_TYPE (does the build configuration exist yet?); skipping the quarantine source." >&2
-  emit_empty
-  exit 0
-}
-
-RUN_IDS=$(echo "$BUILDS_JSON" | jq -r '.build[]?.id')
-RUN_COUNT=$(echo "$RUN_IDS" | grep -c . || true)
-if [ "$RUN_COUNT" -eq 0 ]; then
-  echo "No finished runs of $QUARANTINE_BUILD_TYPE yet; nothing to report." >&2
-  emit_empty
-  exit 0
-fi
-echo "Found $RUN_COUNT finished run(s) of $QUARANTINE_BUILD_TYPE." >&2
-
-# The tests the gate skips. `ignored:true` covers both @Ignore and an ExecutionCondition opting out.
-GATE_BUILD_ID=$(teamcityApiRequest \
-  "/builds?locator=buildType:$WATCHED_BUILD_TYPE,branch:(default:true),state:finished,count:1&fields=build(id)" \
-  | jq -r '.build[0].id // empty') || GATE_BUILD_ID=""
-
-SKIPPED_IN_GATE=""
-if [ -n "$GATE_BUILD_ID" ]; then
-  if ! gate_skipped_resp=$(teamcityApiRequest \
-      "/testOccurrences?locator=build:(id:$GATE_BUILD_ID),ignored:true,count:$OCC_CAP&fields=testOccurrence(name)"); then
-    echo "Cannot read the gate's skipped tests; skipping the quarantine source." >&2
-    emit_empty
-    exit 0
-  fi
-  warn_if_truncated "$gate_skipped_resp" "$OCC_CAP" "gate build $GATE_BUILD_ID (skipped set)"
-  if ! SKIPPED_IN_GATE=$(printf '%s' "$gate_skipped_resp" | jq -r '.testOccurrence[]?.name'); then
-    echo "Cannot parse the gate's skipped tests; skipping the quarantine source." >&2
-    emit_empty
-    exit 0
-  fi
-fi
-SKIPPED_COUNT=$(echo "$SKIPPED_IN_GATE" | grep -c . || true)
-echo "$WATCHED_BUILD_TYPE skips $SKIPPED_COUNT test(s)." >&2
-
-# Executed results from the quarantine runs (skipped ones carry no verdict, so exclude them).
-# Best-effort: a transient failure on one run is skipped, not fatal to the notifier.
+# Executed results across the last QUARANTINE_RUNS runs of every quarantine build.
 QR_RESULTS_FILE=$(mktemp)
 trap 'rm -f "$QR_RESULTS_FILE"' EXIT
-RUNS_READ=0
-for id in $RUN_IDS; do
-  if ! occurrences=$(teamcityApiRequest \
-      "/testOccurrences?locator=build:(id:$id),ignored:false,count:$OCC_CAP&fields=testOccurrence(name,status)"); then
-    echo "Skipping quarantine run $id: testOccurrences request failed." >&2
+RUNS_READ=0        # total runs read across all builds (drives the "any data?" check)
+MAX_RUNS=0         # deepest single-build sampling window, reported as `runs`
+
+for bt in $QUARANTINE_BUILD_TYPES; do
+  if ! builds_json=$(teamcityApiRequest \
+      "/builds?locator=buildType:$bt,branch:(default:true),state:finished,count:$QUARANTINE_RUNS&fields=build(id)"); then
+    echo "Cannot read $bt (does the build configuration exist yet?); skipping it." >&2
     continue
   fi
-  warn_if_truncated "$occurrences" "$OCC_CAP" "quarantine run $id"
-  if ! printf '%s' "$occurrences" \
-      | jq -r '.testOccurrence[]? | [.status, .name] | @tsv' >> "$QR_RESULTS_FILE"; then
-    echo "Skipping quarantine run $id: could not parse test occurrences." >&2
+  run_ids=$(printf '%s' "$builds_json" | jq -r '.build[]?.id')
+  run_count=$(printf '%s\n' "$run_ids" | grep -c . || true)
+  if [ "$run_count" -eq 0 ]; then
+    echo "No finished runs of $bt yet." >&2
     continue
   fi
-  RUNS_READ=$((RUNS_READ + 1))
+  echo "Found $run_count finished run(s) of $bt." >&2
+
+  bt_runs=0
+  for id in $run_ids; do
+    if ! occurrences=$(teamcityApiRequest \
+        "/testOccurrences?locator=build:(id:$id),ignored:false,count:$OCC_CAP&fields=testOccurrence(name,status)"); then
+      echo "Skipping run $id of $bt: testOccurrences request failed." >&2
+      continue
+    fi
+    warn_if_truncated "$occurrences" "$OCC_CAP" "$bt run $id"
+    if ! printf '%s' "$occurrences" \
+        | jq -r '.testOccurrence[]? | [.status, .name] | @tsv' >> "$QR_RESULTS_FILE"; then
+      echo "Skipping run $id of $bt: could not parse test occurrences." >&2
+      continue
+    fi
+    bt_runs=$((bt_runs + 1))
+    RUNS_READ=$((RUNS_READ + 1))
+  done
+  if [ "$bt_runs" -gt "$MAX_RUNS" ]; then MAX_RUNS=$bt_runs; fi
 done
-QUARANTINE_RESULTS=$(cat "$QR_RESULTS_FILE")
 
 if [ "$RUNS_READ" -eq 0 ]; then
   echo "No quarantine runs could be read; skipping the quarantine source." >&2
@@ -96,13 +77,14 @@ if [ "$RUNS_READ" -eq 0 ]; then
   exit 0
 fi
 
-# Intersect, tally, and classify. The target comes from the `[target]` suffix Kotlin appends to
-# multiplatform test names; unlike collect_teamcity.sh there is no per-target build to read it from.
+# Tally + classify. Every executed test is a quarantined test (the builds run only flaky tests), so
+# there is no gate intersection. The target comes from the `[target]` suffix Kotlin appends to
+# multiplatform test names, via the shared classifier; the JVM step reports plain names -> jvm.
+QUARANTINE_RESULTS=$(cat "$QR_RESULTS_FILE")
 TESTS_TSV=$(awk -F '\t' -v stableRuns="$QUARANTINE_STABLE_RUNS" "$FLAKY_AWK_CLASSIFY"'
-  NR == FNR { skipped[$0] = 1; next }
   {
     status = $1; name = $2
-    if (name == "" || !(name in skipped)) next
+    if (name == "") next
     if (status == "SUCCESS") passed[name]++
     else if (status == "FAILURE") failed[name]++
   }
@@ -118,9 +100,9 @@ TESTS_TSV=$(awk -F '\t' -v stableRuns="$QUARANTINE_STABLE_RUNS" "$FLAKY_AWK_CLAS
       else                           verdict = "still-flaky"   # too few clean runs to judge
       print flaky_classify_by_name(n, "jvm") "\t" n "\t" p "\t" f "\t" verdict
     }
-  }' <(echo "$SKIPPED_IN_GATE") <(echo "$QUARANTINE_RESULTS") | sort -u)
+  }' <<< "$QUARANTINE_RESULTS" | sort -u)
 
-jq -Rn --arg bt "$QUARANTINE_BUILD_TYPE" --argjson runs "$RUNS_READ" '
+jq -Rn --arg bt "$QUARANTINE_BUILD_TYPES" --argjson runs "$MAX_RUNS" '
   [inputs
     | split("\t")
     | select(length == 6)

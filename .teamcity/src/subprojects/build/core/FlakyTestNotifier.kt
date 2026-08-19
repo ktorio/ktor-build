@@ -45,8 +45,9 @@ object CoreFlakyTestNotifier : BuildType({
         password("env.TC_REST_TOKEN", "%system.teamcity.rest.token%")
         password("env.DV_ACCESS_KEY", "%system.develocity.access.key%")
         param("slack.ktor.team.subteam.id", "%system.slack.ktor.team.subteam.id%")
-        param("quarantine.build.type", FLAKY_TEST_BUILD_EXTERNAL_ID)
+        param("quarantine.build.type", FLAKY_TEST_BUILD_EXTERNAL_IDS.joinToString(" "))
         param("notifier.build.type", NOTIFIER_BUILD_EXTERNAL_ID)
+        param("ktor.repo.url", "https://github.com/ktorio/ktor")
     }
 
     steps {
@@ -63,10 +64,12 @@ object CoreFlakyTestNotifier : BuildType({
             branchFilter = BranchFilter.DefaultBranch
         }
 
-        finishBuildTrigger {
-            buildType = FLAKY_TEST_BUILD_EXTERNAL_ID
-            successfulOnly = false
-            branchFilter = BranchFilter.DefaultBranch
+        FLAKY_TEST_BUILD_EXTERNAL_IDS.forEach { quarantineId ->
+            finishBuildTrigger {
+                buildType = quarantineId
+                successfulOnly = false
+                branchFilter = BranchFilter.DefaultBranch
+            }
         }
     }
 

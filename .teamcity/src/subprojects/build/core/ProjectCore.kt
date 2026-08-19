@@ -62,6 +62,7 @@ object ProjectCore : Project({
 
     buildType(CodeStyleVerify)
     buildType(CoreFlakyTestBuild)
+    QUARANTINE_NATIVE_ENTRIES.forEach { buildType(CoreNativeFlakyTestBuild(it)) }
     buildType(CoreFlakyTestNotifier)
 })
 

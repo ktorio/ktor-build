@@ -20,11 +20,19 @@ set -euo pipefail
 # TeamCity-resolved values (exported for the helpers and collectors).
 export TC_SERVER_URL="%teamcity.serverUrl%"
 export WATCHED_BUILD_TYPE="Ktor_KtorCore_All"
-export QUARANTINE_BUILD_TYPE="%quarantine.build.type%"
+export QUARANTINE_BUILD_TYPES="%quarantine.build.type%"
 TC_BUILD_ID="%teamcity.build.id%"
 SUBTEAM_ID="%slack.ktor.team.subteam.id%"
 NOTIFIER_BUILD_TYPE="%notifier.build.type%"
+KTOR_REPO_URL="%ktor.repo.url%"
 STATE_FILE="flaky-notify-state.json"
+
+if [ -z "$KTOR_REPO_URL" ] || printf '%s' "$KTOR_REPO_URL" | grep -q '%.*%'; then
+  KTOR_REPO_URL="https://github.com/ktorio/ktor"
+fi
+KTOR_REPO_URL="${KTOR_REPO_URL%/}"
+# owner/name slug (e.g. ktorio/ktor) for GitHub code-search queries.
+KTOR_REPO_SLUG=$(printf '%s' "$KTOR_REPO_URL" | sed -E 's#^https?://[^/]+/##')
 
 # Locate the helper scripts.
 if [ -n "${FLAKY_SCRIPTS_DIR:-}" ]; then
@@ -149,20 +157,27 @@ LATEST_REVISION=$(echo "$CONSOLIDATED" | jq -r '.revision // ""')
 TARGET_SUMMARY=$(echo "$CONSOLIDATED" | jq -r '.byTargetCounts | to_entries | map(.key + ": " + (.value|tostring)) | join(", ")')
 OVERLAP_COUNT=$(echo "$CONSOLIDATED" | jq -r '.overlapCount')
 
-TEST_LIST=$(echo "$CONSOLIDATED" | jq -r '
+# Each test links to a GitHub code search for its class within the Ktor repo.
+TEST_LIST=$(echo "$CONSOLIDATED" | jq -r --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" '
+  def simpleClass: ((.class // .name) | split(".") | last);
+  def ghSearch: $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + simpleClass | @uri);
   .thisRun | sort_by(.target, .name) | .[:15][]
-  | "• [" + .target + (if (.targetDetail // "") != "" then ":" + .targetDetail else "" end) + "] " + .name
+  | "• [" + .target + (if (.targetDetail // "") != "" then ":" + .targetDetail else "" end) + "] "
+    + "<" + ghSearch + "|" + .name + ">"
     + (if .chronic then "  ⚠︎ chronic(28d)" else "" end)')
 if [ "$THIS_RUN_COUNT" -gt 15 ]; then
   TEST_LIST="$TEST_LIST
 …and $((THIS_RUN_COUNT - 15)) more"
 fi
 
-# One-line chronic context from Develocity (top 3 classes by 28d flaky count).
+# One-line chronic context from Develocity (top 3 classes by 28d flaky count), each class name
+# linking to a GitHub code search within the Ktor repo.
 CHRONIC_LINE=""
 if [ "$DV_AVAILABLE" = "true" ]; then
-  CHRONIC_TOP=$(echo "$CONSOLIDATED" | jq -r '
-    (.chronic[0:3] | map((.class | split(".") | last) + " (" + (.flaky|tostring) + ")") | join(", ")) // ""')
+  CHRONIC_TOP=$(echo "$CONSOLIDATED" | jq -r --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" '
+    def simpleClass: (.class | split(".") | last);
+    def ghSearch: $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + simpleClass | @uri);
+    (.chronic[0:3] | map("<" + ghSearch + "|" + simpleClass + "> (" + (.flaky|tostring) + ")") | join(", ")) // ""')
   if [ -n "$CHRONIC_TOP" ]; then
     CHRONIC_LINE="Chronic (Develocity 28d) — top: $CHRONIC_TOP · $OVERLAP_COUNT of this run also chronic
 "
@@ -178,8 +193,14 @@ else
 fi
 
 BUILD_URL="$TC_SERVER_URL/viewLog.html?buildId=$TC_BUILD_ID"
+# Link the revision to its GitHub commit page (fall back to a bare short hash if unknown).
+if [ -n "$LATEST_REVISION" ]; then
+  REVISION_REF="<$KTOR_REPO_URL/commit/$LATEST_REVISION|\`${LATEST_REVISION:0:12}\`>"
+else
+  REVISION_REF="\`unknown\`"
+fi
 if [ "$THIS_RUN_COUNT" -gt 0 ]; then
-  HEADLINE="$THIS_RUN_COUNT flaky test(s) in *Build All Core* (retry-diff) on revision \`${LATEST_REVISION:0:12}\` — by target: $TARGET_SUMMARY"
+  HEADLINE="$THIS_RUN_COUNT flaky test(s) in *Build All Core* (retry-diff) on revision $REVISION_REF — by target: $TARGET_SUMMARY"
 else
   # Reached only because quarantine needs a decision, so don't claim a retry-diff finding.
   HEADLINE="nothing flipped in *Build All Core*, but quarantined tests need a decision"
