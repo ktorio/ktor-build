@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
+import subprojects.build.core.extraGradleParams
 
 object PublishPluginRegistry : BuildType({
     id("KtorPluginRegistry")
@@ -13,6 +14,7 @@ object PublishPluginRegistry : BuildType({
     }
     params {
         password("env.PUBLISHING_TOKEN", value = "%space.packages.publish.token%")
+        extraGradleParams()
     }
 
     steps {
