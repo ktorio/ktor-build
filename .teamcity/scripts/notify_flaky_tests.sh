@@ -23,6 +23,8 @@ export WATCHED_BUILD_TYPE="Ktor_KtorCore_All"
 export QUARANTINE_BUILD_TYPE="%quarantine.build.type%"
 TC_BUILD_ID="%teamcity.build.id%"
 SUBTEAM_ID="%slack.ktor.team.subteam.id%"
+NOTIFIER_BUILD_TYPE="%notifier.build.type%"
+STATE_FILE="flaky-notify-state.json"
 
 # Locate the helper scripts.
 if [ -n "${FLAKY_SCRIPTS_DIR:-}" ]; then
@@ -40,6 +42,29 @@ export FLAKY_SCRIPTS_DIR="$SCRIPTS_DIR"
 source "$SCRIPTS_DIR/lib_flaky.sh"
 
 require_tc_token || exit 1
+
+# Signature of the last message posted, read from the previous notifier build's state artifact
+# via REST. The signature has two independent components — `tr` (this-run retry-diff finding) and
+# `qr` (quarantine decision) — so each is de-duplicated on its own.
+previous_posted_sig() {
+  if [ -z "$NOTIFIER_BUILD_TYPE" ] || printf '%s' "$NOTIFIER_BUILD_TYPE" | grep -q '%.*%'; then
+    return 0
+  fi
+  local prev_id state
+  prev_id=$(teamcityApiRequest \
+    "/builds?locator=buildType:$NOTIFIER_BUILD_TYPE,branch:(default:true),state:finished,count:1&fields=build(id)" \
+    2>/dev/null | jq -r '.build[0].id // empty') || return 0
+  [ -n "$prev_id" ] || return 0
+  state=$(teamcityApiRequest "/builds/id:$prev_id/artifacts/content/$STATE_FILE" 2>/dev/null) || return 0
+  printf '%s' "$state" | jq -cS '.sig // empty' 2>/dev/null || true
+}
+
+# Persist the two signature components (each a compact JSON value, or empty -> null) for the next run.
+write_state() {
+  jq -cn --argjson tr "${1:-null}" --argjson qr "${2:-null}" '{sig: {tr: $tr, qr: $qr}}' > "$STATE_FILE" 2>/dev/null \
+    || printf '{"sig":{"tr":null,"qr":null}}\n' > "$STATE_FILE"
+  echo "Wrote $STATE_FILE." >&2
+}
 
 # --- Collect (each source writes normalized JSON) ---
 TC_FILE=$(mktemp)
@@ -72,9 +97,45 @@ if [ "$QR_AVAILABLE" = "true" ] && { [ "$QR_ALWAYS_FAILING" -gt 0 ] || [ "$QR_ST
 "
 fi
 
-# Notify when THIS run flipped something (the original trigger intent) or when quarantine needs a
-# decision; the report artifacts are published regardless.
-if [ "$THIS_RUN_COUNT" -eq 0 ] && [ -z "$QUARANTINE_LINE" ]; then
+CUR_TR=$(echo "$CONSOLIDATED" | jq -cS --argjson runCount "$THIS_RUN_COUNT" '
+  if $runCount > 0
+  then {revision: .revision, tests: (.thisRun | map(.target + "|" + (.targetDetail // "") + "|" + .name) | sort)}
+  else null end')
+if [ -n "$QUARANTINE_LINE" ]; then
+  CUR_QR=$(echo "$CONSOLIDATED" | jq -cS '
+    .quarantine.tests // []
+    | map(select(.verdict == "always-failing" or .verdict == "stable-candidate"))
+    | map(.verdict + "|" + .target + "|" + .name) | sort')
+else
+  CUR_QR=null
+fi
+
+PREV_SIG=$(previous_posted_sig)
+PREV_TR=null
+PREV_QR=null
+if [ -n "$PREV_SIG" ]; then
+  PREV_TR=$(printf '%s' "$PREV_SIG" | jq -cS '.tr // null')
+  PREV_QR=$(printf '%s' "$PREV_SIG" | jq -cS '.qr // null')
+fi
+
+# Post a component only when it is present this run AND differs from previously posted.
+POST_TR=no
+if [ "$THIS_RUN_COUNT" -gt 0 ] && [ "$CUR_TR" != "$PREV_TR" ]; then POST_TR=yes; fi
+POST_QR=no
+if [ -n "$QUARANTINE_LINE" ] && [ "$CUR_QR" != "$PREV_QR" ]; then POST_QR=yes; fi
+
+# What to store next: advance a component only where it is present this run, otherwise carry the
+# previous value forward so a later unchanged run still de-duplicates against it.
+NEW_TR="$PREV_TR"
+if [ "$THIS_RUN_COUNT" -gt 0 ]; then NEW_TR="$CUR_TR"; fi
+NEW_QR="$PREV_QR"
+if [ -n "$QUARANTINE_LINE" ]; then NEW_QR="$CUR_QR"; fi
+
+# Nothing new in either component: stay silent, but persist the (carried-forward) signature so the
+# chain of state artifacts stays continuous. The report artifacts are published regardless.
+if [ "$POST_TR" = "no" ] && [ "$POST_QR" = "no" ]; then
+  echo "No new flaky findings since the last Slack post; skipping notification." >&2
+  write_state "$NEW_TR" "$NEW_QR"
   exit 0
 fi
 
@@ -127,4 +188,12 @@ MESSAGE=":warning: $MENTION — $HEADLINE
 $TEST_LIST
 ${CHRONIC_LINE}${QUARANTINE_LINE}<$BUILD_URL|View build> — full report in the *Flaky Tests* tab"
 
-post_to_slack "$MESSAGE"
+# Advance the stored signature only when the post actually goes out; on failure keep the previous
+# values so the next run retries this same finding instead of treating it as already delivered.
+if post_to_slack "$MESSAGE"; then
+  write_state "$NEW_TR" "$NEW_QR"
+else
+  write_state "$PREV_TR" "$PREV_QR"
+  echo "Slack post failed; signature left unchanged so the next run retries." >&2
+  exit 1
+fi

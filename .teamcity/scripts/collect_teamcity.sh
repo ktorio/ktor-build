@@ -5,6 +5,7 @@ SCRIPTS_DIR="${FLAKY_SCRIPTS_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}
 source "$SCRIPTS_DIR/lib_flaky.sh"
 
 WATCHED_BUILD_TYPE="${WATCHED_BUILD_TYPE:-Ktor_KtorCore_All}"
+OCC_CAP="${TC_TEST_OCCURRENCE_CAP:-10000}"
 
 require_tc_token || exit 1
 
@@ -19,7 +20,13 @@ emit_json() {
 }
 
 # 1. Most recent finished builds on the default branch, newest first.
-BUILDS_JSON=$(teamcityApiRequest "/builds?locator=buildType:$WATCHED_BUILD_TYPE,branch:(default:true),state:finished,count:15&fields=build(id,revisions(revision(version)))")
+#    A failure here must not abort the notifier: report nothing flaky and let the
+#    other sources (Develocity, quarantine) and the report still be produced.
+if ! BUILDS_JSON=$(teamcityApiRequest "/builds?locator=buildType:$WATCHED_BUILD_TYPE,branch:(default:true),state:finished,count:15&fields=build(id,revisions(revision(version)))"); then
+  echo "Cannot list recent $WATCHED_BUILD_TYPE builds; reporting nothing flaky for this run." >&2
+  emit_json "" 0 ""
+  exit 0
+fi
 
 # 2. The revision of the latest run. All of its retry attempts share this revision.
 LATEST_REVISION=$(echo "$BUILDS_JSON" | jq -r '.build[0].revisions.revision[0].version // empty')
@@ -42,28 +49,42 @@ if [ "$ATTEMPT_COUNT" -lt 2 ]; then
 fi
 
 # 4. Collect every test's status + owning sub-build across all attempts.
-ALL_RESULTS=$(
-  for id in $ATTEMPT_IDS; do
-    teamcityApiRequest "/testOccurrences?locator=build:(id:$id),count:10000&fields=testOccurrence(name,status,build(buildTypeId))" \
-      | jq -r '.testOccurrence[]? | [.status, (.build.buildTypeId // ""), .name] | @tsv'
-  done
-)
+#    A transient failure on one attempt must not abort the notifier: skip that attempt
+#    (a missing attempt can only hide a flip, never invent one) and diff the rest.
+ALL_RESULTS_FILE=$(mktemp)
+trap 'rm -f "$ALL_RESULTS_FILE"' EXIT
+ATTEMPTS_READ=0
+for id in $ATTEMPT_IDS; do
+  if ! occurrences=$(teamcityApiRequest "/testOccurrences?locator=build:(id:$id),count:$OCC_CAP&fields=testOccurrence(name,status,build(buildTypeId))"); then
+    echo "Skipping attempt $id: testOccurrences request failed." >&2
+    continue
+  fi
+  warn_if_truncated "$occurrences" "$OCC_CAP" "attempt $id"
+  if ! printf '%s' "$occurrences" \
+      | jq -r '.testOccurrence[]? | [.status, (.build.buildTypeId // ""), .name] | @tsv' >> "$ALL_RESULTS_FILE"; then
+    echo "Skipping attempt $id: could not parse test occurrences." >&2
+    continue
+  fi
+  ATTEMPTS_READ=$((ATTEMPTS_READ + 1))
+done
+ALL_RESULTS=$(cat "$ALL_RESULTS_FILE")
+
+# Diffing needs at least two attempts actually read; otherwise we can't observe a flip.
+if [ "$ATTEMPTS_READ" -lt 2 ]; then
+  echo "Only $ATTEMPTS_READ of $ATTEMPT_COUNT attempt(s) could be read; not enough to diff — reporting nothing flaky." >&2
+  emit_json "$LATEST_REVISION" "$ATTEMPT_COUNT" ""
+  exit 0
+fi
 
 # 5. Flaky = a test seen with BOTH SUCCESS and FAILURE across the attempts.
-FLAKY_TSV=$(echo "$ALL_RESULTS" | awk -F '\t' '
+FLAKY_TSV=$(echo "$ALL_RESULTS" | awk -F '\t' "$FLAKY_AWK_CLASSIFY"'
   function classify(bt, name) {
     if (bt ~ /KtorMatrixNative_/)     { sub(/.*KtorMatrixNative_/, "", bt); return "native\t" bt }
     if (bt ~ /KtorMatrixCore_/)       { return "jvm\t" }
     if (bt ~ /KtorMatrixJavaScript_/) { return "js\t" }
     if (bt ~ /KtorMatrixWasmJs_/)     { return "wasmJs\t" }
-    # Fallback: parse the KMP target from the test-name [suffix].
-    if (name ~ /wasmJs/)              { return "wasmJs\t" }
-    if (name ~ /\[js[,\]]/)           { return "js\t" }
-    if (match(name, /mingwX64|linuxX64|linuxArm64|macosX64|macosArm64/))
-                                      { return "native\t" substr(name, RSTART, RLENGTH) }
-    if (name ~ /\[jvm\]/)             { return "jvm\t" }
-    if (name ~ /\[Android\]/)         { return "jvm\t" }  # Android client-engine tests run on the JVM
-    return "unknown\t"
+    # No matrix target on the buildTypeId; fall back to the shared name-suffix classifier.
+    return flaky_classify_by_name(name, "unknown")
   }
   {
     status = $1; bt = $2; name = $3

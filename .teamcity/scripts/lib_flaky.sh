@@ -64,6 +64,32 @@ develocityApiRequest() {
   echo "${out%$'\n'*}"
 }
 
+# Shared awk classifier: maps a multiplatform test NAME to "target<TAB>detail" from the `[target]`
+# suffix Kotlin appends to the name.
+# `dflt` is the target assumed when the name carries no recognizable suffix — collect_teamcity passes
+# "unknown" (it already tried the buildTypeId), collect_quarantine passes "jvm" (the JVM step reports
+# plain, suffix-less names). `detail` is the native family (e.g. linuxX64) or empty.
+FLAKY_AWK_CLASSIFY='
+  function flaky_classify_by_name(name, dflt) {
+    if (name ~ /wasmJs/)                                                  return "wasmJs\t"
+    if (name ~ /\[js[,\]]/)                                               return "js\t"
+    if (match(name, /mingwX64|linuxX64|linuxArm64|macosX64|macosArm64/))  return "native\t" substr(name, RSTART, RLENGTH)
+    if (name ~ /\[jvm\]/ || name ~ /\[Android\]/)                         return "jvm\t"
+    return dflt "\t"
+  }
+'
+
+# Warn when a testOccurrences page came back at (or above) the request cap, which means the REST
+# response was truncated and some results are silently missing.
+warn_if_truncated() {
+  local response=$1 cap=$2 label=$3 got
+  got=$(printf '%s' "$response" | jq -r '.testOccurrence | length' 2>/dev/null || echo 0)
+  case "$got" in ''|*[!0-9]*) got=0 ;; esac
+  if [ "$got" -ge "$cap" ]; then
+    echo "Warning: $label returned $got test occurrence(s), the cap of $cap — the response is truncated and some results are not counted. Raise the count locator or paginate." >&2
+  fi
+}
+
 # Post a plain-text message to Slack via the incoming webhook in SLACK_WEBHOOK_URL.
 # Usage: post_to_slack "message text"
 post_to_slack() {

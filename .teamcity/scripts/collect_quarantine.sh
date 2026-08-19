@@ -15,6 +15,8 @@ WATCHED_BUILD_TYPE="${WATCHED_BUILD_TYPE:-Ktor_KtorCore_All}"
 QUARANTINE_RUNS="${QUARANTINE_RUNS:-7}"
 # A test needs this many clean runs before it is suggested for un-quarantining.
 QUARANTINE_STABLE_RUNS="${QUARANTINE_STABLE_RUNS:-3}"
+# Max test occurrences fetched per query; warn_if_truncated flags a page that comes back at the cap.
+OCC_CAP="${TC_TEST_OCCURRENCE_CAP:-10000}"
 
 emit_empty() {
   jq -n --arg bt "$QUARANTINE_BUILD_TYPE" '
@@ -51,32 +53,52 @@ GATE_BUILD_ID=$(teamcityApiRequest \
 
 SKIPPED_IN_GATE=""
 if [ -n "$GATE_BUILD_ID" ]; then
-  SKIPPED_IN_GATE=$(teamcityApiRequest \
-    "/testOccurrences?locator=build:(id:$GATE_BUILD_ID),ignored:true,count:10000&fields=testOccurrence(name)" \
-    | jq -r '.testOccurrence[]?.name')
+  if ! gate_skipped_resp=$(teamcityApiRequest \
+      "/testOccurrences?locator=build:(id:$GATE_BUILD_ID),ignored:true,count:$OCC_CAP&fields=testOccurrence(name)"); then
+    echo "Cannot read the gate's skipped tests; skipping the quarantine source." >&2
+    emit_empty
+    exit 0
+  fi
+  warn_if_truncated "$gate_skipped_resp" "$OCC_CAP" "gate build $GATE_BUILD_ID (skipped set)"
+  if ! SKIPPED_IN_GATE=$(printf '%s' "$gate_skipped_resp" | jq -r '.testOccurrence[]?.name'); then
+    echo "Cannot parse the gate's skipped tests; skipping the quarantine source." >&2
+    emit_empty
+    exit 0
+  fi
 fi
 SKIPPED_COUNT=$(echo "$SKIPPED_IN_GATE" | grep -c . || true)
 echo "$WATCHED_BUILD_TYPE skips $SKIPPED_COUNT test(s)." >&2
 
 # Executed results from the quarantine runs (skipped ones carry no verdict, so exclude them).
-QUARANTINE_RESULTS=$(
-  for id in $RUN_IDS; do
-    teamcityApiRequest \
-      "/testOccurrences?locator=build:(id:$id),ignored:false,count:10000&fields=testOccurrence(name,status)" \
-      | jq -r '.testOccurrence[]? | [.status, .name] | @tsv'
-  done
-)
+# Best-effort: a transient failure on one run is skipped, not fatal to the notifier.
+QR_RESULTS_FILE=$(mktemp)
+trap 'rm -f "$QR_RESULTS_FILE"' EXIT
+RUNS_READ=0
+for id in $RUN_IDS; do
+  if ! occurrences=$(teamcityApiRequest \
+      "/testOccurrences?locator=build:(id:$id),ignored:false,count:$OCC_CAP&fields=testOccurrence(name,status)"); then
+    echo "Skipping quarantine run $id: testOccurrences request failed." >&2
+    continue
+  fi
+  warn_if_truncated "$occurrences" "$OCC_CAP" "quarantine run $id"
+  if ! printf '%s' "$occurrences" \
+      | jq -r '.testOccurrence[]? | [.status, .name] | @tsv' >> "$QR_RESULTS_FILE"; then
+    echo "Skipping quarantine run $id: could not parse test occurrences." >&2
+    continue
+  fi
+  RUNS_READ=$((RUNS_READ + 1))
+done
+QUARANTINE_RESULTS=$(cat "$QR_RESULTS_FILE")
+
+if [ "$RUNS_READ" -eq 0 ]; then
+  echo "No quarantine runs could be read; skipping the quarantine source." >&2
+  emit_empty
+  exit 0
+fi
 
 # Intersect, tally, and classify. The target comes from the `[target]` suffix Kotlin appends to
 # multiplatform test names; unlike collect_teamcity.sh there is no per-target build to read it from.
-TESTS_TSV=$(awk -F '\t' -v stableRuns="$QUARANTINE_STABLE_RUNS" '
-  function classify(name) {
-    if (name ~ /wasmJs/)                                                  { return "wasmJs\t" }
-    if (name ~ /\[js[,\]]/)                                               { return "js\t" }
-    if (match(name, /mingwX64|linuxX64|linuxArm64|macosX64|macosArm64/))  { return "native\t" substr(name, RSTART, RLENGTH) }
-    if (name ~ /\[jvm\]/ || name ~ /\[Android\]/)                         { return "jvm\t" }
-    return "jvm\t"   # the JVM step reports plain names, without a target suffix
-  }
+TESTS_TSV=$(awk -F '\t' -v stableRuns="$QUARANTINE_STABLE_RUNS" "$FLAKY_AWK_CLASSIFY"'
   NR == FNR { skipped[$0] = 1; next }
   {
     status = $1; name = $2
@@ -94,11 +116,11 @@ TESTS_TSV=$(awk -F '\t' -v stableRuns="$QUARANTINE_STABLE_RUNS" '
       else if (f > 0)                verdict = "always-failing"
       else if (p >= stableRuns)      verdict = "stable-candidate"
       else                           verdict = "still-flaky"   # too few clean runs to judge
-      print classify(n) "\t" n "\t" p "\t" f "\t" verdict
+      print flaky_classify_by_name(n, "jvm") "\t" n "\t" p "\t" f "\t" verdict
     }
   }' <(echo "$SKIPPED_IN_GATE") <(echo "$QUARANTINE_RESULTS") | sort -u)
 
-jq -Rn --arg bt "$QUARANTINE_BUILD_TYPE" --argjson runs "$RUN_COUNT" '
+jq -Rn --arg bt "$QUARANTINE_BUILD_TYPE" --argjson runs "$RUNS_READ" '
   [inputs
     | split("\t")
     | select(length == 6)

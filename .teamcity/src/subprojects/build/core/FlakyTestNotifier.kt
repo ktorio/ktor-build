@@ -8,9 +8,23 @@ import subprojects.*
 import subprojects.build.*
 
 /**
+ * External TeamCity id of [CoreFlakyTestNotifier].
+ *
+ * The notifier reads its own previous run's `flaky-notify-state.json` artifact (via the REST API) to
+ * avoid re-pinging Slack with an unchanged finding, so the script needs this project-prefixed id.
+ * Kept as a constant, like [FLAKY_TEST_BUILD_EXTERNAL_ID], so the `notifier.build.type` parameter and
+ * the `id(...)` below cannot drift apart.
+ */
+const val NOTIFIER_BUILD_EXTERNAL_ID = "Ktor_KtorCore_FlakyTestNotifier"
+
+/**
  * Alerts the Ktor team user group on Slack when the "Build All Core" composite ([ProjectCore]'s
  * `KtorCore_All`) detects a flaky test — a test whose result changes across the
  * `retryBuild` attempts on the default branch.
+ *
+ * Fires on every finish of the watched builds, so it de-duplicates against the last message it
+ * posted (persisted as the `flaky-notify-state.json` artifact) and stays silent when the finding is
+ * unchanged.
  */
 object CoreFlakyTestNotifier : BuildType({
     id("KtorCore_FlakyTestNotifier")
@@ -18,10 +32,12 @@ object CoreFlakyTestNotifier : BuildType({
     description = "Consolidates flaky tests from TeamCity (retry-diff) and Develocity (28d) and notifies @ktor-incident-responders on Slack"
 
     // The consolidated report is surfaced as the "Flaky Tests" build report tab (see ProjectCore).
+    // flaky-notify-state.json carries the last-posted signature to the next run for de-duplication.
     artifactRules = """
         flaky-report.json
         flaky-report.md
         flaky-report.html
+        flaky-notify-state.json
     """.trimIndent()
 
     params {
@@ -30,6 +46,7 @@ object CoreFlakyTestNotifier : BuildType({
         password("env.DV_ACCESS_KEY", "%system.develocity.access.key%")
         param("slack.ktor.team.subteam.id", "%system.slack.ktor.team.subteam.id%")
         param("quarantine.build.type", FLAKY_TEST_BUILD_EXTERNAL_ID)
+        param("notifier.build.type", NOTIFIER_BUILD_EXTERNAL_ID)
     }
 
     steps {
