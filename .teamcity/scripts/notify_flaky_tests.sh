@@ -152,46 +152,12 @@ echo "$CONSOLIDATED" | jq -r '
   | "  [" + .target + (if (.targetDetail // "") != "" then ":" + .targetDetail else "" end) + "] " + .name
     + (if .chronic then "  (chronic 28d)" else "" end)'
 
-# --- Notify: Slack ---
+# --- Notify: Slack (Block Kit dashboard) ---
 LATEST_REVISION=$(echo "$CONSOLIDATED" | jq -r '.revision // ""')
-TARGET_SUMMARY=$(echo "$CONSOLIDATED" | jq -r '.byTargetCounts | to_entries | map(.key + ": " + (.value|tostring)) | join(", ")')
+SHORT_REV="${LATEST_REVISION:0:12}"
 # Number of this run's flaky tests whose class is chronic (on the Develocity 28d list) — counted per
-# test, not per class, so "N/M" reads as N of the M tests that flaked this run are chronic.
+# test, so "N / M this run" reads as N of the M tests that flaked this run are chronic.
 CHRONIC_TEST_COUNT=$(echo "$CONSOLIDATED" | jq -r '[.thisRun[] | select(.chronic)] | length')
-
-# Each test links to a GitHub code search for its class within the Ktor repo.
-TEST_LIST=$(echo "$CONSOLIDATED" | jq -r --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" '
-  def simpleClass: ((.class // .name) | split(".") | last);
-  def ghSearch: $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + simpleClass | @uri);
-  .thisRun | sort_by(.target, .name) | .[:15][]
-  | "• [" + .target + (if (.targetDetail // "") != "" then ":" + .targetDetail else "" end) + "] "
-    + "<" + ghSearch + "|" + .name + ">"
-    + (if .chronic then "  ⚠︎ chronic(28d)" else "" end)')
-if [ "$THIS_RUN_COUNT" -gt 15 ]; then
-  TEST_LIST="$TEST_LIST
-…and $((THIS_RUN_COUNT - 15)) more"
-fi
-
-# One-line chronic context from Develocity (top 3 classes by 28d flaky count), each class name
-# linking to a GitHub code search within the Ktor repo.
-CHRONIC_LINE=""
-if [ "$DV_AVAILABLE" = "true" ]; then
-  # The number is the class's flaky-run count over 28d (Develocity exposes no distinct-test-method
-  # count — see collect_develocity.sh), so the header states the unit once and each entry is bare.
-  CHRONIC_TOP=$(echo "$CONSOLIDATED" | jq -r --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" '
-    def simpleClass: (.class | split(".") | last);
-    def ghSearch: $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + simpleClass | @uri);
-    (.chronic[0:3] | map("<" + ghSearch + "|" + simpleClass + "> (" + (.flaky|tostring) + ")") | join(", ")) // ""')
-  if [ -n "$CHRONIC_TOP" ]; then
-    # Append the overlap only when tests actually flaked this run (avoids a meaningless "0/0").
-    OVERLAP_CLAUSE=""
-    if [ "$THIS_RUN_COUNT" -gt 0 ]; then
-      OVERLAP_CLAUSE=" · $CHRONIC_TEST_COUNT/$THIS_RUN_COUNT of this run's flaky tests are chronic"
-    fi
-    CHRONIC_LINE="Chronic (Develocity 28d, by flaky runs) — top: $CHRONIC_TOP$OVERLAP_CLAUSE
-"
-  fi
-fi
 
 # @-mention the @ktor-incident-responders user group when its Slack id is configured.
 if [ -n "$SUBTEAM_ID" ] && ! echo "$SUBTEAM_ID" | grep -q '%.*%'; then
@@ -201,26 +167,90 @@ else
   MENTION="@ktor-incident-responders"
 fi
 
+# Link targets for the action buttons.
 BUILD_URL="$TC_SERVER_URL/viewLog.html?buildId=$TC_BUILD_ID"
-# Link the revision to its GitHub commit page (fall back to a bare short hash if unknown).
-if [ -n "$LATEST_REVISION" ]; then
-  REVISION_REF="<$KTOR_REPO_URL/commit/$LATEST_REVISION|\`${LATEST_REVISION:0:12}\`>"
+COMMIT_URL=""
+[ -n "$LATEST_REVISION" ] && COMMIT_URL="$KTOR_REPO_URL/commit/$LATEST_REVISION"
+# The report is the flaky-report.html artifact of this notifier build; link straight to it when the
+# notifier build type is known, otherwise fall back to the build page.
+if [ -n "$NOTIFIER_BUILD_TYPE" ] && ! printf '%s' "$NOTIFIER_BUILD_TYPE" | grep -q '%.*%'; then
+  REPORT_URL="$TC_SERVER_URL/repository/download/$NOTIFIER_BUILD_TYPE/$TC_BUILD_ID:id/flaky-report.html"
 else
-  REVISION_REF="\`unknown\`"
+  REPORT_URL="$BUILD_URL"
 fi
+
+# Quarantine summary.
+QUARANTINE_TEXT=""
+if [ -n "$QUARANTINE_LINE" ]; then
+  QUARANTINE_TEXT="still flaky: $QR_STILL_FLAKY · always failing: $QR_ALWAYS_FAILING (fix or @Ignore) · ready to un-quarantine: $QR_STABLE"
+fi
+
+# Plain-text fallback shown in notifications / by clients that don't render blocks.
 if [ "$THIS_RUN_COUNT" -gt 0 ]; then
-  HEADLINE="$THIS_RUN_COUNT flaky test(s) in *Build All Core* (retry-diff) on revision $REVISION_REF — by target: $TARGET_SUMMARY"
+  FALLBACK="$THIS_RUN_COUNT flaky test(s) in Build All Core on ${SHORT_REV:-unknown}"
 else
-  # Reached only because quarantine needs a decision, so don't claim a retry-diff finding.
-  HEADLINE="nothing flipped in *Build All Core*, but quarantined tests need a decision"
+  FALLBACK="Quarantined tests need a decision in Build All Core"
 fi
-MESSAGE=":warning: $MENTION — $HEADLINE
-$TEST_LIST
-${CHRONIC_LINE}${QUARANTINE_LINE}<$BUILD_URL|View build> — full report in the *Flaky Tests* tab"
+
+# Build the Block Kit payload with jq so all text (test names, links, quarantine) is safely escaped.
+PAYLOAD=$(jq -n \
+  --argjson c "$CONSOLIDATED" \
+  --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" \
+  --arg mention "$MENTION" --arg fallback "$FALLBACK" \
+  --arg buildUrl "$BUILD_URL" --arg reportUrl "$REPORT_URL" --arg commitUrl "$COMMIT_URL" \
+  --arg shortRev "$SHORT_REV" --arg quarantine "$QUARANTINE_TEXT" \
+  --argjson thisRun "$THIS_RUN_COUNT" --argjson chronicTests "$CHRONIC_TEST_COUNT" '
+  def simpleClass: ((.class // .name) | split(".") | last);
+  def ghSearch: $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + simpleClass | @uri);
+
+  ($c.dv.available) as $dv
+  | ($c.byTargetCounts | to_entries | map(.key + " " + (.value|tostring)) | join(" · ")) as $targets
+  | (if $commitUrl != "" then "<" + $commitUrl + "|`" + $shortRev + "`>" else "`unknown`" end) as $revRef
+  | ( $c.thisRun | sort_by(.target, .name) | .[0:15]
+      | map("• `" + .target + (if (.targetDetail // "") != "" then ":" + .targetDetail else "" end) + "`  "
+            + "<" + ghSearch + "|" + .name + ">" + (if .chronic then "  ⚠︎" else "" end))
+      | join("\n") ) as $lines
+  | (if ($c.thisRun|length) > 15 then $lines + "\n…and " + (($c.thisRun|length) - 15 | tostring) + " more" else $lines end) as $testBody
+  | ( $c.chronic[0:3] | map("<" + ghSearch + "|" + simpleClass + "> (" + (.flaky|tostring) + ")") | join(" · ") ) as $chronicTop
+  | ( [ {type:"button", text:{type:"plain_text", text:"View build"}, url:$buildUrl},
+        {type:"button", text:{type:"plain_text", text:"Flaky report"}, url:$reportUrl} ]
+      + (if $commitUrl != "" then [ {type:"button", text:{type:"plain_text", text:"Commit"}, url:$commitUrl} ] else [] end)
+    ) as $buttons
+  | {
+      text: $fallback,
+      blocks: (
+        [ { type:"header", text:{ type:"plain_text", emoji:true,
+              text:(if $thisRun > 0 then "⚠️ Flaky tests — Build All Core"
+                    else "⚠️ Quarantine needs a decision — Build All Core" end) } },
+          { type:"section", text:{ type:"mrkdwn", text:$mention } } ]
+        + (if $thisRun > 0
+             then [ { type:"section", fields: (
+                       [ { type:"mrkdwn", text:("*Revision*\n" + $revRef) },
+                         { type:"mrkdwn", text:("*Targets*\n" + (if $targets == "" then "—" else $targets end)) },
+                         { type:"mrkdwn", text:("*Retry attempts*\n" + ($c.attempts|tostring)) } ]
+                       + (if $dv then [ { type:"mrkdwn", text:("*Chronic overlap*\n" + ($chronicTests|tostring) + " / " + ($thisRun|tostring) + " this run") } ] else [] end)
+                     ) } ]
+             else [ { type:"section", fields:[
+                       { type:"mrkdwn", text:("*Revision*\n" + $revRef) },
+                       { type:"mrkdwn", text:("*Retry attempts*\n" + ($c.attempts|tostring)) } ] } ]
+           end)
+        + (if $thisRun > 0
+             then [ { type:"divider" },
+                    { type:"section", text:{ type:"mrkdwn", text:("*Flaky this run*\n" + $testBody) } } ]
+             else [] end)
+        + (if $quarantine != ""
+             then [ { type:"section", text:{ type:"mrkdwn", text:("*Quarantine*\n" + $quarantine) } } ]
+             else [] end)
+        + (if ($dv and $chronicTop != "")
+             then [ { type:"context", elements:[ { type:"mrkdwn", text:("Chronic 28d (flaky runs): " + $chronicTop) } ] } ]
+             else [] end)
+        + [ { type:"divider" }, { type:"actions", elements:$buttons } ]
+      )
+    }')
 
 # Advance the stored signature only when the post actually goes out; on failure keep the previous
 # values so the next run retries this same finding instead of treating it as already delivered.
-if post_to_slack "$MESSAGE"; then
+if post_slack_payload "$PAYLOAD"; then
   write_state "$NEW_TR" "$NEW_QR"
 else
   write_state "$PREV_TR" "$PREV_QR"

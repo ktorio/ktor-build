@@ -90,17 +90,14 @@ warn_if_truncated() {
   fi
 }
 
-# Post a plain-text message to Slack via the incoming webhook in SLACK_WEBHOOK_URL.
-# Usage: post_to_slack "message text"
-post_to_slack() {
-  local message=$1
+# POST a fully-formed Slack payload  to the incoming webhook in SLACK_WEBHOOK_URL.
+post_slack_payload() {
+  local payload=$1
   local url="${SLACK_WEBHOOK_URL:-}"
   if [ -z "$url" ] || printf '%s' "$url" | grep -q '%.*%'; then
     echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification." >&2
     return 0
   fi
-  local payload
-  payload=$(jq -n --arg text "$message" '{text: $text, link_names: 1}')
   if curl --silent --show-error -X POST -H 'Content-type: application/json' \
       --data "$payload" "$url" > /dev/null; then
     echo "Slack notification sent."
@@ -108,4 +105,9 @@ post_to_slack() {
     echo "Slack notification failed to send." >&2
     return 1
   fi
+}
+
+# Post a plain-text message to Slack.
+post_to_slack() {
+  post_slack_payload "$(jq -n --arg text "$1" '{text: $text, link_names: 1}')"
 }
