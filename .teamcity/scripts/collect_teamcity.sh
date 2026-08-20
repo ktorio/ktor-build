@@ -13,8 +13,9 @@ emit_json() {
   jq -Rn --arg rev "$1" --argjson attempts "$2" '
     [inputs
       | split("\t")
-      | select(length == 3)
-      | {target: .[0], targetDetail: .[1], name: .[2]}]
+      | select(length == 4)
+      | {target: .[0], targetDetail: .[1], name: .[2],
+         failBuildId: (if .[3] == "" then null else .[3] end)}]
     | sort_by(.target, .name) as $flaky
     | {revision: $rev, attempts: $attempts, flaky: $flaky}' <<< "$3"
 }
@@ -61,7 +62,7 @@ for id in $ATTEMPT_IDS; do
   fi
   warn_if_truncated "$occurrences" "$OCC_CAP" "attempt $id"
   if ! printf '%s' "$occurrences" \
-      | jq -r '.testOccurrence[]? | [.status, (.build.buildTypeId // ""), .name] | @tsv' >> "$ALL_RESULTS_FILE"; then
+      | jq -r --arg aid "$id" '.testOccurrence[]? | [.status, (.build.buildTypeId // ""), .name, $aid] | @tsv' >> "$ALL_RESULTS_FILE"; then
     echo "Skipping attempt $id: could not parse test occurrences." >&2
     continue
   fi
@@ -87,15 +88,17 @@ FLAKY_TSV=$(echo "$ALL_RESULTS" | awk -F '\t' "$FLAKY_AWK_CLASSIFY"'
     return flaky_classify_by_name(name, "unknown")
   }
   {
-    status = $1; bt = $2; name = $3
+    status = $1; bt = $2; name = $3; aid = $4
     if (name == "") next
     seen[name] = seen[name] " " status
     if (!(name in btid)) btid[name] = bt
+    # Remember one attempt (composite build) where this test FAILED, for a deep link to that build.
+    if (status ~ /FAILURE/ && !(name in failb)) failb[name] = aid
   }
   END {
     for (n in seen)
       if (seen[n] ~ /FAILURE/ && seen[n] ~ /SUCCESS/)
-        print classify(btid[n], n) "\t" n
+        print classify(btid[n], n) "\t" n "\t" failb[n]
   }' | sort -u)
 
 FLAKY_COUNT=$(echo "$FLAKY_TSV" | grep -c . || true)

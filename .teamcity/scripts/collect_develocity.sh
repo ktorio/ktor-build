@@ -10,7 +10,8 @@ DV_MIN_FLAKY="${DV_MIN_FLAKY:-1}"
 
 emit_empty() {
   jq -n --argjson days "$DV_WINDOW_DAYS" \
-    '{available: false, windowDays: $days, projectFlaky: 0, projectFailed: 0, classes: []}'
+    '{available: false, windowDays: $days, projectFlaky: 0, projectFailed: 0,
+      projectTrend: [], trendDays: [], classes: []}'
 }
 
 if ! require_dv_key; then
@@ -36,6 +37,10 @@ echo "$RESP" | jq --argjson days "$DV_WINDOW_DAYS" --argjson minFlaky "$DV_MIN_F
     windowDays: $days,
     projectFlaky: (.data.flakyOutcomeTrend.total // 0),
     projectFailed: (.data.failedOutcomeTrend.total // 0),
+    # Project-wide daily flaky counts + their day-bucket start timestamps (shared x-axis with the
+    # per-class trends) for the standalone flakiness-trend chart (C1 / trend block).
+    projectTrend: ([ .data.flakyOutcomeTrend.dataPoints[]? | (.count // 0) ]),
+    trendDays:    ([ .data.flakyOutcomeTrend.dataPoints[]? | .startTimestamp ]),
     classes: [
       (.data.topTests.tests // [])[]
       | {
@@ -43,7 +48,11 @@ echo "$RESP" | jq --argjson days "$DV_WINDOW_DAYS" --argjson minFlaky "$DV_MIN_F
           flaky:  (.outcomeTrend.totalDistribution.flaky  // 0),
           failed: (.outcomeTrend.totalDistribution.failed // 0),
           total:  (.outcomeTrend.totalDistribution.total  // 0),
-          meanMs: (.meanWallClockDuration // 0)
+          meanMs: (.meanWallClockDuration // 0),
+          # Daily flaky counts (chronological) for the sparkline, and the last day a flaky outcome
+          # was seen — both from the per-class outcomeTrend.dataPoints (C1).
+          trend:  ([ .outcomeTrend.dataPoints[]? | (.outcomeDistribution.flaky // 0) ]),
+          lastFlakyMs: ([ .outcomeTrend.dataPoints[]? | select((.outcomeDistribution.flaky // 0) > 0) | .startTimestamp ] | max)
         }
       | select(.flaky >= $minFlaky)
     ]

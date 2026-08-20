@@ -21,6 +21,21 @@ else
   OUT_DIR=${3:-.}
 fi
 
+# Ktor source repo, used to link classes and the revision in the HTML report.
+KTOR_REPO_URL="${KTOR_REPO_URL:-https://github.com/ktorio/ktor}"
+KTOR_REPO_URL="${KTOR_REPO_URL%/}"
+KTOR_REPO_SLUG="${KTOR_REPO_SLUG:-$(printf '%s' "$KTOR_REPO_URL" | sed -E 's#^https?://[^/]+/##')}"
+# TeamCity / Develocity bases for the per-row deep links (provided by the notifier via env).
+TC_SERVER_URL="${TC_SERVER_URL:-https://ktor.teamcity.com}"
+TC_SERVER_URL="${TC_SERVER_URL%/}"
+WATCHED_BUILD_TYPE="${WATCHED_BUILD_TYPE:-Ktor_KtorCore_All}"
+DV_DASHBOARD_URL="${DV_DASHBOARD_URL:-https://ge.jetbrains.com}"
+DV_DASHBOARD_URL="${DV_DASHBOARD_URL%/}"
+# YouTrack, for the per-class "find/file issue" links (C2).
+YOUTRACK_URL="${YOUTRACK_URL:-https://youtrack.jetbrains.com}"
+YOUTRACK_URL="${YOUTRACK_URL%/}"
+YOUTRACK_PROJECT="${YOUTRACK_PROJECT:-KTOR}"
+
 QR_INPUT=$(mktemp)
 trap 'rm -f "$QR_INPUT"' EXIT
 if [ -n "$QR_FILE" ]; then
@@ -63,7 +78,8 @@ CONSOLIDATED=$(jq -n --slurpfile tc "$TC_FILE" --slurpfile dv "$DV_FILE" --slurp
       revision: $TC.revision,
       attempts: $TC.attempts,
       dv: { available: $DV.available, windowDays: $DV.windowDays,
-            projectFlaky: $DV.projectFlaky, projectFailed: $DV.projectFailed },
+            projectFlaky: $DV.projectFlaky, projectFailed: $DV.projectFailed,
+            projectTrend: ($DV.projectTrend // []), trendDays: ($DV.trendDays // []) },
       quarantine: $QR,
       thisRun: $thisRun,
       byTargetCounts: ( $thisRun | group_by(.target) | map({key:.[0].target, value:length}) | from_entries ),
@@ -157,11 +173,8 @@ h2 .n{color:var(--muted);font-weight:500;font-size:13px}
 .st-good{background:var(--good-bg);color:var(--good)}
 .st-warn{background:var(--warn-bg);color:var(--warn)}
 .st-crit{background:var(--crit-bg);color:var(--crit)}
-.bars{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
-.bar-row{display:grid;grid-template-columns:150px 1fr 42px;align-items:center;gap:12px}
-.bar-track{background:var(--grid);border-radius:5px;height:10px;overflow:hidden}
-.bar-fill{height:100%;background:var(--accent);border-radius:5px}
-.bar-val{text-align:right;color:var(--ink2);font-variant-numeric:tabular-nums;font-size:13px}
+.byt{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.byt .badge b{font-weight:640;margin-left:2px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{text-align:left;color:var(--muted);font-weight:550;font-size:11.5px;text-transform:uppercase;
  letter-spacing:.03em;padding:0 12px 8px;border-bottom:1px solid var(--grid)}
@@ -174,10 +187,62 @@ code.cls{color:var(--ink)}
 .empty{color:var(--muted);font-style:italic;padding:8px 0}
 .note{color:var(--muted);font-size:12px;margin-top:12px}
 .tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+a.cls{font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+.toolbar{margin:6px 0 22px}
+.filter{width:100%;max-width:380px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;
+ background:var(--surface);color:var(--ink);font-size:13px}
+.legend{margin:0 0 18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:0 14px}
+.legend summary{cursor:pointer;color:var(--ink2);font-size:13px;font-weight:550;padding:11px 0;list-style:none}
+.legend summary::-webkit-details-marker{display:none}
+.legend summary::before{content:"▸ ";color:var(--muted)}
+.legend[open] summary::before{content:"▾ "}
+.legend ul{margin:0 0 12px;padding-left:18px;color:var(--ink2);font-size:12.5px;line-height:1.75}
+h2.prio{color:var(--crit);border-bottom-color:var(--crit-bg)}
+table.srt th{cursor:pointer;user-select:none;white-space:nowrap}
+table.srt th:hover{color:var(--ink2)}
+table.srt th::after{content:"";opacity:.35;font-size:9px}
+table.srt th.asc::after{content:" ▲";opacity:.7}
+table.srt th.desc::after{content:" ▼";opacity:.7}
+td .meths{display:flex;flex-direction:column;gap:2px}
+.chip{display:inline-flex;align-items:center;font-size:11px;font-weight:520;padding:1px 7px;border-radius:999px;
+ border:1px solid var(--border);background:var(--surface);color:var(--accent);white-space:nowrap;margin-left:6px;text-decoration:none}
+.chip:hover{text-decoration:underline}
+.muted{color:var(--muted)}
+.small{font-size:11px}
+.trend{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px}
+.trend-ctrl{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--ink2);flex-wrap:wrap}
+.trend-ctrl select{background:var(--page);color:var(--ink);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:13px}
+.trend-svg{width:100%;height:160px;display:block}
+.trend-svg .line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.trend-svg .area{fill:var(--accent);opacity:.10;stroke:none}
+.trend-svg .grid{stroke:var(--grid);stroke-width:1}
+.trend-svg .ax{fill:var(--muted);font-size:10px}
 </style></head><body>'
 
-BODY=$(printf '%s' "$CONSOLIDATED" | jq -r '
+BODY=$(printf '%s' "$CONSOLIDATED" | jq -r \
+  --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" \
+  --arg tc "$TC_SERVER_URL" --arg watched "$WATCHED_BUILD_TYPE" --arg ge "$DV_DASHBOARD_URL" \
+  --arg yt "$YOUTRACK_URL" --arg ytproj "$YOUTRACK_PROJECT" '
   def esc: tostring|gsub("&";"&"+"amp;")|gsub("<";"&"+"lt;")|gsub(">";"&"+"gt;")|gsub("\"";"&"+"quot;");
+  def attrEsc: tostring|gsub("&";"&"+"amp;")|gsub("\"";"&"+"quot;");
+  # Derive the class of a test name (strip variant suffixes like [jvm], drop the method segment).
+  def classOf: tostring|sub("(\\[[^\\]]*\\])+$";"")|split(".")|(if length>1 then .[:-1]|join(".") else .[0] end);
+  def ghUrl(cls): $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + ((cls)|split(".")|last) | @uri);
+  def clsLink(cls): "<a class=\"cls\" href=\""+(ghUrl(cls)|attrEsc)+"\" title=\"Search on GitHub\">"+((cls)|esc)+"</a>";
+  # Develocity 28d history for a class, and the TeamCity failing-build tests tab (B3 deep links).
+  def geChip(cls): "<a class=\"chip\" href=\""+($ge+"/scans/tests?search.rootProjectNames=ktor&tests.container="+((cls)|@uri)|attrEsc)+"\" title=\"Develocity 28d history\">DC</a>";
+  def tcChip(id): (if (id//"")=="" then "" else "<a class=\"chip\" href=\""+($tc+"/buildConfiguration/"+$watched+"/"+(id|tostring)+"?buildTab=tests"|attrEsc)+"\" title=\"Failing build on TeamCity\">▶ build</a>" end);
+  # YouTrack: find open issues mentioning the class, and file a new one prefilled (C2).
+  def ytChips(cls):
+    "<a class=\"chip\" href=\""+($yt+"/issues?q="+("project: "+$ytproj+" #Unresolved "+((cls)|split(".")|last)|@uri)|attrEsc)+"\" title=\"Open "+($ytproj|esc)+" issues mentioning this test\">YT</a>"
+    + "<a class=\"chip\" href=\""+($yt+"/newIssue?project="+$ytproj+"&summary="+("Flaky test: "+((cls)|split(".")|last)|@uri)|attrEsc)+"\" title=\"File a new "+($ytproj|esc)+" issue\">＋</a>";
+  # Flaky rate = flaky / total, colored by severity; "—" when total is unknown (B1).
+  def rateCell(f;t): ((if (t//0)>0 then ((f*1000/t)|round)/10 else null end)) as $r
+    | (if $r==null then "<span class=\"badge tgt\">—</span>"
+       else (if $r<2 then "st-good" elif $r<=5 then "st-warn" else "st-crit" end) as $sev
+         | "<span class=\"badge "+$sev+"\">"+($r|tostring)+"%</span>" end);
   def tbadge(t;d):
     "<span class=\"badge tgt tgt-"+(t|ascii_downcase)+"\"><span class=\"dot\"></span>"+(t|esc)
     +(if (d//"")!="" then ":"+(d|esc) else "" end)+"</span>";
@@ -187,50 +252,94 @@ BODY=$(printf '%s' "$CONSOLIDATED" | jq -r '
      else ["warn","⚠"] end) as $s
     | "<span class=\"badge st-"+$s[0]+"\">"+$s[1]+" "+(v|esc)+"</span>";
 
-  "<h1>Ktor · Flaky Tests</h1>"
-  + "<div class=\"sub\">Build All Core · revision <code>"+((.revision//"")[0:12]|esc)+"</code> · "
-    + (.attempts|tostring)+" retry attempt(s)"
+  (.revision // "") as $rev
+  | "<h1>Ktor · Flaky Tests</h1>"
+  + "<div class=\"sub\">Build All Core · revision "
+    + (if $rev != "" then "<a href=\""+($repo+"/commit/"+$rev|attrEsc)+"\"><code>"+($rev[0:12]|esc)+"</code></a>" else "<code>unknown</code>" end)
+    + " · " + (.attempts|tostring)+" retry attempt(s)"
     + (if .dv.available then " · Develocity last "+(.dv.windowDays|tostring)+"d" else " · Develocity unavailable" end)
     + "</div>"
 
+  + "<details class=\"legend\"><summary>How to read &amp; act on this report</summary><ul>"
+  + "<li><b>Flaky</b> — a test whose result changed across retry attempts (failed, then passed). <b>Failed</b> — failed on every attempt.</li>"
+  + "<li><b>Fix these first</b> — flaked in this run <i>and</i> chronically flaky over the last 28d: most likely a real, recurring problem, not a one-off.</li>"
+  + "<li><b>Quarantine verdicts</b> — <span class=\"badge st-warn\">⚠ still-flaky</span> keep watching · <span class=\"badge st-crit\">✗ always-failing</span> not flakiness, fix it or <code>@Ignore</code> · <span class=\"badge st-good\">✓ stable-candidate</span> stopped flipping, ready to un-quarantine.</li>"
+  + "<li>Class names link to a GitHub code search in the Ktor repo. To quarantine or harden a test, use <code>@Flaky</code> / the <code>_flaky</code> source set, <code>DeterministicFailureGuard</code> and <code>assertEventually</code>.</li>"
+  + "</ul></details>"
+
   + "<div class=\"tiles\">"
   + "<div class=\"tile"+(if (.thisRun|length)>0 then " alert" else " ok" end)+"\"><div class=\"k\">Flaky this run</div><div class=\"v\">"+(.thisRun|length|tostring)+"</div><div class=\"d\">TeamCity retry-diff</div></div>"
-  + "<div class=\"tile"+(if .overlapCount>0 then " alert" else "" end)+"\"><div class=\"k\">Chronic overlap</div><div class=\"v\">"+(.overlapCount|tostring)+"</div><div class=\"d\">this run & 28d</div></div>"
+  + "<div class=\"tile"+(if .overlapCount>0 then " alert" else "" end)+"\"><div class=\"k\">Fix first</div><div class=\"v\">"+(.overlapCount|tostring)+"</div><div class=\"d\">this run & chronic 28d</div></div>"
   + "<div class=\"tile\"><div class=\"k\">Develocity 28d</div><div class=\"v\">"+(if .dv.available then (.dv.projectFlaky|tostring) else "—" end)+"</div><div class=\"d\">flaky · "+(if .dv.available then (.dv.projectFailed|tostring) else "—" end)+" failed</div></div>"
   + "<div class=\"tile\"><div class=\"k\">Quarantine</div><div class=\"v\">"+(if .quarantine.available then (.quarantine.counts.stillFlaky|tostring) else "—" end)+"</div><div class=\"d\">still flaky</div></div>"
   + "</div>"
 
+  + "<div class=\"toolbar\"><input id=\"flt\" class=\"filter\" type=\"search\" placeholder=\"Filter by test or class…\" autocomplete=\"off\"></div>"
+
+  # --- Fix these first: flaked this run AND chronic (highest signal) — moved to the top ---
+  + "<h2 class=\"prio\">Fix these first <span class=\"n\">flaked this run & chronic 28d · "+(.overlapCount|tostring)+"</span></h2>"
+  + ( (.chronic | map(select(.alsoThisRun))) as $fix
+      | if ($fix|length)==0
+        then "<div class=\"empty\">Nothing urgent — no test flaked this run that is also chronically flaky.</div>"
+        else "<table class=\"srt\"><thead><tr><th>Class</th><th>Target(s)</th><th class=\"num\">Rate</th><th class=\"num\">28d flaky</th><th class=\"num\">28d failed</th></tr></thead><tbody>"
+          + ( [ $fix[] |
+              "<tr><td>"+clsLink(.class)+geChip(.class)+ytChips(.class)+"</td>"
+              +"<td>"+((.targets|map(tbadge(.;"")))|join(" "))+"</td>"
+              +"<td class=\"num\">"+rateCell(.flaky;.total)+"</td>"
+              +"<td class=\"num\">"+(.flaky|tostring)+"</td>"
+              +"<td class=\"num\">"+(.failed|tostring)+"</td></tr>" ] | join("") )
+          + "</tbody></table>" end )
+
+  # --- This run, grouped by class so related failures cluster ---
   + "<h2>This run <span class=\"n\">TeamCity retry-diff · "+(.thisRun|length|tostring)+"</span></h2>"
   + (if (.thisRun|length)==0 then "<div class=\"empty\">No flaky tests detected in this run.</div>"
      else
-       ( (.byTargetCounts|to_entries) as $bt | ($bt|map(.value)|max) as $mx
-         | "<div class=\"bars\">"
-         + ( $bt | sort_by(-.value) | map(
-              "<div class=\"bar-row\"><div>"+tbadge(.key;"")+"</div>"
-              +"<div class=\"bar-track\"><div class=\"bar-fill\" style=\"width:"+((.value*100/$mx)|floor|tostring)+"%\"></div></div>"
-              +"<div class=\"bar-val\">"+(.value|tostring)+"</div></div>") | join("") )
+       ( "<div class=\"byt\">"
+         + ( .byTargetCounts | to_entries | sort_by(-.value) | map(
+              "<span class=\"badge tgt tgt-"+(.key|ascii_downcase)+"\"><span class=\"dot\"></span>"
+              +(.key|esc)+" <b>"+(.value|tostring)+"</b></span>") | join("") )
          + "</div>" )
-       + "<table><thead><tr><th>Target</th><th>Test</th><th>Chronic</th></tr></thead><tbody>"
-       + ( [ .thisRun | sort_by(.target,.name)[] |
-             "<tr><td>"+tbadge(.target;.targetDetail)+"</td><td class=\"name\">"+(.name|esc)+"</td><td>"
-             +(if .chronic then "<span class=\"badge st-warn\">⚠ 28d</span>" else "" end)+"</td></tr>" ] | join("") )
+       + "<table class=\"srt\"><thead><tr><th>Class</th><th>Target(s)</th><th class=\"num\">Tests</th><th>Failing test(s)</th><th>Chronic</th></tr></thead><tbody>"
+       + ( [ .thisRun | group_by(.class) | sort_by(.[0].class)[] |
+             (.[0].class) as $cls
+             | ( [ .[].failBuildId // empty ] | map(select(. != "")) | (.[0] // "") ) as $fbid
+             | "<tr><td>"+clsLink($cls)+geChip($cls)+tcChip($fbid)+ytChips($cls)+"</td>"
+               +"<td>"+( [ .[] | {t:.target,d:(.targetDetail//"")} ] | unique | map(tbadge(.t;.d)) | join(" ") )+"</td>"
+               +"<td class=\"num\">"+(length|tostring)+"</td>"
+               +"<td class=\"name\"><div class=\"meths\">"
+                 +( [ .[] | (if (.name|startswith($cls+".")) then .name[(($cls|length)+1):] else .name end) | esc ] | join("</div><div>") )
+               +"</div></td>"
+               +"<td>"+(if (any(.[]; .chronic)) then "<span class=\"badge st-warn\">⚠ 28d</span>" else "" end)+"</td></tr>" ] | join("") )
        + "</tbody></table>"
      end)
 
+  # Standalone flakiness-trend block: a line chart with a class selector (defaults to Overall).
+  # Data is embedded as JSON; the inline script redraws the SVG on selection change.
+  + (if (.dv.available and (((.dv.projectTrend // []) | length) > 0))
+     then "<h2>Flakiness trend <span class=\"n\">Develocity 28d · filter by class</span></h2>"
+       + "<div class=\"trend\"><div class=\"trend-ctrl\"><label for=\"trendSel\">Series</label>"
+       + "<select id=\"trendSel\"><option value=\"__overall__\">Overall (all flaky classes)</option>"
+       + ( [ .chronic[] | "<option value=\""+(.class|attrEsc)+"\">"+(.class|split(".")|last|esc)+"</option>" ] | join("") )
+       + "</select><span id=\"trendCap\" class=\"muted small\"></span></div>"
+       + "<div id=\"trendChart\"></div>"
+       + "<script id=\"trend-data\" type=\"application/json\">"
+       + ( { days: (.dv.trendDays // []), overall: (.dv.projectTrend // []),
+             classes: ([ .chronic[] | {key:.class, value:(.trend // [])} ] | from_entries),
+             lastFlaky: ([ .chronic[] | {key:.class, value:(.lastFlakyMs // null)} ] | from_entries) } | tojson )
+       + "</script></div>"
+     else "" end)
+
   + "<h2>Chronic <span class=\"n\">Develocity 28d · top "+([(.chronic|length),25]|min|tostring)+" of "+(.chronic|length|tostring)+"</span></h2>"
   + (if (.chronic|length)==0 then "<div class=\"empty\">none</div>"
-     else "<table><thead><tr><th class=\"num\">Flaky</th><th class=\"num\">Failed</th><th>Class</th><th>Target(s)</th><th>Src</th><th>This run</th></tr></thead><tbody>"
+     else "<table class=\"srt\"><thead><tr><th class=\"num\">Flaky</th><th class=\"num\">Failed</th><th class=\"num\">Rate</th><th>Class</th><th>Target(s)</th><th>This run</th></tr></thead><tbody>"
        + ( [ .chronic[0:25][] |
            "<tr><td class=\"num\">"+(.flaky|tostring)+"</td><td class=\"num\">"+(.failed|tostring)+"</td>"
-           +"<td><code class=\"cls\">"+(.class|esc)+"</code></td>"
-           +"<td>"+((.targets|map(tbadge(.;"")))|join(" "))+"</td>"
-           +"<td><span class=\"badge tgt\">"+(.targetSource|esc)+"</span></td>"
+           +"<td class=\"num\">"+rateCell(.flaky;.total)+"</td>"
+           +"<td>"+clsLink(.class)+geChip(.class)+ytChips(.class)+"</td>"
+           # Show targets only when observed in this run (targetSource == teamcity); never guess.
+           +"<td>"+(if .targetSource == "teamcity" then ((.targets|map(tbadge(.;"")))|join(" ")) else "<span class=\"muted\">—</span>" end)+"</td>"
            +"<td>"+(if .alsoThisRun then "<span class=\"badge st-crit\">● yes</span>" else "" end)+"</td></tr>" ] | join("") )
        + "</tbody></table>" end)
-
-  + "<h2>Overlap <span class=\"n\">flaked this run & chronic · "+(.overlapCount|tostring)+"</span></h2>"
-  + (if .overlapCount==0 then "<div class=\"empty\">none</div>"
-     else "<div class=\"tag-list\">"+([.overlap[]|"<span class=\"badge st-crit\"><code class=\"cls\">"+(.|esc)+"</code></span>"]|join(""))+"</div>" end)
 
   + "<h2>Quarantined <span class=\"n\">@Flaky / _flaky</span></h2>"
   + (if (.quarantine.available|not)
@@ -240,15 +349,82 @@ BODY=$(printf '%s' "$CONSOLIDATED" | jq -r '
        +"<span class=\"badge st-good\">✓ "+(.quarantine.counts.stableCandidate|tostring)+" ready to un-quarantine</span>"
        +"<span class=\"badge tgt\">last "+(.quarantine.runs|tostring)+" run(s)</span></div>"
        +(if (.quarantine.tests|length)>0
-         then "<table><thead><tr><th>Verdict</th><th class=\"num\">Pass</th><th class=\"num\">Fail</th><th>Target</th><th>Test</th></tr></thead><tbody>"
-           +([.quarantine.tests[]|"<tr><td>"+vb(.verdict)+"</td><td class=\"num\">"+(.passed|tostring)+"</td><td class=\"num\">"+(.failed|tostring)+"</td><td>"+tbadge(.target;.targetDetail)+"</td><td class=\"name\">"+(.name|esc)+"</td></tr>"]|join(""))
+         then "<table class=\"srt\"><thead><tr><th>Verdict</th><th class=\"num\">Pass</th><th class=\"num\">Fail</th><th>Target</th><th>Test</th></tr></thead><tbody>"
+           +([.quarantine.tests[]|"<tr><td>"+vb(.verdict)+"</td><td class=\"num\">"+(.passed|tostring)+"</td><td class=\"num\">"+(.failed|tostring)+"</td><td>"+tbadge(.target;.targetDetail)+"</td><td class=\"name\"><a href=\""+(ghUrl(.name|classOf)|attrEsc)+"\">"+(.name|esc)+"</a>"+geChip(.name|classOf)+ytChips(.name|classOf)+"</td></tr>"]|join(""))
            +"</tbody></table>"
            +"<div class=\"note\"><b>always-failing</b> is not flakiness — fix it or <code>@Ignore</code> it. <b>stable-candidate</b> has stopped flipping and can leave quarantine.</div>"
          else "<div class=\"empty\">none</div>" end)
      end)
 ')
 
-{ printf '%s' "$HTML_HEAD"; printf '%s' "$BODY"; printf '</body></html>'; } > "$OUT_DIR/flaky-report.html"
+# Inline, dependency-free interactivity: type-to-filter across all tables and click-to-sort columns.
+HTML_SCRIPT='<script>
+(function(){
+  var flt=document.getElementById("flt");
+  function rows(){return document.querySelectorAll("table.srt tbody tr");}
+  if(flt)flt.addEventListener("input",function(){
+    var q=this.value.toLowerCase();
+    rows().forEach(function(tr){tr.style.display=tr.textContent.toLowerCase().indexOf(q)>=0?"":"none";});
+  });
+  document.querySelectorAll("table.srt").forEach(function(tbl){
+    var ths=tbl.tHead?tbl.tHead.rows[0].cells:[];
+    Array.prototype.forEach.call(ths,function(th,idx){
+      th.addEventListener("click",function(){
+        var body=tbl.tBodies[0], trs=Array.prototype.slice.call(body.rows);
+        var asc=!(th.classList.contains("asc"));
+        Array.prototype.forEach.call(ths,function(o){o.classList.remove("asc","desc");});
+        th.classList.add(asc?"asc":"desc");
+        trs.sort(function(a,b){
+          var x=(a.cells[idx]||{}).textContent||"", y=(b.cells[idx]||{}).textContent||"";
+          x=x.trim();y=y.trim();
+          var nx=parseFloat(x.replace(/[^0-9.\-]/g,"")), ny=parseFloat(y.replace(/[^0-9.\-]/g,""));
+          var num=/[0-9]/.test(x)&&/[0-9]/.test(y)&&!isNaN(nx)&&!isNaN(ny);
+          var c=num?(nx-ny):x.localeCompare(y);
+          return asc?c:-c;
+        });
+        trs.forEach(function(r){body.appendChild(r);});
+      });
+    });
+  });
+
+  // Flakiness-trend chart: redraws the selected series (overall or one class) as an SVG line.
+  (function(){
+    var el=document.getElementById("trend-data"); if(!el) return;
+    var data; try{ data=JSON.parse(el.textContent); }catch(e){ return; }
+    var sel=document.getElementById("trendSel"),
+        chart=document.getElementById("trendChart"),
+        cap=document.getElementById("trendCap");
+    function fmt(ms){ var d=new Date(ms); return d.toLocaleDateString(undefined,{month:"short",day:"numeric"}); }
+    function series(k){ return k==="__overall__" ? (data.overall||[]) : ((data.classes||{})[k]||[]); }
+    function draw(k){
+      var s=series(k), days=data.days||[], n=s.length;
+      var W=720,H=160,pL=30,pR=10,pT=12,pB=24, iw=W-pL-pR, ih=H-pT-pB;
+      var mx=Math.max.apply(null,s.concat([1]));
+      function x(i){ return pL + (n<=1?0:i*iw/(n-1)); }
+      function y(v){ return pT + ih - (v*ih/mx); }
+      var pts=s.map(function(v,i){ return x(i).toFixed(1)+","+y(v).toFixed(1); }).join(" ");
+      var svg="<svg viewBox=\"0 0 "+W+" "+H+"\" preserveAspectRatio=\"none\" class=\"trend-svg\">"
+        + "<line class=\"grid\" x1=\""+pL+"\" y1=\""+pT+"\" x2=\""+pL+"\" y2=\""+(pT+ih)+"\"/>"
+        + "<line class=\"grid\" x1=\""+pL+"\" y1=\""+(pT+ih)+"\" x2=\""+(W-pR)+"\" y2=\""+(pT+ih)+"\"/>"
+        + "<text class=\"ax\" x=\""+(pL-5)+"\" y=\""+(pT+5)+"\" text-anchor=\"end\">"+mx+"</text>"
+        + "<text class=\"ax\" x=\""+(pL-5)+"\" y=\""+(pT+ih)+"\" text-anchor=\"end\">0</text>";
+      if(n>1) svg+="<polygon class=\"area\" points=\""+pL+","+(pT+ih)+" "+pts+" "+x(n-1)+","+(pT+ih)+"\"/>";
+      svg+="<polyline class=\"line\" points=\""+pts+"\"/>";
+      [0,Math.floor((n-1)/2),n-1].forEach(function(i){
+        if(i>=0&&i<n&&days[i]) svg+="<text class=\"ax\" x=\""+x(i)+"\" y=\""+(H-7)+"\" text-anchor=\"middle\">"+fmt(days[i])+"</text>";
+      });
+      chart.innerHTML=svg+"</svg>";
+      var total=s.reduce(function(a,b){return a+b;},0), lf=(data.lastFlaky||{})[k];
+      if(cap) cap.textContent=(k==="__overall__"?"All flaky classes":k.split(".").pop())
+        +" · "+total+" flaky runs / 28d · peak "+mx+"/day"+(lf?" · last "+fmt(lf):"");
+    }
+    if(sel) sel.addEventListener("change",function(){ draw(this.value); });
+    draw("__overall__");
+  })();
+})();
+</script>'
+
+{ printf '%s' "$HTML_HEAD"; printf '%s' "$BODY"; printf '%s' "$HTML_SCRIPT"; printf '</body></html>'; } > "$OUT_DIR/flaky-report.html"
 
 # consolidated JSON to stdout for the orchestrator
 printf '%s\n' "$CONSOLIDATED"

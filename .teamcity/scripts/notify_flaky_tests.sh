@@ -33,6 +33,8 @@ fi
 KTOR_REPO_URL="${KTOR_REPO_URL%/}"
 # owner/name slug (e.g. ktorio/ktor) for GitHub code-search queries.
 KTOR_REPO_SLUG=$(printf '%s' "$KTOR_REPO_URL" | sed -E 's#^https?://[^/]+/##')
+# Exported so merge_report.sh can turn classes/revision into GitHub links in the HTML report tab.
+export KTOR_REPO_URL KTOR_REPO_SLUG
 
 # Locate the helper scripts.
 if [ -n "${FLAKY_SCRIPTS_DIR:-}" ]; then
