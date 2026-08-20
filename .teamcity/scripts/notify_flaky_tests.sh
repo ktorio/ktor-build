@@ -155,7 +155,9 @@ echo "$CONSOLIDATED" | jq -r '
 # --- Notify: Slack ---
 LATEST_REVISION=$(echo "$CONSOLIDATED" | jq -r '.revision // ""')
 TARGET_SUMMARY=$(echo "$CONSOLIDATED" | jq -r '.byTargetCounts | to_entries | map(.key + ": " + (.value|tostring)) | join(", ")')
-OVERLAP_COUNT=$(echo "$CONSOLIDATED" | jq -r '.overlapCount')
+# Number of this run's flaky tests whose class is chronic (on the Develocity 28d list) — counted per
+# test, not per class, so "N/M" reads as N of the M tests that flaked this run are chronic.
+CHRONIC_TEST_COUNT=$(echo "$CONSOLIDATED" | jq -r '[.thisRun[] | select(.chronic)] | length')
 
 # Each test links to a GitHub code search for its class within the Ktor repo.
 TEST_LIST=$(echo "$CONSOLIDATED" | jq -r --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" '
@@ -174,12 +176,19 @@ fi
 # linking to a GitHub code search within the Ktor repo.
 CHRONIC_LINE=""
 if [ "$DV_AVAILABLE" = "true" ]; then
+  # The number is the class's flaky-run count over 28d (Develocity exposes no distinct-test-method
+  # count — see collect_develocity.sh), so the header states the unit once and each entry is bare.
   CHRONIC_TOP=$(echo "$CONSOLIDATED" | jq -r --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" '
     def simpleClass: (.class | split(".") | last);
     def ghSearch: $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + simpleClass | @uri);
     (.chronic[0:3] | map("<" + ghSearch + "|" + simpleClass + "> (" + (.flaky|tostring) + ")") | join(", ")) // ""')
   if [ -n "$CHRONIC_TOP" ]; then
-    CHRONIC_LINE="Chronic (Develocity 28d) — top: $CHRONIC_TOP · $OVERLAP_COUNT of this run also chronic
+    # Append the overlap only when tests actually flaked this run (avoids a meaningless "0/0").
+    OVERLAP_CLAUSE=""
+    if [ "$THIS_RUN_COUNT" -gt 0 ]; then
+      OVERLAP_CLAUSE=" · $CHRONIC_TEST_COUNT/$THIS_RUN_COUNT of this run's flaky tests are chronic"
+    fi
+    CHRONIC_LINE="Chronic (Develocity 28d, by flaky runs) — top: $CHRONIC_TOP$OVERLAP_CLAUSE
 "
   fi
 fi

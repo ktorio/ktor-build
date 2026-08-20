@@ -28,6 +28,8 @@ RESP=$(develocityApiRequest \
   exit 0
 }
 
+# NOTE: `/tests-data/top` aggregates at the CLASS level only — `.flaky` is the count of flaky
+# test-run OUTCOMES for the class over the window, NOT a distinct test-method count.
 echo "$RESP" | jq --argjson days "$DV_WINDOW_DAYS" --argjson minFlaky "$DV_MIN_FLAKY" '
   {
     available: true,
