@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.core.GradleParams
 import subprojects.build.core.extraGradleParams
 
 object TestPluginRegistry : BuildType({
@@ -21,6 +22,7 @@ object TestPluginRegistry : BuildType({
         gradle {
             name = "Test plugin registry"
             tasks = ":test:test"
+            gradleParams = "--info --continue $GradleParams"
             jdkHome = Env.JDK_LTS
         }
     }
