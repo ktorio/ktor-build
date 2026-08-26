@@ -16,6 +16,8 @@ require_tc_token() {
   fi
 }
 
+TC_HTTP_NOT_FOUND=44
+
 # GET a TeamCity REST route and echo the JSON body.
 # Usage: teamcityApiRequest "/route" [extra curl args...]
 teamcityApiRequest() {
@@ -30,6 +32,9 @@ teamcityApiRequest() {
   if [ "$status" -ge 400 ]; then
     echo "TeamCity REST $route -> HTTP $status" >&2
     echo "${out%$'\n'*}" >&2
+    if [ "$status" -eq 404 ]; then
+      return "$TC_HTTP_NOT_FOUND"
+    fi
     return 1
   fi
   echo "${out%$'\n'*}"

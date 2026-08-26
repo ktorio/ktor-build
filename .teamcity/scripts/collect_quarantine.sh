@@ -43,7 +43,7 @@ for bt in $QUARANTINE_BUILD_TYPES; do
   builds_json=$(teamcityApiRequest \
     "/builds?locator=buildType:$bt,branch:(default:true),state:finished,count:$QUARANTINE_RUNS&fields=build(id)") || rc=$?
   if [ "$rc" -ne 0 ]; then
-    if [ "$rc" -eq "$TC_HTTP_NOT_FOUND" ]; then
+    if [ "$rc" -eq "${TC_HTTP_NOT_FOUND:-44}" ]; then
       echo "Build configuration '$bt' does not exist on the server, so its quarantined tests are NOT" >&2
       echo "in this report. Check the id against the one the DSL generates (see nativeFlakyExternalId)." >&2
     else
