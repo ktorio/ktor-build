@@ -56,7 +56,7 @@ ALL_RESULTS_FILE=$(mktemp)
 trap 'rm -f "$ALL_RESULTS_FILE"' EXIT
 ATTEMPTS_READ=0
 for id in $ATTEMPT_IDS; do
-  if ! occurrences=$(teamcityApiRequest "/testOccurrences?locator=build:(id:$id),count:$OCC_CAP&fields=testOccurrence(name,status,build(buildTypeId))"); then
+  if ! occurrences=$(teamcityApiRequest "/testOccurrences?locator=build:(id:$id),ignored:false,count:$OCC_CAP&fields=testOccurrence(name,status,build(buildTypeId))"); then
     echo "Skipping attempt $id: testOccurrences request failed." >&2
     continue
   fi

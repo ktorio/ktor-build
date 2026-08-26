@@ -39,9 +39,16 @@ RUNS_READ=0        # total runs read across all builds (drives the "any data?" c
 MAX_RUNS=0         # deepest single-build sampling window, reported as `runs`
 
 for bt in $QUARANTINE_BUILD_TYPES; do
-  if ! builds_json=$(teamcityApiRequest \
-      "/builds?locator=buildType:$bt,branch:(default:true),state:finished,count:$QUARANTINE_RUNS&fields=build(id)"); then
-    echo "Cannot read $bt (does the build configuration exist yet?); skipping it." >&2
+  rc=0
+  builds_json=$(teamcityApiRequest \
+    "/builds?locator=buildType:$bt,branch:(default:true),state:finished,count:$QUARANTINE_RUNS&fields=build(id)") || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    if [ "$rc" -eq "$TC_HTTP_NOT_FOUND" ]; then
+      echo "Build configuration '$bt' does not exist on the server, so its quarantined tests are NOT" >&2
+      echo "in this report. Check the id against the one the DSL generates (see nativeFlakyExternalId)." >&2
+    else
+      echo "Cannot read $bt; skipping it." >&2
+    fi
     continue
   fi
   run_ids=$(printf '%s' "$builds_json" | jq -r '.build[]?.id')

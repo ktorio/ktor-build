@@ -8,6 +8,12 @@ import subprojects.*
 import subprojects.Agents.OS
 import subprojects.build.*
 
+/** Prefix TeamCity prepends to the relative ids declared in this project. */
+private const val PROJECT_PREFIX = "Ktor_"
+
+/** Relative TeamCity id of the Linux [CoreFlakyTestBuild]. */
+private const val FLAKY_TEST_ID = "KtorCore_FlakyTest"
+
 /**
  * External TeamCity id of the Linux [CoreFlakyTestBuild].
  *
@@ -15,7 +21,7 @@ import subprojects.build.*
  * project-prefixed external id. Kept as a constant so the trigger in [CoreFlakyTestNotifier] and
  * the `quarantine.build.type` parameter read by `collect_quarantine.sh` cannot drift apart.
  */
-const val FLAKY_TEST_BUILD_EXTERNAL_ID = "Ktor_KtorCore_FlakyTest"
+const val FLAKY_TEST_BUILD_EXTERNAL_ID = PROJECT_PREFIX + FLAKY_TEST_ID
 
 /**
  * Native targets whose quarantined tests can only run on a matching host, so they get a dedicated
@@ -24,8 +30,11 @@ const val FLAKY_TEST_BUILD_EXTERNAL_ID = "Ktor_KtorCore_FlakyTest"
  */
 val QUARANTINE_NATIVE_ENTRIES = listOf(NativeEntry.MacOSArm64, NativeEntry.MingwX64)
 
+/** Relative TeamCity id of the per-OS native flaky build for [entry]. */
+private fun nativeFlakyId(entry: NativeEntry): String = "${FLAKY_TEST_ID}_${entry.id}".toId()
+
 /** Project-prefixed external id of the per-OS native flaky build for [entry]. */
-fun nativeFlakyExternalId(entry: NativeEntry): String = "Ktor_KtorCore_FlakyTest_${entry.id}"
+fun nativeFlakyExternalId(entry: NativeEntry): String = PROJECT_PREFIX + nativeFlakyId(entry)
 
 /**
  * External ids of every quarantine build the notifier consolidates: the Linux build plus one per
@@ -45,7 +54,7 @@ val FLAKY_TEST_BUILD_EXTERNAL_IDS: List<String> =
  * Ktor marks quarantined tests two ways, and this build needs both because they cover different
  * platforms:
  *  - `@Flaky("KTOR-1234")` is enforced by a JUnit `ExecutionCondition`, so it is JVM-only. The
- *    `flakyTest` task sets `flaky.tests.only` and runs *only* those tests on the JVM.
+ *    `flakyTest` task pins `ktor.tests.flaky=only` for the test JVM and runs *only* those tests.
  *  - A `_flaky` token in the test name is a Gradle test filter, so it works on every target.
  *    `-Pktor.tests.flaky=only` selects exactly those tests and nothing else.
  *
@@ -54,7 +63,7 @@ val FLAKY_TEST_BUILD_EXTERNAL_IDS: List<String> =
  * run on a matching host.
  */
 object CoreFlakyTestBuild : BuildType({
-    id("KtorCore_FlakyTest")
+    id(FLAKY_TEST_ID)
     name = "Flaky (Quarantined) Tests"
     description = "Runs @Flaky and _flaky-named tests that the regular builds exclude"
     artifactRules = formatArtifacts(junitReportArtifact, memoryReportArtifact)
@@ -81,8 +90,8 @@ object CoreFlakyTestBuild : BuildType({
     }
 
     steps {
-        // `flakyTest` runs only the @Flaky-annotated tests (flaky.tests.only), covering the
-        // annotation-marked JVM tests; the `_flaky`-named ones are covered per target below.
+        // `flakyTest` runs only the @Flaky-annotated tests (it pins ktor.tests.flaky=only itself),
+        // covering the annotation-marked JVM tests; the `_flaky`-named ones are covered per target below.
         gradle {
             name = "Run quarantined tests (JVM)"
             tasks = "flakyTest"
@@ -120,7 +129,7 @@ object CoreFlakyTestBuild : BuildType({
  * [CoreFlakyTestNotifier] consolidates them via [FLAKY_TEST_BUILD_EXTERNAL_IDS].
  */
 class CoreNativeFlakyTestBuild(private val entry: NativeEntry) : BuildType({
-    id("KtorCore_FlakyTest_${entry.id}".toId())
+    id(nativeFlakyId(entry))
     name = "Flaky (Quarantined) Tests ${entry.name} ${entry.arch}"
     description = "Runs _flaky-named ${entry.target} tests that the regular builds exclude"
     artifactRules = formatArtifacts(junitReportArtifact, memoryReportArtifact)
