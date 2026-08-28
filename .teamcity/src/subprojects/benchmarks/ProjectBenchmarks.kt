@@ -44,7 +44,7 @@ object ProjectBenchmarks : Project({
                 scriptFile("resolve_allocation_baseline.sh")
             }
             gradle {
-                tasks = "test"
+                tasks = "allocationTests"
                 gradleParams = "-PktorVersion=$ktorVersion " +
                     "-PallocationBaseline=%allocationBaseline% " +
                     "-Dmaven.repo.local=$MAVEN_LOCAL_PATH"
