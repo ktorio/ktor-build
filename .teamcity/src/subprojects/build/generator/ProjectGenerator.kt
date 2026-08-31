@@ -33,6 +33,12 @@ object ProjectGenerator : Project({
      */
     buildType(BuildGeneratorWebsite)
 
+    /**
+     * Checks the deployed generator for Ktor version drift: after a registry publication, and weekly.
+     * Triggers GitHub Actions workflow for running the version checks against the live site.
+     */
+    buildType(CheckGeneratorKtorVersion)
+
 })
 
 
