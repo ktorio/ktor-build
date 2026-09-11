@@ -218,6 +218,10 @@ object ConsolidatedEAPValidation {
                 param("env.YOUTRACK_TAG", "ktor-eap-validation")
                 param("quality.gate.youtrack.issue", "")
 
+                // Per-OS coverage: which routed OSes reported no results at all.
+                param("validation.missing.os", "")
+                param("validation.incomplete.count", "0")
+
                 // External validation aggregate parameters
                 param("external.validation.total.samples", "0")
                 param("external.validation.successful.samples", "0")

@@ -333,6 +333,8 @@ EOF
                     '    if (u == null) return null' \
                     '    def n = u.replace("https://artifacts-caching-proxy.aws.intellij.net/", "https://cache-redirector.jetbrains.com/")' \
                     '             .replace("http://artifacts-caching-proxy.aws.intellij.net/", "https://cache-redirector.jetbrains.com/")' \
+                    '    n = n.replace("https://plugins.gradle.org/m2", "https://cache-redirector.jetbrains.com/plugins.gradle.org/m2")' \
+                    '    n = n.replace("https://repo.maven.apache.org/maven2", "https://cache-redirector.jetbrains.com/repo.maven.apache.org/maven2")' \
                     '    n = n.replace("cache-redirector.jetbrains.com/repo.maven.apache.org/", "cache-redirector.jetbrains.com/repo1.maven.org/")' \
                     '    return n' \
                     '}' \

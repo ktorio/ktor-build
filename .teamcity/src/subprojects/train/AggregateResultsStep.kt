@@ -41,6 +41,19 @@ object AggregateResultsStep {
                     grep -E "^${'$'}2=" "${'$'}1" 2>/dev/null | head -1 | cut -d= -f2 | grep -E '^[0-9]+${'$'}' || echo 0
                 }
 
+                # Coverage check: every routed OS must have contributed results.
+                EXPECTED_OS="${EapSampleRouting.activeIds}"
+                MISSING_OS=""
+                for os in ${'$'}EXPECTED_OS; do
+                    if [ -f "os-results/${'$'}{os}-external.properties" ] && [ -f "os-results/${'$'}{os}-internal.properties" ]; then
+                        echo "✅ ${'$'}os contributed results"
+                    else
+                        echo "❌ ${'$'}os contributed NO (or partial) results — its validator did not finish"
+                        MISSING_OS="${'$'}{MISSING_OS:+${'$'}MISSING_OS }${'$'}os"
+                    fi
+                done
+                INCOMPLETE_COUNT=$(printf '%s\n' ${'$'}MISSING_OS | grep -c . || true)
+
                 EXT_TOTAL=0; EXT_OK=0; EXT_FAIL=0; EXT_SKIP=0
                 for f in os-results/*-external.properties; do
                     [ -f "${'$'}f" ] || continue
@@ -68,6 +81,14 @@ object AggregateResultsStep {
                 echo "==================================================="
                 echo "Aggregated External: ${'$'}EXT_OK/${'$'}EXT_TOTAL passed (${'$'}EXT_RATE%), failed ${'$'}EXT_FAIL, skipped ${'$'}EXT_SKIP"
                 echo "Aggregated Internal: ${'$'}INT_PASS/${'$'}INT_TOTAL passed (${'$'}INT_RATE%), failed ${'$'}INT_FAIL, errors ${'$'}INT_ERR, skipped ${'$'}INT_SKIP"
+                echo "Coverage: expected [${'$'}EXPECTED_OS], missing [${'$'}{MISSING_OS:-none}]"
+                if [ "${'$'}INCOMPLETE_COUNT" -gt 0 ]; then
+                    echo "⚠️  INCOMPLETE COVERAGE — the counts above are a PARTIAL run (missing: ${'$'}MISSING_OS)."
+                    echo "    Rates are computed over only the OSes that reported, so they must not be read as a pass."
+                fi
+
+                echo "##teamcity[setParameter name='validation.missing.os' value='${'$'}MISSING_OS']"
+                echo "##teamcity[setParameter name='validation.incomplete.count' value='${'$'}INCOMPLETE_COUNT']"
 
                 echo "##teamcity[setParameter name='external.validation.total.samples' value='${'$'}EXT_TOTAL']"
                 echo "##teamcity[setParameter name='external.validation.successful.samples' value='${'$'}EXT_OK']"

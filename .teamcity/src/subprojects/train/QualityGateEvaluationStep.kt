@@ -37,6 +37,10 @@ object QualityGateEvaluationStep {
 
                 VERSION_ERRORS=$(echo "%version.resolution.errors%" | grep -E '^[0-9]+$' || echo "0")
 
+                # Coverage: how many routed OSes contributed no results at all (see AggregateResultsStep).
+                INCOMPLETE_COUNT=$(echo "%validation.incomplete.count%" | grep -E '^[0-9]+$' || echo "0")
+                MISSING_OS=$(echo "%validation.missing.os%" | grep -v "^%validation\.missing\.os%$" || echo "")
+
                 # Read quality gate thresholds
                 EXTERNAL_WEIGHT=$(echo "%quality.gate.scoring.external.weight%" | grep -E '^[0-9]+$' || echo "60")
                 INTERNAL_WEIGHT=$(echo "%quality.gate.scoring.internal.weight%" | grep -E '^[0-9]+$' || echo "40")
@@ -80,13 +84,22 @@ object QualityGateEvaluationStep {
                     INTERNAL_GATE_STATUS="PASSED"
                 fi
 
-                # Calculate critical issues (failed tests + errors + version resolution errors)
-                TOTAL_CRITICAL=$((EXTERNAL_FAILED + INTERNAL_FAILED + INTERNAL_ERRORS + VERSION_ERRORS))
+                # Calculate critical issues (failed tests + errors + version resolution errors +
+                # OSes that never reported).
+                TOTAL_CRITICAL=$((EXTERNAL_FAILED + INTERNAL_FAILED + INTERNAL_ERRORS + VERSION_ERRORS + INCOMPLETE_COUNT))
+
+                # Coverage gate: the score is a ratio over whatever results arrived, so it is only
+                # meaningful when every routed OS reported.
+                COVERAGE_CHECK="PASSED"
+                if [ "${'$'}INCOMPLETE_COUNT" -gt 0 ]; then
+                    COVERAGE_CHECK="FAILED"
+                fi
 
                 echo ""
                 echo "=== Quality Gate Assessment ==="
                 echo "- External Gate: ${'$'}EXTERNAL_GATE_STATUS (${'$'}EXTERNAL_SCORE >= ${'$'}MINIMUM_SCORE)"
                 echo "- Internal Gate: ${'$'}INTERNAL_GATE_STATUS (${'$'}INTERNAL_SCORE >= ${'$'}MINIMUM_SCORE)"
+                echo "- Coverage Gate: ${'$'}COVERAGE_CHECK (missing OS results: ${'$'}{MISSING_OS:-none})"
                 echo "- Critical Issues: ${'$'}TOTAL_CRITICAL (threshold: ${'$'}CRITICAL_THRESHOLD)"
 
                 # Overall quality gate decision
@@ -107,11 +120,16 @@ object QualityGateEvaluationStep {
                     CRITICAL_CHECK="PASSED"
                 fi
 
-                if [ "${'$'}SCORE_CHECK" = "PASSED" ] && [ "${'$'}CRITICAL_CHECK" = "PASSED" ]; then
+                if [ "${'$'}SCORE_CHECK" = "PASSED" ] && [ "${'$'}CRITICAL_CHECK" = "PASSED" ] && [ "${'$'}COVERAGE_CHECK" = "PASSED" ]; then
                     OVERALL_STATUS="PASSED"
                     RECOMMENDATIONS="EAP validation passed successfully. Ready for release."
                     NEXT_STEPS="Proceed with EAP release process"
                 else
+                    if [ "${'$'}COVERAGE_CHECK" = "FAILED" ]; then
+                        FAILURE_REASONS="${'$'}FAILURE_REASONS- Incomplete validation: no results from [${'$'}MISSING_OS] — the score below covers only the OSes that reported|n"
+                        RECOMMENDATIONS="Validation did not run everywhere — fix the failing per-OS validator, then re-run. The score is NOT a pass."
+                        NEXT_STEPS="Check the 'EAP Validation — Samples on <OS>' build(s) for [${'$'}MISSING_OS]"
+                    fi
                     if [ "${'$'}SCORE_CHECK" = "FAILED" ]; then
                         FAILURE_REASONS="${'$'}FAILURE_REASONS- Overall score (${'$'}OVERALL_SCORE) is below threshold (${'$'}MINIMUM_SCORE)|n"
                     fi
@@ -159,7 +177,13 @@ object QualityGateEvaluationStep {
                     if [ -z "${'$'}PR_NUMBER" ]; then
                         PR_NUMBER=$(echo "%teamcity.build.branch%" | sed -nE 's#.*pull/([0-9]+).*#\1#p' | head -1)
                     fi
-                    if [ -n "${'$'}PR_NUMBER" ]; then
+                    if [ "${'$'}COVERAGE_CHECK" = "FAILED" ]; then
+                        # Incomplete coverage is NOT a quality finding — it means the validation never
+                        # ran on [${'$'}MISSING_OS], so there is no result to report non-blockingly.
+                        # Fail loudly even on a PR, the same way a PR refuses to fall back to a
+                        # published EAP when it cannot build the PR's Ktor.
+                        echo "QUALITY_GATE_FAILED: Incomplete validation — no results from [${'$'}MISSING_OS]."
+                    elif [ -n "${'$'}PR_NUMBER" ]; then
                         echo "Quality gate FAILED on pull request #${'$'}PR_NUMBER — reporting as non-blocking (build stays green)."
                     else
                         echo "QUALITY_GATE_FAILED: The validation results do not meet the required quality standards."

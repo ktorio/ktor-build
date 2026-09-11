@@ -305,8 +305,14 @@ EOF
                 fi
 
                 # Create enhanced build status text with key metrics
-                STATUS_LINE1="${'$'}MAIN_EMOJI ${'$'}VALIDATION_LABEL: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
-                STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
+                MISSING_OS=$(echo "%validation.missing.os%" | grep -v "^%validation\.missing\.os%$" || echo "")
+                if [ -n "${'$'}MISSING_OS" ]; then
+                    STATUS_LINE1="${'$'}MAIN_EMOJI ${'$'}VALIDATION_LABEL: INCOMPLETE — no results from ${'$'}MISSING_OS"
+                    STATUS_LINE2="Partial: Ext ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests (score ${'$'}OVERALL_SCORE/100 covers only what ran)"
+                else
+                    STATUS_LINE1="${'$'}MAIN_EMOJI ${'$'}VALIDATION_LABEL: ${'$'}OVERALL_STATUS (${'$'}OVERALL_SCORE/100)"
+                    STATUS_LINE2="Ext: ${'$'}EXTERNAL_SUCCESSFUL_SAMPLES/${'$'}EXTERNAL_TOTAL_SAMPLES samples | Int: ${'$'}INTERNAL_PASSED_TESTS/${'$'}INTERNAL_TOTAL_TESTS tests"
+                fi
 
                 # Combine into single-line status for TeamCity service message
                 STATUS_TEXT="${'$'}STATUS_LINE1 | ${'$'}STATUS_LINE2"
