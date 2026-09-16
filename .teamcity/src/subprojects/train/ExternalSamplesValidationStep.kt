@@ -13,6 +13,23 @@ object ExternalSamplesValidationStep {
     fun apply(steps: BuildSteps, os: Agents.OS) {
         val targetOs = EapSampleRouting.osId(os)
 
+        if (os == Agents.OS.MacOS) {
+            steps.script {
+                name = "Prerequisites: Locate Android SDK"
+                scriptContent = """
+                    #!/bin/bash
+                    for cand in "${'$'}HOME/Library/Android/sdk" "/usr/local/lib/android/sdk" "/opt/homebrew/share/android-commandlinetools"; do
+                        if [ -d "${'$'}cand" ]; then
+                            echo "Found Android SDK at ${'$'}cand"
+                            echo "##teamcity[setParameter name='env.ANDROID_HOME' value='${'$'}cand']"
+                            exit 0
+                        fi
+                    done
+                    echo "⚠️  No Android SDK found in standard macOS locations — Android samples may fail"
+                """.trimIndent()
+            }
+        }
+
         if (os == Agents.OS.Linux) {
             steps.script {
                 name = "Prerequisites: Accept Android SDK licenses"
