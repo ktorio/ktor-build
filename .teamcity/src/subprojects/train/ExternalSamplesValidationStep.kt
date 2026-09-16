@@ -360,6 +360,14 @@ allprojects {
     tasks.matching { it.name == "wasmJsBrowserProductionWebpack" }.configureEach {
         enabled = false
     }
+
+    if (rootProject.name == "ktkit") {
+        tasks.matching { it.name.startsWith("compileKotlin") }.configureEach { t ->
+            if (t.hasProperty("compilerOptions")) {
+                t.compilerOptions.freeCompilerArgs.add("-opt-in=org.jetbrains.kotlin.config.MessageCollectorAccess")
+            }
+        }
+    }
 }
 INIT_EOF
             echo "Wrote ~/.gradle/init.d/cache-redirector.gradle"

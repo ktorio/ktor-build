@@ -45,7 +45,9 @@ object AggregateResultsStep {
                 EXPECTED_OS="${EapSampleRouting.activeIds}"
                 MISSING_OS=""
                 for os in ${'$'}EXPECTED_OS; do
-                    if [ -f "os-results/${'$'}{os}-external.properties" ] && [ -f "os-results/${'$'}{os}-internal.properties" ]; then
+                    EXT_FILE="os-results/${'$'}{os}-external.properties"
+                    INT_FILE="os-results/${'$'}{os}-internal.properties"
+                    if [ -f "${'$'}EXT_FILE" ] && [ -f "${'$'}INT_FILE" ] && [ "$(get "${'$'}INT_FILE" internal_total)" -gt 0 ]; then
                         echo "✅ ${'$'}os contributed results"
                     else
                         echo "❌ ${'$'}os contributed NO (or partial) results — its validator did not finish"
