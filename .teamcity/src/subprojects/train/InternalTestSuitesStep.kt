@@ -17,7 +17,7 @@ object InternalTestSuitesStep {
 
         if (os == Agents.OS.MacOS) {
             steps.script {
-                name = "Prerequisites: Locate Android SDK"
+                name = "Prerequisites: Locate or install Android SDK"
                 scriptContent = """
                     #!/bin/bash
                     for cand in "${'$'}HOME/Library/Android/sdk" "/usr/local/lib/android/sdk" "/opt/homebrew/share/android-commandlinetools"; do
@@ -27,7 +27,26 @@ object InternalTestSuitesStep {
                             exit 0
                         fi
                     done
-                    echo "⚠️  No Android SDK found in standard macOS locations — Android samples may fail"
+
+                    echo "No Android SDK found in standard macOS locations — installing a minimal SDK"
+                    BASE="${'$'}PWD/android-sdk"
+                    VER=${'$'}(curl -sSfL --max-time 20 "https://dl.google.com/android/repository/repository2-3.xml" 2>/dev/null \
+                        | grep -oE 'commandlinetools-mac-[0-9]+_latest\.zip' | grep -oE '[0-9]+' | sort -n | tail -1)
+                    [ -z "${'$'}VER" ] && VER="11076708"
+                    ZIP="commandlinetools-mac-${'$'}{VER}_latest.zip"
+                    mkdir -p "${'$'}BASE/cmdline-tools"
+                    if curl -sSfL --max-time 120 -o "${'$'}BASE/${'$'}ZIP" "https://dl.google.com/android/repository/${'$'}ZIP" 2>/dev/null; then
+                        unzip -q "${'$'}BASE/${'$'}ZIP" -d "${'$'}BASE/cmdline-tools" && rm -f "${'$'}BASE/${'$'}ZIP"
+                        [ -d "${'$'}BASE/cmdline-tools/cmdline-tools" ] && mv "${'$'}BASE/cmdline-tools/cmdline-tools" "${'$'}BASE/cmdline-tools/latest"
+                        export ANDROID_HOME="${'$'}BASE"
+                        export PATH="${'$'}ANDROID_HOME/cmdline-tools/latest/bin:${'$'}ANDROID_HOME/platform-tools:${'$'}PATH"
+                        yes | sdkmanager --licenses >/dev/null 2>&1 || true
+                        sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" >/dev/null 2>&1 || true
+                        echo "Installed Android SDK at ${'$'}ANDROID_HOME"
+                        echo "##teamcity[setParameter name='env.ANDROID_HOME' value='${'$'}ANDROID_HOME']"
+                    else
+                        echo "⚠️  Could not download Android command-line tools — Android samples may fail"
+                    fi
                 """.trimIndent()
             }
         }
