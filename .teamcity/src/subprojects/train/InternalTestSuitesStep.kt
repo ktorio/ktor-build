@@ -327,6 +327,14 @@ EOF
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
                               http://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <mirrors>
+        <mirror>
+            <id>jetbrains-cache-central</id>
+            <name>JetBrains cache-redirector mirror of Maven Central</name>
+            <url>https://cache-redirector.jetbrains.com/repo1.maven.org/maven2</url>
+            <mirrorOf>central</mirrorOf>
+        </mirror>
+    </mirrors>
     <profiles>
         <profile>
             <id>ktor-eap</id>
