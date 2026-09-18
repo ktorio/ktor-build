@@ -4,7 +4,10 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
-import subprojects.build.core.extraGradleParams
+import subprojects.build.core.*
+
+private const val initScriptCacheRedirector = "--init-script gradle/cache-redirector.init.gradle.kts"
+internal const val PluginRegistryGradleParams = "--no-configuration-cache $initScriptCacheRedirector"
 
 object PublishPluginRegistry : BuildType({
     id("KtorPluginRegistry")
@@ -23,9 +26,9 @@ object PublishPluginRegistry : BuildType({
             tasks = "kslExportToCbor"
             this.gradleParams = listOfNotNull(
                 gradleParams,
-                "--no-configuration-cache",
                 "--info",
                 "--stacktrace",
+                PluginRegistryGradleParams,
             ).joinToString(" ")
             jdkHome = Env.JDK_LTS
         }
