@@ -41,7 +41,8 @@ object ProjectReleaseAPIDocs : Project({
                 name = "Generate API docs"
                 tasks = ":ktor-dokka:dokkaGenerate"
                 gradleParams = "-Pversion=%releaseVersion% " +
-                    "-Pktor.dokka.versionsDirectory=%versionsDirectory%"
+                    "-Pktor.dokka.versionsDirectory=%versionsDirectory% " +
+                    "--no-configuration-cache"
                 workingDir = "ktor"
                 jdkHome = Env.JDK_LTS
             }
