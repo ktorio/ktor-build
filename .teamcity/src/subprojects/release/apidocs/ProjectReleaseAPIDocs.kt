@@ -42,6 +42,7 @@ object ProjectReleaseAPIDocs : Project({
                 tasks = ":ktor-dokka:dokkaGenerate"
                 gradleParams = "-Pversion=%releaseVersion% " +
                     "-Pktor.dokka.versionsDirectory=%versionsDirectory% " +
+                    "-Porg.gradle.internal.network.retry.max.attempts=10 " +
                     "--no-configuration-cache"
                 workingDir = "ktor"
                 jdkHome = Env.JDK_LTS
