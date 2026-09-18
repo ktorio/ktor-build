@@ -1,6 +1,7 @@
 package subprojects.release.apidocs
 
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.release.*
@@ -12,8 +13,7 @@ object ProjectReleaseAPIDocs : Project({
     vcsRoot(VCSAPIDocs)
 
     params {
-        param("env.GITHUB_USER", VCSUsername)
-        password("env.GITHUB_PASSWORD", VCSToken)
+        password("env.GITHUB_TOKEN", "n/a")
 
         configureReleaseVersion()
     }
@@ -33,9 +33,9 @@ object ProjectReleaseAPIDocs : Project({
                 scriptContent = """
                     set -eu
                     ./build_doc.sh "%releaseVersion%"
-                    git config user.email "deploy@jetbrains.com"
-                    git config user.name "Auto deploy"
-                    git remote set-url origin "https://${'$'}{GITHUB_USER}:${'$'}{GITHUB_PASSWORD}@github.com/ktorio/api.ktor.io.git"
+                    git config user.name "TeamCity"
+                    git config user.email "teamcity@jetbrains.com"
+                    git remote set-url origin "https://oauth2:${'$'}{GITHUB_TOKEN}@github.com/ktorio/api.ktor.io.git"
                     git add docs/
                     git commit --message "Update for %releaseVersion%"
                     git push origin main
@@ -44,7 +44,17 @@ object ProjectReleaseAPIDocs : Project({
         }
 
         requirements {
-            agent(Agents.OS.MacOS)
+            agent(Agents.OS.MacOS, Agents.Arch.Arm64)
+        }
+
+        features {
+            perfmon {}
+
+            gitHubAppBuildScopedToken {
+                parameterName = "env.GITHUB_TOKEN"
+                connectionId = "PROJECT_EXT_7"
+                targetRepositories = "api.ktor.io"
+            }
         }
     }
 })
