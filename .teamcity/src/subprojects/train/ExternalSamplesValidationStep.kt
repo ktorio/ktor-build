@@ -706,7 +706,7 @@ EOF
 
                         if [ "${'$'}BUILD_SUCCESS" = true ] && [ "${'$'}RUN_TESTS" = true ]; then
                             echo "Build successful, now running tests: ./amper test"
-                            if ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                            if JAVA_TOOL_OPTIONS="${'$'}{JAVA_TOOL_OPTIONS:-} -Dapi.version=1.44" ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                                 echo "✅ ${'$'}project_name: Tests passed"
                             else
                                 echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
