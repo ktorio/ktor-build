@@ -21,7 +21,7 @@ private const val defaultBranch = "refs/heads/(main)"
 private const val defaultBranchRef = "refs/heads/main" // Reference without braces around logical name
 private const val releaseBranches = "refs/heads/(release/*)"
 private const val eapBranches = "refs/heads/(*-eap)"
-private const val DefaultAndReleases = "+:$defaultBranch\n+:$releaseBranches"
+const val DefaultAndReleases = "+:$defaultBranch\n+:$releaseBranches"
 private const val AllBranches = "+:refs/heads/*"
 
 object VCSCore : TokenVcsRoot(VcsToken.KTOR, {

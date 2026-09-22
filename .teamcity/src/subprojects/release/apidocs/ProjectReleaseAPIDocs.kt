@@ -64,7 +64,8 @@ object ProjectReleaseAPIDocs : Project({
         }
 
         requirements {
-            agent(Agents.OS.MacOS, Agents.Arch.Arm64)
+//            agent(Agents.OS.MacOS, Agents.Arch.Arm64)
+            agent(Agents.OS.Linux)
         }
 
         features {

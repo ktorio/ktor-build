@@ -2,6 +2,7 @@ package subprojects.plugins
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
+import jetbrains.buildServer.configs.kotlin.triggers.finishBuildTrigger
 import subprojects.*
 import subprojects.Agents.OS
 import subprojects.build.*
@@ -31,10 +32,18 @@ object ProjectGradlePlugin : Project({
         gradleParams = "-PversionSuffix=eap-%build.counter%",
     )
 
-    publishToPluginPortal(
+    val releasePlugin = publishToPluginPortal(
         id = "PublishGradlePluginRelease",
         name = "Build and publish Ktor Gradle Plugin Release to Gradle Plugin Portal",
     )
+
+    releasePlugin.triggers {
+        finishBuildTrigger {
+            buildType = "KtorPublish_WaitForMavenArtifacts"
+            successfulOnly = true
+            branchFilter = DefaultAndReleases
+        }
+    }
 
     publishToPluginPortal(
         id = "PublishGradlePluginBeta",
