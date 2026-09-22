@@ -48,7 +48,7 @@ object ProjectPublishing : Project({
         steps {
             script {
                 name = "Wait for artifacts"
-                scriptFile(".teamcity/scripts/wait_for_maven.sh")
+                scriptFile("wait_for_maven.sh")
             }
         }
 
@@ -93,7 +93,7 @@ object ProjectPublishing : Project({
         steps {
             script {
                 name = "Create release tag"
-                scriptFile(".teamcity/scripts/create_tag.sh")
+                scriptFile("create_tag.sh")
             }
         }
     }
@@ -127,7 +127,7 @@ object ProjectPublishing : Project({
         steps {
             script {
                 name = "Create Github release"
-                scriptFile(".teamcity/scripts/create_github_release.sh")
+                scriptFile("create_github_release.sh")
             }
         }
 
