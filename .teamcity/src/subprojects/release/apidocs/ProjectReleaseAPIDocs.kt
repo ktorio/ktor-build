@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
+import subprojects.build.core.consumeGradleDependencyCache
 import subprojects.release.*
 
 object ProjectReleaseAPIDocs : Project({
@@ -30,6 +31,8 @@ object ProjectReleaseAPIDocs : Project({
         params {
             param("versionsDirectory", "%teamcity.build.checkoutDir%/versions")
         }
+
+        consumeGradleDependencyCache()
 
         steps {
             script {

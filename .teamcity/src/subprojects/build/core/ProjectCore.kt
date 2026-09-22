@@ -36,6 +36,7 @@ object ProjectCore : Project({
 
     allBuildsWithStress.forEach(::buildType)
 
+    buildType(SeedGradleDependencyCache)
     // Builds to be run manually on demand
     buildType(DependenciesCheckBuild())
     buildType(NativeBuild(NativeEntry.MacOSX64))
