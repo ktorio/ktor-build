@@ -672,7 +672,7 @@ EOF
                         }
 
                         attempt=1
-                        max_attempts=5
+                        max_attempts=7
                         while [ ${'$'}attempt -le ${'$'}max_attempts ]; do
                             echo "Running: ./amper build (attempt ${'$'}attempt/${'$'}max_attempts)"
                             if run_amper_build; then
@@ -685,7 +685,8 @@ EOF
                             fi
 
                             if grep -qE "actual: 429|HTTP/[0-9.]+ 429|response code.*429" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
-                                delay=$((attempt * 60))
+                                delay=$((60 * (1 << (attempt - 1))))
+                                [ ${'$'}delay -gt 300 ] && delay=300
                                 echo "⚠️  Detected Maven Central rate-limit (HTTP 429) — waiting ${'$'}{delay}s before retry"
                                 sleep ${'$'}delay
                             elif grep -qE "Connection refused|Connection reset|onnection timed out|connect timed out|Read timed out|SocketTimeoutException|SocketException|Got socket exception|UnknownHostException|nodename nor servname provided|Temporary failure in name resolution|Name or service not known|No route to host|Network is unreachable|Premature end of Content-Length" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then

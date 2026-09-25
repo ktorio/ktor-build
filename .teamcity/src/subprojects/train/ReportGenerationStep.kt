@@ -329,20 +329,30 @@ EOF
                     fi
                     
                     STATUS_EMOJI=$(echo "%quality.gate.slack.status.emoji%" | grep -v "^%quality\.gate\.slack\.status\.emoji%$" || echo "⏳")
-                    
+
                     TC_PROJECT_NAME=$(echo "${'$'}{TEAMCITY_PROJECT_NAME:-JetBrains / Ktor}")
                     TC_BUILD_NAME=$(echo "${'$'}{TEAMCITY_BUILDCONF_NAME:-Consolidated EAP Validation}")
                     PROJECT_PATH="${'$'}TC_PROJECT_NAME / ${'$'}TC_BUILD_NAME"
-                    
-                    if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
-                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER passed — ${'$'}VERSION_LABEL (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+
+                    SERVER_URL=$(echo "%teamcity.serverUrl%" | grep -v "^%teamcity\.serverUrl%$" || echo "")
+                    BUILD_ID=$(echo "%teamcity.build.id%" | grep -E '^[0-9]+$' || echo "")
+                    if [ -n "${'$'}SERVER_URL" ] && [ -n "${'$'}BUILD_ID" ]; then
+                        BUILD_LINK="${'$'}SERVER_URL/viewLog.html?buildId=${'$'}BUILD_ID"
+                        BUILD_REF="<${'$'}{BUILD_LINK}|#${'$'}{BUILD_NUMBER}>"
                     else
-                        TC_STATUS=$(echo "${'$'}{TEAMCITY_BUILD_STATUS_TEXT:-unknown}")
-                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH #${'$'}BUILD_NUMBER failed — ${'$'}VERSION_LABEL"
-                        if [ -n "${'$'}TC_STATUS" ]; then
-                            SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Status: ${'$'}{TC_STATUS};"
+                        BUILD_REF="#${'$'}BUILD_NUMBER"
+                    fi
+
+                    if [ "${'$'}OVERALL_STATUS" = "PASSED" ]; then
+                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH ${'$'}BUILD_REF passed — ${'$'}VERSION_LABEL (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+                    else
+                        SLACK_MESSAGE="${'$'}STATUS_EMOJI ${'$'}PROJECT_PATH ${'$'}BUILD_REF failed — ${'$'}VERSION_LABEL"
+                        if [ -n "${'$'}FAILURE_REASONS" ]; then
+                            FAILURE_REASONS_SLACK="${'$'}{FAILURE_REASONS//|n/; }"
+                            FAILURE_REASONS_SLACK="${'$'}{FAILURE_REASONS_SLACK%; }"
+                            SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | ${'$'}{FAILURE_REASONS_SLACK}"
                         fi
-                        SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | Quality gate validation failed (${'$'}OVERALL_SCORE/100) | ${'$'}STATUS_LINE2"
+                        SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | ${'$'}STATUS_LINE2"
                         if [ -n "${'$'}YOUTRACK_ISSUE" ]; then
                             SLACK_MESSAGE="${'$'}{SLACK_MESSAGE} | YouTrack: ${'$'}YOUTRACK_ISSUE"
                         fi
