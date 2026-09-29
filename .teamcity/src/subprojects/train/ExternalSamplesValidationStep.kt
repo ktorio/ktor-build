@@ -636,24 +636,16 @@ EOF
                     if [ -f "amper" ]; then
                         chmod +x amper
 
-                        AMPER_META_URL="https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/amper/cli/maven-metadata.xml"
-                        LATEST_AMPER_VERSION=$(curl -sSfL --max-time 15 "${'$'}AMPER_META_URL" 2>/dev/null \
-                            | grep -oE "<latest>[^<]+</latest>" | sed -E 's#</?latest>##g' | head -1 || true)
-                        if [ -n "${'$'}LATEST_AMPER_VERSION" ]; then
-                            AMPER_SHA_URL="https://packages.jetbrains.team/maven/p/amper/amper/org/jetbrains/amper/cli/${'$'}LATEST_AMPER_VERSION/cli-${'$'}LATEST_AMPER_VERSION-dist.tgz.sha256"
-                            LATEST_AMPER_SHA256=$(curl -sSfL --max-time 15 "${'$'}AMPER_SHA_URL" 2>/dev/null | tr -d '[:space:]' || true)
-                            if [ -n "${'$'}LATEST_AMPER_SHA256" ]; then
-                                OLD_AMPER_VERSION=$(grep -E '^amper_version=' amper | head -1 | cut -d= -f2)
-                                if [ "${'$'}OLD_AMPER_VERSION" != "${'$'}LATEST_AMPER_VERSION" ]; then
-                                    echo "Upgrading amper wrapper: ${'$'}OLD_AMPER_VERSION → ${'$'}LATEST_AMPER_VERSION"
-                                    sed -i -E "s|^(amper_version=).*$|\1${'$'}LATEST_AMPER_VERSION|" amper
-                                    sed -i -E "s|^(amper_sha256=).*$|\1${'$'}LATEST_AMPER_SHA256|" amper
-                                fi
-                            else
-                                echo "⚠️  Could not fetch sha256 for Amper ${'$'}LATEST_AMPER_VERSION — keeping pinned wrapper version"
-                            fi
+                        KOTLIN_WRAPPER_URL="https://raw.githubusercontent.com/JetBrains/kotlin-toolchain/main/kotlin"
+                        KOTLIN_WRAPPER_CONTENT=$(curl -sSfL --max-time 15 "${'$'}KOTLIN_WRAPPER_URL" 2>/dev/null || true)
+                        if [ -n "${'$'}KOTLIN_WRAPPER_CONTENT" ] && echo "${'$'}KOTLIN_WRAPPER_CONTENT" | grep -q "kotlin_cli_version"; then
+                            NEW_CLI_VERSION=$(echo "${'$'}KOTLIN_WRAPPER_CONTENT" | grep -oE '^kotlin_cli_version=.*' | head -1 | cut -d= -f2)
+                            OLD_AMPER_VERSION=$(grep -E '^amper_version=' amper | head -1 | cut -d= -f2)
+                            echo "Upgrading wrapper: ${'$'}{OLD_AMPER_VERSION:-<old amper wrapper>} → Kotlin Toolchain ${'$'}NEW_CLI_VERSION"
+                            printf '%s' "${'$'}KOTLIN_WRAPPER_CONTENT" > amper
+                            chmod +x amper
                         else
-                            echo "⚠️  Could not resolve latest Amper version — keeping pinned wrapper version"
+                            echo "⚠️  Could not fetch current Kotlin Toolchain wrapper — keeping pinned Amper wrapper version"
                         fi
 
                         AMPER_M2_PATHS=(
@@ -668,7 +660,8 @@ EOF
                         done
 
                         run_amper_build() {
-                            ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1
+                            KOTLIN_DEFAULT_MAVEN_CENTRAL_URL="https://cache-redirector.jetbrains.com/repo1.maven.org/maven2" \
+                                ./amper build > "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1
                         }
 
                         attempt=1
@@ -707,7 +700,9 @@ EOF
 
                         if [ "${'$'}BUILD_SUCCESS" = true ] && [ "${'$'}RUN_TESTS" = true ]; then
                             echo "Build successful, now running tests: ./amper test"
-                            if JAVA_TOOL_OPTIONS="${'$'}{JAVA_TOOL_OPTIONS:-} -Dapi.version=1.44" ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                            if JAVA_TOOL_OPTIONS="${'$'}{JAVA_TOOL_OPTIONS:-} -Dapi.version=1.44" \
+                                KOTLIN_DEFAULT_MAVEN_CENTRAL_URL="https://cache-redirector.jetbrains.com/repo1.maven.org/maven2" \
+                                ./amper test >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
                                 echo "✅ ${'$'}project_name: Tests passed"
                             else
                                 echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
