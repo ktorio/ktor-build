@@ -25,7 +25,6 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
     val rustEnabled = enableRustForRelevantChanges(entry.os)
 
     steps {
-
         if (entry.os == OS.Windows) {
             powerShell {
                 name = "Remove git from PATH"
@@ -42,6 +41,19 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
 
         if (rustEnabled) {
             installRust(entry.os)
+        }
+
+        // Compile and link Windows test executables before running tests.
+        // Use separate JVMs to keep compilation-related GC pressure out of test execution.
+        if (entry.os == OS.Windows) {
+            gradle {
+                name = "Build tests"
+                tasks = "linkDebugTestMingwX64"
+                // KT-89880 KotlinNativeLink cache key changes after cold native installation with
+                // configuration cache enabled
+                gradleParams = "--info --continue --no-daemon --no-configuration-cache $GradleParams"
+                jdkHome = Env.JDK_LTS
+            }
         }
 
         val cleanTestTask = entry.targetTask(prefix = "clean", suffix = "Test")
