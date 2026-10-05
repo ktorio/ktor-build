@@ -382,12 +382,17 @@ allprojects {
     repositories.maven { url = uri("https://cache-redirector.jetbrains.com/maven.google.com/") }
 
     if (rootProject.name == "buildSrc") {
-        configurations.all {
-            resolutionStrategy.eachDependency { details ->
+        configurations.all { conf ->
+            conf.resolutionStrategy.eachDependency { details ->
                 if (details.requested.group == "org.jetbrains.kotlin" &&
                     details.requested.name in ["kotlin-stdlib", "kotlin-stdlib-jdk8", "kotlin-stdlib-jdk7", "kotlin-stdlib-common", "kotlin-reflect"]) {
-                    def v = System.getenv("KOTLIN_VERSION")
-                    if (v != null && !v.isEmpty()) details.useVersion(v)
+                    def confNameLower = conf.name.toLowerCase()
+                    def isCompilerClasspath = project.pluginManager.hasPlugin("org.gradle.kotlin.kotlin-dsl") &&
+                        (confNameLower.endsWith("compileclasspath") || confNameLower.endsWith("runtimeclasspath"))
+                    if (!isCompilerClasspath) {
+                        def v = System.getenv("KOTLIN_VERSION")
+                        if (v != null && !v.isEmpty()) details.useVersion(v)
+                    }
                 }
             }
         }
