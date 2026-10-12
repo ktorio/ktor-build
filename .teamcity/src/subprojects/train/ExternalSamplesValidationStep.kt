@@ -800,6 +800,39 @@ EOF
                         cd "${'$'}WORK_DIR"
                         continue
                     fi
+
+                    if [ "${'$'}BUILD_SUCCESS" = false ] && [ -f "${'$'}REPORTS_DIR/${'$'}project_name-build.log" ] \
+                       && grep -qiE "Gradle Version Incompatible with Kotlin Gradle Plugin" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                        REQUIRED_GRADLE=$(grep -oE "at least Gradle [0-9]+\.[0-9]+(\.[0-9]+)?" "${'$'}REPORTS_DIR/${'$'}project_name-build.log" \
+                            | head -1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+                        if [ -n "${'$'}REQUIRED_GRADLE" ] && [ -f "gradle/wrapper/gradle-wrapper.properties" ]; then
+                            echo "  [patcher] ⚠️  Kotlin ${'$'}SAMPLE_KOTLIN needs Gradle >= ${'$'}REQUIRED_GRADLE — bumping ${'$'}project_name's wrapper and retrying"
+                            sed -i -E "s|gradle-[0-9]+\.[0-9]+(\.[0-9]+)?|gradle-${'$'}REQUIRED_GRADLE|g" gradle/wrapper/gradle-wrapper.properties
+
+                            find . -type d -name build -not -path "*/.gradle/*" -prune -exec rm -rf {} +
+                            FALLBACK_GRADLE_ARGS="${'$'}{GRADLE_ARGS/--build-cache/--rerun-tasks}"
+
+                            TEST_RUNNER=""
+                            if [ -f "gradlew" ]; then TEST_RUNNER="./gradlew"; elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then TEST_RUNNER="gradle"; fi
+
+                            if [ -n "${'$'}TEST_RUNNER" ] && run_gradle_with_429_retry "${'$'}TEST_RUNNER ${'$'}FALLBACK_GRADLE_ARGS"; then
+                                BUILD_SUCCESS=true
+                                echo "  [patcher] ✅ ${'$'}project_name: VALIDATION PASSED after bumping Gradle to ${'$'}REQUIRED_GRADLE"
+                                if [ "${'$'}RUN_TESTS" = true ]; then
+                                    if ${'$'}TEST_RUNNER tasks --all 2>/dev/null | grep -q "[:[:alnum:]]*test" ; then
+                                        echo "Build successful, now running tests: ${'$'}TEST_RUNNER test --no-daemon"
+                                        if ${'$'}TEST_RUNNER test --no-daemon >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                            echo "✅ ${'$'}project_name: Tests passed"
+                                        else
+                                            echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                                        fi
+                                    fi
+                                else
+                                    echo "⏭️  ${'$'}project_name: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
+                                fi
+                            fi
+                        fi
+                    fi
                 fi
 
                 if [ "${'$'}BUILD_SUCCESS" = true ]; then
