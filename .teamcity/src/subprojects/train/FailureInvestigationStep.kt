@@ -33,8 +33,7 @@ object FailureInvestigationStep {
                 EAP_VALIDATION_MODE=$(echo "%env.EAP_VALIDATION_MODE%" | grep -v '%env\.EAP_VALIDATION_MODE%' || echo "")
                 [ -z "${'$'}EAP_VALIDATION_MODE" ] && EAP_VALIDATION_MODE="source"
                 if [ "${'$'}EAP_VALIDATION_MODE" != "published" ]; then
-                    echo "Source-validation run (mode=${'$'}EAP_VALIDATION_MODE) — skipping YouTrack issue filing (not an EAP regression)."
-                    exit 0
+                    echo "Source-validation run (mode=${'$'}EAP_VALIDATION_MODE) — will scan failures for visibility but skip YouTrack issue filing (not an EAP regression)."
                 fi
 
                 KTOR_VERSION=$(echo "%env.KTOR_VERSION%" | grep -v "^%env\.KTOR_VERSION%$" || echo "")
@@ -93,10 +92,12 @@ object FailureInvestigationStep {
                 } >> "${'$'}DESC_FILE"
 
                 KTOR_SECTION=$(mktemp)
+                SAMPLE_ONLY_SECTION=$(mktemp)
                 SIG_SRC=$(mktemp)
                 KTOR_ZIPS=$(mktemp)
                 ROOT_CAUSES=$(mktemp)
                 KTOR_COUNT=0
+                SAMPLE_ONLY_COUNT=0
                 PRIMARY_RC=""
                 SAMPLE_ONLY=""
 
@@ -128,6 +129,13 @@ object FailureInvestigationStep {
                         fi
                     else
                         SAMPLE_ONLY="${'$'}SAMPLE_ONLY ${'$'}name"
+                        SAMPLE_ONLY_COUNT=$((SAMPLE_ONLY_COUNT + 1))
+                        if [ "${'$'}EAP_VALIDATION_MODE" != "published" ] && [ "${'$'}SAMPLE_ONLY_COUNT" -le 8 ]; then
+                            {
+                                echo ""
+                                extract_errors "${'$'}log"
+                            } >> "${'$'}SAMPLE_ONLY_SECTION"
+                        fi
                     fi
                 }
 
@@ -167,8 +175,19 @@ object FailureInvestigationStep {
                         echo ""
                         echo "> Note: these failures showed no Ktor signal and are treated as sample/infra issues (not the cause of this report):${'$'}SAMPLE_ONLY"
                     } >> "${'$'}DESC_FILE"
+                    if [ "${'$'}EAP_VALIDATION_MODE" != "published" ] && [ -s "${'$'}SAMPLE_ONLY_SECTION" ]; then
+                        {
+                            echo ""
+                            echo "### Sample/infra failure detail (source-validation run — not filed to YouTrack)"
+                            cat "${'$'}SAMPLE_ONLY_SECTION"
+                            if [ "${'$'}SAMPLE_ONLY_COUNT" -gt 8 ]; then
+                                echo ""
+                                echo "_…and more sample/infra failures; see the build artifacts._"
+                            fi
+                        } >> "${'$'}DESC_FILE"
+                    fi
                 fi
-                rm -f "${'$'}KTOR_SECTION" "${'$'}ROOT_CAUSES"
+                rm -f "${'$'}KTOR_SECTION" "${'$'}SAMPLE_ONLY_SECTION" "${'$'}ROOT_CAUSES"
 
                 SIGNATURE=""
                 if [ -s "${'$'}SIG_SRC" ]; then
@@ -189,6 +208,11 @@ object FailureInvestigationStep {
                 echo "----- Investigation summary -----"
                 cat "${'$'}DESC_FILE"
                 echo "---------------------------------"
+
+                if [ "${'$'}EAP_VALIDATION_MODE" != "published" ]; then
+                    echo "Source-validation run (mode=${'$'}EAP_VALIDATION_MODE) — failure detail is printed above; not filing a YouTrack issue (not an EAP regression)."
+                    exit 0
+                fi
 
                 if [ "${'$'}KTOR_COUNT" -eq 0 ]; then
                     echo "No Ktor-related failures detected — all failures look sample/infra/version-resolution specific. Not filing a YouTrack issue (non-blocking)."
