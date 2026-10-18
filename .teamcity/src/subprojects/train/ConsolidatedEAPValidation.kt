@@ -321,7 +321,7 @@ object ConsolidatedEAPValidation {
                 }
 
                 vcs {
-                    branchFilter = BranchFilter.DefaultOrPullRequest
+                    branchFilter = "${BranchFilter.DefaultBranch}\n${BranchFilter.ReleaseBranches}"
                     triggerRules = "+:root=${VCSCore.id}:**"
                 }
             }
