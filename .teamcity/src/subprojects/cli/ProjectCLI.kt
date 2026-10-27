@@ -290,7 +290,7 @@ object PackMsiInstaller : BuildType({
         script {
             name = "Install Wix toolset"
             scriptContent = """
-                dotnet tool install --tool-path=wixToolset wix               
+                dotnet tool install --tool-path=wixToolset wix --version 5.0.2
                 .\wixToolset\wix.exe extension add -g WixToolset.UI.wixext/5.0.2
             """.trimIndent()
             workingDir = "."
