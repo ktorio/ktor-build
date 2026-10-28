@@ -29,7 +29,7 @@ KTOR_REPO_SLUG="${KTOR_REPO_SLUG:-$(printf '%s' "$KTOR_REPO_URL" | sed -E 's#^ht
 TC_SERVER_URL="${TC_SERVER_URL:-https://ktor.teamcity.com}"
 TC_SERVER_URL="${TC_SERVER_URL%/}"
 WATCHED_BUILD_TYPE="${WATCHED_BUILD_TYPE:-Ktor_KtorCore_All}"
-DV_DASHBOARD_URL="${DV_DASHBOARD_URL:-https://ge.jetbrains.com}"
+DV_DASHBOARD_URL="${DV_DASHBOARD_URL:-https://develocity.jetbrains.com}"
 DV_DASHBOARD_URL="${DV_DASHBOARD_URL%/}"
 # YouTrack, for the per-class "find/file issue" links (C2).
 YOUTRACK_URL="${YOUTRACK_URL:-https://youtrack.jetbrains.com}"

@@ -57,7 +57,7 @@ develocityApiRequest() {
   local out status
   out=$(curl --silent --show-error --write-out $'\n%{http_code}' \
     --header "Authorization: Bearer $DV_ACCESS_KEY" \
-    "${DV_SERVER_URL:-https://ge.jetbrains.com}$route" \
+    "${DV_SERVER_URL:-https://develocity.jetbrains.com}$route" \
     --header "Accept: application/json" \
     "$@")
   status=${out##*$'\n'}
