@@ -207,14 +207,14 @@ else
 fi
 
 # Build the Block Kit payload with jq so all text (test names, links, quarantine) is safely escaped.
-PAYLOAD=$(jq -n \
-  --argjson c "$CONSOLIDATED" \
+PAYLOAD=$(printf '%s' "$CONSOLIDATED" | jq -n \
   --arg repo "$KTOR_REPO_URL" --arg slug "$KTOR_REPO_SLUG" \
   --arg mention "$MENTION" --arg fallback "$FALLBACK" \
   --arg buildUrl "$BUILD_URL" --arg reportUrl "$REPORT_URL" --arg commitUrl "$COMMIT_URL" \
   --arg shortRev "$SHORT_REV" --arg quarantine "$QUARANTINE_TEXT" \
   --argjson thisRun "$THIS_RUN_COUNT" --argjson chronicTests "$CHRONIC_TEST_COUNT" '
-  def simpleClass: ((.class // .name) | split(".") | last);
+  (input) as $c
+  | def simpleClass: ((.class // .name) | split(".") | last);
   def ghSearch: $repo + "/search?type=code&q=" + ("repo:" + $slug + " " + simpleClass | @uri);
 
   ($c.dv.available) as $dv
