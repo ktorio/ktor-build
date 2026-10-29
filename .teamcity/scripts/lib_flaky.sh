@@ -29,7 +29,9 @@ teamcityApiRequest() {
     --header "Accept: application/json" \
     "$@")
   status=${out##*$'\n'}
-  if [ "$status" -ge 400 ]; then
+  # Anything outside 2xx is a failure — including a redirect (e.g. a renamed/moved server), which
+  # would otherwise return a non-JSON body (an HTML redirect page) that callers mistake for success.
+  if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
     echo "TeamCity REST $route -> HTTP $status" >&2
     echo "${out%$'\n'*}" >&2
     if [ "$status" -eq 404 ]; then
@@ -57,11 +59,13 @@ develocityApiRequest() {
   local out status
   out=$(curl --silent --show-error --write-out $'\n%{http_code}' \
     --header "Authorization: Bearer $DV_ACCESS_KEY" \
-    "${DV_SERVER_URL:-https://ge.jetbrains.com}$route" \
+    "${DV_SERVER_URL:-https://develocity.jetbrains.com}$route" \
     --header "Accept: application/json" \
     "$@")
   status=${out##*$'\n'}
-  if [ "$status" -ge 400 ]; then
+  # Anything outside 2xx is a failure — including a redirect (e.g. a renamed/moved server), which
+  # would otherwise return a non-JSON body (an HTML redirect page) that callers mistake for success.
+  if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
     echo "Develocity $route -> HTTP $status" >&2
     echo "${out%$'\n'*}" >&2
     return 1
