@@ -31,7 +31,9 @@ RESP=$(develocityApiRequest \
 
 # NOTE: `/tests-data/top` aggregates at the CLASS level only — `.flaky` is the count of flaky
 # test-run OUTCOMES for the class over the window, NOT a distinct test-method count.
-echo "$RESP" | jq --argjson days "$DV_WINDOW_DAYS" --argjson minFlaky "$DV_MIN_FLAKY" '
+# Best-effort like the request above: an unparseable response (e.g. an unexpected redirect leaking
+# an HTML body past the status check) must not abort the notifier either.
+if ! echo "$RESP" | jq --argjson days "$DV_WINDOW_DAYS" --argjson minFlaky "$DV_MIN_FLAKY" '
   {
     available: true,
     windowDays: $days,
@@ -56,4 +58,8 @@ echo "$RESP" | jq --argjson days "$DV_WINDOW_DAYS" --argjson minFlaky "$DV_MIN_F
         }
       | select(.flaky >= $minFlaky)
     ]
-  }'
+  }'; then
+  echo "Could not parse the Develocity response; continuing without the Develocity source." >&2
+  emit_empty
+  exit 0
+fi

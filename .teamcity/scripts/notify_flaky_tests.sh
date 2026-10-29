@@ -82,11 +82,23 @@ DV_FILE=$(mktemp)
 QR_FILE=$(mktemp)
 trap 'rm -f "$TC_FILE" "$DV_FILE" "$QR_FILE"' EXIT
 
-bash "$SCRIPTS_DIR/collect_teamcity.sh" > "$TC_FILE"
+# Each collector is meant to be best-effort and always exit 0 with valid JSON (see their own
+# fallbacks), but a defect in one must still not be able to take down the whole notifier — fall
+# back to an empty source here too instead of letting `set -e` abort the run mid-collection.
+if ! bash "$SCRIPTS_DIR/collect_teamcity.sh" > "$TC_FILE"; then
+  echo "collect_teamcity.sh failed unexpectedly; reporting nothing flaky for this run." >&2
+  printf '{"revision":"","attempts":0,"flaky":[]}' > "$TC_FILE"
+fi
 # collect_develocity.sh always exits 0 with valid JSON.
-bash "$SCRIPTS_DIR/collect_develocity.sh" > "$DV_FILE"
+if ! bash "$SCRIPTS_DIR/collect_develocity.sh" > "$DV_FILE"; then
+  echo "collect_develocity.sh failed unexpectedly; continuing without the Develocity source." >&2
+  printf '{"available":false,"windowDays":0,"projectFlaky":0,"projectFailed":0,"projectTrend":[],"trendDays":[],"classes":[]}' > "$DV_FILE"
+fi
 # collect_quarantine.sh exits 0 with valid JSON while the build has no runs yet.
-bash "$SCRIPTS_DIR/collect_quarantine.sh" > "$QR_FILE"
+if ! bash "$SCRIPTS_DIR/collect_quarantine.sh" > "$QR_FILE"; then
+  echo "collect_quarantine.sh failed unexpectedly; continuing without the quarantine source." >&2
+  printf '{"available":false,"buildType":"","runs":0,"tests":[],"counts":{"stillFlaky":0,"alwaysFailing":0,"stableCandidate":0}}' > "$QR_FILE"
+fi
 
 # --- Merge + write report artifacts (into the build working dir) ---
 CONSOLIDATED=$(bash "$SCRIPTS_DIR/merge_report.sh" "$TC_FILE" "$DV_FILE" "$QR_FILE" ".")
