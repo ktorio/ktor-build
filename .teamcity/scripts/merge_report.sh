@@ -164,7 +164,8 @@ h2 .n{color:var(--muted);font-weight:500;font-size:13px}
 .tile.alert .v{color:var(--crit)}
 .tile.ok .v{color:var(--good)}
 .badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:520;
- padding:2px 9px;border-radius:999px;white-space:nowrap}
+ padding:2px 9px;border-radius:999px;white-space:nowrap;
+ border:none;background:none;margin:0;font-family:inherit}
 .badge .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
 .tgt{background:var(--surface);border:1px solid var(--border);color:var(--ink2)}
 .tgt-jvm .dot{background:var(--t-jvm)}.tgt-native .dot{background:var(--t-native)}
@@ -173,6 +174,12 @@ h2 .n{color:var(--muted);font-weight:500;font-size:13px}
 .st-good{background:var(--good-bg);color:var(--good)}
 .st-warn{background:var(--warn-bg);color:var(--warn)}
 .st-crit{background:var(--crit-bg);color:var(--crit)}
+.vbtn{cursor:pointer;transition:opacity .12s}
+.vbtn:hover{filter:brightness(.95)}
+.vbtn.active{box-shadow:0 0 0 2px var(--ink) inset}
+.vf.filtering .vbtn:not(.active){opacity:.4}
+.vf-clear{display:none;cursor:pointer;color:var(--accent)}
+.vf-clear.show{display:inline-flex}
 .byt{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .byt .badge b{font-weight:640;margin-left:2px}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -344,15 +351,17 @@ BODY=$(printf '%s' "$CONSOLIDATED" | jq -r \
   + "<h2>Quarantined <span class=\"n\">@Flaky / _flaky</span></h2>"
   + (if (.quarantine.available|not)
      then "<div class=\"empty\">No data: the <code>"+((if (.quarantine.buildType//"")=="" then "flaky-test" else .quarantine.buildType end)|esc)+"</code> build has no finished runs yet.</div>"
-     else "<div class=\"tag-list\"><span class=\"badge st-warn\">⚠ "+(.quarantine.counts.stillFlaky|tostring)+" still flaky</span>"
-       +"<span class=\"badge st-crit\">✗ "+(.quarantine.counts.alwaysFailing|tostring)+" always failing</span>"
-       +"<span class=\"badge st-good\">✓ "+(.quarantine.counts.stableCandidate|tostring)+" ready to un-quarantine</span>"
-       +"<span class=\"badge tgt\">last "+(.quarantine.runs|tostring)+" run(s)</span></div>"
+     else "<div class=\"tag-list vf\" id=\"vf\">"
+       +"<button type=\"button\" class=\"badge st-warn vbtn\" data-verdict=\"still-flaky\" title=\"Filter: still flaky\">⚠ "+(.quarantine.counts.stillFlaky|tostring)+" still flaky</button>"
+       +"<button type=\"button\" class=\"badge st-crit vbtn\" data-verdict=\"always-failing\" title=\"Filter: always failing\">✗ "+(.quarantine.counts.alwaysFailing|tostring)+" always failing</button>"
+       +"<button type=\"button\" class=\"badge st-good vbtn\" data-verdict=\"stable-candidate\" title=\"Filter: ready to un-quarantine\">✓ "+(.quarantine.counts.stableCandidate|tostring)+" ready to un-quarantine</button>"
+       +"<span class=\"badge tgt\">last "+(.quarantine.runs|tostring)+" run(s)</span>"
+       +"<span class=\"badge tgt vf-clear\" id=\"vfClear\">✕ clear filter</span></div>"
        +(if (.quarantine.tests|length)>0
-         then "<table class=\"srt\"><thead><tr><th>Verdict</th><th class=\"num\">Pass</th><th class=\"num\">Fail</th><th>Target</th><th>Test</th></tr></thead><tbody>"
-           +([.quarantine.tests[]|"<tr><td>"+vb(.verdict)+"</td><td class=\"num\">"+(.passed|tostring)+"</td><td class=\"num\">"+(.failed|tostring)+"</td><td>"+tbadge(.target;.targetDetail)+"</td><td class=\"name\"><a href=\""+(ghUrl(.name|classOf)|attrEsc)+"\">"+(.name|esc)+"</a>"+geChip(.name|classOf)+ytChips(.name|classOf)+"</td></tr>"]|join(""))
+         then "<table class=\"srt\" id=\"qrTable\"><thead><tr><th>Verdict</th><th class=\"num\">Pass</th><th class=\"num\">Fail</th><th>Target</th><th>Test</th></tr></thead><tbody>"
+           +([.quarantine.tests[]|"<tr data-verdict=\""+.verdict+"\"><td>"+vb(.verdict)+"</td><td class=\"num\">"+(.passed|tostring)+"</td><td class=\"num\">"+(.failed|tostring)+"</td><td>"+tbadge(.target;.targetDetail)+"</td><td class=\"name\"><a href=\""+(ghUrl(.name|classOf)|attrEsc)+"\">"+(.name|esc)+"</a>"+geChip(.name|classOf)+ytChips(.name|classOf)+"</td></tr>"]|join(""))
            +"</tbody></table>"
-           +"<div class=\"note\"><b>always-failing</b> is not flakiness — fix it or <code>@Ignore</code> it. <b>stable-candidate</b> has stopped flipping and can leave quarantine.</div>"
+           +"<div class=\"note\"><b>always-failing</b> is not flakiness — fix it or <code>@Ignore</code> it. <b>stable-candidate</b> has stopped flipping and can leave quarantine. Click a badge above to filter by verdict.</div>"
          else "<div class=\"empty\">none</div>" end)
      end)
 ')
@@ -362,9 +371,37 @@ HTML_SCRIPT='<script>
 (function(){
   var flt=document.getElementById("flt");
   function rows(){return document.querySelectorAll("table.srt tbody tr");}
-  if(flt)flt.addEventListener("input",function(){
-    var q=this.value.toLowerCase();
-    rows().forEach(function(tr){tr.style.display=tr.textContent.toLowerCase().indexOf(q)>=0?"":"none";});
+  var vf=document.getElementById("vf"), vfClear=document.getElementById("vfClear");
+  var activeVerdicts={};
+  function hasActiveVerdicts(){ return Object.keys(activeVerdicts).length>0; }
+  function applyFilters(){
+    var q=flt?flt.value.toLowerCase():"";
+    rows().forEach(function(tr){
+      var textOk = q==="" || tr.textContent.toLowerCase().indexOf(q)>=0;
+      var v=tr.dataset.verdict;
+      var verdictOk = !v || !hasActiveVerdicts() || activeVerdicts[v];
+      tr.style.display = (textOk && verdictOk) ? "" : "none";
+    });
+  }
+  if(flt)flt.addEventListener("input",applyFilters);
+  if(vf){
+    Array.prototype.forEach.call(vf.querySelectorAll(".vbtn"),function(btn){
+      btn.addEventListener("click",function(){
+        var v=btn.dataset.verdict;
+        if(activeVerdicts[v]){ delete activeVerdicts[v]; btn.classList.remove("active"); }
+        else { activeVerdicts[v]=true; btn.classList.add("active"); }
+        vf.classList.toggle("filtering",hasActiveVerdicts());
+        if(vfClear) vfClear.classList.toggle("show",hasActiveVerdicts());
+        applyFilters();
+      });
+    });
+  }
+  if(vfClear)vfClear.addEventListener("click",function(){
+    activeVerdicts={};
+    Array.prototype.forEach.call(vf.querySelectorAll(".vbtn"),function(b){b.classList.remove("active");});
+    vf.classList.remove("filtering");
+    vfClear.classList.remove("show");
+    applyFilters();
   });
   document.querySelectorAll("table.srt").forEach(function(tbl){
     var ths=tbl.tHead?tbl.tHead.rows[0].cells:[];
