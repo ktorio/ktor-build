@@ -156,5 +156,9 @@ object ProjectPublishing : Project({
         params {
             param("reverse.dep.*.releaseVersion", "%releaseVersion%")
         }
+
+        failureConditions {
+            executionTimeoutMin = 8 * 60
+        }
     }
 })

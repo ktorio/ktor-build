@@ -39,9 +39,9 @@ object ProjectGradlePlugin : Project({
 
     releasePlugin.triggers {
         finishBuildTrigger {
-            buildType = "KtorPublish_WaitForMavenArtifacts"
+            buildType = "Ktor_KtorPublish_WaitForMavenArtifacts"
             successfulOnly = true
-            branchFilter = DefaultAndReleases
+            branchFilter = "${BranchFilter.DefaultBranch}\n${BranchFilter.ReleaseBranches}"
         }
     }
 
