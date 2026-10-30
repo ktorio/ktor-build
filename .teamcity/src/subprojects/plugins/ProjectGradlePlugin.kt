@@ -41,7 +41,7 @@ object ProjectGradlePlugin : Project({
         finishBuildTrigger {
             buildType = "Ktor_KtorPublish_WaitForMavenArtifacts"
             successfulOnly = true
-            branchFilter = DefaultAndReleases
+            branchFilter = "${BranchFilter.DefaultBranch}\n${BranchFilter.ReleaseBranches}"
         }
     }
 
