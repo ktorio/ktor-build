@@ -545,17 +545,17 @@ EOF
 
                 cd "${'$'}project_dir"
 
-                # Pick the Kotlin version for this sample
+                # Pick the Kotlin version for this sample: honor its own explicit pin exactly.
                 SAMPLE_KOTLIN="${'$'}KOTLIN_VERSION"
                 DETECTED_KOTLIN=$( {
                     grep -hoE '^[[:space:]]*kotlin[[:space:]]*=[[:space:]]*"[^"]+"' gradle/libs.versions.toml 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/'
                     grep -hoE '^[[:space:]]*kotlin_version[[:space:]]*=[[:space:]]*[^[:space:]]+' gradle.properties 2>/dev/null | sed -E 's/.*=[[:space:]]*//'
                 } | grep -E '^[0-9]' | sort -V | tail -1 )
                 if [ -n "${'$'}DETECTED_KOTLIN" ]; then
-                    SAMPLE_KOTLIN=$(printf '%s\n%s\n' "${'$'}DETECTED_KOTLIN" "${'$'}KOTLIN_VERSION" | sort -V | tail -1)
+                    SAMPLE_KOTLIN="${'$'}DETECTED_KOTLIN"
                 fi
                 [ "${'$'}SAMPLE_KOTLIN" != "${'$'}KOTLIN_VERSION" ] && \
-                    echo "  [patcher] Building ${'$'}project_name with its own Kotlin ${'$'}SAMPLE_KOTLIN (>= Ktor-build ${'$'}KOTLIN_VERSION)"
+                    echo "  [patcher] Building ${'$'}project_name with its own explicitly pinned Kotlin ${'$'}SAMPLE_KOTLIN (Ktor-build uses ${'$'}KOTLIN_VERSION)"
 
                 # Apply EAP versions
                 if [ -f "gradle.properties" ]; then
@@ -830,6 +830,43 @@ EOF
                                 else
                                     echo "⏭️  ${'$'}project_name: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
                                 fi
+                            fi
+                        fi
+                    fi
+
+                    if [ "${'$'}BUILD_SUCCESS" = false ] && [ "${'$'}SAMPLE_KOTLIN" != "${'$'}KOTLIN_VERSION" ] \
+                       && [ -f "${'$'}REPORTS_DIR/${'$'}project_name-build.log" ] \
+                       && grep -qiE "compiled with an incompatible version of (the )?Kotlin|incompatible version of the compiler|binary version of its metadata is|klib.*(incompatib|newer version)|module was compiled with an incompatible|incompatible class" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                        echo "  [patcher] ⚠️  Sample's pinned Kotlin ${'$'}SAMPLE_KOTLIN can't read Ktor artifacts built with ${'$'}KOTLIN_VERSION (klib/metadata incompatibility) — rebuilding on ${'$'}KOTLIN_VERSION"
+
+                        [ -f "gradle.properties" ] && \
+                            sed -i -E "s@^([[:space:]]*kotlin_version[[:space:]]*=).*@\1${'$'}KOTLIN_VERSION@" gradle.properties
+                        while IFS= read -r -d '' toml; do
+                            sed -i -E "s@^([[:space:]]*kotlin[[:space:]]*=[[:space:]]*[\"'])[^\"']+([\"'])@\1${'$'}KOTLIN_VERSION\2@g" "${'$'}toml"
+                        done < <(find . -name "libs.versions.toml" -type f -not -path "*/build/*" -not -path "*/.gradle/*" -print0)
+                        find . -name "*.yaml" -type f -exec sed -i "s/kotlin: .*/kotlin: ${'$'}KOTLIN_VERSION/g" {} +
+                        SAMPLE_KOTLIN="${'$'}KOTLIN_VERSION"
+
+                        find . -type d -name build -not -path "*/.gradle/*" -prune -exec rm -rf {} +
+                        FALLBACK_GRADLE_ARGS="${'$'}{GRADLE_ARGS/--build-cache/--rerun-tasks}"
+
+                        TEST_RUNNER=""
+                        if [ -f "gradlew" ]; then TEST_RUNNER="./gradlew"; elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then TEST_RUNNER="gradle"; fi
+
+                        if [ -n "${'$'}TEST_RUNNER" ] && run_gradle_with_429_retry "${'$'}TEST_RUNNER ${'$'}FALLBACK_GRADLE_ARGS"; then
+                            BUILD_SUCCESS=true
+                            echo "  [patcher] ✅ ${'$'}project_name: VALIDATION PASSED after rebuilding on Ktor-build's Kotlin ${'$'}KOTLIN_VERSION"
+                            if [ "${'$'}RUN_TESTS" = true ]; then
+                                if ${'$'}TEST_RUNNER tasks --all 2>/dev/null | grep -q "[:[:alnum:]]*test" ; then
+                                    echo "Build successful, now running tests: ${'$'}TEST_RUNNER test --no-daemon"
+                                    if ${'$'}TEST_RUNNER test --no-daemon >> "${'$'}REPORTS_DIR/${'$'}project_name-build.log" 2>&1; then
+                                        echo "✅ ${'$'}project_name: Tests passed"
+                                    else
+                                        echo "⚠️  ${'$'}project_name: Tests failed (but build passed)"
+                                    fi
+                                fi
+                            else
+                                echo "⏭️  ${'$'}project_name: assemble-only run — skipping tests (EAP_RUN_TESTS=false)"
                             fi
                         fi
                     fi

@@ -963,16 +963,16 @@ ${EapSampleRouting.routingBash.prependIndent("            ")}
                     continue
                 fi
 
-                # Use the sample's own Kotlin, but never below the Ktor-build Kotlin
+                # Use the sample's own explicitly pinned Kotlin exactly.
                 SAMPLE_KOTLIN="${'$'}KOTLIN_VERSION"
                 DETECTED_KOTLIN=$( {
                     grep -hoE '^[[:space:]]*kotlin[[:space:]]*=[[:space:]]*"[^"]+"' "${'$'}sample_dir/gradle/libs.versions.toml" 2>/dev/null | sed -E 's/.*"([^"]+)".*/\1/'
                     grep -hoE '^[[:space:]]*kotlin_version[[:space:]]*=[[:space:]]*[^[:space:]]+' "${'$'}sample_dir/gradle.properties" 2>/dev/null | sed -E 's/.*=[[:space:]]*//'
                 } | grep -E '^[0-9]' | sort -V | tail -1 )
                 if [ -n "${'$'}DETECTED_KOTLIN" ]; then
-                    SAMPLE_KOTLIN=$(printf '%s\n%s\n' "${'$'}DETECTED_KOTLIN" "${'$'}KOTLIN_VERSION" | sort -V | tail -1)
+                    SAMPLE_KOTLIN="${'$'}DETECTED_KOTLIN"
                     [ "${'$'}SAMPLE_KOTLIN" != "${'$'}KOTLIN_VERSION" ] && \
-                        echo "  [patcher] Building ${'$'}sample_dir with its own Kotlin ${'$'}SAMPLE_KOTLIN (>= Ktor-build ${'$'}KOTLIN_VERSION)"
+                        echo "  [patcher] Building ${'$'}sample_dir with its own explicitly pinned Kotlin ${'$'}SAMPLE_KOTLIN (Ktor-build uses ${'$'}KOTLIN_VERSION)"
                 fi
                 # Override the global kotlin_version 
                 KOTLIN_OVERRIDE="-Pkotlin_version=${'$'}SAMPLE_KOTLIN -Dkotlin_version=${'$'}SAMPLE_KOTLIN"
@@ -1017,7 +1017,24 @@ ${EapSampleRouting.routingBash.prependIndent("            ")}
                 if [ -f "${'$'}sample_dir/gradlew" ]; then
                     chmod +x "${'$'}sample_dir/gradlew"
                     echo "Running: cd ${'$'}sample_dir && ./gradlew assemble --init-script ${'$'}INIT_SCRIPT ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --build-cache --parallel --no-daemon"
+                    BUILD_SUCCESS=false
                     if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --build-cache --parallel --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                        BUILD_SUCCESS=true
+                    fi
+
+                    if [ "${'$'}BUILD_SUCCESS" = false ] && [ "${'$'}SAMPLE_KOTLIN" != "${'$'}KOTLIN_VERSION" ] \
+                       && grep -qiE "compiled with an incompatible version of (the )?Kotlin|incompatible version of the compiler|binary version of its metadata is|klib.*(incompatib|newer version)|module was compiled with an incompatible|incompatible class" "${'$'}REPORTS_DIR/${'$'}sample_dir.log"; then
+                        echo "  [patcher] ⚠️  Sample's pinned Kotlin ${'$'}SAMPLE_KOTLIN can't read Ktor artifacts built with ${'$'}KOTLIN_VERSION (klib/metadata incompatibility) — rebuilding on ${'$'}KOTLIN_VERSION"
+                        SAMPLE_KOTLIN="${'$'}KOTLIN_VERSION"
+                        KOTLIN_OVERRIDE="-Pkotlin_version=${'$'}SAMPLE_KOTLIN -Dkotlin_version=${'$'}SAMPLE_KOTLIN"
+                        find "${'$'}sample_dir" -type d -name build -not -path "*/.gradle/*" -prune -exec rm -rf {} +
+                        if (cd "${'$'}sample_dir" && ./gradlew assemble --init-script "${'$'}INIT_SCRIPT" ${'$'}SYSTEM_PROPS ${'$'}GRADLE_ARGS ${'$'}KOTLIN_OVERRIDE --rerun-tasks --parallel --no-daemon) > "${'$'}REPORTS_DIR/${'$'}sample_dir.log" 2>&1; then
+                            BUILD_SUCCESS=true
+                            echo "  [patcher] ✅ ${'$'}sample_dir: SUCCESS after rebuilding on Ktor-build's Kotlin ${'$'}KOTLIN_VERSION"
+                        fi
+                    fi
+
+                    if [ "${'$'}BUILD_SUCCESS" = true ]; then
                         echo "✅ ${'$'}sample_dir: SUCCESS (Build)"
                         SUCCESSFUL_COUNT=$((SUCCESSFUL_COUNT + 1))
                         echo "${'$'}sample_dir: PASSED (Gradle build)" >> "${'$'}REPORT_FILE"
@@ -1047,7 +1064,7 @@ ${EapSampleRouting.routingBash.prependIndent("            ")}
                         FAILED_COUNT=$((FAILED_COUNT + 1))
                         echo "${'$'}sample_dir: FAILED (Gradle build)" >> "${'$'}REPORT_FILE"
                         print_failure_excerpt "${'$'}REPORTS_DIR/${'$'}sample_dir.log" || true
-                        
+
                         # Package failed sample as a reproducer artifact (includes init script for EAP resolution)
                         echo "📦 Packaging ${'$'}sample_dir as reproducer artifact..."
                         mkdir -p "${'$'}WORK_DIR/failed-samples"
