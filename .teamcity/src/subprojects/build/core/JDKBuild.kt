@@ -26,6 +26,17 @@ class JDKBuild(
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
 
+    dependencies {
+        snapshot(JvmCompileBuild) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+            onDependencyFailure = FailureAction.FAIL_TO_START
+        }
+        artifacts(JvmCompileBuild) {
+            buildRule = sameChainOrLastFinished()
+            artifactRules = "jvm-build.zip!** => ."
+        }
+    }
+
     steps {
         if (osJdkEntry.os == OS.Windows) {
             defineTCPPortRange()
@@ -37,8 +48,8 @@ class JDKBuild(
         }
 
         gradle {
-            name = "Build and Run Tests"
-            tasks = "cleanJvmTest jvmTest"
+            name = "Run Tests"
+            tasks = "jvmTest"
             gradleParams = "--continue -Ptest.jdk=${osJdkEntry.jdkEntry.version} $GradleParams"
             jdkHome = Env.JDK_LTS
             enableStacktrace = true

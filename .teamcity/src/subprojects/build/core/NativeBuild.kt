@@ -43,24 +43,27 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
             installRust(entry.os)
         }
 
-        // Compile and link Windows test executables before running tests.
+        // Compile and link test executables before running tests.
         // Use separate JVMs to keep compilation-related GC pressure out of test execution.
-        if (entry.os == OS.Windows) {
-            gradle {
-                name = "Build tests"
-                tasks = "linkDebugTestMingwX64"
-                // KT-89880 KotlinNativeLink cache key changes after cold native installation with
-                // configuration cache enabled
-                gradleParams = "--info --continue --no-daemon --no-configuration-cache $GradleParams"
-                jdkHome = Env.JDK_LTS
-            }
+        gradle {
+            name = "Build tests"
+            tasks = entry.targetTask(prefix = "linkDebugTest")
+            // KT-89880 KotlinNativeLink cache key changes after cold native installation with
+            // configuration cache enabled
+            gradleParams = "--info --continue --no-daemon --no-configuration-cache $GradleParams"
+            jdkHome = Env.JDK_LTS
         }
 
-        val cleanTestTask = entry.targetTask(prefix = "clean", suffix = "Test")
-        val testTask = entry.targetTask(suffix = "Test")
         gradle {
-            name = "Build and Run Tests"
-            tasks = "$cleanTestTask $testTask"
+            name = "Build Tests"
+            tasks = entry.targetTask(suffix = "TestClasses")
+            gradleParams = "$GradleParams"
+            jdkHome = Env.JDK_LTS
+        }
+
+        gradle {
+            name = "Run Tests"
+            tasks = entry.targetTask(suffix = "Test")
             gradleParams = "--info --continue $GradleParams"
             jdkHome = Env.JDK_LTS
         }

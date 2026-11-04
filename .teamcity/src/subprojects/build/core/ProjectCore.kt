@@ -25,6 +25,7 @@ object ProjectCore : Project({
 
     val jpmsCheck = JPMSCheckBuild
     val apiCheck = APICheckBuild
+    val jvmCompileBuild = JvmCompileBuild
     val osJdkBuilds = osJdks.map(::JDKBuild)
     val nativeBuilds = NativeEntry.Default.map(::NativeBuild)
     val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
@@ -36,6 +37,7 @@ object ProjectCore : Project({
 
     allBuildsWithStress.forEach(::buildType)
 
+    buildType(jvmCompileBuild)
     buildType(SeedGradleDependencyCache)
     // Builds to be run manually on demand
     buildType(DependenciesCheckBuild())
