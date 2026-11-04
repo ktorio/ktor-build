@@ -26,6 +26,17 @@ class JDKBuild(
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
 
+    dependencies {
+        snapshot(JvmCompileBuild) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+            onDependencyFailure = FailureAction.FAIL_TO_START
+        }
+        artifacts(JvmCompileBuild) {
+            buildRule = sameChainOrLastFinished()
+            artifactRules = "jvm-build.zip!** => ."
+        }
+    }
+
     steps {
         if (osJdkEntry.os == OS.Windows) {
             defineTCPPortRange()
@@ -34,13 +45,6 @@ class JDKBuild(
         script {
             name = "Install pulseaudio for WebRTC tests"
             scriptFile("install_pulseaudio.sh")
-        }
-
-        gradle {
-            name = "Build Tests"
-            tasks = "jvmTestClasses"
-            gradleParams = "$GradleParams"
-            jdkHome = Env.JDK_LTS
         }
 
         gradle {
