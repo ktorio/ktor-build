@@ -56,11 +56,16 @@ class NativeBuild(private val entry: NativeEntry) : BuildType({
             }
         }
 
-        val cleanTestTask = entry.targetTask(prefix = "clean", suffix = "Test")
-        val testTask = entry.targetTask(suffix = "Test")
         gradle {
-            name = "Build and Run Tests"
-            tasks = "$cleanTestTask $testTask"
+            name = "Build Tests"
+            tasks = entry.targetTask(suffix = "TestClasses")
+            gradleParams = "$GradleParams"
+            jdkHome = Env.JDK_LTS
+        }
+
+        gradle {
+            name = "Run Tests"
+            tasks = entry.targetTask(suffix = "Test")
             gradleParams = "--info --continue $GradleParams"
             jdkHome = Env.JDK_LTS
         }

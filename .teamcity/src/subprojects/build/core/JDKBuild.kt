@@ -37,8 +37,15 @@ class JDKBuild(
         }
 
         gradle {
-            name = "Build and Run Tests"
-            tasks = "cleanJvmTest jvmTest"
+            name = "Build Tests"
+            tasks = "jvmTestClasses"
+            gradleParams = "$GradleParams"
+            jdkHome = Env.JDK_LTS
+        }
+
+        gradle {
+            name = "Run Tests"
+            tasks = "jvmTest"
             gradleParams = "--continue -Ptest.jdk=${osJdkEntry.jdkEntry.version} $GradleParams"
             jdkHome = Env.JDK_LTS
             enableStacktrace = true
