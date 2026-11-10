@@ -23,26 +23,21 @@ object ProjectCore : Project({
         }
     }
 
-    val jpmsCheck = JPMSCheckBuild
-    val apiCheck = APICheckBuild
-    val jvmCompileBuild = JvmCompileBuild
-    val osJdkBuilds = osJdks.map(::JDKBuild)
-    val nativeBuilds = NativeEntry.Default.map(::NativeBuild)
-    val javaScriptBuilds = javaScriptEngines.map(::JavaScriptBuild)
-    val wasmJsBuilds = javaScriptEngines.map(::WasmJsBuild)
+    val verificationBuilds = createCoreVerificationBuilds(Core)
     val stressTestBuilds = stressTests.map(::StressTestBuild)
 
-    val allBuilds = osJdkBuilds + nativeBuilds + javaScriptBuilds + apiCheck + jpmsCheck + wasmJsBuilds
-    val allBuildsWithStress = allBuilds + stressTestBuilds
+    (verificationBuilds.builds + stressTestBuilds).forEach(::buildType)
 
-    allBuildsWithStress.forEach(::buildType)
-
-    buildType(jvmCompileBuild)
+    buildType(verificationBuilds.jvmCompileBuild)
     buildType(SeedGradleDependencyCache)
     // Builds to be run manually on demand
     buildType(DependenciesCheckBuild())
     buildType(NativeBuild(NativeEntry.MacOSX64))
-    buildType(JDKBuild(OSJDKEntry(Agents.OS.Windows, JDKEntry.Java11)))
+    buildType(JDKBuild(
+        OSJDKEntry(Agents.OS.Windows, JDKEntry.Java11),
+        Core,
+        verificationBuilds.jvmCompileBuild,
+    ))
 
     buildType {
         allowExternalStatus = true
@@ -50,7 +45,7 @@ object ProjectCore : Project({
             buildId = "KtorCore_All",
             buildName = "Build All Core",
             vcsRoot = VCSCore,
-            builds = allBuilds,
+            builds = verificationBuilds.builds,
             withTrigger = TriggerType.VERIFICATION,
             additionalTriggers = {
                 // We want to detect flaky tests.
@@ -69,9 +64,53 @@ object ProjectCore : Project({
     buildType(CoreFlakyTestNotifier)
 })
 
+object ProjectCoreProtected : Project({
+    id("ProjectKtorCoreProtected")
+    name = "Core (Protected)"
+    description = "Ktor Core Framework protected verification"
+
+    params {
+        defaultGradleParams()
+    }
+
+    val verificationBuilds = createCoreVerificationBuilds(Protected)
+    verificationBuilds.builds.forEach(::buildType)
+    buildType(verificationBuilds.jvmCompileBuild)
+
+    buildType {
+        allowExternalStatus = true
+        createCompositeBuild(
+            buildId = "Protected_KtorCore_All",
+            buildName = "Build All Core (Protected)",
+            vcsRoot = VCSProtected,
+            builds = verificationBuilds.builds,
+            withTrigger = TriggerType.PULL_REQUESTS,
+        )
+    }
+})
+
+private data class CoreVerificationBuilds(
+    val jvmCompileBuild: JvmCompileBuild,
+    val builds: List<BuildType>,
+)
+
+private fun createCoreVerificationBuilds(repo: KtorRepository): CoreVerificationBuilds {
+    val jvmCompileBuild = JvmCompileBuild(repo)
+    val apiCheck = APICheckBuild(repo)
+    val jpmsCheck = JPMSCheckBuild(repo)
+    val osJdkBuilds = osJdks.map { JDKBuild(it, repo, jvmCompileBuild) }
+    val nativeBuilds = NativeEntry.Default.map { NativeBuild(it, repo) }
+    val javaScriptBuilds = javaScriptEngines.map { JavaScriptBuild(it, repo) }
+    val wasmJsBuilds = javaScriptEngines.map { WasmJsBuild(it, repo) }
+    val builds = osJdkBuilds + nativeBuilds + javaScriptBuilds + apiCheck + jpmsCheck + wasmJsBuilds
+
+    return CoreVerificationBuilds(jvmCompileBuild, builds)
+}
+
 enum class TriggerType {
     ALL_BRANCHES,
     VERIFICATION,
+    PULL_REQUESTS,
     NONE,
 }
 
@@ -97,6 +136,7 @@ fun BuildType.createCompositeBuild(
         when (withTrigger) {
             TriggerType.ALL_BRANCHES -> onChangeAllBranchesTrigger()
             TriggerType.VERIFICATION -> onChangeDefaultOrPullRequest()
+            TriggerType.PULL_REQUESTS -> onChangePullRequests()
             TriggerType.NONE -> {}
         }
         apply(additionalTriggers)

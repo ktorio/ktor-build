@@ -9,14 +9,16 @@ import subprojects.build.*
 
 class JDKBuild(
     private val osJdkEntry: OSJDKEntry,
+    private val repo: KtorRepository,
+    private val jvmCompileBuild: BuildType,
 ) : BuildType({
-    id("KtorMatrixCore_${osJdkEntry.id}".toId())
-    name = "${osJdkEntry.jdkEntry.name} on ${osJdkEntry.os.id}"
+    id(repo.id("KtorMatrixCore_${osJdkEntry.id}".toId()))
+    name = repo.name("${osJdkEntry.jdkEntry.name} on ${osJdkEntry.os.id}")
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
 
     params {
@@ -27,11 +29,11 @@ class JDKBuild(
     enableRustForRelevantChanges(osJdkEntry.os)
 
     dependencies {
-        snapshot(JvmCompileBuild) {
+        snapshot(jvmCompileBuild) {
             reuseBuilds = ReuseBuilds.SUCCESSFUL
             onDependencyFailure = FailureAction.FAIL_TO_START
         }
-        artifacts(JvmCompileBuild) {
+        artifacts(jvmCompileBuild) {
             buildRule = sameChainOrLastFinished()
             artifactRules = "jvm-build.zip!** => ."
         }

@@ -6,9 +6,12 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
-class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
-    id("KtorMatrixWasmJs_${jsEntry.name}".toId())
-    name = "WasmJS on ${jsEntry.name}"
+class WasmJsBuild(
+    private val jsEntry: JSEntry,
+    private val repo: KtorRepository = Core,
+) : BuildType({
+    id(repo.id("KtorMatrixWasmJs_${jsEntry.name}".toId()))
+    name = repo.name("WasmJS on ${jsEntry.name}")
     val artifactsToPublish = formatArtifacts(
         "+:**/build/**/*.jar",
         "+:**/build/**/yarn.lock",
@@ -16,7 +19,7 @@ class WasmJsBuild(private val jsEntry: JSEntry) : BuildType({
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
 
     params {

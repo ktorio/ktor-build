@@ -8,10 +8,10 @@ import subprojects.release.*
 
 const val releaseVersion = "%releaseVersion%"
 
-object PublishCustomTaskToMaven : BuildType({
-    createDeploymentBuild("KtorPublishCustomToMavenBuild", "Publish Custom to Maven", "", releaseVersion)
+class PublishCustomTaskToMavenBuild(private val repo: KtorRepository) : BuildType({
+    createMavenPublishBuild(repo, "KtorPublishCustomToMavenBuild", "Publish Custom to Maven")
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
     params {
         publishingParams()
@@ -43,10 +43,10 @@ object PublishCustomTaskToMaven : BuildType({
     }
 })
 
-object PublishJvmToMaven : BuildType({
-    createDeploymentBuild("KtorPublishJvmToMavenBuild", "Publish JVM to Maven", "", releaseVersion)
+class PublishJvmToMavenBuild(private val repo: KtorRepository) : BuildType({
+    createMavenPublishBuild(repo, "KtorPublishJvmToMavenBuild", "Publish JVM to Maven")
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
     params {
         publishingParams()
@@ -59,10 +59,10 @@ object PublishJvmToMaven : BuildType({
     }
 })
 
-object PublishJSToMaven : BuildType({
-    createDeploymentBuild("KtorPublishJSToMavenBuild", "Publish JS to Maven", "", releaseVersion)
+class PublishJSToMavenBuild(private val repo: KtorRepository) : BuildType({
+    createMavenPublishBuild(repo, "KtorPublishJSToMavenBuild", "Publish JS to Maven")
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
     params {
         publishingParams()
@@ -75,10 +75,10 @@ object PublishJSToMaven : BuildType({
     }
 })
 
-object PublishWindowsNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishWindowsNativeToMavenBuild", "Publish Windows Native to Maven", "", releaseVersion)
+class PublishWindowsNativeToMavenBuild(private val repo: KtorRepository) : BuildType({
+    createMavenPublishBuild(repo, "KtorPublishWindowsNativeToMavenBuild", "Publish Windows Native to Maven")
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
     params {
         publishingParams()
@@ -95,10 +95,10 @@ object PublishWindowsNativeToMaven : BuildType({
     }
 })
 
-object PublishLinuxNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishLinuxNativeToMavenBuild", "Publish Linux Native to Maven", "", releaseVersion)
+class PublishLinuxNativeToMavenBuild(private val repo: KtorRepository) : BuildType({
+    createMavenPublishBuild(repo, "KtorPublishLinuxNativeToMavenBuild", "Publish Linux Native to Maven")
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
     params {
         publishingParams()
@@ -111,10 +111,10 @@ object PublishLinuxNativeToMaven : BuildType({
     }
 })
 
-object PublishMacOSNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishMacOSNativeToMavenBuild", "Publish Mac Native to Maven", "", releaseVersion)
+class PublishMacOSNativeToMavenBuild(private val repo: KtorRepository) : BuildType({
+    createMavenPublishBuild(repo, "KtorPublishMacOSNativeToMavenBuild", "Publish Mac Native to Maven")
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
     params {
         publishingParams()
@@ -131,10 +131,10 @@ object PublishMacOSNativeToMaven : BuildType({
     }
 })
 
-object PublishAndroidNativeToMaven : BuildType({
-    createDeploymentBuild("KtorPublishAndroidNativeToMavenBuild", "Publish Android Native to Maven", "", releaseVersion)
+class PublishAndroidNativeToMavenBuild(private val repo: KtorRepository) : BuildType({
+    createMavenPublishBuild(repo, "KtorPublishAndroidNativeToMavenBuild", "Publish Android Native to Maven")
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
     params {
         publishingParams()
@@ -146,6 +146,26 @@ object PublishAndroidNativeToMaven : BuildType({
         agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
+
+val PublishCustomTaskToMaven = PublishCustomTaskToMavenBuild(Core)
+val PublishJvmToMaven = PublishJvmToMavenBuild(Core)
+val PublishJSToMaven = PublishJSToMavenBuild(Core)
+val PublishWindowsNativeToMaven = PublishWindowsNativeToMavenBuild(Core)
+val PublishLinuxNativeToMaven = PublishLinuxNativeToMavenBuild(Core)
+val PublishMacOSNativeToMaven = PublishMacOSNativeToMavenBuild(Core)
+val PublishAndroidNativeToMaven = PublishAndroidNativeToMavenBuild(Core)
+
+val ProtectedPublishCustomTaskToMaven = PublishCustomTaskToMavenBuild(Protected)
+val ProtectedPublishJvmToMaven = PublishJvmToMavenBuild(Protected)
+val ProtectedPublishJSToMaven = PublishJSToMavenBuild(Protected)
+val ProtectedPublishWindowsNativeToMaven = PublishWindowsNativeToMavenBuild(Protected)
+val ProtectedPublishLinuxNativeToMaven = PublishLinuxNativeToMavenBuild(Protected)
+val ProtectedPublishMacOSNativeToMaven = PublishMacOSNativeToMavenBuild(Protected)
+val ProtectedPublishAndroidNativeToMaven = PublishAndroidNativeToMavenBuild(Protected)
+
+private fun BuildType.createMavenPublishBuild(repo: KtorRepository, id: String, name: String) {
+    createDeploymentBuild(repo.id(id), repo.name(name), "", releaseVersion)
+}
 
 private fun ParametrizedWithType.publishingParams() {
     configureReleaseVersion()

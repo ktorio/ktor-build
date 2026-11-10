@@ -7,14 +7,17 @@ import subprojects.*
 import subprojects.Agents.OS
 import subprojects.build.*
 
-class NativeBuild(private val entry: NativeEntry) : BuildType({
-    id("KtorMatrixNative_${entry.id}".toId())
-    name = "${entry.name} ${entry.arch}"
+class NativeBuild(
+    private val entry: NativeEntry,
+    private val repo: KtorRepository = Core,
+) : BuildType({
+    id(repo.id("KtorMatrixNative_${entry.id}".toId()))
+    name = repo.name("${entry.name} ${entry.arch}")
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib")
     artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
 
     params {
