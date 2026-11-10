@@ -6,12 +6,12 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
-object JPMSCheckBuild: BuildType({
-    id("JPMSCheck".toId())
-    name = "Check JPMS"
+class JPMSCheckBuild(private val repo: KtorRepository) : BuildType({
+    id(repo.id("JPMSCheck".toId()))
+    name = repo.name("Check JPMS")
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
 
     cancelPreviousBuilds()

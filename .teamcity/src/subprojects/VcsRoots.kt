@@ -30,6 +30,26 @@ object VCSCore : TokenVcsRoot(VcsToken.KTOR, {
     branchSpec = AllBranches
 })
 
+object VCSProtected : TokenVcsRoot(VcsToken.KTOR, {
+    name = "Ktor Protected"
+    url = "https://github.com/ktorio/ktor-protected.git"
+    branchSpec = "$AllBranches\n+:refs/tags/*"
+    useTagsAsBranches = true
+})
+
+data class KtorRepository(
+    val vcsRoot: VcsRoot,
+    private val idPrefix: String,
+    private val namePrefix: String,
+) {
+    fun id(id: String): String = "$idPrefix$id"
+
+    fun name(name: String): String = "$namePrefix$name"
+}
+
+val Core = KtorRepository(VCSCore, "", "")
+val Protected = KtorRepository(VCSProtected, "Protected_", "Protected ")
+
 fun VcsSettings.coreEap() {
     root(VCSCore)
     branchFilter = """

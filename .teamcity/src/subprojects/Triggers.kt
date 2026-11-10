@@ -17,6 +17,7 @@ object BranchFilter {
     const val DefaultBranch = "+:<default>"
     const val ReleaseBranches = "+:release/*"
     const val PullRequest = "+:pull/*"
+    const val PullRequestOnly = PullRequest
     const val DefaultOrPullRequest = "$DefaultBranch\n$ReleaseBranches\n$PullRequest"
 }
 
@@ -29,6 +30,12 @@ fun Triggers.onChangeDefaultOrPullRequest() {
 fun Triggers.onChangeAllBranchesTrigger() {
     vcs {
         branchFilter = BranchFilter.AllBranches
+    }
+}
+
+fun Triggers.onChangePullRequests() {
+    vcs {
+        branchFilter = BranchFilter.PullRequestOnly
     }
 }
 

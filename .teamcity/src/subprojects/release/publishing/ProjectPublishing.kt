@@ -162,3 +162,43 @@ object ProjectPublishing : Project({
         }
     }
 })
+
+object ProjectPublishingProtected : Project({
+    id("ProjectKtorPublishingProtected")
+    name = "Publishing (Protected)"
+    description = "Publish protected Ktor artifacts to repositories"
+
+    val builds = listOf(
+        ProtectedPublishJvmToMaven,
+        ProtectedPublishJSToMaven,
+        ProtectedPublishWindowsNativeToMaven,
+        ProtectedPublishLinuxNativeToMaven,
+        ProtectedPublishMacOSNativeToMaven,
+        ProtectedPublishAndroidNativeToMaven,
+    )
+    builds.forEach(::buildType)
+    buildType(ProtectedPublishCustomTaskToMaven)
+
+    params {
+        configureReleaseVersion()
+    }
+
+    buildType {
+        createCompositeBuild(
+            buildId = "Protected_KtorPublish_All",
+            buildName = "Publish All (Protected)",
+            vcsRoot = VCSProtected,
+            builds = builds,
+            withTrigger = TriggerType.NONE,
+            buildNumber = releaseVersion,
+        )
+
+        params {
+            param("reverse.dep.*.releaseVersion", "%releaseVersion%")
+        }
+
+        failureConditions {
+            executionTimeoutMin = 8 * 60
+        }
+    }
+})

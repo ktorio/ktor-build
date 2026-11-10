@@ -6,13 +6,13 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
-object APICheckBuild : BuildType({
-    id("KtorMatrixCore_APICheck".toId())
-    name = "Check ABI"
+class APICheckBuild(private val repo: KtorRepository) : BuildType({
+    id(repo.id("KtorMatrixCore_APICheck".toId()))
+    name = repo.name("Check ABI")
     artifactRules = formatArtifacts(memoryReportArtifact)
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
 
     params {

@@ -6,12 +6,12 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
 
-object JvmCompileBuild : BuildType({
-    id("KtorMatrixCore_JvmCompile")
-    name = "Build JVM Test Classes"
+class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
+    id(repo.id("KtorMatrixCore_JvmCompile"))
+    name = repo.name("Build JVM Test Classes")
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
     }
 
     params {

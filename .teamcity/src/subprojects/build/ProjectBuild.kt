@@ -120,6 +120,7 @@ object ProjectBuild : Project({
     subProject(ProjectGenerator)
     subProject(ProjectSamples)
     subProject(ProjectCore)
+    subProject(ProjectCoreProtected)
     subProject(ProjectDocSamples)
     subProject(ProjectPlugin)
     subProject(ProjectLibcurlBuild)
