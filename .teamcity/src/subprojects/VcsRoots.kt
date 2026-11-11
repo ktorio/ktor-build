@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.vcs.*
 
 internal object VcsToken {
     const val KTOR = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:cc9c11b1-ed43-415e-b2f8-129a86f64a3b"
+    const val KTOR_PROTECTED = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:3ebc1fe9-411e-4fd6-81a2-6587919daaca"
     const val DOCS_AND_SAMPLES = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:b9145cff-b66c-4bf7-9911-501c38d00274"
     const val PROJECT_GENERATOR = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:20b5312f-608e-46d3-9c83-41e00a2006ec"
     const val BENCHMARKS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:6b3b0c69-150d-46dd-9cd9-14d05921e87a"
@@ -30,7 +31,7 @@ object VCSCore : TokenVcsRoot(VcsToken.KTOR, {
     branchSpec = AllBranches
 })
 
-object VCSProtected : TokenVcsRoot(VcsToken.KTOR, {
+object VCSProtected : TokenVcsRoot(VcsToken.KTOR_PROTECTED, {
     name = "Ktor Protected"
     url = "https://github.com/ktorio/ktor-protected.git"
     branchSpec = "$AllBranches\n+:refs/tags/*"
