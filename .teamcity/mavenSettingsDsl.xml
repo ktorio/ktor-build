@@ -1,0 +1,10 @@
+<settings>
+    <mirrors>
+        <mirror>
+            <id>jetbrains-central-mirror</id>
+            <name>JetBrains cache-redirector mirror of Maven Central</name>
+            <url>https://cache-redirector.jetbrains.com/repo1.maven.org/maven2</url>
+            <mirrorOf>central,DefaultMavenRepository</mirrorOf>
+        </mirror>
+    </mirrors>
+</settings>
