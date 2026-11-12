@@ -174,12 +174,8 @@ SHORT_REV="${LATEST_REVISION:0:12}"
 CHRONIC_TEST_COUNT=$(echo "$CONSOLIDATED" | jq -r '[.thisRun[] | select(.chronic)] | length')
 
 # @-mention the @ktor-incident-responders user group when its Slack id is configured.
-if [ -n "$SUBTEAM_ID" ] && ! echo "$SUBTEAM_ID" | grep -q '%.*%'; then
-  MENTION="<!subteam^$SUBTEAM_ID|@ktor-incident-responders>"
-else
-  echo "slack.ktor.team.subteam.id user group is not set." >&2
-  MENTION="@ktor-incident-responders"
-fi
+# Disabled for now
+MENTION=""
 
 # Link targets for the action buttons.
 BUILD_URL="$TC_SERVER_URL/viewLog.html?buildId=$TC_BUILD_ID"
@@ -235,8 +231,8 @@ PAYLOAD=$(printf '%s' "$CONSOLIDATED" | jq -n \
       blocks: (
         [ { type:"header", text:{ type:"plain_text", emoji:true,
               text:(if $thisRun > 0 then "⚠️ Flaky tests — Build All Core"
-                    else "⚠️ Quarantine needs a decision — Build All Core" end) } },
-          { type:"section", text:{ type:"mrkdwn", text:$mention } } ]
+                    else "⚠️ Quarantine needs a decision — Build All Core" end) } } ]
+        + (if $mention != "" then [ { type:"section", text:{ type:"mrkdwn", text:$mention } } ] else [] end)
         + (if $thisRun > 0
              then [ { type:"section", fields: (
                        [ { type:"mrkdwn", text:("*Revision*\n" + $revRef) },
