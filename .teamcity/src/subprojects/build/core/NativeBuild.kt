@@ -58,8 +58,8 @@ class NativeBuild(
         }
 
         gradle {
-            name = "Build Tests"
-            tasks = entry.targetTask(suffix = "TestClasses")
+            name = "Process Test Resources"
+            tasks = entry.targetTask(suffix = "TestProcessResources")
             gradleParams = "$GradleParams"
             jdkHome = Env.JDK_LTS
         }
