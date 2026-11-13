@@ -99,12 +99,12 @@ warn_if_truncated() {
   fi
 }
 
-# POST a fully-formed Slack payload  to the incoming webhook in SLACK_WEBHOOK_URL.
+# POST a fully-formed Slack payload  to the incoming webhook in FLAKY_SLACK_WEBHOOK_URL.
 post_slack_payload() {
   local payload=$1
-  local url="${SLACK_WEBHOOK_URL:-}"
+  local url="${FLAKY_SLACK_WEBHOOK_URL:-}"
   if [ -z "$url" ] || printf '%s' "$url" | grep -q '%.*%'; then
-    echo "SLACK_WEBHOOK_URL is not configured; skipping Slack notification." >&2
+    echo "FLAKY_SLACK_WEBHOOK_URL is not configured; skipping Slack notification." >&2
     return 0
   fi
   if curl --silent --show-error -X POST -H 'Content-type: application/json' \

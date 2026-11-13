@@ -41,7 +41,7 @@ object CoreFlakyTestNotifier : BuildType({
     """.trimIndent()
 
     params {
-        password("env.SLACK_WEBHOOK_URL", "%system.slack.webhook.url%")
+        password("env.FLAKY_SLACK_WEBHOOK_URL", "%system.slack.webhook.flaky.url%")
         password("env.TC_REST_TOKEN", "%system.teamcity.rest.token%")
         password("env.DV_ACCESS_KEY", "%system.develocity.access.key%")
         param("slack.ktor.team.subteam.id", "%system.slack.ktor.team.subteam.id%")
