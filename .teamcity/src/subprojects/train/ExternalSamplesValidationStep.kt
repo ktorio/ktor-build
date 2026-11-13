@@ -836,7 +836,7 @@ EOF
 
                     if [ "${'$'}BUILD_SUCCESS" = false ] && [ "${'$'}SAMPLE_KOTLIN" != "${'$'}KOTLIN_VERSION" ] \
                        && [ -f "${'$'}REPORTS_DIR/${'$'}project_name-build.log" ] \
-                       && grep -qiE "compiled with an incompatible version of (the )?Kotlin|incompatible version of the compiler|binary version of its metadata is|klib.*(incompatib|newer version)|module was compiled with an incompatible|incompatible class" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
+                       && grep -qiE "compiled with an incompatible version of (the )?Kotlin|incompatible version of the compiler|binary version of its metadata is|klib.*(incompatib|newer version)|module was compiled with an incompatible|incompatible class|exception in declaration checker|symbol for [a-z0-9_]+ not found|compiler terminated with internal error" "${'$'}REPORTS_DIR/${'$'}project_name-build.log"; then
                         echo "  [patcher] ⚠️  Sample's pinned Kotlin ${'$'}SAMPLE_KOTLIN can't read Ktor artifacts built with ${'$'}KOTLIN_VERSION (klib/metadata incompatibility) — rebuilding on ${'$'}KOTLIN_VERSION"
 
                         [ -f "gradle.properties" ] && \
