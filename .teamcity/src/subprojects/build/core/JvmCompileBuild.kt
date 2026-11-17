@@ -32,7 +32,7 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
 
     artifactRules = formatArtifacts(
         "+:**/build/** => jvm-build.zip",
-        "+:.gradle/** => jvm-build.zip",
+        "+:.gradle/** => jvm-build.zip!/.gradle",
         "-:**/caches/**",
         "-:**/*.lock",
         "-:**/reports/**",
