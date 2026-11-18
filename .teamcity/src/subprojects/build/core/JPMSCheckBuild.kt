@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 class JPMSCheckBuild(private val repo: KtorRepository) : BuildType({
     id(repo.id("JPMSCheck".toId()))
@@ -15,6 +16,8 @@ class JPMSCheckBuild(private val repo: KtorRepository) : BuildType({
     }
 
     cancelPreviousBuilds()
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+
     steps {
         gradle {
             name = "Check JPMS build"

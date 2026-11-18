@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 class WasmJsBuild(
     private val jsEntry: JSEntry,
@@ -27,6 +28,8 @@ class WasmJsBuild(
     }
 
     cancelPreviousBuilds()
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+
     steps {
         gradle {
             name = "Build Wasm Js"

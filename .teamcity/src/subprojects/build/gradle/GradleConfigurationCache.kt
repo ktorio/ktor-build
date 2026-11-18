@@ -5,10 +5,12 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 
 
 /**
- * A configuration cache entry is valid only together with outputs of included builds it was stored with.
+ * Paths restored by the configuration cache.
+ * An entry is valid only together with outputs of included builds it was stored with,
+ * so builds should exclude these paths from artifacts they unpack into the checkout.
  * Wildcards are not supported in build cache rules.
  */
-private val configurationCacheRules = listOf(
+internal val configurationCacheRules = listOf(
     ".gradle/configuration-cache",
     "build-logic/build",
     "build-settings-logic/build",

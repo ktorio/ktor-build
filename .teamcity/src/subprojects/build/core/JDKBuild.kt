@@ -28,8 +28,7 @@ class JDKBuild(
 
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
-    // TODO: Enable the configuration cache when included builds are excluded from artifacts of JvmCompileBuild
-    useGradleEnvironment(osJdkEntry.os, GradleUserHome.Light, configurationCache = false)
+    useGradleEnvironment(osJdkEntry.os, GradleUserHome.Light)
 
     dependencies {
         snapshot(jvmCompileBuild) {
@@ -38,7 +37,11 @@ class JDKBuild(
         }
         artifacts(jvmCompileBuild) {
             buildRule = sameChainOrLastFinished()
-            artifactRules = "jvm-build.zip!** => ."
+            artifactRules = formatArtifacts(
+                "+:jvm-build.zip!** => .",
+                // Restored by the configuration cache together with its entries
+                *configurationCacheRules.map { "-:jvm-build.zip!$it/**" }.toTypedArray(),
+            )
         }
     }
 

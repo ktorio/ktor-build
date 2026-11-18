@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 class JavaScriptBuild(
     private val jsEntry: JSEntry,
@@ -27,6 +28,8 @@ class JavaScriptBuild(
     }
 
     cancelPreviousBuilds()
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+
     steps {
         gradle {
             name = "Build Js"
@@ -47,4 +50,6 @@ internal fun GradleBuildStep.setupDockerForJavaScriptTests(jsEntry: JSEntry) {
     dockerImagePlatform = GradleBuildStep.ImagePlatform.Linux
     dockerPull = true
     dockerImage = jsEntry.dockerContainer
+    dockerRunParameters = "-v %env.GRADLE_USER_HOME%:%env.GRADLE_USER_HOME%"
+    gradleParams = "$gradleParams -g %env.GRADLE_USER_HOME%"
 }
