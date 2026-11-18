@@ -13,7 +13,7 @@ private const val DEFAULT_BRANCH = "main"
  * Wildcards are not supported in build cache rules.
  */
 private val configurationCacheRules = listOf(
-    ".gradle",
+    ".gradle/configuration-cache",
     "build-logic/.gradle",
     "build-logic/build",
     "build-settings-logic/.gradle",
