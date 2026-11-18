@@ -175,6 +175,12 @@ private const val disableCacheCleanupFile = "disable-cache-cleanup.init.gradle.k
  */
 private const val disableCacheCleanupScript = "beforeSettings { caches { cleanup = Cleanup.DISABLED } }"
 
+/**
+ * Points Gradle to the JDKs installed on agents, so it doesn't download its own.
+ * On Windows agents, Gradle doesn't detect them by itself.
+ */
+private const val javaInstallationsProperty = "org.gradle.java.installations.fromEnv=JDK_1_8,JDK_11_0,JDK_17_0,JDK_21_0"
+
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */
 private sealed interface EnvironmentPlatform {
     /** Parameters required for Gradle steps of the environment build. */
@@ -265,6 +271,7 @@ private object UnixPlatform : EnvironmentPlatform {
                 rm -rf "${'$'}GRADLE_USER_HOME"
                 mkdir -p "${'$'}GRADLE_USER_HOME/init.d"
                 echo '$disableCacheCleanupScript' > "${'$'}GRADLE_USER_HOME/init.d/$disableCacheCleanupFile"
+                echo '$javaInstallationsProperty' > "${'$'}GRADLE_USER_HOME/gradle.properties"
                 """
             )
         }
@@ -316,6 +323,7 @@ private object WindowsPlatform : EnvironmentPlatform {
                     if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force -ErrorAction Stop ${'$'}env:GRADLE_USER_HOME }
                     New-Item -ItemType Directory -Force "${'$'}env:GRADLE_USER_HOME\init.d" | Out-Null
                     Set-Content -Path "${'$'}env:GRADLE_USER_HOME\init.d\$disableCacheCleanupFile" -Value '$disableCacheCleanupScript'
+                    Set-Content -Path "${'$'}env:GRADLE_USER_HOME\gradle.properties" -Value '$javaInstallationsProperty'
                     """
                 )
             }
