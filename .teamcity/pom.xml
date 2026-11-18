@@ -12,6 +12,10 @@
     <version>1.0-SNAPSHOT</version>
   </parent>
 
+  <properties>
+    <teamcity.dsl.version>2026.1</teamcity.dsl.version>
+  </properties>
+
   <repositories>
     <repository>
       <id>central</id>
@@ -61,6 +65,12 @@
   <build>
     <sourceDirectory>${project.basedir}/src</sourceDirectory>
     <testSourceDirectory>${project.basedir}/test</testSourceDirectory>
+    <resources>
+      <resource>
+        <directory>${project.basedir}/scripts</directory>
+        <targetPath>scripts</targetPath>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <artifactId>kotlin-maven-plugin</artifactId>
@@ -99,6 +109,7 @@
         <version>2.12.4</version>
         <configuration>
           <useSystemClassLoader>false</useSystemClassLoader>
+          <workingDirectory>${project.build.directory}</workingDirectory>
         </configuration>
         <executions>
           <execution>

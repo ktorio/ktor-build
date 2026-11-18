@@ -72,7 +72,7 @@ object ProjectCoreProtected : Project({
         defaultGradleParams()
     }
 
-    val verificationBuilds = createCoreVerificationBuilds(Protected)
+    val verificationBuilds = createCoreVerificationBuilds(Protected, gradleEnvironmentRepo = Core)
     verificationBuilds.builds.forEach(::buildType)
     buildType(verificationBuilds.jvmCompileBuild)
 
@@ -88,16 +88,19 @@ object ProjectCoreProtected : Project({
     }
 })
 
-private data class CoreVerificationBuilds(
+data class CoreVerificationBuilds(
     val jvmCompileBuild: JvmCompileBuild,
     val builds: List<BuildType>,
 )
 
-private fun createCoreVerificationBuilds(repo: KtorRepository): CoreVerificationBuilds {
-    val jvmCompileBuild = JvmCompileBuild(repo)
+fun createCoreVerificationBuilds(
+    repo: KtorRepository,
+    gradleEnvironmentRepo: KtorRepository = repo,
+): CoreVerificationBuilds {
+    val jvmCompileBuild = JvmCompileBuild(repo, gradleEnvironmentRepo)
     val apiCheck = APICheckBuild(repo)
     val jpmsCheck = JPMSCheckBuild(repo)
-    val osJdkBuilds = osJdks.map { JDKBuild(it, repo, jvmCompileBuild) }
+    val osJdkBuilds = osJdks.map { JDKBuild(it, repo, jvmCompileBuild, gradleEnvironmentRepo) }
     val nativeBuilds = NativeEntry.Default.map { NativeBuild(it, repo) }
     val javaScriptBuilds = javaScriptEngines.map { JavaScriptBuild(it, repo) }
     val wasmJsBuilds = javaScriptEngines.map { WasmJsBuild(it, repo) }

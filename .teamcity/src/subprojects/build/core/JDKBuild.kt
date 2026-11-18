@@ -12,6 +12,7 @@ class JDKBuild(
     private val osJdkEntry: OSJDKEntry,
     private val repo: KtorRepository,
     private val jvmCompileBuild: BuildType,
+    gradleEnvironmentRepo: KtorRepository = repo,
 ) : BuildType({
     id(repo.id("KtorMatrixCore_${osJdkEntry.id}".toId()))
     name = repo.name("${osJdkEntry.jdkEntry.name} on ${osJdkEntry.os.id}")
@@ -29,7 +30,7 @@ class JDKBuild(
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
     // TODO: Enable the configuration cache when included builds are excluded from artifacts of JvmCompileBuild
-    useGradleEnvironment(osJdkEntry.os, GradleUserHome.Light, configurationCache = false)
+    useGradleEnvironment(osJdkEntry.os, GradleUserHome.Light, configurationCache = false, repo = gradleEnvironmentRepo)
 
     dependencies {
         snapshot(jvmCompileBuild) {

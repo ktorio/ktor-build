@@ -32,12 +32,13 @@ class GradleEnvironment(
     val os: Agents.OS,
     arch: Agents.Arch,
     val versions: Set<GradleUserHome>,
+    repo: KtorRepository = Core,
 ) : BuildType({
-    id("GradleEnvironment_${os.id}")
-    name = "Gradle Environment (${os.id})"
+    id(repo.id("GradleEnvironment_${os.id}"))
+    name = repo.name("Gradle Environment (${os.id})")
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
         checkoutMode = CheckoutMode.ON_AGENT
         cleanCheckout = true
     }
@@ -95,13 +96,13 @@ class GradleEnvironment(
             branchFilter = BranchFilter.DefaultBranch
             // Changes in settings and included builds invalidate the instrumented build logic classpath cached in the user home
             triggerRules = """
-                +:root=${VCSCore.id}:gradle/libs.versions.toml
-                +:root=${VCSCore.id}:gradle/wrapper/gradle-wrapper.properties
-                +:root=${VCSCore.id}:gradle/gradle-daemon-jvm.properties
-                +:root=${VCSCore.id}:settings.gradle.kts
-                +:root=${VCSCore.id}:build-logic/**
-                +:root=${VCSCore.id}:build-settings-logic/**
-                +:root=${VCSCore.id}:ktor-test-server/**
+                +:root=${repo.vcsRoot.id}:gradle/libs.versions.toml
+                +:root=${repo.vcsRoot.id}:gradle/wrapper/gradle-wrapper.properties
+                +:root=${repo.vcsRoot.id}:gradle/gradle-daemon-jvm.properties
+                +:root=${repo.vcsRoot.id}:settings.gradle.kts
+                +:root=${repo.vcsRoot.id}:build-logic/**
+                +:root=${repo.vcsRoot.id}:build-settings-logic/**
+                +:root=${repo.vcsRoot.id}:ktor-test-server/**
             """.trimIndent()
 
             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_CUSTOM
@@ -147,8 +148,14 @@ val gradleEnvironments = listOf(
  *
  * @param configurationCache Whether to keep the Gradle configuration cache between builds.
  *   It can be reused only when the Gradle user home is the same, so it is available only with the environment.
+ *   If enabled, the function should be called after Gradle steps are declared.
  */
-fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome, configurationCache: Boolean = true) {
+fun BuildType.useGradleEnvironment(
+    os: Agents.OS,
+    version: GradleUserHome,
+    configurationCache: Boolean = true,
+    repo: KtorRepository = Core,
+) {
     val environment = gradleEnvironments.find { it.os == os } ?: return
     require(version in environment.versions) { "${environment.name} doesn't publish $version Gradle user home" }
 
@@ -157,7 +164,7 @@ fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome, confi
     }
 
     dependencies {
-        artifacts(environment) {
+        artifacts(DslContext.createId(repo.id("GradleEnvironment_${os.id}"))) {
             buildRule = lastSuccessful()
             artifactRules = "?:${version.artifact}!** => $userHome"
         }

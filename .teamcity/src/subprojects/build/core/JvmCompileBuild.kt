@@ -7,7 +7,10 @@ import subprojects.*
 import subprojects.build.*
 import subprojects.build.gradle.*
 
-class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
+class JvmCompileBuild(
+    private val repo: KtorRepository,
+    gradleEnvironmentRepo: KtorRepository = repo,
+) : BuildType({
     id(repo.id("KtorMatrixCore_JvmCompile"))
     name = repo.name("Build JVM Test Classes")
 
@@ -21,7 +24,6 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
 
     cancelPreviousBuilds()
     enableRustForRelevantChanges(Agents.OS.Linux)
-    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
 
     steps {
         gradle {
@@ -31,6 +33,8 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
             jdkHome = Env.JDK_LTS
         }
     }
+
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light, repo = gradleEnvironmentRepo)
 
     artifactRules = formatArtifacts(
         "+:**/build/** => jvm-build.zip",
