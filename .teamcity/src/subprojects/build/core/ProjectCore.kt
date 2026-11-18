@@ -29,7 +29,6 @@ object ProjectCore : Project({
     (verificationBuilds.builds + stressTestBuilds).forEach(::buildType)
 
     buildType(verificationBuilds.jvmCompileBuild)
-    buildType(SeedGradleDependencyCache)
     // Builds to be run manually on demand
     buildType(DependenciesCheckBuild())
     buildType(NativeBuild(NativeEntry.MacOSX64))

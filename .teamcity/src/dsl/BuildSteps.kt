@@ -1,11 +1,11 @@
 package dsl
 
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.notifications
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import org.intellij.lang.annotations.*
 import subprojects.*
-import java.util.Base64
+import java.util.*
 import kotlin.io.path.*
 
 fun BuildType.cancelPreviousBuilds(default: Boolean = true) {
@@ -109,7 +109,7 @@ private val FLAKY_HELPER_SCRIPTS = listOf(
 
 private val bashPreamble = """
     #!/bin/bash
-    set -e
+    set -eo pipefail
 """.trimIndent()
 
 internal fun bashScript(@Language("bash") content: String): String = "$bashPreamble\n${content.trimIndent()}"

@@ -9,6 +9,7 @@ import subprojects.Agents.OS
 import subprojects.build.core.*
 import subprojects.build.docsamples.*
 import subprojects.build.generator.*
+import subprojects.build.gradle.*
 import subprojects.build.libcurl.*
 import subprojects.build.plugin.*
 import subprojects.build.samples.*
@@ -119,6 +120,7 @@ object ProjectBuild : Project({
 
     subProject(ProjectGenerator)
     subProject(ProjectSamples)
+    subProject(ProjectGradleEnvironment)
     subProject(ProjectCore)
     subProject(ProjectCoreProtected)
     subProject(ProjectDocSamples)

@@ -6,6 +6,7 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.Agents.OS
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 class JDKBuild(
     private val osJdkEntry: OSJDKEntry,
@@ -27,6 +28,7 @@ class JDKBuild(
 
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
+    useGradleEnvironment(osJdkEntry.os)
 
     dependencies {
         snapshot(jvmCompileBuild) {

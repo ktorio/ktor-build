@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
     id(repo.id("KtorMatrixCore_JvmCompile"))
@@ -20,6 +21,7 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
 
     cancelPreviousBuilds()
     enableRustForRelevantChanges(Agents.OS.Linux)
+    useGradleEnvironment(Agents.OS.Linux)
 
     steps {
         gradle {
