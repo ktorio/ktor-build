@@ -49,18 +49,6 @@ class GradleEnvironment(
     }
 
     steps {
-        // zstd is needed to pack the user home, and macOS agents don't have it installed
-        if (os == Agents.OS.MacOS) {
-            script {
-                name = "Install zstd"
-                scriptContent = bashScript(
-                    """
-                    command -v zstd > /dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install zstd
-                    """
-                )
-            }
-        }
-
         script {
             name = "Clean Gradle user home"
             scriptContent = bashScript(

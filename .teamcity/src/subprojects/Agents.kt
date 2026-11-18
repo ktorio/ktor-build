@@ -60,6 +60,8 @@ fun Requirements.agent(
 ) {
     if (os != null) equals("teamcity.agent.os.family", os.name)
     if (osArch != null) equals("teamcity.agent.cpuArchitecture", osArch.agentArch)
+    // Arm64 macOS agents are available with several macOS versions, use the latest one
+    if (os == Agents.OS.MacOS && osArch == Agents.Arch.Arm64) equals("teamcity.agent.os.name", "macOS-26-Tahoe")
 
     // It is better to use memory constraint to select agent as it unlocks the possibility to use more powerful agents
     val memorySizeMb = when (hardwareCapacity) {
