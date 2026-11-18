@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 import subprojects.release.publishing.*
 
 private const val MAVEN_LOCAL_PATH = "%system.teamcity.build.checkoutDir%/ktor-repository"
@@ -125,6 +126,8 @@ private object BuildKtorForAllocationBenchmarks : BuildType({
     }
 
     artifactRules = "+:ktor-repository => ktor-repository.zip"
+
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
 
     steps {
         script {
