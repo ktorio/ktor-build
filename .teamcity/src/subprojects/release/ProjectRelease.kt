@@ -27,16 +27,24 @@ object ProjectRelease : Project({
 })
 
 fun ParametrizedWithType.publishingCredentials() {
+    signingCredentials()
+    mavenCentralCredentials()
+}
+
+fun ParametrizedWithType.signingCredentials() {
     param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
 
     // Inherited from parent project. The reason for this is that security tokens seem to mess up with multiline values
     // So we set this in the parent project and read from there. That way, we don't need to make our project editable.
     password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
     password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
-    password("env.ORG_GRADLE_PROJECT_mavenCentralUsername", value = "%centralPortal.username%")
-    password("env.ORG_GRADLE_PROJECT_mavenCentralPassword", value = "%centralPortal.password%")
     param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
     param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
+}
+
+fun ParametrizedWithType.mavenCentralCredentials() {
+    password("env.ORG_GRADLE_PROJECT_mavenCentralUsername", value = "%centralPortal.username%")
+    password("env.ORG_GRADLE_PROJECT_mavenCentralPassword", value = "%centralPortal.password%")
 }
 
 fun ParametrizedWithType.configureReleaseVersion() {

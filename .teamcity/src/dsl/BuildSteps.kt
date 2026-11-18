@@ -80,7 +80,17 @@ internal fun PowerShellStep.scriptFile(fileName: String) {
     }
 }
 
-private fun scriptContent(fileName: String) = Path("scripts/$fileName").readText()
+private object ScriptResources
+
+private fun scriptContent(fileName: String): String {
+    val path = Path("scripts/$fileName")
+    if (path.exists()) return path.readText()
+
+    val resource = requireNotNull(ScriptResources::class.java.getResourceAsStream("/scripts/$fileName")) {
+        "Script $fileName is missing from scripts/ and the classpath."
+    }
+    return resource.bufferedReader(Charsets.UTF_8).use { it.readText() }
+}
 
 internal fun ScriptBuildStep.flakyNotifierScript() {
     val preamble = buildString {
