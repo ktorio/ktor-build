@@ -28,7 +28,8 @@ class JDKBuild(
 
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
-    useGradleEnvironment(osJdkEntry.os, GradleUserHome.Light)
+    // TODO: Enable the configuration cache when included builds are excluded from artifacts of JvmCompileBuild
+    useGradleEnvironment(osJdkEntry.os, GradleUserHome.Light, configurationCache = false)
 
     dependencies {
         snapshot(jvmCompileBuild) {

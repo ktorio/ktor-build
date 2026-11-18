@@ -144,8 +144,11 @@ val gradleEnvironments = listOf(
 /**
  * Uses the Gradle user home published by [GradleEnvironment] for the given [os].
  * The build continues with an empty Gradle user home if the environment is not available.
+ *
+ * @param configurationCache Whether to keep the Gradle configuration cache between builds.
+ *   It can be reused only when the Gradle user home is the same, so it is available only with the environment.
  */
-fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome) {
+fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome, configurationCache: Boolean = true) {
     val environment = gradleEnvironments.find { it.os == os } ?: return
     require(version in environment.versions) { "${environment.name} doesn't publish $version Gradle user home" }
 
@@ -159,6 +162,8 @@ fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome) {
             artifactRules = "?:${version.artifact}!** => $userHome"
         }
     }
+
+    if (configurationCache) gradleConfigurationCache()
 }
 
 private fun ParametrizedWithType.setupGradleParams() {

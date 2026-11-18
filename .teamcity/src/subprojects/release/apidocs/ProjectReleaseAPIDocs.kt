@@ -33,7 +33,8 @@ object ProjectReleaseAPIDocs : Project({
             param("versionsDirectory", "%teamcity.build.checkoutDir%/versions")
         }
 
-        useGradleEnvironment(Agents.OS.MacOS, GradleUserHome.Full)
+        // The build runs Gradle with --no-configuration-cache
+        useGradleEnvironment(Agents.OS.MacOS, GradleUserHome.Full, configurationCache = false)
 
         steps {
             script {

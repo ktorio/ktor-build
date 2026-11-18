@@ -127,7 +127,8 @@ private object BuildKtorForAllocationBenchmarks : BuildType({
 
     artifactRules = "+:ktor-repository => ktor-repository.zip"
 
-    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+    // The configuration cache can't be reused as the version passed to Gradle is unique for each build
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light, configurationCache = false)
 
     steps {
         script {
