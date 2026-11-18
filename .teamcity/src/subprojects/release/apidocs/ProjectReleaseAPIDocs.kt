@@ -33,7 +33,7 @@ object ProjectReleaseAPIDocs : Project({
             param("versionsDirectory", "%teamcity.build.checkoutDir%/versions")
         }
 
-        useGradleEnvironment(Agents.OS.MacOS)
+        useGradleEnvironment(Agents.OS.MacOS, GradleUserHome.Full)
 
         steps {
             script {

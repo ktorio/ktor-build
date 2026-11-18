@@ -21,7 +21,7 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
 
     cancelPreviousBuilds()
     enableRustForRelevantChanges(Agents.OS.Linux)
-    useGradleEnvironment(Agents.OS.Linux)
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
 
     steps {
         gradle {
