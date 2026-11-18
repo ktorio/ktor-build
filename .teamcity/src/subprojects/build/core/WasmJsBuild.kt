@@ -27,7 +27,7 @@ class WasmJsBuild(
         extraGradleParams()
     }
 
-    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light, repo = repo)
     cancelPreviousBuilds()
 
     runInContainer(jsEntry)

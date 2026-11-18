@@ -23,18 +23,22 @@ private const val DEFAULT_BRANCH = "main"
  * Publishes a warmed-up Gradle user home, so builds on fresh agents don't start with an empty one.
  * Only [versions] used by builds on the given [os] should be published.
  *
+ * Build steps fetch [preparedBranches] of [repo] without the credentials of its VCS root,
+ * so agents need their own Git credentials for a private repository.
+ *
  * @see [useGradleEnvironment].
  */
 class GradleEnvironment(
     val os: Agents.OS,
     val arch: Agents.Arch,
     val versions: Set<GradleUserHome>,
+    repo: KtorRepository,
 ) : BuildType({
-    id("GradleEnvironment_${os.id}")
-    name = "Gradle Environment (${os.id})"
+    id(repo.id("GradleEnvironment_${os.id}"))
+    name = repo.name("Gradle Environment (${os.id})")
 
     vcs {
-        root(VCSCore)
+        root(repo.vcsRoot)
         checkoutMode = CheckoutMode.MANUAL
         cleanCheckout = true
     }
@@ -54,13 +58,13 @@ class GradleEnvironment(
         with(platform) {
             resetGradleUserHome()
 
-            prepareGradleUserHome(GradleUserHome.Light, versions) { branch ->
+            prepareGradleUserHome(repo, GradleUserHome.Light, versions) { branch ->
                 resolveDependenciesWithoutNativeTargets()
                 environmentGradle(name = "Configure all targets ($branch)", tasks = "jvmTest", params = "--dry-run")
             }
 
             // Prepared on top of the Light user home
-            prepareGradleUserHome(GradleUserHome.Full, versions) {
+            prepareGradleUserHome(repo, GradleUserHome.Full, versions) {
                 resolveDependenciesAndInstallKotlinNative()
             }
         }
@@ -91,15 +95,15 @@ class GradleEnvironment(
  */
 internal val preparedBranches = listOf(DEFAULT_BRANCH, "release/3.x")
 
-val gradleEnvironments = listOf(
-    GradleEnvironment(Agents.OS.Linux, Agents.Arch.X64, setOf(GradleUserHome.Light, GradleUserHome.Full)),
-    GradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64, setOf(GradleUserHome.Full)),
-    GradleEnvironment(Agents.OS.Windows, Agents.Arch.X64, setOf(GradleUserHome.Full)),
+internal fun createGradleEnvironments(repo: KtorRepository) = listOf(
+    GradleEnvironment(Agents.OS.Linux, Agents.Arch.X64, setOf(GradleUserHome.Light, GradleUserHome.Full), repo),
+    GradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64, setOf(GradleUserHome.Full), repo),
+    GradleEnvironment(Agents.OS.Windows, Agents.Arch.X64, setOf(GradleUserHome.Full), repo),
 )
 
 /**
  * Runs the build on an agent with the given [os], [arch] and [hardwareCapacity],
- * using the Gradle user home published by [GradleEnvironment] for it.
+ * using the Gradle user home published by [GradleEnvironment] of the [repo] for it.
  * The build continues with an empty Gradle user home if no environment publishes this [version] for the agent.
  *
  * @param configurationCache Whether to keep the Gradle configuration cache between builds.
@@ -113,9 +117,10 @@ fun BuildType.useGradleEnvironment(
     deriveJvmArgs: Boolean = true,
     arch: Agents.Arch = Agents.Arch.X64,
     hardwareCapacity: String = Agents.MEDIUM,
+    repo: KtorRepository = Core,
 ) {
     check(steps.items.isEmpty()) { "useGradleEnvironment must be called before adding build steps" }
-    val environment = gradleEnvironments.find { it.os == os && it.arch == arch && version in it.versions }
+    val environment = repo.gradleEnvironments.find { it.os == os && it.arch == arch && version in it.versions }
 
     requirements {
         agent(os, arch, hardwareCapacity)
@@ -150,8 +155,9 @@ fun BuildType.useGradleEnvironment(
     configurationCache: Boolean = true,
     deriveJvmArgs: Boolean = true,
     hardwareCapacity: String = Agents.MEDIUM,
+    repo: KtorRepository = Core,
 ) {
-    useGradleEnvironment(agent.os, version, configurationCache, deriveJvmArgs, agent.arch, hardwareCapacity)
+    useGradleEnvironment(agent.os, version, configurationCache, deriveJvmArgs, agent.arch, hardwareCapacity, repo)
 }
 
 private fun ParametrizedWithType.setupGradleParams() {
@@ -167,7 +173,7 @@ private fun ParametrizedWithType.setupGradleParams() {
  * They are stored with the `.txt` extension, as the TeamCity DSL compiles all `.kts` files in the project.
  * The `%` symbol is escaped, as TeamCity would otherwise take it for a parameter reference.
  */
-private val initScripts: Map<String, String> = Path("gradle.init.d").listDirectoryEntries("*.txt").sorted()
+private val initScripts: Map<String, String> = dslFile("gradle.init.d").listDirectoryEntries("*.txt").sorted()
     .associate { file -> file.name.removeSuffix(".txt") to readFileForStep(file) }
 
 /** Files written into the user home when it is reset, by path relative to it. */
@@ -184,15 +190,16 @@ private const val javaInstallationsProperty = "org.gradle.java.installations.fro
 private sealed interface EnvironmentPlatform {
     /** Starts with an empty user home with [userHomeFiles]. */
     fun BuildSteps.resetGradleUserHome()
-    fun BuildSteps.checkOutBranch(branch: String)
+    fun BuildSteps.checkOutBranch(repo: KtorRepository, branch: String)
     fun BuildSteps.removeKotlinNativeBundle()
 
     /** Packs the user home after [version] is prepared, so later steps don't change the archive. */
     fun BuildSteps.packGradleUserHome(version: GradleUserHome)
     fun artifactRules(versions: Set<GradleUserHome>): String
 
-    /** Runs [prepare] for each of [preparedBranches] checked out, then packs the [version] of the user home, if it is in [versions]. */
+    /** Runs [prepare] for each of [preparedBranches] of [repo] checked out, then packs the [version] of the user home, if it is in [versions]. */
     fun BuildSteps.prepareGradleUserHome(
+        repo: KtorRepository,
         version: GradleUserHome,
         versions: Set<GradleUserHome>,
         prepare: BuildSteps.(branch: String) -> Unit,
@@ -200,7 +207,7 @@ private sealed interface EnvironmentPlatform {
         if (version !in versions) return
 
         for (branch in preparedBranches) {
-            checkOutBranch(branch)
+            checkOutBranch(repo, branch)
             prepare(branch)
         }
 
@@ -279,13 +286,13 @@ private object UnixPlatform : EnvironmentPlatform {
         }
     }
 
-    override fun BuildSteps.checkOutBranch(branch: String) {
+    override fun BuildSteps.checkOutBranch(repo: KtorRepository, branch: String) {
         script {
             name = "Check out $branch"
             scriptContent = bashScript(
                 """
                 git init --quiet
-                git fetch --depth=1 ${VCSCore.url} "refs/heads/$branch"
+                git fetch --depth=1 ${repo.vcsRoot.url} "refs/heads/$branch"
                 git switch --force -C "$branch" FETCH_HEAD
                 git clean -fdx
                 """
@@ -349,7 +356,7 @@ private object WindowsPlatform : EnvironmentPlatform {
         }
     }
 
-    override fun BuildSteps.checkOutBranch(branch: String) {
+    override fun BuildSteps.checkOutBranch(repo: KtorRepository, branch: String) {
         powerShell {
             name = "Check out $branch"
             scriptMode = script {
@@ -358,7 +365,7 @@ private object WindowsPlatform : EnvironmentPlatform {
                     """
                     function Invoke-Git { git @args; if (${'$'}LASTEXITCODE -ne 0) { exit ${'$'}LASTEXITCODE } }
                     Invoke-Git init --quiet
-                    Invoke-Git fetch --depth=1 ${VCSCore.url} "refs/heads/$branch"
+                    Invoke-Git fetch --depth=1 ${repo.vcsRoot.url} "refs/heads/$branch"
                     Invoke-Git switch --force -C "$branch" FETCH_HEAD
                     Invoke-Git clean -fdx
                     """

@@ -61,6 +61,17 @@
   <build>
     <sourceDirectory>${project.basedir}/src</sourceDirectory>
     <testSourceDirectory>${project.basedir}/test</testSourceDirectory>
+    <resources>
+      <!-- Files that the DSL reads. They are packaged for projects that use the DSL as a library. -->
+      <resource>
+        <directory>${project.basedir}</directory>
+        <includes>
+          <include>scripts/**</include>
+          <include>gradle.init.d/**</include>
+          <include>gradle-runner/**</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <artifactId>kotlin-maven-plugin</artifactId>
@@ -99,6 +110,8 @@
         <version>2.12.4</version>
         <configuration>
           <useSystemClassLoader>false</useSystemClassLoader>
+          <!-- Outside the settings directory, so tests read files from the classpath as library users do -->
+          <workingDirectory>${project.build.directory}</workingDirectory>
         </configuration>
         <executions>
           <execution>

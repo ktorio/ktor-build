@@ -15,7 +15,7 @@ class JPMSCheckBuild(private val repo: KtorRepository) : BuildType({
         root(repo.vcsRoot)
     }
 
-    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light, repo = repo)
     cancelPreviousBuilds()
 
     steps {

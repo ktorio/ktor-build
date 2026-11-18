@@ -17,7 +17,7 @@ object ProjectGradleEnvironment : Project({
         defaultGradleParams()
     }
 
-    gradleEnvironments.forEach(::buildType)
+    Core.gradleEnvironments.forEach(::buildType)
 
     buildType {
         id("GradleEnvironment")
@@ -30,7 +30,7 @@ object ProjectGradleEnvironment : Project({
         }
 
         dependencies {
-            for (environment in gradleEnvironments) {
+            for (environment in Core.gradleEnvironments) {
                 snapshot(environment) {}
             }
         }

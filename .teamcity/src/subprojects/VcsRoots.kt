@@ -2,6 +2,7 @@ package subprojects
 
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.vcs.*
+import subprojects.build.gradle.*
 
 internal object VcsToken {
     const val KTOR = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:cc9c11b1-ed43-415e-b2f8-129a86f64a3b"
@@ -40,17 +41,24 @@ object VCSProtected : TokenVcsRoot(VcsToken.KTOR_PROTECTED, {
 })
 
 data class KtorRepository(
-    val vcsRoot: VcsRoot,
+    val vcsRoot: GitVcsRoot,
     private val idPrefix: String,
     private val namePrefix: String,
+    /** The repository whose Gradle environments builds of this repository use instead of their own. */
+    private val gradleEnvironmentRepo: KtorRepository? = null,
 ) {
+    /** Builds that publish the Gradle user home for builds of this repository. A project should register them. */
+    val gradleEnvironments: List<GradleEnvironment> by lazy {
+        gradleEnvironmentRepo?.gradleEnvironments ?: createGradleEnvironments(this)
+    }
+
     fun id(id: String): String = "$idPrefix$id"
 
     fun name(name: String): String = "$namePrefix$name"
 }
 
 val Core = KtorRepository(VCSCore, "", "")
-val Protected = KtorRepository(VCSProtected, "Protected_", "Protected ")
+val Protected = KtorRepository(VCSProtected, "Protected_", "Protected ", gradleEnvironmentRepo = Core)
 
 fun VcsSettings.coreEap() {
     root(VCSCore)
