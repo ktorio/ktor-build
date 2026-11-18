@@ -55,7 +55,7 @@ class GradleEnvironment(
 
     steps {
         with(platform) {
-            cleanGradleUserHome()
+            resetGradleUserHome()
 
             prepareGradleUserHome(GradleUserHome.Light, versions) { branch ->
                 resolveDependencies(native = false)
@@ -167,12 +167,21 @@ private fun ParametrizedWithType.setupGradleParams() {
     param("env.GRADLE_USER_HOME", userHome)
 }
 
+private const val disableCacheCleanupFile = "disable-cache-cleanup.init.gradle.kts"
+
+/**
+ * Builds start with a user home unpacked from the environment and discard it, so cleaning up its caches only takes time.
+ * The script is written in one line to be passed as a shell argument.
+ */
+private const val disableCacheCleanupScript = "beforeSettings { caches { cleanup = Cleanup.DISABLED } }"
+
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */
 private sealed interface EnvironmentPlatform {
     /** Parameters required for Gradle steps of the environment build. */
     val requiredGradleParams: String
 
-    fun BuildSteps.cleanGradleUserHome()
+    /** Starts with an empty user home that doesn't clean up its caches, see [disableCacheCleanupScript]. */
+    fun BuildSteps.resetGradleUserHome()
     fun BuildSteps.checkOutBranch(branch: String)
 
     /** Packs the user home after [version] is prepared, so later steps don't change the archive. */
@@ -248,12 +257,14 @@ private object UnixPlatform : EnvironmentPlatform {
 
     override val requiredGradleParams = ""
 
-    override fun BuildSteps.cleanGradleUserHome() {
+    override fun BuildSteps.resetGradleUserHome() {
         script {
-            name = "Clean Gradle user home"
+            name = "Reset Gradle user home"
             scriptContent = bashScript(
                 """
                 rm -rf "${'$'}GRADLE_USER_HOME"
+                mkdir -p "${'$'}GRADLE_USER_HOME/init.d"
+                echo '$disableCacheCleanupScript' > "${'$'}GRADLE_USER_HOME/init.d/$disableCacheCleanupFile"
                 """
             )
         }
@@ -296,13 +307,15 @@ private object WindowsPlatform : EnvironmentPlatform {
     // Windows doesn't allow reading files locked by a running daemon, so the user home couldn't be packed
     override val requiredGradleParams = "--no-daemon"
 
-    override fun BuildSteps.cleanGradleUserHome() {
+    override fun BuildSteps.resetGradleUserHome() {
         powerShell {
-            name = "Clean Gradle user home"
+            name = "Reset Gradle user home"
             scriptMode = script {
                 content = powerShellScript(
                     """
                     if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force -ErrorAction Stop ${'$'}env:GRADLE_USER_HOME }
+                    New-Item -ItemType Directory -Force "${'$'}env:GRADLE_USER_HOME\init.d" | Out-Null
+                    Set-Content -Path "${'$'}env:GRADLE_USER_HOME\init.d\$disableCacheCleanupFile" -Value '$disableCacheCleanupScript'
                     """
                 )
             }
