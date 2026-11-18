@@ -141,10 +141,21 @@ private object BuildKtorForAllocationBenchmarks : BuildType({
                 """
             )
         }
+        script {
+            // Benchmarks use only JVM artifacts
+            name = "Disable native targets"
+            scriptContent = bashScript(
+                """
+                echo "target.posix=false" >> gradle.properties
+                """
+            )
+        }
         gradle {
             tasks = JVM_AND_COMMON_PUBLISH_TASK
             gradleParams = "$EXCLUDE_DOKA_GENERATION " +
                 "-PreleaseVersion=%build.number% " +
+                // Dependencies for native source sets are declared in build scripts even if native targets are disabled
+                "-Pktorbuild.ignoreExtraSourceSets=true " +
                 "-Dmaven.repo.local=$MAVEN_LOCAL_PATH"
             jdkHome = Env.JDK_LTS
         }
