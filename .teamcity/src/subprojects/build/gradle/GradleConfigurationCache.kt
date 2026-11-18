@@ -10,11 +10,8 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
  */
 private val configurationCacheRules = listOf(
     ".gradle/configuration-cache",
-    "build-logic/.gradle",
     "build-logic/build",
-    "build-settings-logic/.gradle",
     "build-settings-logic/build",
-    "ktor-test-server/.gradle",
     "ktor-test-server/build",
 )
 
