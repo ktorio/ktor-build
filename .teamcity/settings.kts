@@ -38,7 +38,6 @@ project {
     description = "Ktor Framework"
 
     vcsRoot(VCSCore)
-    vcsRoot(VCSProtected)
     vcsRoot(VCSDocs)
     vcsRoot(VCSSamples)
     vcsRoot(VCSKtorGeneratorWebsite)

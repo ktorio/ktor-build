@@ -16,7 +16,6 @@ object ProjectRelease : Project({
     subProject(ProjectReleaseAPIDocs)
     subProject(ProjectReleaseGeneratorWebsite)
     subProject(ProjectPublishing)
-    subProject(ProjectPublishingProtected)
 
     buildType(ReleaseBuild)
 
