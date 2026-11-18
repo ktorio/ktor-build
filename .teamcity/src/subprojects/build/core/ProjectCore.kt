@@ -62,31 +62,6 @@ object ProjectCore : Project({
     buildType(CoreFlakyTestNotifier)
 })
 
-object ProjectCoreProtected : Project({
-    id("ProjectKtorCoreProtected")
-    name = "Core (Protected)"
-    description = "Ktor Core Framework protected verification"
-
-    params {
-        defaultGradleParams()
-    }
-
-    val verificationBuilds = createCoreVerificationBuilds(Protected)
-    verificationBuilds.builds.forEach(::buildType)
-    buildType(verificationBuilds.jvmCompileBuild)
-
-    buildType {
-        allowExternalStatus = true
-        createCompositeBuild(
-            buildId = "Protected_KtorCore_All",
-            buildName = "Build All Core (Protected)",
-            vcsRoot = VCSProtected,
-            builds = verificationBuilds.builds,
-            withTrigger = TriggerType.PULL_REQUESTS,
-        )
-    }
-})
-
 data class CoreVerificationBuilds(
     val jvmCompileBuild: JvmCompileBuild,
     val builds: List<BuildType>,
