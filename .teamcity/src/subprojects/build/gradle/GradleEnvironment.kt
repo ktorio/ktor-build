@@ -21,9 +21,6 @@ enum class GradleUserHome(internal val artifact: String) {
 
 private const val DEFAULT_BRANCH = "main"
 
-// The agent work directory has the same path on all agents with the same OS
-private const val userHome = "%teamcity.agent.work.dir%/gradle-user-home"
-
 /**
  * Publishes a warmed-up Gradle user home, so builds on fresh agents don't start with an empty one.
  * Only [versions] used by builds on the given [os] should be published.
@@ -151,7 +148,7 @@ fun BuildType.useGradleEnvironment(
     dependencies {
         artifacts(environment) {
             buildRule = lastSuccessful()
-            artifactRules = "?:${version.artifact}!** => $userHome"
+            artifactRules = "?:${version.artifact}!** => %env.GRADLE_USER_HOME%"
         }
     }
 
@@ -164,7 +161,10 @@ fun BuildType.useGradleEnvironment(agent: AgentSpec, version: GradleUserHome, co
 }
 
 private fun ParametrizedWithType.setupGradleParams() {
-    param("env.GRADLE_USER_HOME", userHome)
+    // The agent work directory has the same path on all agents with the same OS
+    param("env.GRADLE_USER_HOME", "%teamcity.agent.work.dir%/gradle-user-home")
+    // Kotlin/Native moves its bundle here from the user home, which is fast only on the same disk
+    param("env.KONAN_DATA_DIR", "%teamcity.agent.work.dir%/konan")
 }
 
 private const val disableCacheCleanupFile = "disable-cache-cleanup.init.gradle.kts"
@@ -344,7 +344,7 @@ private object WindowsPlatform : EnvironmentPlatform {
     override fun BuildSteps.packGradleUserHome(version: GradleUserHome) = Unit
 
     override fun artifactRules(versions: Set<GradleUserHome>) = formatArtifacts(
-        *versions.map { "+:$userHome/** => ${it.artifact}" }.toTypedArray(),
-        "-:$userHome/daemon/**",
+        *versions.map { "+:%env.GRADLE_USER_HOME%/** => ${it.artifact}" }.toTypedArray(),
+        "-:%env.GRADLE_USER_HOME%/daemon/**",
     )
 }
