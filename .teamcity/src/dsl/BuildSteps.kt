@@ -115,3 +115,5 @@ private val bashPreamble = """
 internal fun bashScript(@Language("bash") content: String): String = "$bashPreamble\n${content.trimIndent()}"
 
 internal fun pythonScript(@Language("python") content: String): String = "#!/usr/bin/env python3\n${content.trimIndent()}"
+
+internal fun powerShellScript(@Language("powershell") content: String): String = content.trimIndent()

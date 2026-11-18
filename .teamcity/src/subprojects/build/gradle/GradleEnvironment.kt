@@ -48,40 +48,28 @@ class GradleEnvironment(
         setupGradleParams()
     }
 
+    val platform = EnvironmentPlatform.of(os)
+    require(platform != WindowsPlatform || GradleUserHome.Light !in versions) {
+        "Light Gradle user home is not supported on Windows"
+    }
+
     steps {
-        script {
-            name = "Clean Gradle user home"
-            scriptContent = bashScript(
-                """
-                rm -rf "${'$'}GRADLE_USER_HOME"
-                """
-            )
-        }
+        with(platform) {
+            cleanGradleUserHome()
 
-        if (GradleUserHome.Light in versions) {
-            for (branch in preparedBranches) {
-                checkOutBranch(branch)
+            prepareGradleUserHome(GradleUserHome.Light, versions) { branch ->
                 resolveDependencies(native = false)
-
-                gradle {
-                    name = "Configure all targets ($branch)"
-                    tasks = "jvmTest"
-                    gradleParams = "--dry-run"
-                    jdkHome = Env.JDK_LTS
-                }
+                environmentGradle(name = "Configure all targets ($branch)", tasks = "jvmTest", params = "--dry-run")
             }
 
-            packGradleUserHome(GradleUserHome.Light)
-        }
-
-        if (GradleUserHome.Full in versions) {
-            checkOutBranch(DEFAULT_BRANCH)
-            resolveDependencies(native = true)
-            packGradleUserHome(GradleUserHome.Full)
+            // Prepared on top of the Light user home
+            prepareGradleUserHome(GradleUserHome.Full, versions) {
+                resolveDependencies(native = true)
+            }
         }
     }
 
-    artifactRules = formatArtifacts(*versions.map { it.artifact }.toTypedArray())
+    artifactRules = platform.artifactRules(versions)
     publishArtifacts = PublishMode.SUCCESSFUL
 
     triggers {
@@ -129,20 +117,21 @@ class GradleEnvironment(
 })
 
 /**
- * Branches whose build logic is prepared in the Light Gradle user home.
- * The configuration cache can be reused only if the user home contains transformed jars of the same included builds,
- * so builds of these branches and pull requests targeting them can reuse it, whichever branch the environment is built on.
+ * Branches whose dependencies and build logic are prepared in the Gradle user home,
+ * so builds of these branches and pull requests targeting them find them there, whichever branch the environment is built on.
+ * The configuration cache can be reused only if the user home contains transformed jars of the same included builds.
  */
 private val preparedBranches = listOf(DEFAULT_BRANCH, "release/3.x")
 
 val gradleEnvironments = listOf(
     GradleEnvironment(Agents.OS.Linux, Agents.Arch.X64, setOf(GradleUserHome.Light, GradleUserHome.Full)),
     GradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64, setOf(GradleUserHome.Full)),
+    GradleEnvironment(Agents.OS.Windows, Agents.Arch.X64, setOf(GradleUserHome.Full)),
 )
 
 /**
  * Uses the Gradle user home published by [GradleEnvironment] for the given [os] and [arch].
- * The build continues with an empty Gradle user home if the environment is not available.
+ * The build continues with an empty Gradle user home if no environment publishes this [version] for the agent.
  *
  * @param configurationCache Whether to keep the Gradle configuration cache between builds.
  *   It can be reused only when the Gradle user home is the same, so it is available only with the environment.
@@ -153,8 +142,7 @@ fun BuildType.useGradleEnvironment(
     configurationCache: Boolean = true,
     arch: Agents.Arch = Agents.Arch.X64,
 ) {
-    val environment = gradleEnvironments.find { it.os == os && it.arch == arch } ?: return
-    require(version in environment.versions) { "${environment.name} doesn't publish $version Gradle user home" }
+    val environment = gradleEnvironments.find { it.os == os && it.arch == arch && version in it.versions } ?: return
 
     params {
         setupGradleParams()
@@ -179,65 +167,171 @@ private fun ParametrizedWithType.setupGradleParams() {
     param("env.GRADLE_USER_HOME", userHome)
 }
 
-private fun BuildSteps.checkOutBranch(branch: String) {
-    script {
-        name = "Check out $branch"
-        scriptContent = bashScript(
-            """
-            git init --quiet
-            git fetch --depth=1 ${VCSCore.url} "refs/heads/$branch"
-            git switch --force -C "$branch" FETCH_HEAD
-            git clean -fdx
-            """
-        )
-    }
-}
+/** Steps and settings of [GradleEnvironment] that differ between operating systems. */
+private sealed interface EnvironmentPlatform {
+    /** Parameters required for Gradle steps of the environment build. */
+    val requiredGradleParams: String
 
-private fun BuildSteps.resolveDependencies(native: Boolean) {
-    // Targets can be disabled only in gradle.properties
-    if (!native) {
-        script {
-            name = "Disable native targets"
-            scriptContent = bashScript(
-                """
-                echo "target.posix=false" >> gradle.properties
-                """
-            )
+    fun BuildSteps.cleanGradleUserHome()
+    fun BuildSteps.checkOutBranch(branch: String)
+
+    /** Packs the user home after [version] is prepared, so later steps don't change the archive. */
+    fun BuildSteps.packGradleUserHome(version: GradleUserHome)
+    fun artifactRules(versions: Set<GradleUserHome>): String
+
+    /** Runs [prepare] for each of [preparedBranches] checked out, then packs the [version] of the user home, if it is in [versions]. */
+    fun BuildSteps.prepareGradleUserHome(
+        version: GradleUserHome,
+        versions: Set<GradleUserHome>,
+        prepare: BuildSteps.(branch: String) -> Unit,
+    ) {
+        if (version !in versions) return
+
+        for (branch in preparedBranches) {
+            checkOutBranch(branch)
+            prepare(branch)
+        }
+
+        packGradleUserHome(version)
+    }
+
+    fun BuildSteps.environmentGradle(name: String, tasks: String, params: String) {
+        gradle {
+            this.name = name
+            this.tasks = tasks
+            gradleParams = "$params $requiredGradleParams".trim()
+            jdkHome = Env.JDK_LTS
         }
     }
 
-    gradle {
-        name = "Resolve dependencies (${if (native) "all targets" else "without native targets"})"
-        tasks = "help"
+    fun BuildSteps.resolveDependencies(native: Boolean) {
+        // Targets can be disabled only in gradle.properties
+        if (!native) {
+            script {
+                name = "Disable native targets"
+                scriptContent = bashScript(
+                    """
+                    echo "target.posix=false" >> gradle.properties
+                    """
+                )
+            }
+        }
+
         // Dependencies for native source sets are declared in build scripts even if native targets are disabled
         val ignoreExtraSourceSets = if (native) "" else " -Pktorbuild.ignoreExtraSourceSets=true"
-        gradleParams = "--write-verification-metadata sha256 --dry-run$ignoreExtraSourceSets"
-        jdkHome = Env.JDK_LTS
+        environmentGradle(
+            name = "Resolve dependencies (${if (native) "all targets" else "without native targets"})",
+            tasks = "help",
+            params = "--write-verification-metadata sha256 --dry-run$ignoreExtraSourceSets",
+        )
+
+        if (!native) {
+            script {
+                name = "Enable native targets"
+                scriptContent = bashScript(
+                    """
+                    git checkout gradle.properties
+                    """
+                )
+            }
+        }
     }
 
-    if (!native) {
+    companion object {
+        fun of(os: Agents.OS): EnvironmentPlatform = if (os == Agents.OS.Windows) WindowsPlatform else UnixPlatform
+    }
+}
+
+private object UnixPlatform : EnvironmentPlatform {
+    // Outside the checkout, as checking out the next branch removes untracked files
+    private const val archivesDir = "%system.teamcity.build.tempDir%"
+
+    override val requiredGradleParams = ""
+
+    override fun BuildSteps.cleanGradleUserHome() {
         script {
-            name = "Enable native targets"
+            name = "Clean Gradle user home"
             scriptContent = bashScript(
                 """
-                git checkout gradle.properties
+                rm -rf "${'$'}GRADLE_USER_HOME"
                 """
             )
         }
     }
+
+    override fun BuildSteps.checkOutBranch(branch: String) {
+        script {
+            name = "Check out $branch"
+            scriptContent = bashScript(
+                """
+                git init --quiet
+                git fetch --depth=1 ${VCSCore.url} "refs/heads/$branch"
+                git switch --force -C "$branch" FETCH_HEAD
+                git clean -fdx
+                """
+            )
+        }
+    }
+
+    override fun BuildSteps.packGradleUserHome(version: GradleUserHome) {
+        script {
+            name = "Pack Gradle user home ($version)"
+            scriptContent = bashScript(
+                """
+                # The archive is unpacked in every build using the environment, so it is worth compressing it better.
+                # zstd is run explicitly as tar implementations pass the compression level to it differently.
+                # --long finds duplicates across the whole archive. 27 (128 MB window) is the maximum
+                # that can be unpacked with default settings, larger values need the same option on unpacking
+                tar -C "${'$'}GRADLE_USER_HOME" --exclude=./daemon -cf - . | zstd -9 --long=27 -T0 -q -o "$archivesDir/${version.artifact}"
+                """
+            )
+        }
+    }
+
+    override fun artifactRules(versions: Set<GradleUserHome>) =
+        formatArtifacts(*versions.map { "$archivesDir/${it.artifact}" }.toTypedArray())
 }
 
-private fun BuildSteps.packGradleUserHome(version: GradleUserHome) {
-    script {
-        name = "Pack Gradle user home ($version)"
-        scriptContent = bashScript(
-            """
-            # The archive is unpacked in every build using the environment, so it is worth compressing it better.
-            # zstd is run explicitly as tar implementations pass the compression level to it differently.
-            # --long finds duplicates across the whole archive. 27 (128 MB window) is the maximum
-            # that can be unpacked with default settings, larger values need the same option on unpacking
-            tar -C "${'$'}GRADLE_USER_HOME" --exclude=./daemon -cf - . | zstd -9 --long=27 -T0 -q -o ${version.artifact}
-            """
-        )
+private object WindowsPlatform : EnvironmentPlatform {
+    // Windows doesn't allow reading files locked by a running daemon, so the user home couldn't be packed
+    override val requiredGradleParams = "--no-daemon"
+
+    override fun BuildSteps.cleanGradleUserHome() {
+        powerShell {
+            name = "Clean Gradle user home"
+            scriptMode = script {
+                content = powerShellScript(
+                    """
+                    if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force -ErrorAction Stop ${'$'}env:GRADLE_USER_HOME }
+                    """
+                )
+            }
+        }
     }
+
+    override fun BuildSteps.checkOutBranch(branch: String) {
+        powerShell {
+            name = "Check out $branch"
+            scriptMode = script {
+                // Failing native commands don't stop PowerShell scripts, so exit codes are checked explicitly
+                content = powerShellScript(
+                    """
+                    function Invoke-Git { git @args; if (${'$'}LASTEXITCODE -ne 0) { exit ${'$'}LASTEXITCODE } }
+                    Invoke-Git init --quiet
+                    Invoke-Git fetch --depth=1 ${VCSCore.url} "refs/heads/$branch"
+                    Invoke-Git switch --force -C "$branch" FETCH_HEAD
+                    Invoke-Git clean -fdx
+                    """
+                )
+            }
+        }
+    }
+
+    // zstd is not installed on Windows agents, so the user home is packed by TeamCity.
+    override fun BuildSteps.packGradleUserHome(version: GradleUserHome) = Unit
+
+    override fun artifactRules(versions: Set<GradleUserHome>) = formatArtifacts(
+        *versions.map { "+:$userHome/** => ${it.artifact}" }.toTypedArray(),
+        "-:$userHome/daemon/**",
+    )
 }
