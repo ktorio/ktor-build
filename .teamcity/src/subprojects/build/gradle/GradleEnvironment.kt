@@ -43,7 +43,15 @@ class GradleEnvironment(val os: Agents.OS, arch: Agents.Arch) : BuildType({
         gradle {
             name = "Resolve dependencies"
             tasks = "help"
-            gradleParams = "--write-verification-metadata sha256 --dry-run --no-configuration-cache"
+            gradleParams = "--write-verification-metadata sha256 --dry-run"
+            jdkHome = Env.JDK_LTS
+        }
+
+        // Resolving dependencies doesn't run artifact transforms used by tasks.
+        gradle {
+            name = "Warm up transformations"
+            tasks = "jvmTest"
+            gradleParams = "--dry-run"
             jdkHome = Env.JDK_LTS
         }
 
