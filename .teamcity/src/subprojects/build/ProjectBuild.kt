@@ -122,7 +122,6 @@ object ProjectBuild : Project({
     subProject(ProjectSamples)
     subProject(ProjectGradleEnvironment)
     subProject(ProjectCore)
-    subProject(ProjectCoreProtected)
     subProject(ProjectDocSamples)
     subProject(ProjectPlugin)
     subProject(ProjectLibcurlBuild)

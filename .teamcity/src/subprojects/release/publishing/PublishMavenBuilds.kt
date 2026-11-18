@@ -155,14 +155,6 @@ val PublishLinuxNativeToMaven = PublishLinuxNativeToMavenBuild(Core)
 val PublishMacOSNativeToMaven = PublishMacOSNativeToMavenBuild(Core)
 val PublishAndroidNativeToMaven = PublishAndroidNativeToMavenBuild(Core)
 
-val ProtectedPublishCustomTaskToMaven = PublishCustomTaskToMavenBuild(Protected)
-val ProtectedPublishJvmToMaven = PublishJvmToMavenBuild(Protected)
-val ProtectedPublishJSToMaven = PublishJSToMavenBuild(Protected)
-val ProtectedPublishWindowsNativeToMaven = PublishWindowsNativeToMavenBuild(Protected)
-val ProtectedPublishLinuxNativeToMaven = PublishLinuxNativeToMavenBuild(Protected)
-val ProtectedPublishMacOSNativeToMaven = PublishMacOSNativeToMavenBuild(Protected)
-val ProtectedPublishAndroidNativeToMaven = PublishAndroidNativeToMavenBuild(Protected)
-
 private fun BuildType.createMavenPublishBuild(repo: KtorRepository, id: String, name: String) {
     createDeploymentBuild(repo.id(id), repo.name(name), "", releaseVersion)
 }
