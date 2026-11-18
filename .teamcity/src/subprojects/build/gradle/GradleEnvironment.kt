@@ -19,6 +19,8 @@ enum class GradleUserHome(internal val artifact: String) {
     Full("gradle-user-home-full.tar.zst"),
 }
 
+private const val DEFAULT_BRANCH = "main"
+
 // The agent work directory has the same path on all agents with the same OS
 private const val userHome = "%teamcity.agent.work.dir%/gradle-user-home"
 
@@ -38,7 +40,7 @@ class GradleEnvironment(
 
     vcs {
         root(VCSCore)
-        checkoutMode = CheckoutMode.ON_AGENT
+        checkoutMode = CheckoutMode.MANUAL
         cleanCheckout = true
     }
 
@@ -69,19 +71,23 @@ class GradleEnvironment(
         }
 
         if (GradleUserHome.Light in versions) {
-            resolveDependencies(native = false)
+            for (branch in preparedBranches) {
+                checkOutBranch(branch)
+                resolveDependencies(native = false)
 
-            gradle {
-                name = "Configure all targets"
-                tasks = "jvmTest"
-                gradleParams = "--dry-run"
-                jdkHome = Env.JDK_LTS
+                gradle {
+                    name = "Configure all targets ($branch)"
+                    tasks = "jvmTest"
+                    gradleParams = "--dry-run"
+                    jdkHome = Env.JDK_LTS
+                }
             }
 
             packGradleUserHome(GradleUserHome.Light)
         }
 
         if (GradleUserHome.Full in versions) {
+            checkOutBranch(DEFAULT_BRANCH)
             resolveDependencies(native = true)
             packGradleUserHome(GradleUserHome.Full)
         }
@@ -92,7 +98,7 @@ class GradleEnvironment(
 
     triggers {
         vcs {
-            branchFilter = BranchFilter.DefaultBranch
+            branchFilter = preparedBranches.joinToString("\n") { "+:$it" }
             // Changes in settings and included builds invalidate the instrumented build logic classpath cached in the user home
             triggerRules = """
                 +:root=${VCSCore.id}:gradle/libs.versions.toml
@@ -134,6 +140,13 @@ class GradleEnvironment(
     }
 })
 
+/**
+ * Branches whose build logic is prepared in the Light Gradle user home.
+ * The configuration cache can be reused only if the user home contains transformed jars of the same included builds,
+ * so builds of these branches and pull requests targeting them can reuse it, whichever branch the environment is built on.
+ */
+private val preparedBranches = listOf(DEFAULT_BRANCH, "release/3.x")
+
 val gradleEnvironments = listOf(
     // Used by JvmCompileBuild and JDKBuild
     GradleEnvironment(Agents.OS.Linux, Agents.Arch.X64, setOf(GradleUserHome.Light)),
@@ -168,6 +181,20 @@ fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome, confi
 
 private fun ParametrizedWithType.setupGradleParams() {
     param("env.GRADLE_USER_HOME", userHome)
+}
+
+private fun BuildSteps.checkOutBranch(branch: String) {
+    script {
+        name = "Check out $branch"
+        scriptContent = bashScript(
+            """
+            git init --quiet
+            git fetch --depth=1 ${VCSCore.url} "refs/heads/$branch"
+            git switch --force -C "$branch" FETCH_HEAD
+            git clean -fdx
+            """
+        )
+    }
 }
 
 private fun BuildSteps.resolveDependencies(native: Boolean) {
