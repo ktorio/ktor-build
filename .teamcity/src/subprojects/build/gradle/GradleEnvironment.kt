@@ -8,7 +8,7 @@ import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger.DAY.*
 import subprojects.*
 import subprojects.build.core.*
-import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 /** Versions of the Gradle user home published by [GradleEnvironment]. */
 enum class GradleUserHome(internal val artifact: String) {
@@ -105,7 +105,7 @@ class GradleEnvironment(
             """.trimIndent()
 
             quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_CUSTOM
-            quietPeriod = 1.hours.inWholeSeconds.toInt()
+            quietPeriod = 10.minutes.inWholeSeconds.toInt()
         }
 
         schedule {
