@@ -6,6 +6,7 @@ import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.Agents.OS
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 class NativeBuild(
     private val entry: NativeEntry,
@@ -26,6 +27,7 @@ class NativeBuild(
 
     cancelPreviousBuilds()
     val rustEnabled = enableRustForRelevantChanges(entry.os)
+    useGradleEnvironment(entry, GradleUserHome.Full, configurationCache = false)
 
     steps {
         if (entry.os == OS.Windows) {

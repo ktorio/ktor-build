@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     id("KtorMatrixStressTest_${osJVMComboEntry.id}".toId())
@@ -11,6 +12,9 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     vcs {
         root(VCSCore)
     }
+
+    useGradleEnvironment(osJVMComboEntry, GradleUserHome.Light, configurationCache = false)
+
 //    triggers {
 //        schedule {
 //            schedulingPolicy = daily {

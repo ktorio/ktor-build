@@ -7,6 +7,7 @@ import jetbrains.buildServer.configs.kotlin.failureConditions.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 object CodeStyleVerify : BuildType({
     id("KtorCodeStyleVerifyKtLint")
@@ -23,6 +24,8 @@ object CodeStyleVerify : BuildType({
     }
 
     cancelPreviousBuilds()
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+
     steps {
         gradle {
             name = "Run ktlint"

@@ -32,7 +32,7 @@ private const val userHome = "%teamcity.agent.work.dir%/gradle-user-home"
  */
 class GradleEnvironment(
     val os: Agents.OS,
-    arch: Agents.Arch,
+    val arch: Agents.Arch,
     val versions: Set<GradleUserHome>,
 ) : BuildType({
     id("GradleEnvironment_${os.id}")
@@ -136,21 +136,24 @@ class GradleEnvironment(
 private val preparedBranches = listOf(DEFAULT_BRANCH, "release/3.x")
 
 val gradleEnvironments = listOf(
-    // Used by JvmCompileBuild and JDKBuild
-    GradleEnvironment(Agents.OS.Linux, Agents.Arch.X64, setOf(GradleUserHome.Light)),
-    // Used by the API docs build
+    GradleEnvironment(Agents.OS.Linux, Agents.Arch.X64, setOf(GradleUserHome.Light, GradleUserHome.Full)),
     GradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64, setOf(GradleUserHome.Full)),
 )
 
 /**
- * Uses the Gradle user home published by [GradleEnvironment] for the given [os].
+ * Uses the Gradle user home published by [GradleEnvironment] for the given [os] and [arch].
  * The build continues with an empty Gradle user home if the environment is not available.
  *
  * @param configurationCache Whether to keep the Gradle configuration cache between builds.
  *   It can be reused only when the Gradle user home is the same, so it is available only with the environment.
  */
-fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome, configurationCache: Boolean = true) {
-    val environment = gradleEnvironments.find { it.os == os } ?: return
+fun BuildType.useGradleEnvironment(
+    os: Agents.OS,
+    version: GradleUserHome,
+    configurationCache: Boolean = true,
+    arch: Agents.Arch = Agents.Arch.X64,
+) {
+    val environment = gradleEnvironments.find { it.os == os && it.arch == arch } ?: return
     require(version in environment.versions) { "${environment.name} doesn't publish $version Gradle user home" }
 
     params {
@@ -165,6 +168,11 @@ fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome, confi
     }
 
     if (configurationCache) gradleConfigurationCache()
+}
+
+/** Uses the Gradle user home published by [GradleEnvironment] for the given [agent]. */
+fun BuildType.useGradleEnvironment(agent: AgentSpec, version: GradleUserHome, configurationCache: Boolean = true) {
+    useGradleEnvironment(agent.os, version, configurationCache, agent.arch)
 }
 
 private fun ParametrizedWithType.setupGradleParams() {

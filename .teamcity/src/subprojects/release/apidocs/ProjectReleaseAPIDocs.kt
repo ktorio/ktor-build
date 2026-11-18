@@ -34,7 +34,7 @@ object ProjectReleaseAPIDocs : Project({
         }
 
         // The build runs Gradle with --no-configuration-cache
-        useGradleEnvironment(Agents.OS.MacOS, GradleUserHome.Full, configurationCache = false)
+        useGradleEnvironment(Agents.OS.MacOS, GradleUserHome.Full, configurationCache = false, arch = Agents.Arch.Arm64)
 
         steps {
             script {

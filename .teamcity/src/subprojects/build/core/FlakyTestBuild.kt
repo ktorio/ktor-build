@@ -1,12 +1,12 @@
 package subprojects.build.core
 
-import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.Agents.OS
 import subprojects.build.*
+import subprojects.build.gradle.*
 
 /** Prefix TeamCity prepends to the relative ids declared in this project. */
 private const val PROJECT_PREFIX = "Ktor_"
@@ -89,6 +89,8 @@ object CoreFlakyTestBuild : BuildType({
         }
     }
 
+    useGradleEnvironment(OS.Linux, GradleUserHome.Light, configurationCache = false)
+
     steps {
         // `flakyTest` runs only the @Flaky-annotated tests (it pins ktor.tests.flaky=only itself),
         // covering the annotation-marked JVM tests; the `_flaky`-named ones are covered per target below.
@@ -153,6 +155,8 @@ class CoreNativeFlakyTestBuild(private val entry: NativeEntry) : BuildType({
             param("revisionRuleBuildBranch", "<default>")
         }
     }
+
+    useGradleEnvironment(entry, GradleUserHome.Full, configurationCache = false)
 
     steps {
         if (entry.os == OS.Windows) {
