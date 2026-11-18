@@ -70,10 +70,7 @@ class GradleEnvironment(
 
         if (GradleUserHome.Light in versions) {
             resolveDependencies(native = false)
-            printGradleUserHomeSize("before configuring all targets")
 
-            // Builds using the light user home still configure native targets, so everything generated during
-            // configuration of all targets should be there. This step doesn't download dependencies of native targets
             gradle {
                 name = "Configure all targets"
                 tasks = "jvmTest"
@@ -81,7 +78,6 @@ class GradleEnvironment(
                 jdkHome = Env.JDK_LTS
             }
 
-            printGradleUserHomeSize("after configuring all targets")
             packGradleUserHome(GradleUserHome.Light)
         }
 
@@ -200,20 +196,6 @@ private fun BuildSteps.resolveDependencies(native: Boolean) {
                 """
             )
         }
-    }
-}
-
-/** Prints sizes of the biggest directories in the Gradle user home to see what each step adds to it. */
-private fun BuildSteps.printGradleUserHomeSize(stage: String) {
-    script {
-        name = "Print Gradle user home size ($stage)"
-        scriptContent = bashScript(
-            """
-            cd "${'$'}GRADLE_USER_HOME"
-            echo "Files: ${'$'}(find . -type f | wc -l)"
-            du -sm . caches/* caches/*/* | sort -rn | head -n 25
-            """
-        )
     }
 }
 
