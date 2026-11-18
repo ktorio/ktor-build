@@ -147,6 +147,7 @@ val gradleEnvironments = listOf(
  *
  * @param configurationCache Whether to keep the Gradle configuration cache between builds.
  *   It can be reused only when the Gradle user home is the same, so it is available only with the environment.
+ *   If enabled, the function should be called after Gradle steps are declared.
  */
 fun BuildType.useGradleEnvironment(os: Agents.OS, version: GradleUserHome, configurationCache: Boolean = true) {
     val environment = gradleEnvironments.find { it.os == os } ?: return

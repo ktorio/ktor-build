@@ -21,7 +21,6 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
 
     cancelPreviousBuilds()
     enableRustForRelevantChanges(Agents.OS.Linux)
-    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
 
     steps {
         gradle {
@@ -31,6 +30,8 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
             jdkHome = Env.JDK_LTS
         }
     }
+
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
 
     artifactRules = formatArtifacts(
         "+:**/build/** => jvm-build.zip",
