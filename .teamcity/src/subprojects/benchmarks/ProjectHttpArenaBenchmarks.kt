@@ -22,6 +22,33 @@ object ProjectHttpArenaBenchmarks : Project({
 
         steps {
             script {
+                // TeamCity can't provision agents, so install OpenSSL on demand (needs passwordless sudo on the agent)
+                name = "Ensure OpenSSL is installed"
+                scriptContent = """
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    if command -v openssl >/dev/null 2>&1 && dpkg -s libssl-dev >/dev/null 2>&1; then
+                        openssl version
+                        exit 0
+                    fi
+                    sudo apt-get update
+                    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openssl libssl-dev
+                    openssl version
+                """.trimIndent()
+            }
+            script {
+                name = "Check host tools"
+                scriptContent = """
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    missing=0
+                    for tool in docker python3 curl sudo sysctl taskset cpupower xargs; do
+                        command -v ${'$'}tool >/dev/null 2>&1 || { echo "Missing required tool on agent: ${'$'}tool"; missing=1; }
+                    done
+                    exit ${'$'}missing
+                """.trimIndent()
+            }
+            script {
                 name = "Run ktor-tuned benchmark"
                 scriptContent = "./scripts/benchmark.sh ktor-tuned baseline"
             }
