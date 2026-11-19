@@ -135,8 +135,9 @@ object VCSKtorBuildPluginsEAP : TokenVcsRoot(VcsToken.BUILD_PLUGINS, {
 object VCSHttpArenaBenchmarks : TokenVcsRoot(VcsToken.HTTP_ARENA_BENCHMARKS, {
     name = "HttpArena benchmarks"
     url = "https://github.com/ktorio/HttpArena.git"
+    branch = "refs/heads/test_ktor"
     branchSpec = """
-        +:$defaultBranch
+        +:refs/heads/(test_ktor)
     """.trimIndent()
 })
 
