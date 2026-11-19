@@ -17,7 +17,7 @@ class JavaScriptBuild(
         "+:**/build/**/*.jar",
         "+:**/build/**/yarn.lock",
     )
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(repo.vcsRoot)

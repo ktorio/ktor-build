@@ -66,7 +66,7 @@ object CoreFlakyTestBuild : BuildType({
     id(FLAKY_TEST_ID)
     name = "Flaky (Quarantined) Tests"
     description = "Runs @Flaky and _flaky-named tests that the regular builds exclude"
-    artifactRules = formatArtifacts(junitReportArtifact, memoryReportArtifact)
+    artifactRules = formatArtifacts(junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(VCSCore)
@@ -134,7 +134,7 @@ class CoreNativeFlakyTestBuild(private val entry: NativeEntry) : BuildType({
     id(nativeFlakyId(entry))
     name = "Flaky (Quarantined) Tests ${entry.name} ${entry.arch}"
     description = "Runs _flaky-named ${entry.target} tests that the regular builds exclude"
-    artifactRules = formatArtifacts(junitReportArtifact, memoryReportArtifact)
+    artifactRules = formatArtifacts(junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(VCSCore)

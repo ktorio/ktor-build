@@ -16,7 +16,7 @@ class JDKBuild(
     id(repo.id("KtorMatrixCore_${osJdkEntry.id}".toId()))
     name = repo.name("${osJdkEntry.jdkEntry.name} on ${osJdkEntry.os.id}")
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.jar")
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(repo.vcsRoot)

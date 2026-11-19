@@ -96,6 +96,8 @@ data class OSJDKEntry(
 
 const val junitReportArtifact = "+:**/build/reports/** => junitReports.tgz"
 const val memoryReportArtifact = "+:**/hs_err*|+:**/HEAP/* => outOfMemoryDumps.tgz"
+/** The test server's log and heap dumps */
+const val testServerArtifact = "+:build/test-server/** => testServer.tgz"
 
 val osJdks = listOf(
     OSJDKEntry(OS.Linux, JDKEntry.Java8), // Minimal supported version

@@ -15,7 +15,7 @@ class NativeBuild(
     id(repo.id("KtorMatrixNative_${entry.id}".toId()))
     name = repo.name("${entry.name} ${entry.arch}")
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib")
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(repo.vcsRoot)
