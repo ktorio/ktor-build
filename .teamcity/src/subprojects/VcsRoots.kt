@@ -11,6 +11,7 @@ internal object VcsToken {
     const val BENCHMARKS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:6b3b0c69-150d-46dd-9cd9-14d05921e87a"
     const val KTOR_CLI = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:144c067e-37f6-4a71-a0aa-ffa2f5a2c8ba"
     const val BUILD_PLUGINS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:622b9b62-9484-4cc4-9a11-2c8d978378ee"
+    const val HTTP_ARENA_BENCHMARKS = "tc_token_id:CID_821a66c1c2972c7bca80580557b4a475:-1:73c1027d-7f73-4fcf-8e4f-9afde4406728"
 }
 
 /*
@@ -127,6 +128,14 @@ object VCSKtorBuildPluginsEAP : TokenVcsRoot(VcsToken.BUILD_PLUGINS, {
     url = "https://github.com/ktorio/ktor-build-plugins.git"
     branchSpec = """
         +:$eapBranches
+        +:$defaultBranch
+    """.trimIndent()
+})
+
+object VCSHttpArenaBenchmarks : TokenVcsRoot(VcsToken.HTTP_ARENA_BENCHMARKS, {
+    name = "HttpArena benchmarks"
+    url = "https://github.com/ktorio/HttpArena.git"
+    branchSpec = """
         +:$defaultBranch
     """.trimIndent()
 })

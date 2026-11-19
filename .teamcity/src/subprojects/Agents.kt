@@ -17,6 +17,9 @@ object Agents {
     /** 8 CPU, 16 GB RAM */
     const val LARGE = "Large"
 
+    /** 16 CPU, 32 GB RAM */
+    const val EXTRA_LARGE = "XLarge"
+
     /** Operating Systems available to run builds. */
     enum class OS(id: String? = null) {
         Linux,
