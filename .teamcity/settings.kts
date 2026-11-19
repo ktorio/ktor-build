@@ -64,7 +64,8 @@ project {
     //}
 
     subProject(ProjectBuild)
-    subProject(ProjectBenchmarks)
+    subProject(ProjectAllocationBenchmarks)
+    subProject(ProjectHttpArenaBenchmarks)
     subProject(ProjectRelease)
     subProject(ProjectPublishEAPToSpace)
     subProject(ProjectBuildPluginSamples)
