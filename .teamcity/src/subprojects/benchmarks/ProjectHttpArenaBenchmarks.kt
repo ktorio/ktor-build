@@ -28,18 +28,7 @@ object ProjectHttpArenaBenchmarks : Project({
         }
 
         dependencies {
-            dependency(BuildKtorForBenchmarks) {
-                snapshot {
-                    reuseBuilds = ReuseBuilds.SUCCESSFUL
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.CANCEL
-                }
-                artifacts {
-                    buildRule = sameChainOrLastFinished()
-                    artifactRules = "ktor-repository.zip!** => ktor-repository"
-                    cleanDestination = true
-                }
-            }
+            benchmarksSnapshotBuildDependency()
         }
 
         params {

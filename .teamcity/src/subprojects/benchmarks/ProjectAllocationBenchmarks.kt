@@ -5,16 +5,12 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
-import subprojects.build.gradle.*
-import subprojects.release.publishing.*
 
 object ProjectAllocationBenchmarks : Project({
-    id("ProjectKtorBenchmarks")
-    name = "Benchmarks"
+    id("ProjectKtorAllocationBenchmarks")
+    name = "Allocation Benchmarks"
 
     vcsRoot(VCSKtorBenchmarks)
-
-    buildType(BuildKtorForBenchmarks)
 
     buildType {
         id("AllocationTests")
@@ -53,18 +49,7 @@ object ProjectAllocationBenchmarks : Project({
         }
 
         dependencies {
-            dependency(BuildKtorForBenchmarks) {
-                snapshot {
-                    reuseBuilds = ReuseBuilds.SUCCESSFUL
-                    onDependencyFailure = FailureAction.FAIL_TO_START
-                    onDependencyCancel = FailureAction.CANCEL
-                }
-                artifacts {
-                    buildRule = sameChainOrLastFinished()
-                    artifactRules = "ktor-repository.zip!** => ktor-repository"
-                    cleanDestination = true
-                }
-            }
+            benchmarksSnapshotBuildDependency()
         }
 
         requirements {

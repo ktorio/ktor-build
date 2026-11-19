@@ -2,6 +2,9 @@ package subprojects.benchmarks
 
 import dsl.bashScript
 import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.Dependencies
+import jetbrains.buildServer.configs.kotlin.FailureAction
+import jetbrains.buildServer.configs.kotlin.ReuseBuilds
 import jetbrains.buildServer.configs.kotlin.buildSteps.gradle
 import jetbrains.buildServer.configs.kotlin.buildSteps.script
 import subprojects.Agents
@@ -70,3 +73,20 @@ internal object BuildKtorForBenchmarks : BuildType({
 
     defaultBuildFeatures(VCSCore.id)
 })
+
+
+fun Dependencies.benchmarksSnapshotBuildDependency() {
+    dependency(BuildKtorForBenchmarks) {
+        snapshot {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+            onDependencyFailure = FailureAction.FAIL_TO_START
+            onDependencyCancel = FailureAction.CANCEL
+        }
+        artifacts {
+            buildRule = sameChainOrLastFinished()
+            artifactRules = "ktor-repository.zip!** => ktor-repository"
+            cleanDestination = true
+        }
+    }
+}
+
