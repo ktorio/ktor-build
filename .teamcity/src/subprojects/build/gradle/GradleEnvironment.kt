@@ -51,6 +51,8 @@ class GradleEnvironment(
     }
 
     steps {
+        if (os == Agents.OS.Windows) excludeFromDefender()
+
         with(platform) {
             resetGradleUserHome()
 
@@ -139,6 +141,9 @@ fun BuildType.useGradleEnvironment(
     configurationCache: Boolean = true,
     arch: Agents.Arch = Agents.Arch.X64,
 ) {
+    // The user home is unpacked before the first step, so Defender is still active there
+    if (os == Agents.OS.Windows) steps { excludeFromDefender() }
+
     val environment = gradleEnvironments.find { it.os == os && it.arch == arch && version in it.versions } ?: return
 
     params {

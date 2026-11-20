@@ -56,6 +56,15 @@ fun BuildType.addSlackNotifications(
     }
 }
 
+internal fun BuildSteps.excludeFromDefender() {
+    powerShell {
+        name = "Exclude agent directory from Defender"
+        scriptFile("exclude_from_defender.ps1")
+    }
+    // Before any step that writes files
+    if (items.size > 1) items.add(0, items.removeLast())
+}
+
 internal fun BuildSteps.platformScript(name: String, os: Agents.OS, unixScript: String, windowsScript: String) {
     if (os == Agents.OS.Windows) {
         powerShell {
