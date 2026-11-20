@@ -106,8 +106,14 @@ object ProjectHttpArenaBenchmarks : Project({
             )
             param("env.HTTPARENA_FRAMEWORK", "%httparena.framework%")
             param("env.HTTPARENA_TESTS", "%httparena.tests%")
-            param("env.KTOR_VERSION", BuildKtorForBenchmarks.depParamRefs.buildNumber.ref)
-            param("env.MAVEN_LOCAL_REPO", MAVEN_LOCAL_PATH)
+            // Passed to `docker build`: the Ktor version to build against, and the local Maven repository (with the
+            // artifacts built by the dependency) as the `m2repo` named build context
+            param(
+                "env.FRAMEWORK_BUILD_ARGS",
+                "--build-arg ENABLE_JFR=true " +
+                    "--build-arg KTOR_VERSION=${BuildKtorForBenchmarks.depParamRefs.buildNumber.ref} " +
+                    "--build-context m2repo=$MAVEN_LOCAL_PATH"
+            )
             param("env.RUNS", "5")
 
             // GCANNON_CPUS and the thread counts are computed in the run step from the CPUs Docker reports
