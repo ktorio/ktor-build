@@ -1,6 +1,7 @@
 package subprojects
 
 import jetbrains.buildServer.configs.kotlin.*
+import subprojects.Agents.EXTRA_LARGE
 import subprojects.Agents.LARGE
 import subprojects.Agents.MEDIUM
 
@@ -70,6 +71,7 @@ fun Requirements.agent(
     val memorySizeMb = when (hardwareCapacity) {
         MEDIUM -> "7000"
         LARGE -> "15000"
+        EXTRA_LARGE -> "30000"
         else -> ""
     }
     if (memorySizeMb.isNotBlank()) noLessThan("teamcity.agent.hardware.memorySizeMb", memorySizeMb)

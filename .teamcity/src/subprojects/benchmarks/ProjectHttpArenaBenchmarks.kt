@@ -1,5 +1,6 @@
 package subprojects.benchmarks
 
+import dsl.bashScript
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -13,18 +14,20 @@ object ProjectHttpArenaBenchmarks : Project({
 
     buildType {
         id("HttpArenaKtorTunedBenchmark")
-        name = "HttpArena ktor-tuned benchmark"
+        name = "HttpArena benchmark"
 
         vcs {
             root(VCSHttpArenaBenchmarks)
             checkoutMode = CheckoutMode.ON_AGENT
         }
 
+        artifactRules = "+:results => results.zip"
+
         steps {
             script {
                 // TeamCity can't provision agents, so install OpenSSL on demand (needs passwordless sudo on the agent)
                 name = "Ensure OpenSSL is installed"
-                scriptContent = """
+                scriptContent = bashScript("""
                     #!/usr/bin/env bash
                     set -euo pipefail
                     if command -v openssl >/dev/null 2>&1 && dpkg -s libssl-dev >/dev/null 2>&1; then
@@ -34,11 +37,11 @@ object ProjectHttpArenaBenchmarks : Project({
                     sudo apt-get update
                     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openssl libssl-dev
                     openssl version
-                """.trimIndent()
+                """)
             }
             script {
                 name = "Check host tools"
-                scriptContent = """
+                scriptContent = bashScript("""
                     #!/usr/bin/env bash
                     set -euo pipefail
                     missing=0
@@ -46,11 +49,28 @@ object ProjectHttpArenaBenchmarks : Project({
                         command -v ${'$'}tool >/dev/null 2>&1 || { echo "Missing required tool on agent: ${'$'}tool"; missing=1; }
                     done
                     exit ${'$'}missing
-                """.trimIndent()
+                """)
             }
             script {
-                name = "Run ktor-tuned benchmark"
-                scriptContent = "./scripts/benchmark.sh ktor-tuned baseline"
+                name = "Run HttpArena benchmark"
+                // Assigns CPU counts.  This might not be necessary anymore...
+                scriptContent = bashScript("""
+                    #!/usr/bin/env bash
+                    set -euo pipefail
+                    cpus=${'$'}(docker info --format '{{.NCPU}}')
+                    half=${'$'}(( cpus / 2 ))
+                    [ "${'$'}half" -ge 1 ] || half=1
+                    if [ "${'$'}cpus" -le 2 ]; then
+                        export GCANNON_CPUS="0-${'$'}(( cpus - 1 ))"
+                    else
+                        export GCANNON_CPUS="${'$'}half-${'$'}(( cpus - 1 ))"
+                    fi
+                    export THREADS=${'$'}half ASYNC_THREADS=${'$'}half H2THREADS=${'$'}half H3THREADS=${'$'}half
+
+                    echo "Docker CPUs: ${'$'}cpus, GCANNON_CPUS=${'$'}GCANNON_CPUS, threads=${'$'}half"
+                    # Tests are intentionally unquoted so that several can be passed space-separated; empty runs all
+                    ./scripts/benchmark.sh "${'$'}HTTPARENA_FRAMEWORK" ${'$'}HTTPARENA_TESTS
+                """)
             }
         }
 
@@ -58,17 +78,38 @@ object ProjectHttpArenaBenchmarks : Project({
             benchmarksSnapshotBuildDependency()
         }
 
+        failureConditions {
+            executionTimeoutMin = 120
+        }
+
         params {
+            text(
+                name = "httparena.framework",
+                value = "ktor-tuned",
+                description = "Framework to benchmark",
+                allowEmpty = false,
+            )
+            text(
+                name = "httparena.tests",
+                value = "",
+                description = "Space-separated benchmark tests to run (e.g. baseline). Leave empty to run all benchmarks",
+                allowEmpty = true,
+            )
+            text(
+                name = "ktor.branch",
+                value = "",
+                description = "Ktor branch to build and benchmark (e.g. main, release/3.x, my-feature). Empty uses the default branch",
+                allowEmpty = true,
+            )
+            // Forwarded to the shared Ktor build, which checks out this branch before building
+            param("reverse.dep.${BuildKtorForBenchmarks.id}.ktor.branch", "%ktor.branch%")
+            param("env.HTTPARENA_FRAMEWORK", "%httparena.framework%")
+            param("env.HTTPARENA_TESTS", "%httparena.tests%")
             param("env.KTOR_VERSION", BuildKtorForBenchmarks.depParamRefs.buildNumber.ref)
             param("env.MAVEN_LOCAL_REPO", MAVEN_LOCAL_PATH)
+            param("env.RUNS", "5")
 
-            // XLarge agent: 16 CPU, 32 GB RAM. Load generator gets the upper half of the cores,
-            // leaving the lower half (0-7) for the server, with thread counts matching the 8 cores.
-            param("env.GCANNON_CPUS", "8-15")
-            param("env.THREADS", "8")
-            param("env.ASYNC_THREADS", "8")
-            param("env.H2THREADS", "8")
-            param("env.H3THREADS", "8")
+            // GCANNON_CPUS and the thread counts are computed in the run step from the CPUs Docker reports
             param("env.LOADGEN_DOCKER", "true")
         }
 
