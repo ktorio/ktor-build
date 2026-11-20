@@ -62,7 +62,7 @@ internal fun GradleBuildStep.setupDockerForJavaScriptTests(jsEntry: JSEntry) {
     gradleParams = "$gradleParams -g %env.GRADLE_USER_HOME%"
 }
 
-/** Runs all build steps in a single container, so the Gradle daemon is shared between them. */
+/** Runs all build steps in a single container, so it is started once per build. */
 internal fun BuildType.runInContainer(jsEntry: JSEntry) {
     features {
         runInDocker {
