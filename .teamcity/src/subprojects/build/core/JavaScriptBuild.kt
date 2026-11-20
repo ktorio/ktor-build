@@ -18,7 +18,7 @@ class JavaScriptBuild(
         "+:**/build/**/*.jar",
         "+:**/build/**/yarn.lock",
     )
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact, kotlinDaemonGcLogArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(repo.vcsRoot)
@@ -26,7 +26,6 @@ class JavaScriptBuild(
 
     params {
         extraGradleParams()
-        splitStepsParam()
     }
 
     useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
@@ -42,7 +41,6 @@ class JavaScriptBuild(
             name = "Compile Js tests"
             tasks = "jsTestTestDevelopmentExecutableCompileSync"
             gradleParams = commonGradleParams
-            ifSplitSteps()
         }
         gradle {
             name = "Test Js"

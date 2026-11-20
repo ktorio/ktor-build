@@ -38,7 +38,6 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
         "-:**/caches/**",
         "-:**/build/**/*.lock",
         "-:**/reports/**",
-        kotlinDaemonGcLogArtifact,
     )
     publishArtifacts = PublishMode.SUCCESSFUL
 

@@ -15,7 +15,7 @@ class NativeBuild(
     id(repo.id("KtorMatrixNative_${entry.id}".toId()))
     name = repo.name("${entry.name} ${entry.arch}")
     val artifactsToPublish = formatArtifacts("+:**/build/**/*.klib")
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact, kotlinDaemonGcLogArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(repo.vcsRoot)
@@ -23,7 +23,6 @@ class NativeBuild(
 
     params {
         extraGradleParams()
-        splitStepsParam()
     }
 
     useGradleEnvironment(entry, GradleUserHome.Full)
@@ -58,7 +57,6 @@ class NativeBuild(
             // configuration cache enabled
             gradleParams = "--info --continue --no-daemon --no-configuration-cache $GradleParams"
             jdkHome = Env.JDK_LTS
-            ifSplitSteps()
         }
 
         gradle {
@@ -66,7 +64,6 @@ class NativeBuild(
             tasks = entry.targetTask(suffix = "TestProcessResources")
             gradleParams = "$GradleParams"
             jdkHome = Env.JDK_LTS
-            ifSplitSteps()
         }
 
         gradle {

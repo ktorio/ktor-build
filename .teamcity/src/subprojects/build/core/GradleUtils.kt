@@ -14,15 +14,3 @@ fun ParametrizedWithType.extraGradleParams() {
         allowEmpty = true
     )
 }
-
-/**
- * Whether to compile in a separate Gradle invocation before running tests.
- * Can be disabled when starting a build to measure running everything in one invocation.
- */
-fun ParametrizedWithType.splitStepsParam() {
-    param("splitSteps", "true")
-}
-
-fun BuildStep.ifSplitSteps() {
-    conditions { equals("splitSteps", "true") }
-}

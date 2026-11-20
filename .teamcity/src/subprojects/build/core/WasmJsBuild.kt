@@ -17,7 +17,7 @@ class WasmJsBuild(
         "+:**/build/**/*.jar",
         "+:**/build/**/yarn.lock",
     )
-    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact, kotlinDaemonGcLogArtifact)
+    artifactRules = formatArtifacts(artifactsToPublish, junitReportArtifact, memoryReportArtifact, testServerArtifact)
 
     vcs {
         root(repo.vcsRoot)
@@ -25,7 +25,6 @@ class WasmJsBuild(
 
     params {
         extraGradleParams()
-        splitStepsParam()
     }
 
     useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
@@ -41,7 +40,6 @@ class WasmJsBuild(
             name = "Compile Wasm Js tests"
             tasks = "wasmJsTestTestDevelopmentExecutableCompileSync"
             gradleParams = commonGradleParams
-            ifSplitSteps()
         }
         gradle {
             name = "Test Wasm Js"
