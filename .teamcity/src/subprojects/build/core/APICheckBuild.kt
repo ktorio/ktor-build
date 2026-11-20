@@ -20,9 +20,9 @@ class APICheckBuild(private val repo: KtorRepository) : BuildType({
         extraGradleParams()
     }
 
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Full)
     cancelPreviousBuilds()
     enableRustForRelevantChanges(Agents.OS.Linux)
-    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Full)
 
     steps {
         setupRustAarch64CrossCompilation(os = Agents.OS.Linux)

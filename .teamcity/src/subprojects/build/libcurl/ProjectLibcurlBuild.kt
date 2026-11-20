@@ -77,6 +77,8 @@ private fun LibcurlBuild(
     }
 
     steps {
+        if (entry.os == Agents.OS.Windows) excludeFromDefender()
+
         platformScript(
             name = "Install vcpkg",
             os = entry.os,

@@ -141,14 +141,19 @@ fun BuildType.useGradleEnvironment(
     configurationCache: Boolean = true,
     arch: Agents.Arch = Agents.Arch.X64,
 ) {
-    // The user home is unpacked before the first step, so Defender is still active there
-    if (os == Agents.OS.Windows) steps { excludeFromDefender() }
-
-    val environment = gradleEnvironments.find { it.os == os && it.arch == arch && version in it.versions } ?: return
+    check(steps.items.isEmpty()) { "useGradleEnvironment must be called before adding build steps" }
+    val environment = gradleEnvironments.find { it.os == os && it.arch == arch && version in it.versions }
 
     params {
         setupGradleParams()
     }
+
+    steps {
+        if (os == Agents.OS.Windows) excludeFromDefender()
+        if (environment == null) with(EnvironmentPlatform.of(os)) { resetGradleUserHome() }
+    }
+
+    if (environment == null) return
 
     dependencies {
         artifacts(environment) {

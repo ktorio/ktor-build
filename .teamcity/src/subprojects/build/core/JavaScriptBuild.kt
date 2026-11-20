@@ -28,8 +28,8 @@ class JavaScriptBuild(
         extraGradleParams()
     }
 
-    cancelPreviousBuilds()
     useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+    cancelPreviousBuilds()
 
     runInContainer(jsEntry)
 

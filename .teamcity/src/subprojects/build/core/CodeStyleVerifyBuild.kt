@@ -23,8 +23,8 @@ object CodeStyleVerify : BuildType({
         extraGradleParams()
     }
 
-    cancelPreviousBuilds()
     useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
+    cancelPreviousBuilds()
 
     steps {
         gradle {

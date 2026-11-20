@@ -26,9 +26,9 @@ class JDKBuild(
         extraGradleParams()
     }
 
+    useGradleEnvironment(osJdkEntry, GradleUserHome.Light)
     cancelPreviousBuilds()
     enableRustForRelevantChanges(osJdkEntry.os)
-    useGradleEnvironment(osJdkEntry, GradleUserHome.Light)
 
     dependencies {
         snapshot(jvmCompileBuild) {

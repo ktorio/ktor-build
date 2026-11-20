@@ -25,9 +25,9 @@ class NativeBuild(
         extraGradleParams()
     }
 
+    useGradleEnvironment(entry, GradleUserHome.Full)
     cancelPreviousBuilds()
     val rustEnabled = enableRustForRelevantChanges(entry.os)
-    useGradleEnvironment(entry, GradleUserHome.Full)
 
     steps {
         if (entry.os == OS.Windows) {
