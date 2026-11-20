@@ -27,7 +27,7 @@ object ProjectHttpArenaBenchmarks : Project({
             script {
                 // TeamCity can't provision agents, so install OpenSSL on demand (needs passwordless sudo on the agent)
                 name = "Ensure OpenSSL is installed"
-                bashScript("""
+                scriptContent = bashScript("""
                     #!/usr/bin/env bash
                     set -euo pipefail
                     if command -v openssl >/dev/null 2>&1 && dpkg -s libssl-dev >/dev/null 2>&1; then
@@ -41,7 +41,7 @@ object ProjectHttpArenaBenchmarks : Project({
             }
             script {
                 name = "Check host tools"
-                bashScript("""
+                scriptContent = bashScript("""
                     #!/usr/bin/env bash
                     set -euo pipefail
                     missing=0
@@ -54,7 +54,7 @@ object ProjectHttpArenaBenchmarks : Project({
             script {
                 name = "Run HttpArena benchmark"
                 // Assigns CPU counts.  This might not be necessary anymore...
-                bashScript("""
+                scriptContent = bashScript("""
                     #!/usr/bin/env bash
                     set -euo pipefail
                     cpus=${'$'}(docker info --format '{{.NCPU}}')
