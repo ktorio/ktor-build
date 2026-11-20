@@ -21,11 +21,17 @@ object Agents {
     /** 16 CPU, 32 GB RAM */
     const val EXTRA_LARGE = "XLarge"
 
-    /** Operating Systems available to run builds. */
-    enum class OS(id: String? = null) {
-        Linux,
-        Windows,
-        MacOS(id = "macOS");
+    /**
+     * Operating Systems available to run builds.
+     *
+     * @property agentOsName The pinned OS version as it is specified on agents in `teamcity.agent.os.name`.
+     *  We usually use the default OS version (`teamcity.agent.os.latest=true`), except for macOS,
+     *  where we use the latest.
+     */
+    enum class OS(val agentOsName: String, id: String? = null) {
+        Linux("Ubuntu-24.04"),
+        Windows("Windows-Server-2022"),
+        MacOS("macOS-26-Tahoe", id = "macOS");
 
         /** The OS identifier to be used in build ID. */
         val id: String = id ?: name
@@ -64,8 +70,9 @@ fun Requirements.agent(
 ) {
     if (os != null) equals("teamcity.agent.os.family", os.name)
     if (osArch != null) equals("teamcity.agent.cpuArchitecture", osArch.agentArch)
-    // Arm64 macOS agents are available with several macOS versions, use the latest one
-    if (os == Agents.OS.MacOS && osArch == Agents.Arch.Arm64) equals("teamcity.agent.os.name", "macOS-26-Tahoe")
+    // macOS X64 agents are available only with an old macOS version
+    val isMacOSX64 = os == Agents.OS.MacOS && osArch == Agents.Arch.X64
+    if (os != null && !isMacOSX64) equals("teamcity.agent.os.name", os.agentOsName)
 
     // It is better to use memory constraint to select agent as it unlocks the possibility to use more powerful agents
     val memorySizeMb = when (hardwareCapacity) {
