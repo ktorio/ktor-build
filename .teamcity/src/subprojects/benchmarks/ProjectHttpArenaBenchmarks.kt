@@ -69,7 +69,7 @@ object ProjectHttpArenaBenchmarks : Project({
 
                     echo "Docker CPUs: ${'$'}cpus, GCANNON_CPUS=${'$'}GCANNON_CPUS, threads=${'$'}half"
                     # Tests are intentionally unquoted so that several can be passed space-separated; empty runs all
-                    ./scripts/benchmark.sh "${'$'}HTTPARENA_FRAMEWORK" ${'$'}HTTPARENA_TESTS
+                    ./scripts/benchmark.sh "${'$'}HTTPARENA_FRAMEWORK" ${'$'}HTTPARENA_TESTS --save
                 """)
             }
         }
