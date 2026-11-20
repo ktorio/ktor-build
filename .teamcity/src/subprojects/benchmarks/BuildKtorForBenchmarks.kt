@@ -21,7 +21,7 @@ internal const val MAVEN_LOCAL_PATH = "%system.teamcity.build.checkoutDir%/ktor-
 
 internal object BuildKtorForBenchmarks : BuildType({
     id("BuildKtorForAllocationBenchmarks")
-    name = "Build Ktor for allocation benchmarks"
+    name = "Build Ktor for benchmarks"
 
     vcs {
         root(VCSCore)
