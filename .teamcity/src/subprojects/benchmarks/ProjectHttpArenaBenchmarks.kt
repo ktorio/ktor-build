@@ -95,14 +95,15 @@ object ProjectHttpArenaBenchmarks : Project({
                 description = "Space-separated benchmark tests to run (e.g. baseline). Leave empty to run all benchmarks",
                 allowEmpty = true,
             )
+            // Overrides ktor.branch of the shared Ktor build, which checks out this branch before building.
+            // The value is set directly (not via a %reference%), so no unresolved reference reaches the dependency.
             text(
-                name = "httparena.ktor.branch",
+                name = "reverse.dep.${BuildKtorForBenchmarks.id}.ktor.branch",
                 value = "",
+                label = "Ktor branch",
                 description = "Ktor branch to build and benchmark (e.g. main, release/3.x, my-feature). Empty uses the default branch",
                 allowEmpty = true,
             )
-            // Forwarded to the shared Ktor build, which checks out this branch before building
-            param("reverse.dep.${BuildKtorForBenchmarks.id}.ktor.branch", "%httparena.ktor.branch%")
             param("env.HTTPARENA_FRAMEWORK", "%httparena.framework%")
             param("env.HTTPARENA_TESTS", "%httparena.tests%")
             param("env.KTOR_VERSION", BuildKtorForBenchmarks.depParamRefs.buildNumber.ref)
