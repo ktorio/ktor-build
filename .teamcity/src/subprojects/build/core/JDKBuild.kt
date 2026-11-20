@@ -69,6 +69,7 @@ class JDKBuild(
 
 fun BuildSteps.defineTCPPortRange() {
     script {
+        name = "Widen dynamic TCP port range"
         scriptContent = "netsh int ipv4 set dynamicport tcp start=1024 num=64510"
     }
 }
