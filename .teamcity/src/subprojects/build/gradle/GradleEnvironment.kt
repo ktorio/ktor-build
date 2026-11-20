@@ -150,10 +150,16 @@ fun BuildType.useGradleEnvironment(
 
     requirements {
         agent(os, arch, hardwareCapacity)
+        // Selects the agent size when starting a build, for example `agentMinMemoryMb=15000` and `agentMaxMemoryMb=16000` for Large
+        noLessThan("teamcity.agent.hardware.memorySizeMb", "%agentMinMemoryMb%")
+        noMoreThan("teamcity.agent.hardware.memorySizeMb", "%agentMaxMemoryMb%")
     }
 
     params {
         setupGradleParams()
+        if (deriveJvmArgs) jvmArgsParams(os)
+        param("agentMinMemoryMb", "0")
+        param("agentMaxMemoryMb", "1000000")
     }
 
     steps {
