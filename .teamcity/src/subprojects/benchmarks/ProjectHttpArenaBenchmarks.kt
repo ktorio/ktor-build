@@ -96,13 +96,13 @@ object ProjectHttpArenaBenchmarks : Project({
                 allowEmpty = true,
             )
             text(
-                name = "ktor.branch",
+                name = "httparena.ktor.branch",
                 value = "",
                 description = "Ktor branch to build and benchmark (e.g. main, release/3.x, my-feature). Empty uses the default branch",
                 allowEmpty = true,
             )
             // Forwarded to the shared Ktor build, which checks out this branch before building
-            param("reverse.dep.${BuildKtorForBenchmarks.id}.ktor.branch", "%ktor.branch%")
+            param("reverse.dep.${BuildKtorForBenchmarks.id}.ktor.branch", "%httparena.ktor.branch%")
             param("env.HTTPARENA_FRAMEWORK", "%httparena.framework%")
             param("env.HTTPARENA_TESTS", "%httparena.tests%")
             param("env.KTOR_VERSION", BuildKtorForBenchmarks.depParamRefs.buildNumber.ref)
