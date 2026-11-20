@@ -33,8 +33,15 @@ object ProjectReleaseAPIDocs : Project({
             param("versionsDirectory", "%teamcity.build.checkoutDir%/versions")
         }
 
-        // The build runs Gradle with --no-configuration-cache
-        useGradleEnvironment(Agents.OS.MacOS, GradleUserHome.Full, configurationCache = false, arch = Agents.Arch.Arm64)
+        // Configuration Cache is unsupported because of KT-76147
+        // JVM args can't be derived as the project is checked out into a subdirectory
+        useGradleEnvironment(
+            Agents.OS.MacOS,
+            GradleUserHome.Full,
+            configurationCache = false,
+            deriveJvmArgs = false,
+            arch = Agents.Arch.Arm64,
+        )
 
         steps {
             script {
@@ -50,7 +57,7 @@ object ProjectReleaseAPIDocs : Project({
                 gradleParams = "-Pversion=%releaseVersion% " +
                     "-Pktor.dokka.versionsDirectory=%versionsDirectory% " +
                     "-Porg.gradle.internal.network.retry.max.attempts=10 " +
-                    "--no-configuration-cache --info"
+                    "--info"
                 workingDir = "ktor"
                 jdkHome = Env.JDK_LTS
             }

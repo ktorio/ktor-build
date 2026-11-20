@@ -135,11 +135,13 @@ val gradleEnvironments = listOf(
  *
  * @param configurationCache Whether to keep the Gradle configuration cache between builds.
  *   It can be reused only when the Gradle user home is the same, so it is available only with the environment.
+ * @param deriveJvmArgs Whether to replace the project's heap sizes with smaller ones for CI agents.
  */
 fun BuildType.useGradleEnvironment(
     os: Agents.OS,
     version: GradleUserHome,
     configurationCache: Boolean = true,
+    deriveJvmArgs: Boolean = true,
     arch: Agents.Arch = Agents.Arch.X64,
     hardwareCapacity: String = Agents.MEDIUM,
 ) {
@@ -157,6 +159,7 @@ fun BuildType.useGradleEnvironment(
     steps {
         if (os == Agents.OS.Windows) excludeFromDefender()
         if (environment == null) with(EnvironmentPlatform.of(os)) { resetGradleUserHome() }
+        addGradleProperties(os, deriveJvmArgs, configurationCache)
     }
 
     if (environment == null) return
@@ -176,9 +179,10 @@ fun BuildType.useGradleEnvironment(
     agent: AgentSpec,
     version: GradleUserHome,
     configurationCache: Boolean = true,
+    deriveJvmArgs: Boolean = true,
     hardwareCapacity: String = Agents.MEDIUM,
 ) {
-    useGradleEnvironment(agent.os, version, configurationCache, agent.arch, hardwareCapacity)
+    useGradleEnvironment(agent.os, version, configurationCache, deriveJvmArgs, agent.arch, hardwareCapacity)
 }
 
 private fun ParametrizedWithType.setupGradleParams() {

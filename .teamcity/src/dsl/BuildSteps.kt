@@ -64,27 +64,34 @@ internal fun BuildSteps.excludeFromDefender() {
     }
 }
 
-internal fun BuildSteps.platformScript(name: String, os: Agents.OS, unixScript: String, windowsScript: String) {
+/** Runs [unixScript] or [windowsScript] depending on [os], with [suffix] appended to it. */
+internal fun BuildSteps.platformScript(
+    name: String,
+    os: Agents.OS,
+    unixScript: String,
+    windowsScript: String,
+    suffix: String = "",
+) {
     if (os == Agents.OS.Windows) {
         powerShell {
             this.name = name
-            scriptFile(windowsScript)
+            scriptFile(windowsScript, suffix)
         }
     } else {
         script {
             this.name = name
-            scriptFile(unixScript)
+            scriptFile(unixScript, suffix)
         }
     }
 }
 
-internal fun ScriptBuildStep.scriptFile(fileName: String) {
-    scriptContent = scriptContent(fileName)
+internal fun ScriptBuildStep.scriptFile(fileName: String, suffix: String = "") {
+    scriptContent = scriptContent(fileName) + suffix
 }
 
-internal fun PowerShellStep.scriptFile(fileName: String) {
+internal fun PowerShellStep.scriptFile(fileName: String, suffix: String = "") {
     scriptMode = script {
-        content = scriptContent(fileName)
+        content = scriptContent(fileName) + suffix
     }
 }
 

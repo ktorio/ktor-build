@@ -4,6 +4,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.core.*
+import subprojects.build.gradle.*
 import subprojects.release.*
 
 const val releaseVersion = "%releaseVersion%"
@@ -35,7 +36,8 @@ class PublishCustomTaskToMavenBuild(private val repo: KtorRepository) : BuildTyp
             scriptContent = "%prepublish_script%"
             conditions { doesNotEqual("prepublish_script", "") }
         }
-        publish("%tasks%", "%gpg_args%", os = "Auto")
+        // No Gradle environment for an agent of any OS, so the configuration cache is disabled here
+        publish("%tasks%", "%gpg_args% --no-configuration-cache", os = "Auto")
     }
     requirements {
         // Allow selection of any OS and arch
@@ -164,6 +166,7 @@ fun BuildType.usePublishingGradleEnvironment(
         os,
         GradleUserHome.Full,
         configurationCache = false,
+        deriveJvmArgs = false,
         arch = arch,
         hardwareCapacity = hardwareCapacity,
     )
@@ -195,7 +198,6 @@ fun BuildSteps.publish(
     gradle {
         name = "Publish"
         tasks = "$gradleTasks -PreleaseVersion=$releaseVersion %gradle_params% $gradleParams " +
-            "--no-configuration-cache " +
             "--info --stacktrace -Porg.gradle.internal.network.retry.max.attempts=100000"
         jdkHome = Env.JDK_LTS
     }
