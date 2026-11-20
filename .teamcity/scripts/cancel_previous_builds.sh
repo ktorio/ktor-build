@@ -14,7 +14,10 @@ function teamcityApiRequest() {
 # Get running builds on the same branch
 buildType="%system.teamcity.buildType.id%"
 branch="%teamcity.build.branch%"
-runningBuilds=$(teamcityApiRequest "/builds?locator=buildType:$buildType,branch:$branch,state:running" | jq -r '.build[].id')
+runningBuilds=$(
+  teamcityApiRequest "/builds?locator=buildType:$buildType,branch:$branch,state:running&fields=build(id)" |
+    { grep -o '"id":[0-9]*' || true; } | cut -d: -f2
+)
 
 # Cancel each running build except the current one
 buildUrl=${BUILD_URL:-"{unknown}"}

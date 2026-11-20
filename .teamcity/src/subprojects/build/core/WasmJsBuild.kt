@@ -30,12 +30,21 @@ class WasmJsBuild(
     cancelPreviousBuilds()
     useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Light)
 
+    runInContainer(jsEntry)
+
     steps {
+        val commonGradleParams = "--info $GradleParams"
+
+        // Compile separately to not run Kotlin daemon and browsers at the same time
         gradle {
-            name = "Build Wasm Js"
+            name = "Compile Wasm Js tests"
+            tasks = "wasmJsTestTestDevelopmentExecutableCompileSync"
+            gradleParams = commonGradleParams
+        }
+        gradle {
+            name = "Test Wasm Js"
             tasks = "cleanWasmJsTest wasmJsTest -x:ktor-client-auth:wasmJsBrowserTest"
-            gradleParams = "--continue --info -Penable-js-tests $GradleParams"
-            setupDockerForJavaScriptTests(jsEntry)
+            gradleParams = "--continue -Penable-js-tests $commonGradleParams"
         }
     }
 
