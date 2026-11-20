@@ -57,7 +57,8 @@ object ProjectReleaseAPIDocs : Project({
 
             script {
                 name = "Finalize API docs build and push changes to git"
-                scriptContent = bashScript("""
+                scriptContent = bashScript(
+                    """
                     ./build_doc.sh "%releaseVersion%" finalize "%versionsDirectory%"
                     git config user.name "TeamCity"
                     git config user.email "teamcity@jetbrains.com"
@@ -65,12 +66,9 @@ object ProjectReleaseAPIDocs : Project({
                     git add docs/
                     git commit --message "Update for %releaseVersion%"
                     git push origin main
-                """)
+                    """
+                )
             }
-        }
-
-        requirements {
-            agent(Agents.OS.MacOS, Agents.Arch.Arm64)
         }
 
         features {

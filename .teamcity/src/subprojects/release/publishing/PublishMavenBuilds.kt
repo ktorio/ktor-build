@@ -51,11 +51,9 @@ class PublishJvmToMavenBuild(private val repo: KtorRepository) : BuildType({
     params {
         publishingParams()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         publish(JVM_AND_COMMON_PUBLISH_TASK)
-    }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -67,11 +65,9 @@ class PublishJSToMavenBuild(private val repo: KtorRepository) : BuildType({
     params {
         publishingParams()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         publish(JS_PUBLISH_TASK)
-    }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -83,15 +79,13 @@ class PublishWindowsNativeToMavenBuild(private val repo: KtorRepository) : Build
     params {
         publishingParams()
     }
+    usePublishingGradleEnvironment(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     steps {
         publish(
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
             os = "Windows",
         )
-    }
-    requirements {
-        agent(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -103,11 +97,9 @@ class PublishLinuxNativeToMavenBuild(private val repo: KtorRepository) : BuildTy
     params {
         publishingParams()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         publish(LINUX_PUBLISH_TASK)
-    }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -119,12 +111,10 @@ class PublishMacOSNativeToMavenBuild(private val repo: KtorRepository) : BuildTy
     params {
         publishingParams()
     }
+    usePublishingGradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64)
     steps {
         installCocoapods()
         publish(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
-    }
-    requirements {
-        agent(Agents.OS.MacOS, Agents.Arch.Arm64)
     }
     failureConditions {
         executionTimeoutMin = 8 * 60
@@ -139,11 +129,9 @@ class PublishAndroidNativeToMavenBuild(private val repo: KtorRepository) : Build
     params {
         publishingParams()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         publish(ANDROID_NATIVE_PUBLISH_TASK)
-    }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -162,6 +150,24 @@ val ProtectedPublishWindowsNativeToMaven = PublishWindowsNativeToMavenBuild(Prot
 val ProtectedPublishLinuxNativeToMaven = PublishLinuxNativeToMavenBuild(Protected)
 val ProtectedPublishMacOSNativeToMaven = PublishMacOSNativeToMavenBuild(Protected)
 val ProtectedPublishAndroidNativeToMaven = PublishAndroidNativeToMavenBuild(Protected)
+
+/**
+ * Publishing keeps the project's JVM arguments, as it needs the project's Gradle heap.
+ * The configuration cache is not supported for publishing tasks.
+ */
+fun BuildType.usePublishingGradleEnvironment(
+    os: Agents.OS,
+    arch: Agents.Arch = Agents.Arch.X64,
+    hardwareCapacity: String = Agents.MEDIUM,
+) {
+    useGradleEnvironment(
+        os,
+        GradleUserHome.Full,
+        configurationCache = false,
+        arch = arch,
+        hardwareCapacity = hardwareCapacity,
+    )
+}
 
 private fun BuildType.createMavenPublishBuild(repo: KtorRepository, id: String, name: String) {
     createDeploymentBuild(repo.id(id), repo.name(name), "", releaseVersion)

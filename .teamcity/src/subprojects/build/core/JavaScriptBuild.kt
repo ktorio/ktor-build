@@ -50,10 +50,6 @@ class JavaScriptBuild(
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(Agents.OS.Linux)
-    }
 })
 
 private const val GradleUserHomeVolume = "-v %env.GRADLE_USER_HOME%:%env.GRADLE_USER_HOME%"

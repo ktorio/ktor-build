@@ -36,8 +36,4 @@ class APICheckBuild(private val repo: KtorRepository) : BuildType({
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(Agents.OS.Linux)
-    }
 })

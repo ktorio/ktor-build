@@ -75,10 +75,6 @@ internal object BuildKtorForBenchmarks : BuildType({
         }
     }
 
-    requirements {
-        agent(Agents.OS.Linux)
-    }
-
     params {
         param("system.teamcity.default.properties", "teamcity.default.properties")
         text(

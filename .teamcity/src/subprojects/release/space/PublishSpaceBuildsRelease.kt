@@ -38,12 +38,9 @@ object PublishJvmToSpaceRelease : BuildType({
     params {
         configureReleaseVersion()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(JVM_AND_COMMON_PUBLISH_TASK)
-    }
-
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -55,12 +52,9 @@ object PublishJSToSpaceRelease : BuildType({
     params {
         configureReleaseVersion()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(JS_PUBLISH_TASK)
-    }
-
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -77,15 +71,13 @@ object PublishWindowsNativeToSpaceRelease : BuildType({
     params {
         configureReleaseVersion()
     }
+    usePublishingGradleEnvironment(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(
             WINDOWS_PUBLISH_TASK,
             GPG_WINDOWS_GRADLE_ARGS,
             os = "Windows",
         )
-    }
-    requirements {
-        agent(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -102,11 +94,9 @@ object PublishLinuxNativeToSpaceRelease : BuildType({
     params {
         configureReleaseVersion()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(LINUX_PUBLISH_TASK)
-    }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 
@@ -123,13 +113,10 @@ object PublishMacOSNativeToSpaceRelease : BuildType({
     params {
         configureReleaseVersion()
     }
+    usePublishingGradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64)
     steps {
         installCocoapods()
         releaseToSpace(DARWIN_PUBLISH_TASK, GPG_MACOS_GRADLE_ARGS)
-    }
-
-    requirements {
-        agent(Agents.OS.MacOS, Agents.Arch.Arm64)
     }
 })
 
@@ -141,11 +128,9 @@ object PublishAndroidNativeToSpaceRelease : BuildType({
     params {
         configureReleaseVersion()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux)
     steps {
         releaseToSpace(ANDROID_NATIVE_PUBLISH_TASK)
-    }
-    requirements {
-        agent(Agents.OS.Linux)
     }
 })
 

@@ -118,10 +118,6 @@ object CoreFlakyTestBuild : BuildType({
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(Agents.OS.Linux)
-    }
 })
 
 /**
@@ -182,8 +178,4 @@ class CoreNativeFlakyTestBuild(private val entry: NativeEntry) : BuildType({
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(entry)
-    }
 })

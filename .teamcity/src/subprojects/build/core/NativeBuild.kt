@@ -75,8 +75,4 @@ class NativeBuild(
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(entry)
-    }
 })

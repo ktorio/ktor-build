@@ -35,8 +35,4 @@ class StressTestBuild(private val osJVMComboEntry: OSJDKEntry) : BuildType({
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(osJVMComboEntry)
-    }
 })

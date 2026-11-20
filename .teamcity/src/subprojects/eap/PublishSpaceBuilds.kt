@@ -34,6 +34,7 @@ object PublishJvmToSpace : BuildType({
     vcs {
         coreEap()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(JVM_AND_COMMON_PUBLISH_TASK)
     }
@@ -46,9 +47,6 @@ object PublishJvmToSpace : BuildType({
             reuseBuilds = ReuseBuilds.NO
         }
     }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
-    }
 })
 
 object PublishJSToSpace : BuildType({
@@ -56,6 +54,7 @@ object PublishJSToSpace : BuildType({
     vcs {
         coreEap()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(JS_PUBLISH_TASK)
     }
@@ -67,9 +66,6 @@ object PublishJSToSpace : BuildType({
             reuseBuilds = ReuseBuilds.NO
         }
     }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
-    }
 })
 
 object PublishWindowsNativeToSpace : BuildType({
@@ -77,6 +73,7 @@ object PublishWindowsNativeToSpace : BuildType({
     vcs {
         coreEap()
     }
+    usePublishingGradleEnvironment(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(WINDOWS_PUBLISH_TASK)
     }
@@ -88,9 +85,6 @@ object PublishWindowsNativeToSpace : BuildType({
             reuseBuilds = ReuseBuilds.NO
         }
     }
-    requirements {
-        agent(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
-    }
 })
 
 object PublishLinuxNativeToSpace : BuildType({
@@ -98,6 +92,7 @@ object PublishLinuxNativeToSpace : BuildType({
     vcs {
         coreEap()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(LINUX_PUBLISH_TASK)
     }
@@ -109,9 +104,6 @@ object PublishLinuxNativeToSpace : BuildType({
             reuseBuilds = ReuseBuilds.NO
         }
     }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
-    }
 })
 
 object PublishMacOSNativeToSpace : BuildType({
@@ -119,6 +111,7 @@ object PublishMacOSNativeToSpace : BuildType({
     vcs {
         coreEap()
     }
+    usePublishingGradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64)
     steps {
         installCocoapods()
         releaseToSpace(DARWIN_PUBLISH_TASK)
@@ -131,9 +124,6 @@ object PublishMacOSNativeToSpace : BuildType({
             reuseBuilds = ReuseBuilds.NO
         }
     }
-    requirements {
-        agent(Agents.OS.MacOS, Agents.Arch.Arm64)
-    }
 })
 
 object PublishAndroidNativeToSpace : BuildType({
@@ -141,6 +131,7 @@ object PublishAndroidNativeToSpace : BuildType({
     vcs {
         coreEap()
     }
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
         releaseToSpace(ANDROID_NATIVE_PUBLISH_TASK)
     }
@@ -151,9 +142,6 @@ object PublishAndroidNativeToSpace : BuildType({
         snapshot(SetBuildNumber) {
             reuseBuilds = ReuseBuilds.NO
         }
-    }
-    requirements {
-        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     }
 })
 

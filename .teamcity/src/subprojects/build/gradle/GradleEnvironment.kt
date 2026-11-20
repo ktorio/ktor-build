@@ -129,7 +129,8 @@ val gradleEnvironments = listOf(
 )
 
 /**
- * Uses the Gradle user home published by [GradleEnvironment] for the given [os] and [arch].
+ * Runs the build on an agent with the given [os], [arch] and [hardwareCapacity],
+ * using the Gradle user home published by [GradleEnvironment] for it.
  * The build continues with an empty Gradle user home if no environment publishes this [version] for the agent.
  *
  * @param configurationCache Whether to keep the Gradle configuration cache between builds.
@@ -140,9 +141,14 @@ fun BuildType.useGradleEnvironment(
     version: GradleUserHome,
     configurationCache: Boolean = true,
     arch: Agents.Arch = Agents.Arch.X64,
+    hardwareCapacity: String = Agents.MEDIUM,
 ) {
     check(steps.items.isEmpty()) { "useGradleEnvironment must be called before adding build steps" }
     val environment = gradleEnvironments.find { it.os == os && it.arch == arch && version in it.versions }
+
+    requirements {
+        agent(os, arch, hardwareCapacity)
+    }
 
     params {
         setupGradleParams()
@@ -165,9 +171,14 @@ fun BuildType.useGradleEnvironment(
     if (configurationCache) gradleConfigurationCache()
 }
 
-/** Uses the Gradle user home published by [GradleEnvironment] for the given [agent]. */
-fun BuildType.useGradleEnvironment(agent: AgentSpec, version: GradleUserHome, configurationCache: Boolean = true) {
-    useGradleEnvironment(agent.os, version, configurationCache, agent.arch)
+/** Runs the build on the given [agent], using the Gradle user home published by [GradleEnvironment] for it. */
+fun BuildType.useGradleEnvironment(
+    agent: AgentSpec,
+    version: GradleUserHome,
+    configurationCache: Boolean = true,
+    hardwareCapacity: String = Agents.MEDIUM,
+) {
+    useGradleEnvironment(agent.os, version, configurationCache, agent.arch, hardwareCapacity)
 }
 
 private fun ParametrizedWithType.setupGradleParams() {

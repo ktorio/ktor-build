@@ -60,8 +60,4 @@ object CodeStyleVerify : BuildType({
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(Agents.OS.Linux)
-    }
 })

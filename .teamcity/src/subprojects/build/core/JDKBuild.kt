@@ -65,10 +65,6 @@ class JDKBuild(
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(OS.Linux)
-    }
 })
 
 fun BuildSteps.defineTCPPortRange() {

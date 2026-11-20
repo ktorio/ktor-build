@@ -49,8 +49,4 @@ class WasmJsBuild(
     }
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(Agents.OS.Linux)
-    }
 })

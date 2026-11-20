@@ -42,8 +42,4 @@ class JvmCompileBuild(private val repo: KtorRepository) : BuildType({
     publishArtifacts = PublishMode.SUCCESSFUL
 
     defaultBuildFeatures()
-
-    requirements {
-        agent(Agents.OS.Linux)
-    }
 })
