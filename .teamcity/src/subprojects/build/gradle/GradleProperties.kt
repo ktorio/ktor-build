@@ -11,6 +11,7 @@ import subprojects.*
  * Agents have about 8 GB of memory, and the project's heaps leave too little of it for tests, browsers and the OS.
  * For one-shot builds 4 GB of heap is enough, and a larger heap makes GC much slower once the agent runs short of memory.
  * macOS agents have 2 GB more, which a cold native link uses to spend half as much time in GC.
+ * Measurements are in `docs/memory.md`.
  */
 private fun consumerJvmArgs(os: Agents.OS) = mapOf(
     "org.gradle.jvmargs" to replacements(
