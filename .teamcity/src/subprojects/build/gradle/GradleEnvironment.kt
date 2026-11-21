@@ -166,12 +166,12 @@ fun BuildType.useGradleEnvironment(
 
     dependencies {
         artifacts(environment) {
-            buildRule = lastSuccessful()
+            buildRule = lastSuccessful(BranchFilter.AllBranches)
             artifactRules = "?:${version.artifact}!** => %env.GRADLE_USER_HOME%"
         }
     }
 
-    if (configurationCache) gradleConfigurationCache()
+    if (configurationCache) gradleConfigurationCache(os)
 }
 
 /** Runs the build on the given [agent], using the Gradle user home published by [GradleEnvironment] for it. */

@@ -2,6 +2,7 @@ import jetbrains.buildServer.configs.kotlin.*
 import subprojects.*
 import subprojects.benchmarks.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 import subprojects.build.samples.*
 import subprojects.cli.*
 import subprojects.eap.*
@@ -73,4 +74,7 @@ project {
     subProject(PublishKotlinxHtml)
     subProject(ProjectCLI)
     subProject(ProjectGradlePlugin)
+
+    // Should be called after all build types are created
+    checkConfigurationCacheDependencies()
 }
