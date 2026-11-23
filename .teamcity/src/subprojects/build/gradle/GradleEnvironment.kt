@@ -213,9 +213,6 @@ private const val javaInstallationsProperty = "org.gradle.java.installations.fro
 
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */
 private sealed interface EnvironmentPlatform {
-    /** Parameters required for Gradle steps of the environment build. */
-    val requiredGradleParams: String
-
     /** Starts with an empty user home that doesn't clean up its caches, see [disableCacheCleanupScript]. */
     fun BuildSteps.resetGradleUserHome()
     fun BuildSteps.checkOutBranch(branch: String)
@@ -244,7 +241,7 @@ private sealed interface EnvironmentPlatform {
         gradle {
             this.name = name
             this.tasks = tasks
-            gradleParams = "$params $requiredGradleParams".trim()
+            gradleParams = params
             jdkHome = Env.JDK_LTS
         }
     }
@@ -290,8 +287,6 @@ private sealed interface EnvironmentPlatform {
 private object UnixPlatform : EnvironmentPlatform {
     // Outside the checkout, as checking out the next branch removes untracked files
     private const val archivesDir = "%system.teamcity.build.tempDir%"
-
-    override val requiredGradleParams = ""
 
     override fun BuildSteps.resetGradleUserHome() {
         script {
@@ -341,9 +336,6 @@ private object UnixPlatform : EnvironmentPlatform {
 }
 
 private object WindowsPlatform : EnvironmentPlatform {
-    // Windows doesn't allow reading files locked by a running daemon, so the user home couldn't be packed
-    override val requiredGradleParams = "--no-daemon"
-
     override fun BuildSteps.resetGradleUserHome() {
         powerShell {
             name = "Reset Gradle user home"
