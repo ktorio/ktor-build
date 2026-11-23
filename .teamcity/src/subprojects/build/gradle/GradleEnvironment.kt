@@ -51,6 +51,8 @@ class GradleEnvironment(
         "Light Gradle user home is not supported on Windows"
     }
 
+    writeGradleRunnerInitScript(os)
+
     steps {
         with(platform) {
             resetGradleUserHome()
