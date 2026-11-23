@@ -18,6 +18,10 @@ object ProjectHttpArenaBenchmarks : Project({
 
         vcs {
             root(VCSHttpArenaBenchmarks)
+            // Not checked out (all files excluded). It makes the build run on a Ktor branch (chosen when running the
+            // build, shown in the build list) and shares that revision with the BuildKtorForBenchmarks dependency,
+            // so up-to-date builds of that revision are reused
+            root(VCSCore, "-:.")
             checkoutMode = CheckoutMode.ON_AGENT
         }
 
@@ -93,15 +97,6 @@ object ProjectHttpArenaBenchmarks : Project({
                 name = "httparena.tests",
                 value = "",
                 description = "Space-separated benchmark tests to run (e.g. baseline). Leave empty to run all benchmarks",
-                allowEmpty = true,
-            )
-            // Overrides ktor.branch of the shared Ktor build, which checks out this branch before building.
-            // The value is set directly (not via a %reference%), so no unresolved reference reaches the dependency.
-            text(
-                name = "reverse.dep.${BuildKtorForBenchmarks.id}.ktor.branch",
-                value = "",
-                label = "Ktor branch",
-                description = "Ktor branch to build and benchmark (e.g. main, release/3.x, my-feature). Empty uses the default branch",
                 allowEmpty = true,
             )
             param("env.HTTPARENA_FRAMEWORK", "%httparena.framework%")
