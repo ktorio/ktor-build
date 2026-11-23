@@ -3,6 +3,13 @@
 // TeamCity's script makes CI Build Cache not re-usable on a local machine: TW-104167.
 //
 // Kotlin forked it on 2026-10-16 (ca49af6687), and it is used here with TeamCity 2026.3 (build 266911).
+//
+// Configuration cache entries refer to this script's compiled classes in the Gradle user home,
+// so after changing it, Gradle environments should be built again for the configuration cache to be reused.
+//
+// Local changes, to apply again when updating this copy:
+// - Region "Reporting of cached test results (Ktor)"
+// - Region "Test retry support (Ktor, restored from TeamCity's script)"
 
 import groovy.transform.CompileStatic
 import org.gradle.api.flow.*
@@ -22,8 +29,14 @@ import org.gradle.tooling.events.FinishEvent
 import org.gradle.tooling.events.OperationCompletionListener
 import org.gradle.tooling.events.task.TaskFailureResult
 import org.gradle.tooling.events.task.TaskFinishEvent
+import org.gradle.tooling.events.task.TaskSuccessResult
+import org.w3c.dom.Element
+import org.w3c.dom.NodeList
 
 import javax.inject.Inject
+import javax.xml.parsers.DocumentBuilderFactory
+import javax.xml.stream.XMLInputFactory
+import javax.xml.stream.XMLStreamReader
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -1072,6 +1085,255 @@ class DescriptorWrapper {
 
 // endregion
 
+// region Test retry support (Ktor, restored from TeamCity's script)
+
+/**
+ * Detects test tasks retrying failed tests, for which TeamCity should count a test passing on retry as passed.
+ *
+ * TeamCity's script enabled test retry support from a `doFirst` of such tasks,
+ * which Kotlin's fork removed with the rest of `TestTaskBuildLogSetupPlugin` (b179d9839f).
+ * Here, {@link TestRetrySupportListener} and replay of cached test results enable it instead,
+ * as an action added to a task would prevent reusing it from the build cache.
+ */
+class TestRetrySupport {
+    static boolean doesTaskNeedExplicitTestRetrySupport(Task task) {
+        // Check if test retries are supported on the build configuration level.
+        // If yes, then we do not need to set up explicit test retry for the task.
+        String testRetryEnvVar = System.getenv(Constants.SUPPORT_TEST_RETRY_ENV_VAR)
+        boolean isTeamCityTestRetryEnabled = testRetryEnvVar != null && testRetryEnvVar.toBoolean()
+        if (isTeamCityTestRetryEnabled) return false
+
+        def useTestRetryPlugin = System.getenv(Constants.USE_TEST_RETRY_PLUGIN_ENV_VAR)
+        if (useTestRetryPlugin == "false") return false
+
+        def develocityPluginRetryCount = getDevelocityPluginRetryCountOrNull(task)
+        if (develocityPluginRetryCount != null && develocityPluginRetryCount > 0) return true
+
+        def retryPluginRetryCount = getRetryPluginRetryCountOrNull(task)
+        return retryPluginRetryCount != null && retryPluginRetryCount > 0
+    }
+
+    static Integer getDevelocityPluginRetryCountOrNull(Task task) {
+        def develocityPlugin = task.getExtensions()?.findByName("develocity")
+        if (develocityPlugin != null && develocityPlugin.metaClass.respondsTo(develocityPlugin, "testRetry")) {
+            def develocityTestRetry = develocityPlugin.getTestRetry()
+            if (develocityTestRetry != null && develocityTestRetry.metaClass.respondsTo(develocityTestRetry, "getMaxRetries")) {
+                return getRetryCountOrNull(develocityTestRetry.getMaxRetries())
+            }
+        }
+
+        return null
+    }
+
+    static Integer getRetryPluginRetryCountOrNull(Task task) {
+        def retryPlugin = task.getExtensions()?.findByName("retry")
+        if (retryPlugin != null && retryPlugin.metaClass.respondsTo(retryPlugin, "getMaxRetries")) {
+            return getRetryCountOrNull(retryPlugin.getMaxRetries())
+        }
+
+        return null
+    }
+
+    static Integer getRetryCountOrNull(def retries) {
+        if (retries == null || !retries.metaClass.respondsTo(retries, "getOrNull")) return null
+        return retries.getOrNull()
+    }
+}
+
+/** Enables test retry support in the task's flow while its tests run. */
+@CompileStatic
+class TestRetrySupportListener implements TestListener {
+    private static final Logger logger = Logging.getLogger(TestRetrySupportListener)
+
+    private final String flowId
+
+    TestRetrySupportListener(String flowId) {
+        this.flowId = flowId
+    }
+
+    @Override
+    void beforeSuite(TestDescriptor suite) {
+        if (suite.getParent() == null) send(true, flowId)
+    }
+
+    @Override
+    void afterSuite(TestDescriptor suite, TestResult result) {
+        if (suite.getParent() == null) send(false, flowId)
+    }
+
+    @Override
+    void beforeTest(TestDescriptor testDescriptor) {}
+
+    @Override
+    void afterTest(TestDescriptor testDescriptor, TestResult result) {}
+
+    static void send(boolean enabled, String flowId) {
+        logger.lifecycle(new ServiceMessage(name: "testRetrySupport", attributes: [enabled: String.valueOf(enabled)]).withFlowId(flowId).asString())
+    }
+}
+
+// endregion
+
+// region Reporting of cached test results (Ktor)
+
+/**
+ * Reports failed tests of test tasks taken from the build cache or up-to-date from their JUnit XML reports.
+ * Such tasks run no tests, so test reporting above doesn't see their results.
+ * Passed and skipped tests aren't reported, as they didn't run in this build, and reporting them would only grow the build log.
+ * This matters most when test tasks ignore failures, as Ktor's do on CI: a task with failed tests is cached too,
+ * and builds reusing it would be green.
+ *
+ * Tests are named as test reporting above names them by default, so mutes and history apply to both.
+ * The exception are tests whose display name doesn't start with the method name, as reports keep only display names.
+ * TeamCity's import of JUnit XML reports would prefix names with suites, which Kotlin names like `CompressionTest[jvm]`.
+ */
+@CompileStatic
+abstract class CachedTestResultsService implements BuildService<Parameters>, OperationCompletionListener {
+    private static final Logger logger = Logging.getLogger(CachedTestResultsService)
+    private static final DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance()
+    private static final XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance()
+    // The same limit as test reporting above applies to stacktraces
+    private static final int MAX_DETAILS_LENGTH = Integer.getInteger(Constants.STACKTRACE_MAX_LENGTH_SYSTEM_PROP, 18 * 1024)
+
+    interface Parameters extends BuildServiceParameters {
+        /** JUnit XML report directories by test task path */
+        MapProperty<String, String> getJunitXmlReports()
+
+        /** Paths of test tasks retrying failed tests, for which test retry support is enabled */
+        SetProperty<String> getRetriedTasks()
+    }
+
+    private final Map<String, String> junitXmlReports = parameters.getJunitXmlReports().get()
+    private final Set<String> retriedTasks = parameters.getRetriedTasks().get()
+
+    @Override
+    void onFinish(FinishEvent finishEvent) {
+        if (!(finishEvent instanceof TaskFinishEvent)) return
+
+        TaskFinishEvent taskFinishEvent = (TaskFinishEvent) finishEvent
+        // Also true for tasks taken from the build cache
+        def result = taskFinishEvent.getResult()
+        if (!(result instanceof TaskSuccessResult && result.isUpToDate())) return
+
+        String taskPath = taskFinishEvent.getDescriptor().getTaskPath()
+        String reportDirectory = junitXmlReports.get(taskPath)
+        if (reportDirectory == null) return
+
+        File[] reports = new File(reportDirectory).listFiles({ File directory, String name -> name.endsWith(".xml") } as FilenameFilter)
+        if (reports == null) return
+        List<File> failedReports = new ArrayList<File>()
+        for (File report : reports.sort()) {
+            if (hasFailures(report)) failedReports.add(report)
+        }
+        if (failedReports.isEmpty()) return
+
+        String flowId = Util.getFlowIdForTask(taskPath)
+        boolean retried = retriedTasks.contains(taskPath)
+        if (retried) TestRetrySupportListener.send(true, flowId)
+        for (File report : failedReports) {
+            replay(report, flowId)
+        }
+        if (retried) TestRetrySupportListener.send(false, flowId)
+    }
+
+    /** Reads only the counts on the report's root element, so that reports without failures, the most of them, aren't parsed. */
+    private static boolean hasFailures(File report) {
+        return report.withInputStream { InputStream input ->
+            XMLStreamReader reader = xmlInputFactory.createXMLStreamReader(input)
+            reader.nextTag()
+            // A missing count is taken for failures, to be checked by parsing the report
+            return reader.getAttributeValue(null, "failures") != "0" || reader.getAttributeValue(null, "errors") != "0"
+        }
+    }
+
+    private static void replay(File report, String flowId) {
+        NodeList testCases = documentBuilderFactory.newDocumentBuilder().parse(report).getElementsByTagName("testcase")
+        Set<String> failedTests = new HashSet<String>()
+        for (int i = 0; i < testCases.getLength(); i++) {
+            Element testCase = (Element) testCases.item(i)
+            if (getFailure(testCase) != null) failedTests.add(getTestName(testCase))
+        }
+
+        String suite = null
+        for (int i = 0; i < testCases.getLength(); i++) {
+            Element testCase = (Element) testCases.item(i)
+            // Retried tests are separate test cases, reported as separate invocations, like test reporting above does.
+            // All invocations of failed tests are reported, so that TeamCity's test retry support sees passed retries.
+            String testName = getTestName(testCase)
+            if (!failedTests.contains(testName)) continue
+
+            String className = testCase.getAttribute("classname")
+            if (className != suite) {
+                if (suite != null) sendMessage("testSuiteFinished", [name: suite], flowId)
+                suite = className
+                sendMessage("testSuiteStarted", [name: suite], flowId)
+            }
+
+            sendMessage("testStarted", [name: testName], flowId)
+            Element failure = getFailure(testCase)
+            if (failure != null) {
+                sendMessage("testFailed", [name: testName, message: failure.getAttribute("message"), details: failure.getTextContent().take(MAX_DETAILS_LENGTH)], flowId)
+            }
+            String duration = String.valueOf(Math.round(Double.parseDouble(testCase.getAttribute("time") ?: "0") * 1000))
+            sendMessage("testFinished", [name: testName, duration: duration], flowId)
+        }
+        if (suite != null) sendMessage("testSuiteFinished", [name: suite], flowId)
+    }
+
+    private static String getTestName(Element testCase) {
+        return testCase.getAttribute("classname") + "." + testCase.getAttribute("name")
+    }
+
+    private static Element getFailure(Element testCase) {
+        return (Element) (testCase.getElementsByTagName("failure").item(0) ?: testCase.getElementsByTagName("error").item(0))
+    }
+
+    private static void sendMessage(String name, Map<String, String> attributes, String flowId) {
+        logger.lifecycle(new ServiceMessage(name: name, attributes: attributes).withFlowId(flowId).asString())
+    }
+}
+
+/**
+ * Registers {@link CachedTestResultsService} to receive task completion events,
+ * and {@link TestRetrySupportListener} for test tasks retrying failed tests.
+ */
+@CompileStatic
+abstract class CachedTestResultsPlugin implements Plugin<Gradle> {
+    private static final String SERVICE_NAME = "cachedTestResultsService"
+
+    @Inject
+    abstract BuildEventsListenerRegistry getBuildEventsListenerRegistry()
+
+    @Override
+    void apply(Gradle gradle) {
+        if (gradle.parent != null) return
+        Provider<CachedTestResultsService> serviceProvider = gradle.getSharedServices().registerIfAbsent(SERVICE_NAME, CachedTestResultsService) {}
+        CachedTestResultsService.Parameters parameters =
+                (CachedTestResultsService.Parameters) gradle.getSharedServices().getRegistrations().getByName(SERVICE_NAME).getParameters()
+
+        // The service is created on the first event it receives, taking the report directories known by then.
+        // Registered earlier, it would receive events of tasks building plugins before test tasks are configured.
+        gradle.projectsEvaluated { buildEventsListenerRegistry.onTaskCompletion(serviceProvider) }
+
+        gradle.allprojects { Project project ->
+            // After evaluation, when build scripts and plugins have configured retries, as TeamCity's script did.
+            // Not with gradle.lifecycle.afterProject, as its actions would get a copy of the parameters.
+            project.afterEvaluate {
+                project.tasks.withType(AbstractTestTask).configureEach { AbstractTestTask task ->
+                    // Not mapping outputLocation, as its value is the task's output, which can't be stored in the configuration cache
+                    parameters.getJunitXmlReports().put(task.path, project.provider { task.reports.junitXml.outputLocation.get().asFile.absolutePath })
+                    if (TestRetrySupport.doesTaskNeedExplicitTestRetrySupport(task)) {
+                        parameters.getRetriedTasks().add(task.path)
+                        task.addTestListener(new TestRetrySupportListener(Util.getFlowIdForTask(task.path)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+// endregion
+
 // region Build problem reporting
 
 @CompileStatic
@@ -1444,6 +1706,7 @@ class TestFilterWrapper {
 
 apply plugin: CompileTaskErrorOutputPlugin
 apply plugin: TeamcityBuildProblemReportingPlugin
+apply plugin: CachedTestResultsPlugin
 
 ProjectExtraPropertiesExtender.logBuildPropertiesUsageWarningMessageIfNeeded(gradle, logger)
 
