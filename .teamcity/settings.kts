@@ -76,5 +76,5 @@ project {
     subProject(ProjectGradlePlugin)
 
     // Should be called after all build types are created
-    checkConfigurationCacheDependencies()
+    checkConfigurationCacheUserHome()
 }
