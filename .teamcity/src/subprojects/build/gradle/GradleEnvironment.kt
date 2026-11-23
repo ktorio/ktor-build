@@ -51,7 +51,7 @@ class GradleEnvironment(
         "Light Gradle user home is not supported on Windows"
     }
 
-    writeGradleRunnerInitScript(os)
+    runGradleWithRunnerInitScript()
 
     steps {
         with(platform) {
@@ -161,7 +161,7 @@ fun BuildType.useGradleEnvironment(
         if (environment == null) with(EnvironmentPlatform.of(os)) { resetGradleUserHome() }
         addGradleProperties(os, deriveJvmArgs, configurationCache)
     }
-    writeGradleRunnerInitScript(os)
+    runGradleWithRunnerInitScript()
 
     if (environment == null) return
 
@@ -202,6 +202,10 @@ private fun ParametrizedWithType.setupGradleParams() {
 private val initScripts: Map<String, String> = Path("gradle.init.d").listDirectoryEntries("*.txt").sorted()
     .associate { file -> file.name.removeSuffix(".txt") to readFileForStep(file) }
 
+/** Files written into the user home when it is reset, by path relative to it. */
+private val userHomeFiles: Map<String, String> =
+    initScripts.mapKeys { (name, _) -> "init.d/$name" } + (runnerInitScriptPathInUserHome to runnerInitScript)
+
 /**
  * Points Gradle to the JDKs installed on agents, so it doesn't download its own.
  * On Windows agents, Gradle doesn't detect them by itself.
@@ -210,7 +214,7 @@ private const val javaInstallationsProperty = "org.gradle.java.installations.fro
 
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */
 private sealed interface EnvironmentPlatform {
-    /** Starts with an empty user home with [initScripts]. */
+    /** Starts with an empty user home with [userHomeFiles]. */
     fun BuildSteps.resetGradleUserHome()
     fun BuildSteps.checkOutBranch(branch: String)
     fun BuildSteps.removeKotlinNativeBundle()
@@ -301,8 +305,8 @@ private object UnixPlatform : EnvironmentPlatform {
                 mkdir -p "${'$'}GRADLE_USER_HOME/init.d"
                 echo '$javaInstallationsProperty' > "${'$'}GRADLE_USER_HOME/gradle.properties"
                 """
-            ) + initScripts.entries.joinToString("\n", prefix = "\n") { (name, content) ->
-                bashWriteFile("\$GRADLE_USER_HOME/init.d/$name", content)
+            ) + userHomeFiles.entries.joinToString("\n", prefix = "\n") { (path, content) ->
+                bashWriteFile("\$GRADLE_USER_HOME/$path", content)
             }
         }
     }
@@ -366,8 +370,8 @@ private object WindowsPlatform : EnvironmentPlatform {
                     New-Item -ItemType Directory -Force "${'$'}env:GRADLE_USER_HOME\init.d" | Out-Null
                     Set-Content -Path "${'$'}env:GRADLE_USER_HOME\gradle.properties" -Value '$javaInstallationsProperty'
                     """
-                ) + initScripts.entries.joinToString("\n", prefix = "\n") { (name, content) ->
-                    powerShellWriteFile("\$env:GRADLE_USER_HOME\\init.d\\$name", content)
+                ) + userHomeFiles.entries.joinToString("\n", prefix = "\n") { (path, content) ->
+                    powerShellWriteFile("\$env:GRADLE_USER_HOME/$path", content)
                 }
             }
         }
