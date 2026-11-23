@@ -53,16 +53,7 @@ class NativeBuild(
         gradle {
             name = "Build tests"
             tasks = entry.targetTask(prefix = "linkDebugTest")
-            // KT-89880 KotlinNativeLink cache key changes after cold native installation with
-            // configuration cache enabled
-            gradleParams = "--info --continue --no-daemon --no-configuration-cache $GradleParams"
-            jdkHome = Env.JDK_LTS
-        }
-
-        gradle {
-            name = "Process Test Resources"
-            tasks = entry.targetTask(suffix = "TestProcessResources")
-            gradleParams = "$GradleParams"
+            gradleParams = "--info $GradleParams"
             jdkHome = Env.JDK_LTS
         }
 
