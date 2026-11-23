@@ -6,6 +6,7 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
+import subprojects.build.gradle.*
 import java.util.Locale.*
 
 object ProjectLibcurlBuild : Project({
@@ -67,9 +68,7 @@ private fun LibcurlBuild(
         root(VCSCore)
     }
 
-    requirements {
-        agent(entry)
-    }
+    useGradleEnvironment(entry, GradleUserHome.Full, configurationCache = false)
 
     params {
         param("env.VCPKG_ROOT", "%system.teamcity.build.checkoutDir%%teamcity.agent.jvm.file.separator%vcpkg")
@@ -77,8 +76,6 @@ private fun LibcurlBuild(
     }
 
     steps {
-        if (entry.os == Agents.OS.Windows) excludeFromDefender()
-
         platformScript(
             name = "Install vcpkg",
             os = entry.os,

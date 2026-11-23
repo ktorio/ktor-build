@@ -62,8 +62,12 @@ class GradleEnvironment(
             }
 
             // Prepared on top of the Light user home
-            prepareGradleUserHome(GradleUserHome.Full, versions) {
+            prepareGradleUserHome(GradleUserHome.Full, versions) { branch ->
                 resolveDependencies(native = true)
+                environmentGradle(
+                    name = "Install Kotlin/Native ($branch)",
+                    tasks = "downloadKotlinNativeDistribution",
+                )
             }
         }
     }
@@ -188,8 +192,9 @@ fun BuildType.useGradleEnvironment(
 private fun ParametrizedWithType.setupGradleParams() {
     // The agent work directory has the same path on all agents with the same OS
     param("env.GRADLE_USER_HOME", "%teamcity.agent.work.dir%/gradle-user-home")
-    // Kotlin/Native moves its bundle here from the user home, which is fast only on the same disk
-    param("env.KONAN_DATA_DIR", "%teamcity.agent.work.dir%/konan")
+    // Kotlin/Native moves its bundle here from the user home, which is fast only on the same disk.
+    // Inside the user home, the installation is packed into the environment, so builds don't install it again.
+    param("env.KONAN_DATA_DIR", "%teamcity.agent.work.dir%/gradle-user-home/konan")
 }
 
 private const val disableCacheCleanupFile = "disable-cache-cleanup.init.gradle.kts"
@@ -235,7 +240,7 @@ private sealed interface EnvironmentPlatform {
         packGradleUserHome(version)
     }
 
-    fun BuildSteps.environmentGradle(name: String, tasks: String, params: String) {
+    fun BuildSteps.environmentGradle(name: String, tasks: String, params: String = "") {
         gradle {
             this.name = name
             this.tasks = tasks
