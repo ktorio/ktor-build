@@ -51,6 +51,7 @@ project {
     // DO NOT REMOVE
     params {
         param("teamcity.ui.settings.readOnly", "true")
+        gradleRunnerInitScriptParameter()
     }
 
     // TODO: Create narrow group of approvers not to spam to averyone with notifications
@@ -77,4 +78,5 @@ project {
 
     // Should be called after all build types are created
     checkConfigurationCacheUserHome()
+    useGradleRunnerInitScript()
 }

@@ -162,6 +162,7 @@ fun BuildType.useGradleEnvironment(
         if (environment == null) with(EnvironmentPlatform.of(os)) { resetGradleUserHome() }
         addGradleProperties(os, deriveJvmArgs, configurationCache)
     }
+    writeGradleRunnerInitScript(os)
 
     if (environment == null) return
 
