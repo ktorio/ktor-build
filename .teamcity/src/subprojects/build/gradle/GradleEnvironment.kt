@@ -401,7 +401,7 @@ private object WindowsPlatform : EnvironmentPlatform {
                     Remove-Item -Recurse -Force -ErrorAction Ignore "${'$'}caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-native-prebuilt"
                     # Removes whole transform workspaces, so Gradle doesn't find them incomplete
                     Get-ChildItem -Directory -Path "${'$'}caches\*\transforms\*\transformed\extracted\kotlin-native-prebuilt-*" |
-                        ForEach-Object { Remove-Item -Recurse -Force -ErrorAction Stop ${'$'}_.Parent.Parent.Parent.FullName }
+                        ForEach-Object { [IO.Directory]::Delete("\\?\" + ${'$'}_.Parent.Parent.Parent.FullName, ${'$'}true) }
                     """
                 )
             }
