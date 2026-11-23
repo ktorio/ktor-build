@@ -24,3 +24,21 @@ derive() {
     done
     append "$line"
 }
+
+# Points Kotlin Gradle Plugin to the Kotlin/Native installation from the Gradle environment,
+# so it doesn't resolve and unpack the Kotlin/Native bundle again.
+# Does nothing if the environment has no installation of the project's Kotlin version.
+native_home() {
+    local version home
+    version=$(sed -nE 's/^kotlin = "([^"]+)"/\1/p' gradle/libs.versions.toml)
+    if [[ -z $version ]]; then
+        echo "##teamcity[message text='Kotlin version is missing from gradle/libs.versions.toml, Kotlin/Native from the Gradle environment is not used' status='WARNING']"
+        return
+    fi
+    for home in "$KONAN_DATA_DIR"/kotlin-native-prebuilt-*-"$version"; do
+        if [[ -f $home/provisioned.ok ]]; then
+            append "kotlin.native.home=$home"
+            return
+        fi
+    done
+}

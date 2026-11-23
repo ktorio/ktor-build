@@ -31,6 +31,7 @@ private fun replacements(vararg replacements: Pair<String, String>): String =
  * Adds properties overriding the project's `gradle.properties` to the user home.
  * [consumerJvmArgs] are derived from the checked out branch, as the environment is packed from another branch,
  * and its own build needs the project's Gradle heap.
+ * Also points `kotlin.native.home` to the Kotlin/Native installation from the environment, see `native_home` in the scripts.
  */
 internal fun BuildSteps.addGradleProperties(os: Agents.OS, deriveJvmArgs: Boolean, configurationCache: Boolean) {
     val calls = buildList {
@@ -40,8 +41,8 @@ internal fun BuildSteps.addGradleProperties(os: Agents.OS, deriveJvmArgs: Boolea
             }
         }
         if (!configurationCache) add("append 'org.gradle.configuration-cache=false'")
+        add("native_home")
     }
-    if (calls.isEmpty()) return
 
     platformScript(
         name = "Add Gradle properties",

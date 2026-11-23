@@ -216,6 +216,7 @@ private sealed interface EnvironmentPlatform {
     /** Starts with an empty user home that doesn't clean up its caches, see [disableCacheCleanupScript]. */
     fun BuildSteps.resetGradleUserHome()
     fun BuildSteps.checkOutBranch(branch: String)
+    fun BuildSteps.removeKotlinNativeBundle()
 
     /** Packs the user home after [version] is prepared, so later steps don't change the archive. */
     fun BuildSteps.packGradleUserHome(version: GradleUserHome)
@@ -234,6 +235,8 @@ private sealed interface EnvironmentPlatform {
             prepare(branch)
         }
 
+        // Removed only after all branches are prepared, as each of them would resolve the bundle again
+        if (version == GradleUserHome.Full) removeKotlinNativeBundle()
         packGradleUserHome(version)
     }
 
@@ -316,6 +319,21 @@ private object UnixPlatform : EnvironmentPlatform {
         }
     }
 
+    override fun BuildSteps.removeKotlinNativeBundle() {
+        script {
+            name = "Remove Kotlin/Native bundle"
+            scriptContent = bashScript(
+                """
+                rm -rf "${'$'}GRADLE_USER_HOME/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-native-prebuilt"
+                # Removes whole transform workspaces, so Gradle doesn't find them incomplete
+                for unpacked in "${'$'}GRADLE_USER_HOME"/caches/*/transforms/*/transformed/extracted/kotlin-native-prebuilt-*; do
+                    if [[ -d ${'$'}unpacked ]]; then rm -rf "${'$'}{unpacked%/transformed/extracted/*}"; fi
+                done
+                """
+            )
+        }
+    }
+
     override fun BuildSteps.packGradleUserHome(version: GradleUserHome) {
         script {
             name = "Pack Gradle user home ($version)"
@@ -364,6 +382,23 @@ private object WindowsPlatform : EnvironmentPlatform {
                     Invoke-Git fetch --depth=1 ${VCSCore.url} "refs/heads/$branch"
                     Invoke-Git switch --force -C "$branch" FETCH_HEAD
                     Invoke-Git clean -fdx
+                    """
+                )
+            }
+        }
+    }
+
+    override fun BuildSteps.removeKotlinNativeBundle() {
+        powerShell {
+            name = "Remove Kotlin/Native bundle"
+            scriptMode = script {
+                content = powerShellScript(
+                    """
+                    ${'$'}caches = "${'$'}env:GRADLE_USER_HOME\caches"
+                    Remove-Item -Recurse -Force -ErrorAction Ignore "${'$'}caches\modules-2\files-2.1\org.jetbrains.kotlin\kotlin-native-prebuilt"
+                    # Removes whole transform workspaces, so Gradle doesn't find them incomplete
+                    Get-ChildItem -Directory -Path "${'$'}caches\*\transforms\*\transformed\extracted\kotlin-native-prebuilt-*" |
+                        ForEach-Object { Remove-Item -Recurse -Force -ErrorAction Stop ${'$'}_.Parent.Parent.Parent.FullName }
                     """
                 )
             }
