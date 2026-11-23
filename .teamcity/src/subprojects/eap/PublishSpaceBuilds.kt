@@ -3,6 +3,7 @@ package subprojects.eap
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
+import subprojects.build.gradle.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 
@@ -54,7 +55,7 @@ object PublishJSToSpace : BuildType({
     vcs {
         coreEap()
     }
-    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE, version = GradleUserHome.Light)
     steps {
         releaseToSpace(JS_PUBLISH_TASK)
     }

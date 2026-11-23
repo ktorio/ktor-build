@@ -67,7 +67,7 @@ class PublishJSToMavenBuild(private val repo: KtorRepository) : BuildType({
     params {
         publishingParams()
     }
-    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
+    usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE, version = GradleUserHome.Light)
     steps {
         publish(JS_PUBLISH_TASK)
     }
@@ -161,10 +161,11 @@ fun BuildType.usePublishingGradleEnvironment(
     os: Agents.OS,
     arch: Agents.Arch = Agents.Arch.X64,
     hardwareCapacity: String = Agents.MEDIUM,
+    version: GradleUserHome = GradleUserHome.Full,
 ) {
     useGradleEnvironment(
         os,
-        GradleUserHome.Full,
+        version,
         configurationCache = false,
         deriveJvmArgs = false,
         arch = arch,
