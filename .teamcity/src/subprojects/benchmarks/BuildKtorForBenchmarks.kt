@@ -34,18 +34,6 @@ internal object BuildKtorForBenchmarks : BuildType({
 
     steps {
         script {
-            name = "Checkout requested Ktor branch"
-            scriptContent = bashScript(
-                """
-                branch="%ktor.branch%"
-                if [ -n "${'$'}branch" ]; then
-                    git fetch origin "${'$'}branch"
-                    git checkout -f FETCH_HEAD
-                fi
-                """
-            )
-        }
-        script {
             name = "Set Ktor benchmark version"
             scriptContent = bashScript(
                 """
@@ -77,12 +65,6 @@ internal object BuildKtorForBenchmarks : BuildType({
 
     params {
         param("system.teamcity.default.properties", "teamcity.default.properties")
-        text(
-            name = "ktor.branch",
-            value = "",
-            description = "Ktor branch to build. Empty uses the build's default branch",
-            allowEmpty = true,
-        )
     }
 
     defaultBuildFeatures(VCSCore.id)
