@@ -1,8 +1,8 @@
 package subprojects.build.generator
 
-import dsl.addSlackNotifications
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
-import jetbrains.buildServer.configs.kotlin.buildFeatures.gitHubAppBuildScopedToken
+import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
@@ -25,6 +25,7 @@ object TestGeneratorFrontEnd : BuildType({
     }
 
     steps {
+        aptInstall("python3")
         script {
             name = "Trigger & wait for GitHub Actions workflow"
             scriptContent = """
@@ -68,12 +69,6 @@ object TestGeneratorFrontEnd : BuildType({
 
                 fail_if_unresolved_or_empty "SPACE_USERNAME" "${'$'}SPACE_USERNAME"
                 fail_if_unresolved_or_empty "SPACE_PASSWORD" "${'$'}SPACE_PASSWORD"
-
-                if ! command -v python3 >/dev/null 2>&1; then
-                  echo "python3 not found; installing..."
-                  sudo apt-get update -y
-                  sudo apt-get install -y python3
-                fi
 
                 python3 --version
 
@@ -252,5 +247,9 @@ print(run.get("html_url") or "")
 
     triggers {
         onChangeDefaultOrPullRequest()
+    }
+
+    requirements {
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
     }
 })

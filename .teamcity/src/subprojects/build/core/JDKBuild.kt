@@ -50,9 +50,8 @@ class JDKBuild(
             defineTCPPortRange()
         }
 
-        script {
-            name = "Install pulseaudio for WebRTC tests"
-            scriptFile("install_pulseaudio.sh")
+        if (osJdkEntry.os == OS.Linux) {
+            aptInstall("pulseaudio", name = "Install pulseaudio for WebRTC tests")
         }
 
         gradle {

@@ -78,6 +78,14 @@ internal fun BuildSteps.platformScript(
     }
 }
 
+/** Installs [packages] on a Linux agent from the Ubuntu archive, unless they are installed already. */
+internal fun BuildSteps.aptInstall(vararg packages: String, name: String = "Install ${packages.joinToString()}") {
+    script {
+        this.name = name
+        scriptFile("apt_install.sh", "apt_install ${packages.joinToString(" ")}")
+    }
+}
+
 internal fun ScriptBuildStep.scriptFile(fileName: String, suffix: String = "") {
     scriptContent = scriptContent(fileName) + suffix
 }

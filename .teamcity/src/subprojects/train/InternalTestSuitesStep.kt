@@ -75,10 +75,7 @@ object InternalTestSuitesStep {
                 """.trimIndent()
             }
 
-            steps.script {
-                name = "Prerequisites: Install pulseaudio for WebRTC tests"
-                scriptFile("install_pulseaudio.sh")
-            }
+            steps.aptInstall("pulseaudio", name = "Prerequisites: Install pulseaudio for WebRTC tests")
         }
 
         steps.script {

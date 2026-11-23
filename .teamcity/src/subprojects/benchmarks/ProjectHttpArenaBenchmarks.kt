@@ -1,5 +1,6 @@
 package subprojects.benchmarks
 
+import dsl.aptInstall
 import dsl.bashScript
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
@@ -28,21 +29,8 @@ object ProjectHttpArenaBenchmarks : Project({
         artifactRules = "+:results => results.zip"
 
         steps {
-            script {
-                // TeamCity can't provision agents, so install OpenSSL on demand (needs passwordless sudo on the agent)
-                name = "Ensure OpenSSL is installed"
-                scriptContent = bashScript("""
-                    #!/usr/bin/env bash
-                    set -euo pipefail
-                    if command -v openssl >/dev/null 2>&1 && dpkg -s libssl-dev >/dev/null 2>&1; then
-                        openssl version
-                        exit 0
-                    fi
-                    sudo apt-get update
-                    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y openssl libssl-dev
-                    openssl version
-                """)
-            }
+            // TeamCity can't provision agents, so install OpenSSL on demand (needs passwordless sudo on the agent)
+            aptInstall("openssl", "libssl-dev", name = "Ensure OpenSSL is installed")
             script {
                 name = "Check host tools"
                 scriptContent = bashScript("""

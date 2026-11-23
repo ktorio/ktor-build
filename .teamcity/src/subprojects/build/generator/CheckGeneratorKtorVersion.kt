@@ -1,6 +1,7 @@
 package subprojects.build.generator
 
 import dsl.addSlackNotifications
+import dsl.aptInstall
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.gitHubAppBuildScopedToken
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
@@ -26,6 +27,7 @@ object CheckGeneratorKtorVersion : BuildType({
     }
 
     steps {
+        aptInstall("python3")
         script {
             name = "Trigger & wait for GitHub Actions workflow"
             scriptContent = """
@@ -52,12 +54,6 @@ object CheckGeneratorKtorVersion : BuildType({
                 else
                   echo "ERROR: Neither GITHUB_TOKEN (GitHub App) nor GITHUB_PAT_FALLBACK is available"
                   exit 1
-                fi
-
-                if ! command -v python3 >/dev/null 2>&1; then
-                  echo "python3 not found; installing..."
-                  sudo apt-get update -y
-                  sudo apt-get install -y python3
                 fi
 
                 REQUEST_ID="teamcity-%teamcity.build.id%-$(date +%s)"
