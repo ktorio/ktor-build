@@ -1,0 +1,30 @@
+// Kotlin Gradle Plugin resolves and unpacks the Kotlin/Native bundle on every build, even when Kotlin/Native is installed,
+// so the Gradle environment would have to keep the bundle and its unpacked copy next to the installation.
+// The bundle configuration is used only to install Kotlin/Native, so it is left empty when the installation exists.
+// Checked with these Kotlin versions, other versions are left as they are.
+val kotlinVersionsWithRedundantBundleResolution = setOf("2.3.21")
+
+val konanDataDir = System.getenv("KONAN_DATA_DIR")?.let(::File) ?: File(System.getProperty("user.home"), ".konan")
+val unlistedVersionReported = java.util.concurrent.atomic.AtomicBoolean()
+
+fun isKotlinNativeInstalled(version: String): Boolean =
+    konanDataDir.listFiles { file -> file.name.startsWith("kotlin-native-prebuilt-") && file.name.endsWith("-$version") }
+        .orEmpty()
+        .any { File(it, "provisioned.ok").isFile }
+
+allprojects {
+    configurations.matching { it.name == "kotlinNativeBundleConfiguration" }.configureEach {
+        withDependencies {
+            val version = singleOrNull { it.name == "kotlin-native-prebuilt" }?.version ?: return@withDependencies
+            if (version !in kotlinVersionsWithRedundantBundleResolution) {
+                // The Gradle environment removes the bundle anyway, so builds would download and unpack it again
+                if (unlistedVersionReported.compareAndSet(false, true)) {
+                    println("##teamcity[message text='Kotlin/Native $version is not checked in kotlin-native-bundle.init.gradle.kts, its bundle is resolved again' status='WARNING']")
+                }
+            } else if (isKotlinNativeInstalled(version)) {
+                logger.info("Kotlin/Native $version is installed, skipping resolution of the bundle")
+                clear()
+            }
+        }
+    }
+}

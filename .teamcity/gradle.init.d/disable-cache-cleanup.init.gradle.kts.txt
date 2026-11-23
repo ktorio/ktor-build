@@ -1,0 +1,2 @@
+// Builds start with a user home unpacked from the environment and discard it, so cleaning up its caches only takes time
+beforeSettings { caches { cleanup = Cleanup.DISABLED } }

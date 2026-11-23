@@ -8,6 +8,7 @@ import jetbrains.buildServer.configs.kotlin.triggers.*
 import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger.DAY.*
 import subprojects.*
 import subprojects.build.core.*
+import kotlin.io.path.*
 import kotlin.time.Duration.Companion.minutes
 
 /** Versions of the Gradle user home published by [GradleEnvironment]. */
@@ -57,17 +58,13 @@ class GradleEnvironment(
             resetGradleUserHome()
 
             prepareGradleUserHome(GradleUserHome.Light, versions) { branch ->
-                resolveDependencies(native = false)
+                resolveDependenciesWithoutNativeTargets()
                 environmentGradle(name = "Configure all targets ($branch)", tasks = "jvmTest", params = "--dry-run")
             }
 
             // Prepared on top of the Light user home
-            prepareGradleUserHome(GradleUserHome.Full, versions) { branch ->
-                resolveDependencies(native = true)
-                environmentGradle(
-                    name = "Install Kotlin/Native ($branch)",
-                    tasks = "downloadKotlinNativeDistribution",
-                )
+            prepareGradleUserHome(GradleUserHome.Full, versions) {
+                resolveDependenciesAndInstallKotlinNative()
             }
         }
     }
@@ -197,13 +194,13 @@ private fun ParametrizedWithType.setupGradleParams() {
     param("env.KONAN_DATA_DIR", "%teamcity.agent.work.dir%/gradle-user-home/konan")
 }
 
-private const val disableCacheCleanupFile = "disable-cache-cleanup.init.gradle.kts"
-
 /**
- * Builds start with a user home unpacked from the environment and discard it, so cleaning up its caches only takes time.
- * The script is written in one line to be passed as a shell argument.
+ * Init scripts from `.teamcity/gradle.init.d`, by file name.
+ * They are stored with the `.txt` extension, as the TeamCity DSL compiles all `.kts` files in the project.
+ * The `%` symbol is escaped, as TeamCity would otherwise take it for a parameter reference.
  */
-private const val disableCacheCleanupScript = "beforeSettings { caches { cleanup = Cleanup.DISABLED } }"
+private val initScripts: Map<String, String> = Path("gradle.init.d").listDirectoryEntries("*.txt").sorted()
+    .associate { file -> file.name.removeSuffix(".txt") to readFileForStep(file) }
 
 /**
  * Points Gradle to the JDKs installed on agents, so it doesn't download its own.
@@ -213,7 +210,7 @@ private const val javaInstallationsProperty = "org.gradle.java.installations.fro
 
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */
 private sealed interface EnvironmentPlatform {
-    /** Starts with an empty user home that doesn't clean up its caches, see [disableCacheCleanupScript]. */
+    /** Starts with an empty user home with [initScripts]. */
     fun BuildSteps.resetGradleUserHome()
     fun BuildSteps.checkOutBranch(branch: String)
     fun BuildSteps.removeKotlinNativeBundle()
@@ -235,7 +232,7 @@ private sealed interface EnvironmentPlatform {
             prepare(branch)
         }
 
-        // Removed only after all branches are prepared, as each of them would resolve the bundle again
+        // Removed only after all branches are prepared, as preparing installs Kotlin/Native from the bundle
         if (version == GradleUserHome.Full) removeKotlinNativeBundle()
         packGradleUserHome(version)
     }
@@ -249,37 +246,41 @@ private sealed interface EnvironmentPlatform {
         }
     }
 
-    fun BuildSteps.resolveDependencies(native: Boolean) {
+    fun BuildSteps.resolveDependenciesWithoutNativeTargets() {
         // Targets can be disabled only in gradle.properties
-        if (!native) {
-            script {
-                name = "Disable native targets"
-                scriptContent = bashScript(
-                    """
-                    echo "target.posix=false" >> gradle.properties
-                    """
-                )
-            }
+        script {
+            name = "Disable native targets"
+            scriptContent = bashScript(
+                """
+                echo "target.posix=false" >> gradle.properties
+                """
+            )
         }
 
         // Dependencies for native source sets are declared in build scripts even if native targets are disabled
-        val ignoreExtraSourceSets = if (native) "" else " -Pktorbuild.ignoreExtraSourceSets=true"
         environmentGradle(
-            name = "Resolve dependencies (${if (native) "all targets" else "without native targets"})",
+            name = "Resolve dependencies (without native targets)",
             tasks = "help",
-            params = "--write-verification-metadata sha256 --dry-run$ignoreExtraSourceSets",
+            params = "--write-verification-metadata sha256 --dry-run -Pktorbuild.ignoreExtraSourceSets=true",
         )
 
-        if (!native) {
-            script {
-                name = "Enable native targets"
-                scriptContent = bashScript(
-                    """
-                    git checkout gradle.properties
-                    """
-                )
-            }
+        script {
+            name = "Enable native targets"
+            scriptContent = bashScript(
+                """
+                git checkout gradle.properties
+                """
+            )
         }
+    }
+
+    /** Resolving dependencies configures all targets anyway, so Kotlin/Native is installed in the same invocation. */
+    fun BuildSteps.resolveDependenciesAndInstallKotlinNative() {
+        environmentGradle(
+            name = "Resolve dependencies and install Kotlin/Native",
+            tasks = "downloadKotlinNativeDistribution",
+            params = "--write-verification-metadata sha256",
+        )
     }
 
     companion object {
@@ -298,10 +299,11 @@ private object UnixPlatform : EnvironmentPlatform {
                 """
                 rm -rf "${'$'}GRADLE_USER_HOME"
                 mkdir -p "${'$'}GRADLE_USER_HOME/init.d"
-                echo '$disableCacheCleanupScript' > "${'$'}GRADLE_USER_HOME/init.d/$disableCacheCleanupFile"
                 echo '$javaInstallationsProperty' > "${'$'}GRADLE_USER_HOME/gradle.properties"
                 """
-            )
+            ) + initScripts.entries.joinToString("\n", prefix = "\n") { (name, content) ->
+                bashWriteFile("\$GRADLE_USER_HOME/init.d/$name", content)
+            }
         }
     }
 
@@ -362,10 +364,11 @@ private object WindowsPlatform : EnvironmentPlatform {
                     """
                     if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force -ErrorAction Stop ${'$'}env:GRADLE_USER_HOME }
                     New-Item -ItemType Directory -Force "${'$'}env:GRADLE_USER_HOME\init.d" | Out-Null
-                    Set-Content -Path "${'$'}env:GRADLE_USER_HOME\init.d\$disableCacheCleanupFile" -Value '$disableCacheCleanupScript'
                     Set-Content -Path "${'$'}env:GRADLE_USER_HOME\gradle.properties" -Value '$javaInstallationsProperty'
                     """
-                )
+                ) + initScripts.entries.joinToString("\n", prefix = "\n") { (name, content) ->
+                    powerShellWriteFile("\$env:GRADLE_USER_HOME\\init.d\\$name", content)
+                }
             }
         }
     }

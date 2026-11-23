@@ -5,6 +5,7 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import org.intellij.lang.annotations.*
 import subprojects.*
+import java.nio.file.Path
 import java.util.*
 import kotlin.io.path.*
 
@@ -132,3 +133,12 @@ internal fun bashScript(@Language("bash") content: String): String = "$bashPream
 internal fun pythonScript(@Language("python") content: String): String = "#!/usr/bin/env python3\n${content.trimIndent()}"
 
 internal fun powerShellScript(@Language("powershell") content: String): String = content.trimIndent()
+
+/** Reads a file to be written by a build step, escaping `%`, which TeamCity would otherwise take for a parameter reference. */
+internal fun readFileForStep(file: Path): String = file.readText().trimEnd().replace("%", "%%")
+
+/** Writes [content] to [path] with a quoted heredoc, which the shell doesn't expand. */
+internal fun bashWriteFile(path: String, content: String) = "cat > \"$path\" <<'EOF'\n$content\nEOF"
+
+/** Writes [content] to [path] with a verbatim here-string, which PowerShell doesn't expand. */
+internal fun powerShellWriteFile(path: String, content: String) = "[IO.File]::WriteAllText(\"$path\", @'\n$content\n'@)"
