@@ -57,14 +57,6 @@ fun BuildType.addSlackNotifications(
     }
 }
 
-internal fun BuildSteps.excludeFromDefender() {
-    check(items.isEmpty()) { "Defender exclusion must be the first build step" }
-    powerShell {
-        name = "Exclude agent directory from Defender"
-        scriptFile("exclude_from_defender.ps1")
-    }
-}
-
 /** Runs [unixScript] or [windowsScript] depending on [os], with [suffix] appended to it. */
 internal fun BuildSteps.platformScript(
     name: String,

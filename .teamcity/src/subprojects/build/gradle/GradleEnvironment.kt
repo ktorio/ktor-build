@@ -52,8 +52,6 @@ class GradleEnvironment(
     }
 
     steps {
-        if (os == Agents.OS.Windows) excludeFromDefender()
-
         with(platform) {
             resetGradleUserHome()
 
@@ -158,7 +156,6 @@ fun BuildType.useGradleEnvironment(
     }
 
     steps {
-        if (os == Agents.OS.Windows) excludeFromDefender()
         if (environment == null) with(EnvironmentPlatform.of(os)) { resetGradleUserHome() }
         addGradleProperties(os, deriveJvmArgs, configurationCache)
     }
