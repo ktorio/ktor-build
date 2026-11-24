@@ -380,7 +380,7 @@ private fun goCommand(command: String, env: Map<String, String> = mapOf()): Stri
         }
     }
 
-    val dockerPart = "--rm $dockerEnv -v .:/usr/src/app -w /usr/src/app golang:1.23 " +
+    val dockerPart = "--rm $dockerEnv -v .:/usr/src/app -w /usr/src/app golang:1.26.10 " +
             "/bin/bash -c \"git config --global --add safe.directory /usr/src/app; "
     return dockerPart + command + "\""
 }
