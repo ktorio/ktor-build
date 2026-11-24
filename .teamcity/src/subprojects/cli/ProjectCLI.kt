@@ -33,7 +33,7 @@ object ReleaseWinGet: BuildType({
         }
 
         artifacts(ReleaseGithub.id!!) {
-            buildRule = lastFinished()
+            buildRule = sameChain()
             artifactRules = "./installer_download_url.txt => ."
         }
     }
@@ -123,7 +123,12 @@ object ReleaseGithub: BuildType({
     }
 
     dependencies {
+        snapshot(BuildCLI) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+
         artifacts(BuildCLI.id!!) {
+            buildRule = sameChain()
             artifactRules = "./build => ./build"
         }
 
@@ -132,7 +137,7 @@ object ReleaseGithub: BuildType({
         }
 
         artifacts(PackMsiInstaller.id!!) {
-            buildRule = lastFinished()
+            buildRule = sameChain()
             artifactRules = "./*.msi => ./build/windows/amd64/"
         }
     }
@@ -291,7 +296,12 @@ object PackMsiInstaller : BuildType({
     """.trimIndent()
 
     dependencies {
+        snapshot(BuildCLI) {
+            reuseBuilds = ReuseBuilds.SUCCESSFUL
+        }
+
         artifacts(BuildCLI.id!!) {
+            buildRule = sameChain()
             artifactRules = "./build/windows/amd64/ktor.exe => ./build/"
         }
     }
