@@ -28,7 +28,7 @@ object ProjectGradleEnvironment : Project({
 
         dependencies {
             for (environment in gradleEnvironments) {
-                snapshot(environment) { onDependencyFailure = FailureAction.FAIL_TO_START }
+                snapshot(environment) {}
             }
         }
     }

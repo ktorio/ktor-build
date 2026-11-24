@@ -345,10 +345,14 @@ private object UnixPlatform : EnvironmentPlatform {
             name = "Pack Gradle user home ($version)"
             scriptContent = bashScript(
                 """
+                # TeamCity unpacks hard links as empty files, which breaks Kotlin/Native toolchain binaries (e.g. ar),
+                # so hard-linked files are replaced with copies. BSD tar on macOS has no --hard-dereference.
+                find "${'$'}GRADLE_USER_HOME" -type f -links +1 -exec sh -c 'for file; do cp -p "${'$'}file" "${'$'}file.copy" && mv -f "${'$'}file.copy" "${'$'}file"; done' sh {} +
+
                 # The archive is unpacked in every build using the environment, so it is worth compressing it better.
                 # zstd is run explicitly as tar implementations pass the compression level to it differently.
                 # --long finds duplicates across the whole archive. 27 (128 MB window) is the maximum
-                # that can be unpacked with default settings, larger values need the same option on unpacking
+                # that can be unpacked with default settings, larger values need the same option on unpacking.
                 tar -C "${'$'}GRADLE_USER_HOME" --exclude=./daemon -cf - . | zstd -9 --long=27 -T0 -q -o "$archivesDir/${version.artifact}"
                 """
             )
