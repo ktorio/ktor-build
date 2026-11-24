@@ -1,0 +1,22 @@
+import org.gradle.api.internal.TaskOutputsEnterpriseInternal
+
+// Ktor's test tasks ignore failures on CI, so a task with failed tests succeeds and would be stored in the build cache.
+// Builds with the same inputs, on any branch, would then reuse the failed results instead of running the tests again.
+// Tasks with tests passed on retry aren't stored either, as such tests are counted as failed.
+allprojects {
+    tasks.withType<AbstractTestTask>().configureEach {
+        addTestListener(DoNotCacheFailedTests(this))
+    }
+}
+
+class DoNotCacheFailedTests(private val task: Task) : TestListener {
+    override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+        if (suite.parent == null && result.failedTestCount > 0) {
+            (task.outputs as TaskOutputsEnterpriseInternal).doNotStoreInCache()
+        }
+    }
+
+    override fun beforeSuite(suite: TestDescriptor) {}
+    override fun beforeTest(testDescriptor: TestDescriptor) {}
+    override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) {}
+}
