@@ -1,6 +1,7 @@
 package subprojects.cli
 
 import jetbrains.buildServer.configs.kotlin.*
+import jetbrains.buildServer.configs.kotlin.buildFeatures.gitHubAppBuildScopedToken
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
 import subprojects.build.*
@@ -113,6 +114,14 @@ object ReleaseGithub: BuildType({
 
     artifactRules = "+:./installer_download_url.txt"
 
+    features {
+        gitHubAppBuildScopedToken {
+            parameterName = "env.GITHUB_TOKEN"
+            connectionId = "PROJECT_EXT_7"
+            targetRepositories = "ktor-cli"
+        }
+    }
+
     dependencies {
         artifacts(BuildCLI.id!!) {
             artifactRules = "./build => ./build"
@@ -142,6 +151,7 @@ pip install requests
 
 python <<EOF
 import datetime
+import os
 import sys
 from pathlib import Path
 import requests
@@ -156,7 +166,7 @@ def save_installer_url(url):
 
 owner = "ktorio"
 repo = "ktor-cli"
-token = "$VCSToken"
+token = os.environ["GITHUB_TOKEN"]
 tag = "${'$'}(git describe --tags --contains --abbrev=7 2>/dev/null)"
 
 def get_installer_url():
