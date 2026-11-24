@@ -61,6 +61,8 @@ object ReleaseWinGet: BuildType({
 object ReleaseBrew: BuildType({
     id("ReleaseBrewCLI")
     name = "Release to Homebrew"
+    paused = true
+    description = "Brew bot automatically releases new versions based on GitHub tags"
 
     vcs {
         root(VCSKtorCLI)
