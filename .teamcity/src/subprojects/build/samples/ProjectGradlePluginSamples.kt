@@ -47,6 +47,10 @@ class BuildPluginSampleProject(sample: BuildPluginSampleSettings) : BuildType({
 
     defaultBuildFeatures()
 
+    requirements {
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
+    }
+
     steps {
         buildGradlePluginSample(sample.projectName)
     }

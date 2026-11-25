@@ -15,6 +15,11 @@ object PublishPluginRegistry : BuildType({
     vcs {
         root(VCSPluginRegistry)
     }
+
+    requirements {
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
+    }
+
     params {
         password("env.PUBLISHING_TOKEN", value = "%space.packages.publish.token%")
         extraGradleParams()

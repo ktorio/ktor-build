@@ -74,6 +74,10 @@ class SampleProject(sample: SampleProjectSettings) : BuildType({
     if (sample.withAndroidSdk) configureAndroidHome()
     defaultBuildFeatures()
 
+    requirements {
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.ANY)
+    }
+
     steps {
         if (sample.withAndroidSdk) acceptAndroidSDKLicense()
 

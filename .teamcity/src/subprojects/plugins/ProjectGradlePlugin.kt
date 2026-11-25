@@ -59,6 +59,10 @@ object ProjectGradlePlugin : Project({
             root(VCSKtorBuildPluginsEAP)
         }
 
+        requirements {
+            agent(OS.Linux, hardwareCapacity = Agents.ANY)
+        }
+
         triggers {
             weeklyEapBranchesTrigger()
         }
@@ -79,6 +83,10 @@ object ProjectGradlePlugin : Project({
 
         vcs {
             root(VCSKtorBuildPlugins)
+        }
+
+        requirements {
+            agent(OS.Linux, hardwareCapacity = Agents.ANY)
         }
 
         triggers {

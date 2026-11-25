@@ -26,6 +26,10 @@ object TestGeneratorBackEnd : BuildType({
 
     defaultBuildFeatures()
 
+    requirements {
+        agent(Agents.OS.Linux, hardwareCapacity = Agents.MEDIUM)
+    }
+
     triggers {
         onChangeDefaultOrPullRequest()
     }
