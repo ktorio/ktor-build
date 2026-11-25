@@ -22,6 +22,9 @@ internal fun BuildType.runGradleWithRunnerInitScript() {
     buildTypesWithRunnerInitScript += this
 }
 
+/** Whether this build type uses the Gradle user home with the runner init script, which also has the `gradle.init.d` scripts. */
+internal fun BuildType.runsGradleWithRunnerInitScript(): Boolean = this in buildTypesWithRunnerInitScript
+
 /**
  * Makes Gradle steps of build types using [runGradleWithRunnerInitScript] use the runner init script.
  * The runner reads it only from step parameters, so this should be called after all build types are created.

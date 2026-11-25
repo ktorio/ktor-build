@@ -21,8 +21,11 @@ class LibraryTest {
     private val repo = KtorRepository(vcsRoot, "Isolated_", "Isolated ")
     private val linuxEnvironment get() = repo.gradleEnvironments.first { it.os == Agents.OS.Linux }
 
-    private fun BuildType.script(name: String): String =
-        steps.items.filterIsInstance<ScriptBuildStep>().single { it.name == name }.scriptContent!!
+    private fun BuildType.script(name: String): String = when (val step = steps.items.single { it.name == name }) {
+        is ScriptBuildStep -> step.scriptContent!!
+        is PowerShellStep -> (step.scriptMode as PowerShellStep.ScriptMode.Script).content!!
+        else -> error("${step.name} is not a script step")
+    }
 
     @Test
     fun `environments use the root, ID and URL of their repository`() {

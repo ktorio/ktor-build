@@ -1,0 +1,76 @@
+import org.gradle.api.Project
+import org.gradle.api.artifacts.dsl.RepositoryHandler
+import org.gradle.api.artifacts.repositories.IvyArtifactRepository
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+import java.net.URI
+
+// Redirects repository URLs through JetBrains cache-redirector service (https://cache-redirector.jetbrains.com).
+// It is installed into the Gradle user home, so it applies to every build, including the ones compiling settings plugins,
+// which a settings plugin can't redirect. Redirecting an already redirected URL changes nothing,
+// so it can be combined with the redirects some projects apply themselves.
+
+// Based on the Kotlin project
+// Source: https://github.com/JetBrains/kotlin/blob/v2.3.10/repo/gradle-settings-conventions/cache-redirector/src/main/kotlin/cache-redirector.settings.gradle.kts
+
+/**
+ *  The list of repositories supported by cache redirector should be synced with the "Table of redirects" at https://cache-redirector.jetbrains.com
+ *  To add a repository to the list, create an issue in the ADM project (example issue https://youtrack.jetbrains.com/issue/IJI-149)
+ *  Or send a merge request to https://jetbrains.team/p/iji/repositories/Cache-Redirector/files/64b69490c54a2a900bb3dd21471f942270289a12/images/config-gen/src/main/kotlin/Config.kt
+ */
+val redirectedOrigins = listOf(
+    "https://repo.maven.apache.org/maven2",
+    "https://repo1.maven.org/maven2",
+    "https://plugins.gradle.org/m2",
+    "https://dl.google.com/dl/android/maven2",
+    "https://maven.google.com",
+    "https://redirector.kotlinlang.org/maven/ktor-eap",
+    "https://redirector.kotlinlang.org/maven/dev",
+    "https://services.gradle.org/distributions",
+    "https://registry.yarnpkg.com",
+    "https://nodejs.org/dist",
+    "https://storage.googleapis.com/chromium-v8/official/canary",
+    "https://packages.confluent.io/maven",
+    "https://jitpack.io",
+)
+
+// Release assets and source archives of any GitHub repository, e.g. Yarn and Binaryen downloaded by the Kotlin Gradle plugin
+val githubDownloads = Regex("""^https://github\.com/[^/]+/[^/]+/(releases/download|archive)(/.*)?$""")
+
+/** Redirects the URL by prefixing its host and path with cache-redirector's URL, if cache-redirector supports it. */
+fun String.maybeRedirect(): String {
+    val url = this.trimEnd('/')
+    val supported = githubDownloads.matches(url) || redirectedOrigins.any { url == it || url.startsWith("$it/") }
+    return if (supported) "https://cache-redirector.jetbrains.com/${url.removePrefix("https://")}" else this
+}
+
+fun URI.maybeRedirect(): URI = URI(toString().maybeRedirect())
+
+fun RepositoryHandler.redirect() = configureEach {
+    when (this) {
+        is MavenArtifactRepository -> url = url.maybeRedirect()
+        is IvyArtifactRepository -> @Suppress("SENSELESS_COMPARISON") if (url != null) {
+            url = url.maybeRedirect()
+        }
+    }
+}
+
+fun Project.overrideNativeCompilerDownloadUrl() {
+    extensions.extraProperties["kotlin.native.distribution.baseDownloadUrl"] =
+        "https://cache-redirector.jetbrains.com/download.jetbrains.com/kotlin/native/builds"
+}
+
+// Gradle reads it when creating the plugin portal repository used by builds that don't declare plugin repositories
+System.setProperty("org.gradle.internal.plugins.portal.url.override", "https://cache-redirector.jetbrains.com/plugins.gradle.org/m2")
+
+gradle.beforeSettings {
+    logger.info("Redirecting repositories for settings in ${settingsDir.absolutePath}")
+    pluginManagement.repositories.redirect()
+    dependencyResolutionManagement.repositories.redirect()
+    buildscript.repositories.redirect()
+}
+
+gradle.beforeProject {
+    buildscript.repositories.redirect()
+    repositories.redirect()
+    overrideNativeCompilerDownloadUrl()
+}

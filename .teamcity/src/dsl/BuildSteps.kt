@@ -161,8 +161,26 @@ internal fun dslFile(path: String): Path {
 /** Reads a file to be written by a build step, escaping `%`, which TeamCity would otherwise take for a parameter reference. */
 internal fun readFileForStep(file: Path): String = file.readText().trimEnd().replace("%", "%%")
 
-/** Writes [content] to [path] with a quoted heredoc, which the shell doesn't expand. */
-internal fun bashWriteFile(path: String, content: String) = "cat > \"$path\" <<'EOF'\n$content\nEOF"
-
-/** Writes [content] to [path] with a verbatim here-string, which PowerShell doesn't expand. */
-internal fun powerShellWriteFile(path: String, content: String) = "[IO.File]::WriteAllText(\"$path\", @'\n$content\n'@)"
+/**
+ * A step running [prepare], then writing [files] by path with `/` separators, which can refer to PowerShell variables.
+ * Contents are written with verbatim here-strings, which PowerShell doesn't expand.
+ * Uses PowerShell Core, which is installed on agents of all operating systems, so the same step works on any agent.
+ */
+internal fun writeFilesStep(name: String, files: Map<String, String>, @Language("powershell") prepare: String = "") =
+    PowerShellStep {
+        this.name = name
+        edition = PowerShellStep.Edition.Core
+        scriptMode = script {
+            val directories = files.keys.map { it.substringBeforeLast('/') }.distinct()
+            val createDirectories = directories.joinToString(
+                prefix = "New-Item -ItemType Directory -Force ",
+                postfix = " | Out-Null",
+                transform = { "\"$it\"" }
+            )
+            val writeFiles = files.map { (path, content) -> "[IO.File]::WriteAllText(\"$path\", @'\n$content\n'@)" }
+            content =
+                (listOf("\$ErrorActionPreference = 'Stop'", prepare.trimIndent(), createDirectories) + writeFiles)
+                    .filter { it.isNotEmpty() }
+                    .joinToString("\n")
+        }
+    }

@@ -6,8 +6,7 @@ import jetbrains.buildServer.configs.kotlin.triggers.*
 import subprojects.*
 import subprojects.build.core.*
 
-private const val initScriptCacheRedirector = "--init-script gradle/cache-redirector.init.gradle.kts"
-internal const val PluginRegistryGradleParams = "--no-configuration-cache $initScriptCacheRedirector"
+internal const val PluginRegistryGradleParams = "--no-configuration-cache"
 
 object PublishPluginRegistry : BuildType({
     id("KtorPluginRegistry")

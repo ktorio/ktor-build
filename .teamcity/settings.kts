@@ -78,4 +78,5 @@ project {
     // Should be called after all build types are created
     checkConfigurationCacheUserHome()
     useGradleRunnerInitScript()
+    useCacheRedirector()
 }
