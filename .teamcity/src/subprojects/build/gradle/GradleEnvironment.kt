@@ -131,7 +131,7 @@ fun BuildType.useGradleEnvironment(
     }
 
     steps {
-        if (environment == null) with(EnvironmentPlatform.of(os)) { resetGradleUserHome() }
+        if (environment == null) resetGradleUserHome()
         addGradleProperties(os, deriveJvmArgs, configurationCache)
     }
     runGradleWithRunnerInitScript()
@@ -173,12 +173,8 @@ private fun ParametrizedWithType.setupGradleParams() {
  * They are stored with the `.txt` extension, as the TeamCity DSL compiles all `.kts` files in the project.
  * The `%` symbol is escaped, as TeamCity would otherwise take it for a parameter reference.
  */
-private val initScripts: Map<String, String> = dslFile("gradle.init.d").listDirectoryEntries("*.txt").sorted()
+internal val initScripts: Map<String, String> = dslFile("gradle.init.d").listDirectoryEntries("*.txt").sorted()
     .associate { file -> file.name.removeSuffix(".txt") to readFileForStep(file) }
-
-/** Files written into the user home when it is reset, by path relative to it. */
-private val userHomeFiles: Map<String, String> =
-    initScripts.mapKeys { (name, _) -> "init.d/$name" } + (runnerInitScriptPathInUserHome to runnerInitScript)
 
 /**
  * Points Gradle to the JDKs installed on agents, so it doesn't download its own.
@@ -186,10 +182,25 @@ private val userHomeFiles: Map<String, String> =
  */
 private const val javaInstallationsProperty = "org.gradle.java.installations.fromEnv=JDK_1_8,JDK_11_0,JDK_17_0,JDK_21_0"
 
+/** Files written into the user home when it is reset, by path relative to it. */
+private val userHomeFiles: Map<String, String> =
+    initScripts.mapKeys { (name, _) -> "init.d/$name" } +
+        (runnerInitScriptPathInUserHome to runnerInitScript) +
+        ("gradle.properties" to javaInstallationsProperty)
+
+/** Starts with an empty user home with [userHomeFiles]. */
+private fun BuildSteps.resetGradleUserHome() = step(
+    writeFilesStep(
+        name = "Reset Gradle user home",
+        files = userHomeFiles.mapKeys { (path, _) -> "\$env:GRADLE_USER_HOME/$path" },
+        prepare = """
+            if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force ${'$'}env:GRADLE_USER_HOME }
+            """,
+    )
+)
+
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */
 private sealed interface EnvironmentPlatform {
-    /** Starts with an empty user home with [userHomeFiles]. */
-    fun BuildSteps.resetGradleUserHome()
     fun BuildSteps.checkOutBranch(repo: KtorRepository, branch: String)
     fun BuildSteps.removeKotlinNativeBundle()
 
@@ -271,21 +282,6 @@ private object UnixPlatform : EnvironmentPlatform {
     // Outside the checkout, as checking out the next branch removes untracked files
     private const val archivesDir = "%system.teamcity.build.tempDir%"
 
-    override fun BuildSteps.resetGradleUserHome() {
-        script {
-            name = "Reset Gradle user home"
-            scriptContent = bashScript(
-                """
-                rm -rf "${'$'}GRADLE_USER_HOME"
-                mkdir -p "${'$'}GRADLE_USER_HOME/init.d"
-                echo '$javaInstallationsProperty' > "${'$'}GRADLE_USER_HOME/gradle.properties"
-                """
-            ) + userHomeFiles.entries.joinToString("\n", prefix = "\n") { (path, content) ->
-                bashWriteFile("\$GRADLE_USER_HOME/$path", content)
-            }
-        }
-    }
-
     override fun BuildSteps.checkOutBranch(repo: KtorRepository, branch: String) {
         script {
             name = "Check out $branch"
@@ -339,23 +335,6 @@ private object UnixPlatform : EnvironmentPlatform {
 }
 
 private object WindowsPlatform : EnvironmentPlatform {
-    override fun BuildSteps.resetGradleUserHome() {
-        powerShell {
-            name = "Reset Gradle user home"
-            scriptMode = script {
-                content = powerShellScript(
-                    """
-                    if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force -ErrorAction Stop ${'$'}env:GRADLE_USER_HOME }
-                    New-Item -ItemType Directory -Force "${'$'}env:GRADLE_USER_HOME\init.d" | Out-Null
-                    Set-Content -Path "${'$'}env:GRADLE_USER_HOME\gradle.properties" -Value '$javaInstallationsProperty'
-                    """
-                ) + userHomeFiles.entries.joinToString("\n", prefix = "\n") { (path, content) ->
-                    powerShellWriteFile("\$env:GRADLE_USER_HOME/$path", content)
-                }
-            }
-        }
-    }
-
     override fun BuildSteps.checkOutBranch(repo: KtorRepository, branch: String) {
         powerShell {
             name = "Check out $branch"
