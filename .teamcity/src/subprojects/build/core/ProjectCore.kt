@@ -30,7 +30,6 @@ object ProjectCore : Project({
 
     buildType(verificationBuilds.jvmCompileBuild)
     // Builds to be run manually on demand
-    buildType(DependenciesCheckBuild())
     buildType(NativeBuild(NativeEntry.MacOSX64))
     buildType(JDKBuild(
         OSJDKEntry(Agents.OS.Windows, JDKEntry.Java11),
