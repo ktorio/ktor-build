@@ -4,12 +4,9 @@ import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
-import jetbrains.buildServer.configs.kotlin.triggers.*
-import jetbrains.buildServer.configs.kotlin.triggers.ScheduleTrigger.DAY.*
 import subprojects.*
 import subprojects.build.core.*
 import kotlin.io.path.*
-import kotlin.time.Duration.Companion.minutes
 
 /** Versions of the Gradle user home published by [GradleEnvironment]. */
 enum class GradleUserHome(internal val artifact: String) {
@@ -72,35 +69,6 @@ class GradleEnvironment(
     artifactRules = platform.artifactRules(versions)
     publishArtifacts = PublishMode.SUCCESSFUL
 
-    triggers {
-        vcs {
-            branchFilter = preparedBranches.joinToString("\n") { "+:$it" }
-            // Changes in settings and included builds invalidate the instrumented build logic classpath cached in the user home
-            triggerRules = """
-                +:root=${VCSCore.id}:gradle/libs.versions.toml
-                +:root=${VCSCore.id}:gradle/wrapper/gradle-wrapper.properties
-                +:root=${VCSCore.id}:gradle/gradle-daemon-jvm.properties
-                +:root=${VCSCore.id}:settings.gradle.kts
-                +:root=${VCSCore.id}:build-logic/**
-                +:root=${VCSCore.id}:build-settings-logic/**
-                +:root=${VCSCore.id}:ktor-test-server/**
-            """.trimIndent()
-
-            quietPeriodMode = VcsTrigger.QuietPeriodMode.USE_CUSTOM
-            quietPeriod = 10.minutes.inWholeSeconds.toInt()
-        }
-
-        schedule {
-            schedulingPolicy = weekly {
-                dayOfWeek = Sunday
-                hour = 18
-            }
-            branchFilter = BranchFilter.DefaultBranch
-            withPendingChangesOnly = true
-            triggerBuild = always()
-        }
-    }
-
     requirements {
         agent(os, arch)
     }
@@ -121,7 +89,7 @@ class GradleEnvironment(
  * so builds of these branches and pull requests targeting them find them there, whichever branch the environment is built on.
  * The configuration cache can be reused only if the user home contains transformed jars of the same included builds.
  */
-private val preparedBranches = listOf(DEFAULT_BRANCH, "release/3.x")
+internal val preparedBranches = listOf(DEFAULT_BRANCH, "release/3.x")
 
 val gradleEnvironments = listOf(
     GradleEnvironment(Agents.OS.Linux, Agents.Arch.X64, setOf(GradleUserHome.Light, GradleUserHome.Full)),
