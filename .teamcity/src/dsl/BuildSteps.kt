@@ -5,7 +5,7 @@ import jetbrains.buildServer.configs.kotlin.buildFeatures.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import org.intellij.lang.annotations.*
 import subprojects.*
-import java.nio.file.Path
+import java.nio.file.*
 import java.util.*
 import kotlin.io.path.*
 
@@ -96,7 +96,7 @@ internal fun PowerShellStep.scriptFile(fileName: String, suffix: String = "") {
     }
 }
 
-private fun scriptContent(fileName: String) = Path("scripts/$fileName").readText()
+private fun scriptContent(fileName: String) = dslFile("scripts/$fileName").readText()
 
 internal fun ScriptBuildStep.flakyNotifierScript() {
     val preamble = buildString {
@@ -133,6 +133,30 @@ internal fun bashScript(@Language("bash") content: String): String = "$bashPream
 internal fun pythonScript(@Language("python") content: String): String = "#!/usr/bin/env python3\n${content.trimIndent()}"
 
 internal fun powerShellScript(@Language("powershell") content: String): String = content.trimIndent()
+
+private object DslFiles
+
+/**
+ * Finds a file that the DSL reads, such as a script from `scripts`.
+ * A settings checkout has these files in the working directory, where a file overrides the one from the classpath.
+ * A project that uses the DSL as a library has them only on the classpath, in the library jar.
+ */
+internal fun dslFile(path: String): Path {
+    val local = Path(path)
+    if (local.exists()) return local
+
+    val resource = requireNotNull(DslFiles::class.java.getResource("/$path")) {
+        "$path is missing from the working directory and the classpath"
+    }
+    val uri = resource.toURI()
+    return try {
+        uri.toPath()
+    } catch (_: FileSystemNotFoundException) {
+        // The file system of the jar stays open, as the DSL reads other files from it
+        FileSystems.newFileSystem(uri, emptyMap<String, Any>())
+        uri.toPath()
+    }
+}
 
 /** Reads a file to be written by a build step, escaping `%`, which TeamCity would otherwise take for a parameter reference. */
 internal fun readFileForStep(file: Path): String = file.readText().trimEnd().replace("%", "%%")

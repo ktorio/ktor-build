@@ -20,7 +20,7 @@ class APICheckBuild(private val repo: KtorRepository) : BuildType({
         extraGradleParams()
     }
 
-    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Full)
+    useGradleEnvironment(Agents.OS.Linux, GradleUserHome.Full, repo = repo)
     cancelPreviousBuilds()
     enableRustForRelevantChanges(Agents.OS.Linux)
 

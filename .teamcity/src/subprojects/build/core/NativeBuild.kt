@@ -25,7 +25,7 @@ class NativeBuild(
         extraGradleParams()
     }
 
-    useGradleEnvironment(entry, GradleUserHome.Full)
+    useGradleEnvironment(entry, GradleUserHome.Full, repo = repo)
     cancelPreviousBuilds()
     val rustEnabled = enableRustForRelevantChanges(entry.os)
 

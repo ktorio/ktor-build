@@ -87,12 +87,12 @@ object ProjectCoreProtected : Project({
     }
 })
 
-private data class CoreVerificationBuilds(
+data class CoreVerificationBuilds(
     val jvmCompileBuild: JvmCompileBuild,
     val builds: List<BuildType>,
 )
 
-private fun createCoreVerificationBuilds(repo: KtorRepository): CoreVerificationBuilds {
+fun createCoreVerificationBuilds(repo: KtorRepository): CoreVerificationBuilds {
     val jvmCompileBuild = JvmCompileBuild(repo)
     val apiCheck = APICheckBuild(repo)
     val jpmsCheck = JPMSCheckBuild(repo)
