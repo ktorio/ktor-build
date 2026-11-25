@@ -320,9 +320,14 @@ object ConsolidatedEAPValidation {
                     }
                 }
 
-                vcs {
+                schedule {
+                    schedulingPolicy = daily {
+                        hour = 2
+                    }
+                    withPendingChangesOnly = true
                     branchFilter = "${BranchFilter.DefaultBranch}\n${BranchFilter.ReleaseBranches}"
                     triggerRules = "+:root=${VCSCore.id}:**"
+                    triggerBuild = always()
                 }
             }
 
