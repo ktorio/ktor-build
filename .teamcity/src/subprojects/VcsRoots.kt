@@ -137,7 +137,9 @@ object VCSKtorBuildPluginsEAP : TokenVcsRoot(VcsToken.BUILD_PLUGINS, {
     branchSpec = """
         +:$eapBranches
         +:$defaultBranch
+        +:refs/tags/*
     """.trimIndent()
+    useTagsAsBranches = true
 })
 
 object VCSHttpArenaBenchmarks : TokenVcsRoot(VcsToken.HTTP_ARENA_BENCHMARKS, {
