@@ -2,8 +2,11 @@
 set -eo pipefail
 
 # Adds a line to the user home gradle.properties, which takes precedence over the project's one
+# The file may lack a trailing newline, which would glue the line to the previous one.
 append() {
-    echo "$1" >> "$GRADLE_USER_HOME/gradle.properties"
+    local file="$GRADLE_USER_HOME/gradle.properties"
+    if [[ -s $file && -n $(tail -c1 "$file") ]]; then echo >> "$file"; fi
+    echo "$1" >> "$file"
 }
 
 # Appends a property from the project's gradle.properties, with the first match of each pattern replaced:

@@ -1,6 +1,11 @@
 # Adds a line to the user home gradle.properties, which takes precedence over the project's one
+# The file may lack a trailing newline, which would glue the line to the previous one.
 function append($line) {
-    Add-Content -Path "$env:GRADLE_USER_HOME\gradle.properties" -Value $line
+    $file = "$env:GRADLE_USER_HOME\gradle.properties"
+    if ((Test-Path $file) -and (Get-Item $file).Length -gt 0 -and -not (Get-Content -Raw $file).EndsWith("`n")) {
+        Add-Content -Path $file -Value ""
+    }
+    Add-Content -Path $file -Value $line
 }
 
 # Appends a property from the project's gradle.properties, with the first match of each pattern replaced:
