@@ -183,10 +183,6 @@ object ProjectPublishingProtected : Project({
     builds.forEach(::buildType)
     buildType(ProtectedPublishCustomTaskToMaven)
 
-    params {
-        configureReleaseVersion()
-    }
-
     buildType {
         createCompositeBuild(
             buildId = "Protected_KtorPublish_All",
@@ -194,14 +190,9 @@ object ProjectPublishingProtected : Project({
             vcsRoot = VCSProtected,
             builds = builds,
             withTrigger = TriggerType.NONE,
-            buildNumber = reverseDepReleaseVersion,
+            // The release version is derived from the tag this build (and its dependencies) runs on
+            buildNumber = "%teamcity.build.branch%",
         )
-
-        params {
-            // The prompt value is passed directly to dependencies, as a %reference% in reverse.dep stays unresolved
-            text("reverse.dep.*.releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
-            param("releaseVersion", reverseDepReleaseVersion)
-        }
 
         failureConditions {
             executionTimeoutMin = 8 * 60

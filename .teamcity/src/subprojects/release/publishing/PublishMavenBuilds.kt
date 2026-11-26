@@ -15,7 +15,7 @@ class PublishCustomTaskToMavenBuild(private val repo: KtorRepository) : BuildTyp
         root(repo.vcsRoot)
     }
     params {
-        publishingParams()
+        publishingParams(repo)
         text("tasks", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
         text("prepublish_script", "", display = ParameterDisplay.PROMPT, allowEmpty = true)
         select(
@@ -51,7 +51,7 @@ class PublishJvmToMavenBuild(private val repo: KtorRepository) : BuildType({
         root(repo.vcsRoot)
     }
     params {
-        publishingParams()
+        publishingParams(repo)
     }
     usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
@@ -65,7 +65,7 @@ class PublishJSToMavenBuild(private val repo: KtorRepository) : BuildType({
         root(repo.vcsRoot)
     }
     params {
-        publishingParams()
+        publishingParams(repo)
     }
     usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE, version = GradleUserHome.Light)
     steps {
@@ -79,7 +79,7 @@ class PublishWindowsNativeToMavenBuild(private val repo: KtorRepository) : Build
         root(repo.vcsRoot)
     }
     params {
-        publishingParams()
+        publishingParams(repo)
     }
     usePublishingGradleEnvironment(Agents.OS.Windows, hardwareCapacity = Agents.LARGE)
     steps {
@@ -97,7 +97,7 @@ class PublishLinuxNativeToMavenBuild(private val repo: KtorRepository) : BuildTy
         root(repo.vcsRoot)
     }
     params {
-        publishingParams()
+        publishingParams(repo)
     }
     usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
@@ -111,7 +111,7 @@ class PublishMacOSNativeToMavenBuild(private val repo: KtorRepository) : BuildTy
         root(repo.vcsRoot)
     }
     params {
-        publishingParams()
+        publishingParams(repo)
     }
     usePublishingGradleEnvironment(Agents.OS.MacOS, Agents.Arch.Arm64)
     steps {
@@ -129,7 +129,7 @@ class PublishAndroidNativeToMavenBuild(private val repo: KtorRepository) : Build
         root(repo.vcsRoot)
     }
     params {
-        publishingParams()
+        publishingParams(repo)
     }
     usePublishingGradleEnvironment(Agents.OS.Linux, hardwareCapacity = Agents.LARGE)
     steps {
@@ -183,8 +183,13 @@ private fun BuildType.createMavenPublishBuild(repo: KtorRepository, id: String, 
     }
 }
 
-private fun ParametrizedWithType.publishingParams() {
-    configureReleaseVersion()
+private fun ParametrizedWithType.publishingParams(repo: KtorRepository) {
+    if (repo == Protected) {
+        // Derived from the tag the build runs on (tags are used as branches in the protected VCS root)
+        param("releaseVersion", "%teamcity.build.branch%")
+    } else {
+        configureReleaseVersion()
+    }
     extraGradleParams()
 }
 
