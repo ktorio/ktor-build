@@ -128,7 +128,8 @@ object VCSKtorCLI : TokenVcsRoot(VcsToken.KTOR_CLI, {
 object VCSKtorBuildPlugins : TokenVcsRoot(VcsToken.BUILD_PLUGINS, {
     name = "Ktor Build Plugins"
     url = "https://github.com/ktorio/ktor-build-plugins.git"
-    branchSpec = AllBranches
+    branchSpec = "$AllBranches\n+:refs/tags/*"
+    useTagsAsBranches = true
 })
 
 object VCSKtorBuildPluginsEAP : TokenVcsRoot(VcsToken.BUILD_PLUGINS, {
