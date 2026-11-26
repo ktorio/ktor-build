@@ -8,6 +8,8 @@ import subprojects.*
 import subprojects.build.core.*
 import subprojects.release.*
 
+private const val reverseDepReleaseVersion = "%reverse.dep.*.releaseVersion%"
+
 object ProjectPublishing : Project({
     id("ProjectKtorPublishing")
     name = "Publishing"
@@ -150,11 +152,13 @@ object ProjectPublishing : Project({
             VCSCore,
             builds + tagRelease + waitForMaven + githubRelease,
             withTrigger = TriggerType.NONE,
-            buildNumber = releaseVersion,
+            buildNumber = reverseDepReleaseVersion,
         )
 
         params {
-            param("reverse.dep.*.releaseVersion", "%releaseVersion%")
+            // The prompt value is passed directly to dependencies, as a %reference% in reverse.dep stays unresolved
+            text("reverse.dep.*.releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+            param("releaseVersion", reverseDepReleaseVersion)
         }
 
         failureConditions {
@@ -190,11 +194,13 @@ object ProjectPublishingProtected : Project({
             vcsRoot = VCSProtected,
             builds = builds,
             withTrigger = TriggerType.NONE,
-            buildNumber = releaseVersion,
+            buildNumber = reverseDepReleaseVersion,
         )
 
         params {
-            param("reverse.dep.*.releaseVersion", "%releaseVersion%")
+            // The prompt value is passed directly to dependencies, as a %reference% in reverse.dep stays unresolved
+            text("reverse.dep.*.releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
+            param("releaseVersion", reverseDepReleaseVersion)
         }
 
         failureConditions {
