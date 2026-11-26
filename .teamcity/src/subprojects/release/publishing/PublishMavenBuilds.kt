@@ -177,6 +177,12 @@ fun BuildType.usePublishingGradleEnvironment(
 
 private fun BuildType.createMavenPublishBuild(repo: KtorRepository, id: String, name: String) {
     createDeploymentBuild(repo.id(id), repo.name(name), "", releaseVersion)
+    if (repo == Protected) {
+        // Protected artifacts are published directly from the release tag, without a GitHub release entity
+        vcs {
+            branchFilter = "+:refs/tags/*"
+        }
+    }
 }
 
 private fun ParametrizedWithType.publishingParams() {
@@ -197,6 +203,17 @@ fun BuildSteps.publish(
     gradleParams: String = GPG_DEFAULT_GRADLE_ARGS,
     os: String = "",
 ) {
+    script {
+        name = "Validate release version"
+        scriptContent = """
+            #!/bin/bash
+            version="$releaseVersion"
+            if [[ ! "${'$'}version" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+              echo "Invalid releaseVersion '${'$'}version': it was not provided or the parameter was not resolved" >&2
+              exit 1
+            fi
+        """.trimIndent()
+    }
     prepareKeyFile(os)
     gradle {
         name = "Publish"
