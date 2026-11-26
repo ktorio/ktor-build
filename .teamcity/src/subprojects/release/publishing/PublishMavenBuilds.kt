@@ -36,8 +36,9 @@ class PublishCustomTaskToMavenBuild(private val repo: KtorRepository) : BuildTyp
             scriptContent = "%prepublish_script%"
             conditions { doesNotEqual("prepublish_script", "") }
         }
-        // No Gradle environment for an agent of any OS, so the configuration cache is disabled here
-        publish("%tasks%", "%gpg_args% --no-configuration-cache", os = "Auto")
+        // No Gradle environment for an agent of any OS, so the configuration cache is disabled here by default.
+        // The flag precedes %gradle_params%, so it can be overridden there.
+        publish("%tasks% --no-configuration-cache", "%gpg_args%", os = "Auto")
     }
     requirements {
         // Allow selection of any OS and arch
