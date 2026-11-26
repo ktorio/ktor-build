@@ -177,12 +177,6 @@ fun BuildType.usePublishingGradleEnvironment(
 
 private fun BuildType.createMavenPublishBuild(repo: KtorRepository, id: String, name: String) {
     createDeploymentBuild(repo.id(id), repo.name(name), "", releaseVersion)
-    if (repo == Protected) {
-        // Protected artifacts are published directly from the release tag, without a GitHub release entity
-        vcs {
-            branchFilter = "+:refs/tags/*"
-        }
-    }
 }
 
 private fun ParametrizedWithType.publishingParams(repo: KtorRepository) {
