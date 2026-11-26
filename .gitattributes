@@ -1,0 +1,2 @@
+# Init scripts are stored as .txt because TeamCity compiles every .kts file under .teamcity
+.teamcity/gradle.init.d/*.kts.txt linguist-language=Kotlin
