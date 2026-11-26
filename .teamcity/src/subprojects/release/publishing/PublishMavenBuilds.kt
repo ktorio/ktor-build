@@ -203,7 +203,19 @@ fun BuildSteps.publish(
     os: String = "",
 ) {
     script {
+        name = "Validate release version (Windows)"
+        conditions { contains("teamcity.agent.jvm.os.name", "Windows") }
+        scriptContent = """
+            echo $releaseVersion| findstr /R /C:"^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*" >nul
+            if errorlevel 1 (
+              echo Invalid releaseVersion '$releaseVersion': it was not provided or the parameter was not resolved 1>&2
+              exit /b 1
+            )
+        """.trimIndent()
+    }
+    script {
         name = "Validate release version"
+        conditions { doesNotContain("teamcity.agent.jvm.os.name", "Windows") }
         scriptContent = """
             #!/bin/bash
             version="$releaseVersion"
