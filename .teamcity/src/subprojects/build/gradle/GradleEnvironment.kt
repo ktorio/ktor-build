@@ -56,7 +56,7 @@ class GradleEnvironment(
 
     steps {
         with(platform) {
-            resetGradleUserHome()
+            resetGradleUserHome(os)
 
             prepareGradleUserHome(repo, GradleUserHome.Light, versions) { branch ->
                 resolveDependenciesWithoutNativeTargets()
@@ -131,7 +131,7 @@ fun BuildType.useGradleEnvironment(
     }
 
     steps {
-        if (environment == null) resetGradleUserHome()
+        if (environment == null) resetGradleUserHome(os)
         addGradleProperties(os, deriveJvmArgs, configurationCache)
     }
     runGradleWithRunnerInitScript()
@@ -188,15 +188,26 @@ private val userHomeFiles: Map<String, String> =
         (runnerInitScriptPathInUserHome to runnerInitScript) +
         ("gradle.properties" to javaInstallationsProperty)
 
-/** Starts with an empty user home with [userHomeFiles]. */
-private fun BuildSteps.resetGradleUserHome() = step(
-    writeFilesStep(
-        name = "Reset Gradle user home",
-        files = userHomeFiles.mapKeys { (path, _) -> "\$env:GRADLE_USER_HOME/$path" },
-        prepare = """
-            if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force ${'$'}env:GRADLE_USER_HOME }
-            """,
-    )
+/** Starts with an empty user home with [userHomeFiles]. An agent of [os] needs no PowerShell Core for this step. */
+private fun BuildSteps.resetGradleUserHome(os: Agents.OS) = step(
+    if (os == Agents.OS.Windows) {
+        writeFilesStep(
+            name = "Reset Gradle user home",
+            files = userHomeFiles.mapKeys { (path, _) -> "\$env:GRADLE_USER_HOME/$path" },
+            prepare = """
+                if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force ${'$'}env:GRADLE_USER_HOME }
+                """,
+            edition = null,
+        )
+    } else {
+        writeFilesShellStep(
+            name = "Reset Gradle user home",
+            files = userHomeFiles.mapKeys { (path, _) -> "\$GRADLE_USER_HOME/$path" },
+            prepare = """
+                rm -rf "${'$'}GRADLE_USER_HOME"
+                """,
+        )
+    }
 )
 
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */

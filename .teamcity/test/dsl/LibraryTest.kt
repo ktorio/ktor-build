@@ -6,6 +6,7 @@ import jetbrains.buildServer.configs.kotlin.vcs.*
 import org.junit.Test
 import subprojects.*
 import subprojects.build.core.*
+import subprojects.build.gradle.*
 import subprojects.release.*
 import subprojects.release.publishing.*
 import kotlin.io.path.*
@@ -80,6 +81,50 @@ class LibraryTest {
         val userHome = linuxEnvironment.script("Reset Gradle user home")
         assertTrue("init.d/disable-cache-cleanup.init.gradle.kts" in userHome, userHome)
         assertTrue("gradle-runner-init.gradle" in userHome, userHome)
+    }
+
+    @Test
+    fun `Linux and macOS environments have no PowerShell step`() {
+        for (environment in repo.gradleEnvironments.filter { it.os != Agents.OS.Windows }) {
+            val powerShell = environment.steps.items.filterIsInstance<PowerShellStep>().map { it.name }
+            assertEquals(emptyList(), powerShell, environment.name)
+        }
+    }
+
+    @Test
+    fun `Windows environment writes the user home files with any PowerShell edition`() {
+        val environment = repo.gradleEnvironments.single { it.os == Agents.OS.Windows }
+        val step = environment.steps.items.single { it.name == "Reset Gradle user home" } as PowerShellStep
+
+        assertNull(step.edition)
+    }
+
+    @Test
+    fun `shell step replaces the Gradle user home with the files of the DSL`() {
+        fun resource(path: String) = requireNotNull(javaClass.getResource(path)).readText().trimEnd() + "\n"
+        // TeamCity replaces the escaped symbol before it runs the script
+        val script = linuxEnvironment.script("Reset Gradle user home").replace("%%", "%")
+        val home = createTempDirectory("gradle-user-home")
+        val scriptFile = createTempFile(suffix = ".sh")
+        try {
+            (home / "stale.txt").writeText("stale")
+            scriptFile.writeText(script)
+            val process = ProcessBuilder("bash", scriptFile.toString()).redirectErrorStream(true)
+                .apply { environment()["GRADLE_USER_HOME"] = home.toString() }
+                .start()
+            val output = process.inputStream.bufferedReader().readText()
+            assertEquals(0, process.waitFor(), output)
+
+            for (name in initScripts.keys) {
+                assertEquals(resource("/gradle.init.d/$name.txt"), (home / "init.d" / name).readText(), name)
+            }
+            assertEquals(resource("/gradle-runner/init_v2.gradle"), (home / "gradle-runner-init.gradle").readText())
+            assertTrue((home / "gradle.properties").readText().startsWith("org.gradle.java.installations.fromEnv="))
+            assertEquals(initScripts.size + 2, home.toFile().walkTopDown().count { it.isFile })
+        } finally {
+            scriptFile.deleteIfExists()
+            home.toFile().deleteRecursively()
+        }
     }
 
     @Test
