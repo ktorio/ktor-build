@@ -1,5 +1,6 @@
 package subprojects.release.publishing
 
+import dsl.*
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildSteps.*
 import subprojects.*
@@ -205,7 +206,7 @@ fun BuildSteps.publish(
 ) {
     script {
         name = "Validate release version (Windows)"
-        conditions { contains("teamcity.agent.jvm.os.name", "Windows") }
+        conditions { isWindows() }
         scriptContent = """
             echo $releaseVersion| findstr /R /C:"^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*" >nul
             if errorlevel 1 (
@@ -216,7 +217,7 @@ fun BuildSteps.publish(
     }
     script {
         name = "Validate release version"
-        conditions { doesNotContain("teamcity.agent.jvm.os.name", "Windows") }
+        conditions { isNotWindows() }
         scriptContent = """
             #!/bin/bash
             version="$releaseVersion"
