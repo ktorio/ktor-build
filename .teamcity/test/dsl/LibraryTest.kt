@@ -56,8 +56,23 @@ class LibraryTest {
     }
 
     @Test
-    fun `protected builds use environments of the public repository`() {
-        assertSame(Core.gradleEnvironments, Protected.gradleEnvironments)
+    fun `publishing builds prompt for the release version by default`() {
+        val version = PublishJvmToMavenBuild(repo).params.params.single { it.name == "releaseVersion" }
+
+        assertEquals("", version.value)
+        assertNotNull(version.spec)
+    }
+
+    @Test
+    fun `publishing builds of a repository with version tags use the tag as the release version`() {
+        val tagged = repo.copy(releaseVersionFromTag = true)
+        val builds = listOf(PublishJvmToMavenBuild(tagged), PublishCustomTaskToMavenBuild(tagged))
+
+        for (build in builds) {
+            val version = build.params.params.single { it.name == "releaseVersion" }
+            assertEquals("%teamcity.build.branch%", version.value, build.name)
+            assertNull(version.spec, build.name)
+        }
     }
 
     @Test

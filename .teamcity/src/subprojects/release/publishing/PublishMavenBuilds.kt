@@ -147,14 +147,6 @@ val PublishLinuxNativeToMaven = PublishLinuxNativeToMavenBuild(Core)
 val PublishMacOSNativeToMaven = PublishMacOSNativeToMavenBuild(Core)
 val PublishAndroidNativeToMaven = PublishAndroidNativeToMavenBuild(Core)
 
-val ProtectedPublishCustomTaskToMaven = PublishCustomTaskToMavenBuild(Protected)
-val ProtectedPublishJvmToMaven = PublishJvmToMavenBuild(Protected)
-val ProtectedPublishJSToMaven = PublishJSToMavenBuild(Protected)
-val ProtectedPublishWindowsNativeToMaven = PublishWindowsNativeToMavenBuild(Protected)
-val ProtectedPublishLinuxNativeToMaven = PublishLinuxNativeToMavenBuild(Protected)
-val ProtectedPublishMacOSNativeToMaven = PublishMacOSNativeToMavenBuild(Protected)
-val ProtectedPublishAndroidNativeToMaven = PublishAndroidNativeToMavenBuild(Protected)
-
 /**
  * Publishing keeps the project's JVM arguments, as it needs the project's Gradle heap.
  * The configuration cache is not supported for publishing tasks.
@@ -182,8 +174,7 @@ private fun BuildType.createMavenPublishBuild(repo: KtorRepository, id: String, 
 }
 
 private fun ParametrizedWithType.publishingParams(repo: KtorRepository) {
-    if (repo == Protected) {
-        // Derived from the tag the build runs on (tags are used as branches in the protected VCS root)
+    if (repo.releaseVersionFromTag) {
         param("releaseVersion", "%teamcity.build.branch%")
     } else {
         configureReleaseVersion()
