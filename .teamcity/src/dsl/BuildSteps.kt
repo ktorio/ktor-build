@@ -162,14 +162,26 @@ internal fun dslFile(path: String): Path {
 internal fun readFileForStep(file: Path): String = file.readText().trimEnd().replace("%", "%%")
 
 /**
- * A step running [prepare], then writing [files] by path with `/` separators, which can refer to PowerShell variables.
+ * A PowerShell step running [prepare], then writing [files] by path with `/` separators, which can refer to PowerShell variables.
  * Contents are written with verbatim here-strings, which PowerShell doesn't expand.
- * Uses PowerShell Core, which is installed on agents of all operating systems, so the same step works on any agent.
+ *
+ * @param edition `Core` runs on an agent of any operating system that has PowerShell Core.
+ *   `null` runs with any edition, so a Windows agent needs only the built-in Windows PowerShell.
+ *   Windows PowerShell reads a script without a byte order mark in the system code page, so [files] must be ASCII then.
+ * @see writeFilesShellStep
  */
-internal fun writeFilesStep(name: String, files: Map<String, String>, @Language("powershell") prepare: String = "") =
+internal fun writeFilesStep(
+    name: String,
+    files: Map<String, String>,
+    @Language("powershell") prepare: String = "",
+    edition: PowerShellStep.Edition? = PowerShellStep.Edition.Core,
+) =
     PowerShellStep {
+        require(edition != null || files.all { (path, content) -> (path + content).all { it.code < 128 } }) {
+            "$name: the files must be ASCII to run with any PowerShell edition"
+        }
         this.name = name
-        edition = PowerShellStep.Edition.Core
+        this.edition = edition
         scriptMode = script {
             val directories = files.keys.map { it.substringBeforeLast('/') }.distinct()
             val createDirectories = directories.joinToString(
@@ -183,4 +195,25 @@ internal fun writeFilesStep(name: String, files: Map<String, String>, @Language(
                     .filter { it.isNotEmpty() }
                     .joinToString("\n")
         }
+    }
+
+private const val FILE_END = "KTOR_FILE_END"
+
+/**
+ * A shell step running [prepare], then writing [files] by path, which can refer to shell variables.
+ * It is for agents of Linux and macOS, which don't always have PowerShell.
+ * Contents are written with quoted here-documents, which the shell doesn't expand. Each file gets a newline at the end.
+ */
+internal fun writeFilesShellStep(name: String, files: Map<String, String>, @Language("bash") prepare: String = "") =
+    ScriptBuildStep {
+        this.name = name
+        val directories = files.keys.map { it.substringBeforeLast('/') }.distinct()
+        val createDirectories = directories.joinToString(prefix = "mkdir -p ", separator = " ") { "\"$it\"" }
+        val writeFiles = files.map { (path, content) ->
+            require(FILE_END !in content.lines()) { "$name: the content of $path has the line $FILE_END" }
+            "cat > \"$path\" <<'$FILE_END'\n$content\n$FILE_END"
+        }
+        scriptContent = (listOf(bashPreamble, prepare.trimIndent(), createDirectories) + writeFiles)
+            .filter { it.isNotEmpty() }
+            .joinToString("\n")
     }

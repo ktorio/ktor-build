@@ -56,7 +56,7 @@ class GradleEnvironment(
 
     steps {
         with(platform) {
-            resetGradleUserHome()
+            resetGradleUserHome(os)
 
             prepareGradleUserHome(repo, GradleUserHome.Light, versions) { branch ->
                 resolveDependenciesWithoutNativeTargets()
@@ -131,7 +131,7 @@ fun BuildType.useGradleEnvironment(
     }
 
     steps {
-        if (environment == null) resetGradleUserHome()
+        if (environment == null) resetGradleUserHome(os)
         addGradleProperties(os, deriveJvmArgs, configurationCache)
     }
     runGradleWithRunnerInitScript()
@@ -160,12 +160,15 @@ fun BuildType.useGradleEnvironment(
     useGradleEnvironment(agent.os, version, configurationCache, deriveJvmArgs, agent.arch, hardwareCapacity, repo)
 }
 
+/** The reset step removes only a directory with this name. */
+private const val USER_HOME_NAME = "gradle-user-home"
+
 private fun ParametrizedWithType.setupGradleParams() {
     // The agent work directory has the same path on all agents with the same OS
-    param("env.GRADLE_USER_HOME", "%teamcity.agent.work.dir%/gradle-user-home")
+    param("env.GRADLE_USER_HOME", "%teamcity.agent.work.dir%/$USER_HOME_NAME")
     // Kotlin/Native moves its bundle here from the user home, which is fast only on the same disk.
     // Inside the user home, the installation is packed into the environment, so builds don't install it again.
-    param("env.KONAN_DATA_DIR", "%teamcity.agent.work.dir%/gradle-user-home/konan")
+    param("env.KONAN_DATA_DIR", "%teamcity.agent.work.dir%/$USER_HOME_NAME/konan")
 }
 
 /**
@@ -188,15 +191,39 @@ private val userHomeFiles: Map<String, String> =
         (runnerInitScriptPathInUserHome to runnerInitScript) +
         ("gradle.properties" to javaInstallationsProperty)
 
-/** Starts with an empty user home with [userHomeFiles]. */
-private fun BuildSteps.resetGradleUserHome() = step(
-    writeFilesStep(
-        name = "Reset Gradle user home",
-        files = userHomeFiles.mapKeys { (path, _) -> "\$env:GRADLE_USER_HOME/$path" },
-        prepare = """
-            if (Test-Path ${'$'}env:GRADLE_USER_HOME) { Remove-Item -Recurse -Force ${'$'}env:GRADLE_USER_HOME }
-            """,
-    )
+/**
+ * Starts with an empty user home with [userHomeFiles]. An agent of [os] needs no PowerShell Core for this step.
+ * The step fails and removes nothing when `GRADLE_USER_HOME` isn't the directory that [setupGradleParams] sets,
+ * for example when the variable is empty or a build parameter points it to a home directory.
+ */
+private fun BuildSteps.resetGradleUserHome(os: Agents.OS) = step(
+    if (os == Agents.OS.Windows) {
+        writeFilesStep(
+            name = "Reset Gradle user home",
+            files = userHomeFiles.mapKeys { (path, _) -> "\$env:GRADLE_USER_HOME/$path" },
+            prepare = """
+                ${'$'}userHome = ${'$'}env:GRADLE_USER_HOME
+                if (-not ${'$'}userHome -or (Split-Path -Leaf ${'$'}userHome) -ne '$USER_HOME_NAME') {
+                    throw "GRADLE_USER_HOME is '${'$'}userHome'. The step removes only a directory with the name $USER_HOME_NAME."
+                }
+                if (Test-Path ${'$'}userHome) { Remove-Item -Recurse -Force ${'$'}userHome }
+                """,
+            edition = null,
+        )
+    } else {
+        writeFilesShellStep(
+            name = "Reset Gradle user home",
+            files = userHomeFiles.mapKeys { (path, _) -> "\$GRADLE_USER_HOME/$path" },
+            prepare = """
+                user_home="${'$'}{GRADLE_USER_HOME:-}"
+                if [[ "${'$'}user_home" != /* || "${'$'}(basename "${'$'}user_home")" != "$USER_HOME_NAME" ]]; then
+                  echo "GRADLE_USER_HOME is '${'$'}user_home'. The step removes only an absolute path with the name $USER_HOME_NAME." >&2
+                  exit 1
+                fi
+                rm -rf -- "${'$'}user_home"
+                """,
+        )
+    }
 )
 
 /** Steps and settings of [GradleEnvironment] that differ between operating systems. */
