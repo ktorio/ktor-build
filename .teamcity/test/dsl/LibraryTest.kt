@@ -98,6 +98,17 @@ class LibraryTest {
     }
 
     @Test
+    fun `signing credentials read the key from parameters of a parent project`() {
+        val project = Project { params { signingCredentials() } }
+        val values = project.params.params.associate { it.name to it.value }
+
+        assertEquals("%sign.key.id%", values["env.SIGN_KEY_ID"])
+        assertEquals("%sign.key.public%", values["env.SIGN_KEY_PUBLIC"])
+        assertEquals("%sign.key.passphrase%", values["env.SIGN_KEY_PASSPHRASE"])
+        assertEquals("%sign.key.private%", values["env.SIGN_KEY_PRIVATE"])
+    }
+
+    @Test
     fun `publishing credentials include signing and Maven Central credentials`() {
         val project = Project { params { publishingCredentials() } }
         val names = project.params.params.map { it.name }

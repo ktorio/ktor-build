@@ -31,15 +31,19 @@ fun ParametrizedWithType.publishingCredentials() {
     mavenCentralCredentials()
 }
 
+/**
+ * The signing key of the builds. A parent project of the settings must define `sign.key.id`, `sign.key.public`,
+ * `sign.key.passphrase` and `sign.key.private`.
+ */
 fun ParametrizedWithType.signingCredentials() {
-    param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
+    param("env.SIGN_KEY_ID", value = "%sign.key.id%")
 
     // Inherited from parent project. The reason for this is that security tokens seem to mess up with multiline values
     // So we set this in the parent project and read from there. That way, we don't need to make our project editable.
     password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
     password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
     param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
-    param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
+    param("env.SIGN_KEY_PUBLIC", value = "%sign.key.public%")
 }
 
 fun ParametrizedWithType.mavenCentralCredentials() {
