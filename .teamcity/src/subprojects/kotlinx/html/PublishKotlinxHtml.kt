@@ -23,7 +23,7 @@ fun Project.publishKotlinxHtmlToSpace(): Project = subProject {
 
     params {
         defaultGradleParams()
-        param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
+        param("env.SIGN_KEY_ID", value = "%sign.key.id%")
         param("env.PUBLISHING_USER", value = "%space.packages.kotlinx.html.user%")
         password("env.PUBLISHING_PASSWORD", value = "%space.packages.kotlinx.html.secret%")
         param("env.PUBLISHING_URL", value = "%space.packages.kotlinx.html.url%")
@@ -31,7 +31,7 @@ fun Project.publishKotlinxHtmlToSpace(): Project = subProject {
         password("env.SIGN_KEY_PASSPHRASE", value = "%sign.key.passphrase%")
         password("env.SIGN_KEY_PRIVATE", value = "%sign.key.private%")
         param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
-        param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
+        param("env.SIGN_KEY_PUBLIC", value = "%sign.key.public%")
     }
 
     val builds = listOf(

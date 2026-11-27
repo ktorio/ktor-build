@@ -16,9 +16,9 @@ object ProjectPublishReleaseToSpace : Project({
 
         text("reverse.dep.*.releaseVersion", "", display = ParameterDisplay.PROMPT, allowEmpty = false)
 
-        param("env.SIGN_KEY_ID", value = "0x7c30f7b1329dba87")
+        param("env.SIGN_KEY_ID", value = "%sign.key.id%")
         param("env.SIGN_KEY_LOCATION", value = File("%teamcity.build.checkoutDir%").invariantSeparatorsPath)
-        param("env.SIGN_KEY_PUBLIC", value = SIGN_KEY_PUBLIC)
+        param("env.SIGN_KEY_PUBLIC", value = "%sign.key.public%")
         param("env.REPOSITORY_NAME", value = "space")
         param("env.PUBLISHING_URL", value = "%space.packages.release.url%")
 
