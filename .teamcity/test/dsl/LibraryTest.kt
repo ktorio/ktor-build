@@ -7,6 +7,7 @@ import org.junit.Test
 import subprojects.*
 import subprojects.build.core.*
 import subprojects.release.*
+import subprojects.release.publishing.*
 import kotlin.io.path.*
 import kotlin.test.*
 
@@ -57,6 +58,14 @@ class LibraryTest {
     @Test
     fun `protected builds use environments of the public repository`() {
         assertSame(Core.gradleEnvironments, Protected.gradleEnvironments)
+    }
+
+    @Test
+    fun `step conditions for the OS use a parameter that every agent reports`() {
+        val conditions = PublishCustomTaskToMavenBuild(repo).steps.items.flatMap { it.conditions.items }
+
+        assertTrue(conditions.isNotEmpty())
+        assertEquals(setOf("teamcity.agent.jvm.os.name"), conditions.map { it.param }.toSet() - "prepublish_script")
     }
 
     @Test
