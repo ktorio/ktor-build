@@ -158,6 +158,74 @@ class LibraryTest {
         }
     }
 
+    /**
+     * Runs the step that packs the user home, with only [tools] on the `PATH`.
+     * Returns the directory that the step writes to, or `null` when a tool isn't installed.
+     */
+    private fun packUserHome(parent: java.nio.file.Path, tools: List<String>): java.nio.file.Path? {
+        val home = (parent / "gradle-user-home").createDirectories()
+        (home / "caches").createDirectories()
+        (home / "caches" / "library.jar").writeText("library")
+        (home / "daemon").createDirectories()
+        (home / "daemon" / "daemon.log").writeText("log")
+        java.nio.file.Files.createLink(home / "caches" / "linked.jar", home / "caches" / "library.jar")
+
+        val bin = (parent / "bin").createDirectories()
+        val path = System.getenv("PATH").split(java.io.File.pathSeparator).map { Path(it) }
+        for (tool in tools) {
+            val file = path.map { it / tool }.firstOrNull { it.isExecutable() } ?: return null
+            java.nio.file.Files.createSymbolicLink(bin / tool, file)
+        }
+        val archives = (parent / "archives").createDirectories()
+        val script = (parent / "pack.sh").apply {
+            writeText(linuxEnvironment.script("Pack Gradle user home (Full)").replace("%system.teamcity.build.tempDir%", "$archives"))
+        }
+        val process = ProcessBuilder((bin / "bash").toString(), script.toString()).redirectErrorStream(true)
+            .apply { environment().clear() }
+            .apply { environment()["PATH"] = bin.toString() }
+            .apply { environment()["GRADLE_USER_HOME"] = home.toString() }
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        assertEquals(0, process.waitFor(), output)
+        return archives
+    }
+
+    private val packTools = listOf("bash", "sh", "find", "cp", "mv", "tar", "rm", "uname")
+
+    @Test
+    fun `agent without zstd leaves a copy of the user home for TeamCity to pack`() {
+        val parent = createTempDirectory("pack-user-home")
+        try {
+            val archives = assertNotNull(packUserHome(parent, packTools))
+            val copy = archives / "gradle-user-home-full.tar.zst.unpacked"
+
+            assertEquals(listOf(copy.name), archives.listDirectoryEntries().map { it.name })
+            assertEquals("library", (copy / "caches" / "library.jar").readText())
+            assertEquals("library", (copy / "caches" / "linked.jar").readText())
+            assertFalse((copy / "daemon").exists())
+
+            val rules = linuxEnvironment.artifactRules.lines()
+            assertTrue("+:%system.teamcity.build.tempDir%/${copy.name}/** => gradle-user-home-full.tar.zst" in rules, "$rules")
+        } finally {
+            parent.toFile().deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `agent with zstd packs the user home itself`() {
+        val parent = createTempDirectory("pack-user-home")
+        try {
+            // Null on a machine without zstd
+            val archives = packUserHome(parent, packTools + "zstd") ?: return
+
+            assertEquals(listOf("gradle-user-home-full.tar.zst"), archives.listDirectoryEntries().map { it.name })
+            assertTrue((archives / "gradle-user-home-full.tar.zst").fileSize() > 0)
+            assertTrue("%system.teamcity.build.tempDir%/gradle-user-home-full.tar.zst" in linuxEnvironment.artifactRules.lines())
+        } finally {
+            parent.toFile().deleteRecursively()
+        }
+    }
+
     @Test
     fun `files in the working directory override classpath resources`() {
         val path = Path("scripts/cancel_previous_builds.sh")

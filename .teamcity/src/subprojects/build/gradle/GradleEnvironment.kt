@@ -347,18 +347,39 @@ private object UnixPlatform : EnvironmentPlatform {
                 # so hard-linked files are replaced with copies. BSD tar on macOS has no --hard-dereference.
                 find "${'$'}GRADLE_USER_HOME" -type f -links +1 -exec sh -c 'for file; do cp -p "${'$'}file" "${'$'}file.copy" && mv -f "${'$'}file.copy" "${'$'}file"; done' sh {} +
 
-                # The archive is unpacked in every build using the environment, so it is worth compressing it better.
-                # zstd is run explicitly as tar implementations pass the compression level to it differently.
-                # --long finds duplicates across the whole archive. 27 (128 MB window) is the maximum
-                # that can be unpacked with default settings, larger values need the same option on unpacking.
-                tar -C "${'$'}GRADLE_USER_HOME" --exclude=./daemon -cf - . | zstd -9 --long=27 -T0 -q -o "$archivesDir/${version.artifact}"
+                if command -v zstd > /dev/null; then
+                    # The archive is unpacked in every build using the environment, so it is worth compressing it better.
+                    # zstd is run explicitly as tar implementations pass the compression level to it differently.
+                    # --long finds duplicates across the whole archive. 27 (128 MB window) is the maximum
+                    # that can be unpacked with default settings, larger values need the same option on unpacking.
+                    tar -C "${'$'}GRADLE_USER_HOME" --exclude=./daemon -cf - . | zstd -9 --long=27 -T0 -q -o "$archivesDir/${version.artifact}"
+                else
+                    # TeamCity packs the copy into the same archive when the build finishes, as it packs the user home on Windows.
+                    # Later steps change the user home, so the archive needs the state of this step.
+                    echo "zstd is not installed. TeamCity packs the Gradle user home, and the archive is larger."
+                    copy="${unpackedCopy(version)}"
+                    rm -rf "${'$'}copy"
+                    # Clones the files where the file system can, so the copy is fast and takes no space
+                    if [[ "${'$'}(uname)" == Darwin ]]; then
+                        cp -Rc "${'$'}GRADLE_USER_HOME" "${'$'}copy"
+                    else
+                        cp -R --reflink=auto "${'$'}GRADLE_USER_HOME" "${'$'}copy"
+                    fi
+                    rm -rf "${'$'}copy/daemon"
+                fi
                 """
             )
         }
     }
 
-    override fun artifactRules(versions: Set<GradleUserHome>) =
-        formatArtifacts(*versions.map { "$archivesDir/${it.artifact}" }.toTypedArray())
+    /** The copy of the user home that TeamCity packs on an agent without zstd. */
+    private fun unpackedCopy(version: GradleUserHome) = "$archivesDir/${version.artifact}.unpacked"
+
+    // An agent has either the archive or the copy. TeamCity reports the other path as not found and continues.
+    override fun artifactRules(versions: Set<GradleUserHome>) = formatArtifacts(
+        *versions.map { "$archivesDir/${it.artifact}" }.toTypedArray(),
+        *versions.map { "+:${unpackedCopy(it)}/** => ${it.artifact}" }.toTypedArray(),
+    )
 }
 
 private object WindowsPlatform : EnvironmentPlatform {
